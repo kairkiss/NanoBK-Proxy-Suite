@@ -1,5 +1,64 @@
 # Troubleshooting
 
+## Installer: "not running as root"
+
+The VPS installer requires root privileges. Run with `sudo`:
+
+```bash
+sudo bash installer/install-vps.sh --domain proxy.example.com ...
+```
+
+In `--dry-run` mode, root is not required.
+
+---
+
+## Installer: certificate file not found
+
+```
+ERROR Certificate file not found: /etc/letsencrypt/live/...
+```
+
+**Fix**: Ensure the certificate path is correct. For Let's Encrypt:
+
+```bash
+ls -la /etc/letsencrypt/live/your-domain.com/
+```
+
+If not using Let's Encrypt, provide the correct `--cert-file` and `--key-file` paths.
+
+---
+
+## Installer: xray/hysteria/tuic download failed
+
+```
+ERROR No asset matching '...' found in Xray-core latest release.
+```
+
+**Fix**: Set the download URL manually via environment variable:
+
+```bash
+export NANOBK_XRAY_CORE_DOWNLOAD_URL="https://github.com/XTLS/Xray-core/releases/download/v1.8.0/Xray-linux-64.zip"
+export NANOBK_HYSTERIA_DOWNLOAD_URL="https://github.com/apernet/hysteria/releases/download/v2.x.x/hysteria-linux-amd64"
+export NANOBK_TUIC_DOWNLOAD_URL="https://github.com/EAimTY/tuic/releases/download/v0.x.x/tuic-server-x86_64-unknown-linux-gnu.zip"
+```
+
+---
+
+## Installer: port already in use
+
+```
+ERROR HY2 UDP 443 is NOT listening
+```
+
+Check what's using the port:
+
+```bash
+ss -tulpn | grep ':443'
+lsof -i :443
+```
+
+---
+
 ## Clash/Mihomo: `yaml: control characters are not allowed`
 
 **Cause**: The YAML text contains invisible control characters (U+0000-U+0008, U+000B, U+000C, U+000E-U+001F, U+007F-U+009F).

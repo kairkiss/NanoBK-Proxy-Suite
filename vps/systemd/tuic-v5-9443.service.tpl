@@ -1,10 +1,11 @@
 [Unit]
-Description=TUIC v5 Server (port 9443)
+Description=TUIC v5 Server port 9443 (NanoBK)
 After=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/tuic-server -c /etc/proxy-stack/tuic-v5-9443/config.json
+User=root
+ExecStart=/usr/local/bin/tuic-server -c __TUIC_CONFIG__
 Restart=on-failure
 RestartSec=5
 LimitNOFILE=65535

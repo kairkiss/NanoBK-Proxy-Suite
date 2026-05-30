@@ -5,12 +5,12 @@
   "inbounds": [
     {
       "listen": "0.0.0.0",
-      "port": 2443,
+      "port": __TROJAN_PORT__,
       "protocol": "trojan",
       "settings": {
         "clients": [
           {
-            "password": "REPLACE_WITH_TROJAN_PASSWORD"
+            "password": "__TROJAN_PASSWORD__"
           }
         ]
       },
@@ -20,8 +20,8 @@
         "tlsSettings": {
           "certificates": [
             {
-              "certificateFile": "/etc/proxy-stack/xray-trojan-2443/cert.pem",
-              "keyFile": "/etc/proxy-stack/xray-trojan-2443/key.pem"
+              "certificateFile": "__CERT_FILE__",
+              "keyFile": "__KEY_FILE__"
             }
           ]
         }

@@ -1,174 +1,159 @@
 # VPS Setup Guide
 
-Detailed guide for setting up the four proxy services on a Linux VPS.
+Deploy four proxy services on a Linux VPS using the one-click installer.
 
 ## Supported Systems
 
-- Ubuntu 20.04+ / Debian 11+
-- CentOS 8+ / Rocky Linux 8+
-- Any systemd-based Linux
+| Distro | Status |
+|--------|--------|
+| Debian 11+ | ✅ Primary support |
+| Ubuntu 20.04+ | ✅ Primary support |
+| Rocky / Alma Linux 9+ | ✅ Best effort |
+| CentOS / RHEL 8+ | ✅ Best effort |
+| Fedora | ✅ Best effort |
+| macOS | ❌ Not supported |
 
-## Architecture
+Architecture: x86_64 (amd64) and aarch64 (arm64).
 
-Each proxy service runs as an independent systemd service:
-
-| Service | Binary | Config Path | Port | Protocol |
-|---------|--------|-------------|------|----------|
-| hysteria-server.service | /usr/local/bin/hysteria | /etc/hysteria/config.yaml | 443 | UDP |
-| tuic-v5-9443.service | /usr/local/bin/tuic-server | /etc/proxy-stack/tuic-v5-9443/config.json | 9443 | UDP |
-| xray-reality-8443.service | /usr/local/bin/xray | /etc/proxy-stack/xray-reality-8443/config.json | 8443 | TCP |
-| xray-trojan-2443.service | /usr/local/bin/xray | /etc/proxy-stack/xray-trojan-2443/config.json | 2443 | TCP |
-
-## Install Dependencies
+## Quick Install
 
 ```bash
-apt-get update
-apt-get install -y curl jq python3 openssl uuid-runtime
+sudo bash installer/install-vps.sh --yes \
+  --domain proxy.example.com \
+  --cert-mode existing \
+  --cert-file /etc/letsencrypt/live/proxy.example.com/fullchain.pem \
+  --key-file /etc/letsencrypt/live/proxy.example.com/privkey.pem
 ```
 
-## Install Proxy Binaries
-
-### Hysteria2
+Or from GitHub (planned for v0.3):
 
 ```bash
-# Download from https://github.com/apernet/hysteria/releases
-# Place at /usr/local/bin/hysteria
-chmod +x /usr/local/bin/hysteria
+bash <(curl -fsSL https://raw.githubusercontent.com/kairkiss/NanoBK-Proxy-Suite/main/installer/install-vps.sh) \
+  --domain proxy.example.com --cert-mode existing \
+  --cert-file /etc/ssl/fullchain.pem --key-file /etc/ssl/privkey.pem
 ```
 
-### Xray-core
+## Dry-Run Preview
+
+Preview all actions without modifying the system:
 
 ```bash
-# Download from https://github.com/XTLS/Xray-core/releases
-# Place at /usr/local/bin/xray
-chmod +x /usr/local/bin/xray
+sudo bash installer/install-vps.sh --dry-run \
+  --domain proxy.example.com \
+  --cert-mode self-signed
 ```
 
-### tuic-server
+## Certificate Modes
+
+### `existing` (recommended for production)
+
+Provide your own TLS certificate and key:
 
 ```bash
-# Download from https://github.com/EAimTY/tuic/releases
-# Place at /usr/local/bin/tuic-server
-chmod +x /usr/local/bin/tuic-server
+--cert-mode existing \
+--cert-file /etc/letsencrypt/live/proxy.example.com/fullchain.pem \
+--key-file /etc/letsencrypt/live/proxy.example.com/privkey.pem
 ```
 
-## Generate Initial Credentials
+Recommended certificate sources:
+- **Let's Encrypt** (free, automated renewal)
+- **Cloudflare Origin Certificate** (15-year validity)
+
+### `self-signed` (testing only)
+
+Generates a self-signed certificate. Clients will need `skip-cert-verify: true`.
 
 ```bash
-# HY2
-HY2_PASSWORD=$(openssl rand -base64 24 | tr -d '\n')
-
-# TUIC
-TUIC_UUID=$(uuidgen)
-TUIC_PASSWORD=$(openssl rand -hex 32 | tr -d '\n')
-
-# Reality
-REALITY_UUID=$(uuidgen)
-REALITY_SHORT_ID=$(openssl rand -hex 8 | tr -d '\n')
-KEYPAIR=$(xray x25519)
-REALITY_PRIVATE_KEY=$(echo "$KEYPAIR" | awk -F': ' '/Private key/ {print $2}')
-REALITY_PUBLIC_KEY=$(echo "$KEYPAIR" | awk -F': ' '/Public key/ {print $2}')
-
-# Trojan
-TROJAN_PASSWORD=$(openssl rand -base64 24 | tr -d '\n')
+--cert-mode self-signed --domain proxy.example.com
 ```
 
-## Configuration Templates
+### `none`
 
-Copy and edit the templates from `vps/templates/`:
+No TLS certificates. Only VLESS Reality will work. HY2, TUIC, and Trojan require TLS.
 
 ```bash
-# Create directories
-mkdir -p /etc/hysteria
-mkdir -p /etc/proxy-stack/tuic-v5-9443
-mkdir -p /etc/proxy-stack/xray-reality-8443
-mkdir -p /etc/proxy-stack/xray-trojan-2443
-
-# Copy and edit templates
-cp vps/templates/hysteria2.config.yaml.tpl /etc/hysteria/config.yaml
-cp vps/templates/tuic-v5.config.json.tpl /etc/proxy-stack/tuic-v5-9443/config.json
-cp vps/templates/xray-reality.config.json.tpl /etc/proxy-stack/xray-reality-8443/config.json
-cp vps/templates/xray-trojan.config.json.tpl /etc/proxy-stack/xray-trojan-2443/config.json
-
-# Replace all REPLACE_WITH_* placeholders with actual values
+--cert-mode none
 ```
 
-## TLS Certificates
+⚠️ **Not recommended** — three of four protocols will be non-functional.
 
-You need TLS certificates for HY2, TUIC, and Trojan. Options:
+## Installer Options
 
-1. **Let's Encrypt** (recommended for domains):
-   ```bash
-   apt-get install -y certbot
-   certbot certonly --standalone -d your-domain.com
-   ```
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--dry-run` | off | Print actions without modifying system |
+| `--yes` | off | Non-interactive mode |
+| `--domain` | (required) | Domain for HY2/TUIC/Trojan |
+| `--reality-servername` | `www.microsoft.com` | Reality camouflage SNI |
+| `--vps-ip` | auto-detect | VPS public IP |
+| `--email` | (none) | Email for cert requests |
+| `--cert-mode` | `existing` | Certificate mode |
+| `--cert-file` | (none) | Path to TLS cert |
+| `--key-file` | (none) | Path to TLS key |
+| `--install-dir` | `/opt/nanobk` | Installation directory |
+| `--config-dir` | `/etc/nanobk` | Configuration directory |
+| `--open-firewall` | off | Open firewall ports |
+| `--force` | off | Overwrite existing config |
 
-2. **Cloudflare Origin Certificate** (for Cloudflare-proxied domains):
-   - Go to Cloudflare Dashboard → SSL/TLS → Origin Server
-   - Create certificate
-   - Save cert and key to the appropriate paths
+## Installed File Layout
 
-## Systemd Services
+```
+/etc/nanobk/
+  config.env                  # VPS config variables
+  secrets.private.env         # All generated credentials (mode 600)
+  profile.current.json        # Cloudflare KV profile
+  profile.initial.json        # Initial profile backup
+  hysteria/config.yaml
+  tuic-v5-9443/config.json
+  xray-reality-8443/config.json
+  xray-trojan-2443/config.json
+  tls/                        # Self-signed certs (if used)
 
-Copy service templates from `vps/systemd/` to `/etc/systemd/system/`:
+/opt/nanobk/
+  bin/rotate-keys.sh
+  bin/healthcheck.sh
+  backups/
+  logs/
 
-```bash
-cp vps/systemd/hysteria-server.service.tpl /etc/systemd/system/hysteria-server.service
-cp vps/systemd/tuic-v5-9443.service.tpl /etc/systemd/system/tuic-v5-9443.service
-cp vps/systemd/xray-reality-8443.service.tpl /etc/systemd/system/xray-reality-8443.service
-cp vps/systemd/xray-trojan-2443.service.tpl /etc/systemd/system/xray-trojan-2443.service
-
-systemctl daemon-reload
-systemctl enable --now hysteria-server.service
-systemctl enable --now tuic-v5-9443.service
-systemctl enable --now xray-reality-8443.service
-systemctl enable --now xray-trojan-2443.service
+/etc/systemd/system/
+  hysteria-server.service
+  tuic-v5-9443.service
+  xray-reality-8443.service
+  xray-trojan-2443.service
 ```
 
-## Verify
+## After Installation
 
-```bash
-# Check services
-systemctl is-active hysteria-server.service
-systemctl is-active tuic-v5-9443.service
-systemctl is-active xray-reality-8443.service
-systemctl is-active xray-trojan-2443.service
+1. **Deploy nanok Worker** on Cloudflare (see [cloudflare-setup.md](cloudflare-setup.md)).
+2. **Upload profile**: copy `/etc/nanobk/profile.current.json` into KV key `profile:main`.
+3. **Set secrets**: `SUB_TOKEN` and `ADMIN_TOKEN` on the Worker.
+4. **Import subscription** URL into Clash/Mihomo client.
 
-# Check ports
-ss -ulnp | grep ':443'
-ss -ulnp | grep ':9443'
-ss -tlnp | grep ':8443'
-ss -tlnp | grep ':2443'
+## Manual Setup
 
-# Or use the health check script
-bash vps/scripts/healthcheck.sh
-```
-
-## Firewall
-
-Ensure your firewall allows the proxy ports:
-
-```bash
-# UFW example
-ufw allow 443/udp    # HY2
-ufw allow 9443/udp   # TUIC
-ufw allow 8443/tcp   # Reality
-ufw allow 2443/tcp   # Trojan
-```
+If you prefer manual setup, see the config templates in `vps/templates/` and systemd units in `vps/systemd/`. The installer uses `__PLACEHOLDER__` syntax in these templates.
 
 ## Key Rotation
 
-After initial setup, configure the admin token and use the rotation script:
+After initial setup:
 
 ```bash
-# Create admin env file
+# Configure Cloudflare admin token first
 cat > /root/.nanok-cf-admin.env <<'EOF'
 ADMIN_TOKEN="YOUR_ADMIN_TOKEN"
-ADMIN_CURRENT_URL="https://YOUR_NANOK_HOST/admin/current"
-ADMIN_UPDATE_URL="https://YOUR_NANOK_HOST/admin/update"
+ADMIN_CURRENT_URL="https://YOUR_WORKER_HOST/admin/current"
+ADMIN_UPDATE_URL="https://YOUR_WORKER_HOST/admin/update"
 EOF
 chmod 600 /root/.nanok-cf-admin.env
 
-# Rotate keys
-sudo bash vps/scripts/rotate-keys.sh
+# Rotate all credentials
+bash /opt/nanobk/bin/rotate-keys.sh
 ```
+
+## Health Check
+
+```bash
+bash /opt/nanobk/bin/healthcheck.sh
+```
+
+Checks services, ports, config files, profile JSON, and secrets file permissions.

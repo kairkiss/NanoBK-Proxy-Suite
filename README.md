@@ -44,7 +44,18 @@ bash <(curl -fsSL https://raw.githubusercontent.com/kairkiss/NanoBK-Proxy-Suite/
 ### 2. 部署 VPS 四协议节点
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/kairkiss/NanoBK-Proxy-Suite/main/installer/install-vps.sh)
+sudo bash installer/install-vps.sh --yes \
+  --domain proxy.example.com \
+  --cert-mode existing \
+  --cert-file /etc/letsencrypt/live/proxy.example.com/fullchain.pem \
+  --key-file /etc/letsencrypt/live/proxy.example.com/privkey.pem
+```
+
+预览模式（不修改系统）：
+
+```bash
+sudo bash installer/install-vps.sh --dry-run \
+  --domain proxy.example.com --cert-mode self-signed
 ```
 
 ### 3. 部署 Cloudflare Workers
@@ -85,11 +96,16 @@ bash /root/rotate-proxy-keys.sh
 │   ├── install-cloudflare.sh      # Cloudflare 安装
 │   └── doctor.sh                  # 环境诊断
 ├── vps/
+│   ├── lib/
+│   │   ├── common.sh              # 共享函数（日志、dry-run、模板渲染）
+│   │   ├── os.sh                  # OS 检测、依赖安装
+│   │   ├── download.sh            # 二进制下载（GitHub releases）
+│   │   └── profile.sh             # Geo 检测、凭证生成、profile JSON
 │   ├── scripts/
 │   │   ├── rotate-keys.sh         # 一键换密钥
 │   │   ├── healthcheck.sh         # 健康检查
 │   │   └── rollback.example.sh    # 回滚示例
-│   ├── templates/                 # 配置模板
+│   ├── templates/                 # 配置模板（__PLACEHOLDER__ 语法）
 │   └── systemd/                   # systemd 服务模板
 ├── workers/
 │   ├── nanok/src/index.js         # 主订阅 Worker
@@ -118,7 +134,7 @@ bash /root/rotate-proxy-keys.sh
 | 版本 | 目标 |
 |------|------|
 | **v0.1** | ✅ 工程整理、产品化结构、文档骨架 |
-| **v0.2** | VPS 一键部署（install-vps.sh 完整实现） |
+| **v0.2** | ✅ VPS 一键部署（install-vps.sh 已实现） |
 | **v0.3** | Cloudflare 一键部署（install-cloudflare.sh 完整实现） |
 | **v0.4** | edgetunnel 可选整合完善 |
 | **v0.5** | 小白化交互向导 |

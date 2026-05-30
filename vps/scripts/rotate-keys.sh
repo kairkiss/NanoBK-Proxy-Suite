@@ -16,6 +16,9 @@
 
 set -Eeuo pipefail
 
+# Cross-platform ISO date
+_iso_date() { date -Iseconds 2>/dev/null || date '+%Y-%m-%dT%H:%M:%S%z'; }
+
 # ── Paths ───────────────────────────────────────────────────────────────────
 
 ENV_FILE="/root/.nanok-cf-admin.env"
@@ -62,7 +65,7 @@ RECOMMEND_NODE_NAME="Project placeholder"
 # ── Helpers ─────────────────────────────────────────────────────────────────
 
 log() {
-  printf '[%s] %s\n' "$(date -Is)" "$*"
+  printf '[%s] %s\n' "$(_iso_date)" "$*"
 }
 
 fail() {
@@ -371,7 +374,7 @@ write_private_record() {
   cat > "$LATEST_PRIVATE_RECORD" <<EOF
 # Latest Proxy Key Rotation Private Record
 
-Generated: $(date -Is)
+Generated: $(_iso_date)
 
 ## Fingerprints
 
@@ -404,7 +407,7 @@ write_notes() {
 
 ## Proxy key rotation
 
-- Time: $(date -Is)
+- Time: $(_iso_date)
 - HY2 service: $HY2_SERVICE, port $HY2_PORT, host $HY2_SERVER
 - TUIC service: $TUIC_SERVICE, port $TUIC_PORT, host $TUIC_SERVER
 - Reality service: $REALITY_SERVICE, port $REALITY_PORT

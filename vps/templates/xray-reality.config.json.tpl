@@ -5,12 +5,12 @@
   "inbounds": [
     {
       "listen": "0.0.0.0",
-      "port": 8443,
+      "port": __REALITY_PORT__,
       "protocol": "vless",
       "settings": {
         "clients": [
           {
-            "id": "REPLACE_WITH_REALITY_UUID",
+            "id": "__REALITY_UUID__",
             "flow": "xtls-rprx-vision"
           }
         ],
@@ -21,14 +21,14 @@
         "security": "reality",
         "realitySettings": {
           "show": false,
-          "dest": "REPLACE_WITH_REALITY_DEST:443",
+          "dest": "__REALITY_DEST__",
           "xver": 0,
           "serverNames": [
-            "REPLACE_WITH_REALITY_SERVERNAME"
+            "__REALITY_SERVERNAME__"
           ],
-          "privateKey": "REPLACE_WITH_REALITY_PRIVATE_KEY",
+          "privateKey": "__REALITY_PRIVATE_KEY__",
           "shortIds": [
-            "REPLACE_WITH_REALITY_SHORT_ID"
+            "__REALITY_SHORT_ID__"
           ]
         }
       },

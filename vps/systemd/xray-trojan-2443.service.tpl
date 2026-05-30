@@ -1,10 +1,11 @@
 [Unit]
-Description=Xray Trojan Server (port 2443)
+Description=Xray Trojan Server port 2443 (NanoBK)
 After=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/xray run -config /etc/proxy-stack/xray-trojan-2443/config.json
+User=root
+ExecStart=/usr/local/bin/xray run -config __TROJAN_CONFIG__
 Restart=on-failure
 RestartSec=5
 LimitNOFILE=65535

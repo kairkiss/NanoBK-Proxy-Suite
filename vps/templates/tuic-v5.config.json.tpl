@@ -1,10 +1,10 @@
 {
-  "server": "[::]:9443",
+  "server": "[::]:__TUIC_PORT__",
   "users": {
-    "REPLACE_WITH_TUIC_UUID": "REPLACE_WITH_TUIC_PASSWORD"
+    "__TUIC_UUID__": "__TUIC_PASSWORD__"
   },
-  "certificate": "/etc/proxy-stack/tuic-v5-9443/cert.pem",
-  "private_key": "/etc/proxy-stack/tuic-v5-9443/key.pem",
+  "certificate": "__CERT_FILE__",
+  "private_key": "__KEY_FILE__",
   "congestion_control": "bbr",
   "alpn": ["h3"],
   "udp_relay_mode": "native",

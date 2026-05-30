@@ -1,10 +1,11 @@
 [Unit]
-Description=Hysteria2 Server
+Description=Hysteria2 Server (NanoBK)
 After=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/hysteria server -c /etc/hysteria/config.yaml
+User=root
+ExecStart=/usr/local/bin/hysteria server -c __HY2_CONFIG__
 Restart=on-failure
 RestartSec=5
 LimitNOFILE=65535
