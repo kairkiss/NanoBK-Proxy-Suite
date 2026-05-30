@@ -61,11 +61,20 @@ This mode:
 - Does not require root
 - Works on macOS and Linux
 - Uses placeholder Reality keypair if xray is not installed
+- Systemd units go to `${CONFIG_DIR}/systemd/` (not `/etc/systemd/system/`)
 
-Run the integration test:
+Run the integration test (requires jq):
 
 ```bash
 bash tests/render-install-vps.sh
+```
+
+Validate rendered output:
+
+```bash
+bash vps/scripts/healthcheck.sh \
+  --config-dir /tmp/nanobk-test/etc/nanobk \
+  --skip-services --skip-ports
 ```
 
 Validate rendered output:

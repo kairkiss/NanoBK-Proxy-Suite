@@ -244,6 +244,28 @@ bash vps/scripts/healthcheck.sh \
 bash vps/scripts/healthcheck.sh
 ```
 
+The healthcheck reads `NANOBK_SYSTEMD_DIR` from `config.env` to locate systemd units:
+- **Render-only output**: `${CONFIG_DIR}/systemd/`
+- **Production output**: `/etc/systemd/system/`
+- If `NANOBK_SYSTEMD_DIR` is not set, falls back to `${CONFIG_DIR}/systemd/` if it exists, then `/etc/systemd/system/`
+
+---
+
+## tests/render-install-vps.sh requires jq
+
+The render integration test requires `jq` for JSON validation. Install it:
+
+```bash
+# macOS
+brew install jq
+
+# Debian/Ubuntu
+sudo apt-get install -y jq
+
+# RHEL/Rocky/Alma/Fedora
+sudo dnf install -y jq
+```
+
 It checks (read-only, does not modify anything):
 - OS and root access
 - Required tools (curl, jq, python3, openssl, systemctl, ss)

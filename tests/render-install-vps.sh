@@ -7,6 +7,10 @@
 #   - No placeholder residues remain
 #   - Reality private key is NOT in profile JSON
 #   - Healthcheck passes in offline mode
+#   - config.env paths are consistent
+#
+# Requirements:
+#   - jq (mandatory for JSON validation)
 #
 # Usage:
 #   bash tests/render-install-vps.sh
@@ -36,11 +40,22 @@ check() {
   fi
 }
 
-# ── Cleanup ─────────────────────────────────────────────────────────────────
+# ── Prerequisites ───────────────────────────────────────────────────────────
 
 echo ""
 echo "=== NanoBK Render Integration Test ==="
 echo ""
+
+if ! command -v jq &>/dev/null; then
+  fail "jq is required for render integration test"
+  echo "  Install jq first:"
+  echo "    macOS:          brew install jq"
+  echo "    Debian/Ubuntu:  sudo apt-get install -y jq"
+  echo "    RHEL/Rocky:     sudo dnf install -y jq"
+  exit 1
+fi
+pass "jq found: $(command -v jq)"
+
 echo "  Temp dir: ${TMP}"
 echo ""
 
@@ -104,14 +119,10 @@ echo ""
 echo "--- Validating JSON configs ---"
 echo ""
 
-if command -v jq &>/dev/null; then
-  check "TUIC config is valid JSON"      jq . "$TMP/etc/nanobk/generated/proxy-stack/tuic-v5-9443/config.json"
-  check "Reality config is valid JSON"   jq . "$TMP/etc/nanobk/generated/proxy-stack/xray-reality-8443/config.json"
-  check "Trojan config is valid JSON"    jq . "$TMP/etc/nanobk/generated/proxy-stack/xray-trojan-2443/config.json"
-  check "profile.current.json is valid"  jq . "$TMP/etc/nanobk/profile.current.json"
-else
-  echo "  jq not available, skipping JSON validation"
-fi
+check "TUIC config is valid JSON"      jq . "$TMP/etc/nanobk/generated/proxy-stack/tuic-v5-9443/config.json"
+check "Reality config is valid JSON"   jq . "$TMP/etc/nanobk/generated/proxy-stack/xray-reality-8443/config.json"
+check "Trojan config is valid JSON"    jq . "$TMP/etc/nanobk/generated/proxy-stack/xray-trojan-2443/config.json"
+check "profile.current.json is valid"  jq . "$TMP/etc/nanobk/profile.current.json"
 
 echo ""
 
@@ -120,25 +131,17 @@ echo ""
 echo "--- Validating profile JSON structure ---"
 echo ""
 
-if command -v jq &>/dev/null; then
-  check "profile has hy2 section"        jq -e '.hy2' "$TMP/etc/nanobk/profile.current.json"
-  check "profile has tuic section"       jq -e '.tuic' "$TMP/etc/nanobk/profile.current.json"
-  check "profile has reality section"    jq -e '.reality' "$TMP/etc/nanobk/profile.current.json"
-  check "profile has trojan section"     jq -e '.trojan' "$TMP/etc/nanobk/profile.current.json"
-  check "profile has extraNodes"         jq -e '.extraNodes' "$TMP/etc/nanobk/profile.current.json"
+check "profile has hy2 section"        jq -e '.hy2' "$TMP/etc/nanobk/profile.current.json"
+check "profile has tuic section"       jq -e '.tuic' "$TMP/etc/nanobk/profile.current.json"
+check "profile has reality section"    jq -e '.reality' "$TMP/etc/nanobk/profile.current.json"
+check "profile has trojan section"     jq -e '.trojan' "$TMP/etc/nanobk/profile.current.json"
+check "profile has extraNodes"         jq -e '.extraNodes' "$TMP/etc/nanobk/profile.current.json"
 
-  # Check reality has publicKey but NOT privateKey
-  check "reality has publicKey"          jq -e '.reality.publicKey' "$TMP/etc/nanobk/profile.current.json"
-  check "reality has shortId"            jq -e '.reality.shortId' "$TMP/etc/nanobk/profile.current.json"
+check "reality has publicKey"          jq -e '.reality.publicKey' "$TMP/etc/nanobk/profile.current.json"
+check "reality has shortId"            jq -e '.reality.shortId' "$TMP/etc/nanobk/profile.current.json"
 
-  # Verify domain is in profile
-  check "hy2 server is proxy.example.com" jq -e '.hy2.server == "proxy.example.com"' "$TMP/etc/nanobk/profile.current.json"
-
-  # Verify reality server is VPS IP
-  check "reality server is 198.51.100.10" jq -e '.reality.server == "198.51.100.10"' "$TMP/etc/nanobk/profile.current.json"
-else
-  echo "  jq not available, skipping structure validation"
-fi
+check "hy2 server is proxy.example.com" jq -e '.hy2.server == "proxy.example.com"' "$TMP/etc/nanobk/profile.current.json"
+check "reality server is 198.51.100.10" jq -e '.reality.server == "198.51.100.10"' "$TMP/etc/nanobk/profile.current.json"
 
 echo ""
 
@@ -161,7 +164,6 @@ else
   pass "No 'REALITY_PRIVATE_KEY' in profile JSON"
 fi
 
-# Verify private key IS in secrets file
 if grep -q 'REALITY_PRIVATE_KEY=' "$TMP/etc/nanobk/secrets.private.env" 2>/dev/null; then
   pass "REALITY_PRIVATE_KEY found in secrets.private.env"
 else
@@ -210,15 +212,61 @@ fi
 
 echo ""
 
+# ── Check config.env paths are consistent ───────────────────────────────────
+
+echo "--- Checking config.env path consistency ---"
+echo ""
+
+# shellcheck source=/dev/null
+source "$TMP/etc/nanobk/config.env"
+
+if [[ "${NANOBK_SYSTEMD_DIR:-}" == "$TMP/etc/nanobk/systemd" ]]; then
+  pass "config.env NANOBK_SYSTEMD_DIR points to render systemd dir"
+else
+  fail "config.env NANOBK_SYSTEMD_DIR is wrong: ${NANOBK_SYSTEMD_DIR:-<empty>}"
+  ERRORS=$((ERRORS + 1))
+fi
+
+if [[ "${NANOBK_CONFIG_DIR:-}" == "$TMP/etc/nanobk" ]]; then
+  pass "config.env NANOBK_CONFIG_DIR is correct"
+else
+  fail "config.env NANOBK_CONFIG_DIR is wrong: ${NANOBK_CONFIG_DIR:-<empty>}"
+  ERRORS=$((ERRORS + 1))
+fi
+
+if [[ "${NANOBK_INSTALL_DIR:-}" == "$TMP/opt/nanobk" ]]; then
+  pass "config.env NANOBK_INSTALL_DIR is correct"
+else
+  fail "config.env NANOBK_INSTALL_DIR is wrong: ${NANOBK_INSTALL_DIR:-<empty>}"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# Verify all four systemd units exist in NANOBK_SYSTEMD_DIR
+for svc in hysteria-server.service tuic-v5-9443.service xray-reality-8443.service xray-trojan-2443.service; do
+  if [[ -f "${NANOBK_SYSTEMD_DIR}/${svc}" ]]; then
+    pass "systemd unit exists in NANOBK_SYSTEMD_DIR: ${svc}"
+  else
+    fail "systemd unit missing from NANOBK_SYSTEMD_DIR: ${svc}"
+    ERRORS=$((ERRORS + 1))
+  fi
+done
+
+echo ""
+
 # ── Run healthcheck in offline mode ─────────────────────────────────────────
 
 echo "--- Running healthcheck (offline mode) ---"
 echo ""
 
-bash "$ROOT/vps/scripts/healthcheck.sh" \
+if bash "$ROOT/vps/scripts/healthcheck.sh" \
   --config-dir "$TMP/etc/nanobk" \
   --skip-services \
-  --skip-ports || true
+  --skip-ports; then
+  pass "healthcheck offline mode passed"
+else
+  fail "healthcheck offline mode failed"
+  ERRORS=$((ERRORS + 1))
+fi
 
 echo ""
 

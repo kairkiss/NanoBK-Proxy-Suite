@@ -192,7 +192,15 @@ check_config_files() {
 check_systemd_units() {
   header "Systemd Units"
 
-  local systemd_dir="${NANOBK_CONFIG_DIR}/systemd"
+  # Determine systemd directory: NANOBK_SYSTEMD_DIR > config-dir/systemd > /etc/systemd/system
+  local systemd_dir="${NANOBK_SYSTEMD_DIR:-}"
+  if [[ -z "$systemd_dir" ]]; then
+    if [[ -d "${NANOBK_CONFIG_DIR}/systemd" ]]; then
+      systemd_dir="${NANOBK_CONFIG_DIR}/systemd"
+    else
+      systemd_dir="/etc/systemd/system"
+    fi
+  fi
   local units=(
     "hysteria-server.service"
     "tuic-v5-9443.service"
