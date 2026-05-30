@@ -1,5 +1,56 @@
 # Troubleshooting
 
+## Bootstrap: "安装目录已存在，但不是 Git 仓库"
+
+The bootstrap script detected an existing directory that is not a Git repo. It will not overwrite it.
+
+**Fix**: Use a different directory or move the existing one:
+
+```bash
+mv ~/NanoBK-Proxy-Suite ~/NanoBK-Proxy-Suite.bak
+```
+
+Or specify a custom directory:
+
+```bash
+bash installer/bootstrap.sh --install-dir ~/NanoBK-New
+```
+
+---
+
+## Bootstrap: "检测到已有仓库存在本地修改"
+
+The existing repo has uncommitted changes. Bootstrap won't auto-pull to avoid conflicts.
+
+**Fix**: Handle changes manually first:
+
+```bash
+cd ~/NanoBK-Proxy-Suite
+git status
+git stash  # or git commit
+```
+
+---
+
+## Bootstrap: missing git/curl
+
+The bootstrap requires `bash`, `git`, and `curl`. Install them:
+
+```bash
+# Debian/Ubuntu
+sudo apt-get update && sudo apt-get install -y git curl
+
+# RHEL/Rocky/Fedora
+sudo dnf install -y git curl
+
+# macOS
+brew install git curl
+# or
+xcode-select --install
+```
+
+---
+
 ## Installer: "NanoBK VPS installer only supports Linux VPS"
 
 You are running the installer on macOS or another non-Linux system without `--render-only` or `--dry-run`.

@@ -1,6 +1,27 @@
 # Quick Start
 
-## Interactive Installer (Recommended)
+## One-Line Bootstrap (Recommended)
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/kairkiss/NanoBK-Proxy-Suite/main/installer/bootstrap.sh)
+```
+
+This downloads the repository and launches the interactive installer. You can also pass arguments:
+
+```bash
+# Show command templates
+bash <(curl -fsSL ...) -- --mode commands
+
+# Run diagnostics
+bash <(curl -fsSL ...) -- --mode doctor
+
+# Preview VPS deployment
+bash <(curl -fsSL ...) -- --mode vps --dry-run
+```
+
+The bootstrap script only clones/updates the repository and starts `install.sh`. It does not directly deploy services or modify Cloudflare.
+
+## Manual Setup
 
 ```bash
 git clone https://github.com/kairkiss/NanoBK-Proxy-Suite.git
@@ -8,9 +29,7 @@ cd NanoBK-Proxy-Suite
 bash installer/install.sh
 ```
 
-The interactive menu guides you through VPS setup, Cloudflare deployment, key rotation, and testing. It collects parameters interactively and shows commands before executing.
-
-> **Note**: Remote single-file curl execution (`bash <(curl ...)`) is not supported — the installer needs multiple files from the repository. Please clone the repo first.
+The interactive menu guides you through VPS setup, Cloudflare deployment, key rotation, and testing.
 
 Direct mode shortcuts:
 

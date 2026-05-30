@@ -33,7 +33,26 @@ VPS 四协议 ──rotate-keys.sh──▶ nanok KV Worker ──fetch──▶
 
 ## 快速开始
 
-### 1. 交互式安装（推荐）
+### 1. 一行命令启动（推荐）
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/kairkiss/NanoBK-Proxy-Suite/main/installer/bootstrap.sh)
+```
+
+bootstrap 会自动 clone 仓库并启动交互式安装器。也可以直接传参数：
+
+```bash
+# 只看命令模板
+bash <(curl -fsSL ...) -- --mode commands
+
+# 运行诊断
+bash <(curl -fsSL ...) -- --mode doctor
+
+# 预演 VPS 部署
+bash <(curl -fsSL ...) -- --mode vps --dry-run
+```
+
+### 2. 手动 clone 后安装
 
 ```bash
 git clone https://github.com/kairkiss/NanoBK-Proxy-Suite.git

@@ -15,6 +15,7 @@
 | v0.4 | nanob 聚合器自动部署 + edgetunnel 可选整合 |
 | v0.5 | 小白化交互入口（install.sh） |
 | v0.5.1-0.5.2 | 安全修复、文档完善 |
+| v0.6 | ✅ 远程一行命令 bootstrap（bootstrap.sh） |
 
 ### 计划中
 
