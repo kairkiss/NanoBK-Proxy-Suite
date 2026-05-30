@@ -4,6 +4,8 @@
 # Tests that the nanok Worker can be bundled by Wrangler without errors.
 # Does NOT deploy to Cloudflare or require authentication.
 #
+# If workers/nanok/wrangler.toml already exists, it is backed up and restored.
+#
 # Usage:
 #   bash tests/wrangler-nanok-dry-run.sh
 
@@ -13,6 +15,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORKER_DIR="${ROOT}/workers/nanok"
 TOML_PATH="${WORKER_DIR}/wrangler.toml"
 OUT_DIR="${TMPDIR:-/tmp}/nanok-dry-run"
+BACKUP_TOML="${TMPDIR:-/tmp}/nanok-wrangler.toml.backup.$$"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -24,21 +27,18 @@ fail() { echo -e "  ${RED}✗${NC} $*" >&2; }
 warn() { echo -e "  ${YELLOW}!${NC} $*"; }
 
 HAD_EXISTING_TOML=0
-CLEANED_UP=0
+BEFORE_SUM=""
 
 cleanup() {
-  if [[ "$CLEANED_UP" == "1" ]]; then
-    return
-  fi
-  CLEANED_UP=1
-
-  # Remove test wrangler.toml only if we created it
-  if [[ "$HAD_EXISTING_TOML" == "0" ]] && [[ -f "$TOML_PATH" ]]; then
+  # Restore or remove wrangler.toml
+  if [[ "$HAD_EXISTING_TOML" == "1" ]] && [[ -f "$BACKUP_TOML" ]]; then
+    mv "$BACKUP_TOML" "$TOML_PATH"
+  elif [[ -f "$TOML_PATH" ]]; then
     rm -f "$TOML_PATH"
   fi
-
-  # Remove output dir
+  # Clean temp files
   rm -rf "$OUT_DIR"
+  rm -f "$BACKUP_TOML"
 }
 
 trap cleanup EXIT
@@ -55,7 +55,6 @@ if ! command -v node &>/dev/null; then
 fi
 pass "node: $(node --version)"
 
-# Find wrangler
 WRANGLER=""
 if command -v npx &>/dev/null; then
   WRANGLER="npx wrangler"
@@ -67,7 +66,7 @@ else
 fi
 pass "wrangler detected"
 
-# ── Generate test wrangler.toml ─────────────────────────────────────────────
+# ── Backup existing wrangler.toml ───────────────────────────────────────────
 
 echo ""
 echo "--- Generating test wrangler.toml ---"
@@ -75,7 +74,9 @@ echo ""
 
 if [[ -f "$TOML_PATH" ]]; then
   HAD_EXISTING_TOML=1
-  warn "Existing wrangler.toml found, will restore after test"
+  cp "$TOML_PATH" "$BACKUP_TOML"
+  BEFORE_SUM=$(cksum "$TOML_PATH" 2>/dev/null | awk '{print $1}' || shasum "$TOML_PATH" 2>/dev/null | awk '{print $1}' || true)
+  warn "Existing wrangler.toml backed up, will restore after test"
 fi
 
 cat > "$TOML_PATH" <<'EOF'
@@ -124,13 +125,11 @@ if [[ -d "$OUT_DIR" ]]; then
   local_count=$(find "$OUT_DIR" -type f | wc -l | tr -d ' ')
   pass "Output directory: ${OUT_DIR} (${local_count} files)"
 
-  # Check for index.js in output
   if [[ -f "$OUT_DIR/index.js" ]]; then
     pass "Bundle output contains index.js"
     local_size=$(wc -c < "$OUT_DIR/index.js" | tr -d ' ')
     pass "Bundle size: ${local_size} bytes"
   else
-    # Some wrangler versions output differently
     if find "$OUT_DIR" -name '*.js' -type f | head -1 | grep -q .; then
       pass "Bundle output contains JS file(s)"
     else
@@ -143,24 +142,19 @@ else
   exit 1
 fi
 
-# ── Verify no git changes ───────────────────────────────────────────────────
-
-echo ""
-echo "--- Verifying no git changes ---"
-echo ""
-
-# Restore original wrangler.toml state before checking git
-if [[ "$HAD_EXISTING_TOML" == "0" ]]; then
-  rm -f "$TOML_PATH"
-fi
-CLEANED_UP=1
-
-if git -C "$ROOT" diff --quiet 2>/dev/null && git -C "$ROOT" diff --cached --quiet 2>/dev/null; then
-  pass "No uncommitted git changes"
-else
-  warn "Git has uncommitted changes (may be pre-existing)"
-fi
+# ── Done — cleanup trap will restore state ──────────────────────────────────
 
 echo ""
 echo -e "  ${GREEN}Bundle test passed!${NC}"
+
+# Verify restore before trap runs
+if [[ "$HAD_EXISTING_TOML" == "1" ]]; then
+  # Will be restored by trap; verify backup exists
+  if [[ -f "$BACKUP_TOML" ]]; then
+    pass "Backup file ready for restore"
+  fi
+else
+  # Will be deleted by trap; nothing to verify here
+  :
+fi
 echo ""

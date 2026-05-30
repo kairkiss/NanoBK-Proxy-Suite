@@ -4,6 +4,8 @@
 # Tests that the nanob Worker can be bundled by Wrangler without errors.
 # Does NOT deploy to Cloudflare or require authentication.
 #
+# If workers/nanob/wrangler.toml already exists, it is backed up and restored.
+#
 # Usage:
 #   bash tests/wrangler-nanob-dry-run.sh
 
@@ -13,6 +15,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORKER_DIR="${ROOT}/workers/nanob"
 TOML_PATH="${WORKER_DIR}/wrangler.toml"
 OUT_DIR="${TMPDIR:-/tmp}/nanob-dry-run"
+BACKUP_TOML="${TMPDIR:-/tmp}/nanob-wrangler.toml.backup.$$"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -24,19 +27,16 @@ fail() { echo -e "  ${RED}✗${NC} $*" >&2; }
 warn() { echo -e "  ${YELLOW}!${NC} $*"; }
 
 HAD_EXISTING_TOML=0
-CLEANED_UP=0
+BEFORE_SUM=""
 
 cleanup() {
-  if [[ "$CLEANED_UP" == "1" ]]; then
-    return
-  fi
-  CLEANED_UP=1
-
-  if [[ "$HAD_EXISTING_TOML" == "0" ]] && [[ -f "$TOML_PATH" ]]; then
+  if [[ "$HAD_EXISTING_TOML" == "1" ]] && [[ -f "$BACKUP_TOML" ]]; then
+    mv "$BACKUP_TOML" "$TOML_PATH"
+  elif [[ -f "$TOML_PATH" ]]; then
     rm -f "$TOML_PATH"
   fi
-
   rm -rf "$OUT_DIR"
+  rm -f "$BACKUP_TOML"
 }
 
 trap cleanup EXIT
@@ -64,7 +64,7 @@ else
 fi
 pass "wrangler detected"
 
-# ── Generate test wrangler.toml ─────────────────────────────────────────────
+# ── Backup existing wrangler.toml ───────────────────────────────────────────
 
 echo ""
 echo "--- Generating test wrangler.toml ---"
@@ -72,7 +72,9 @@ echo ""
 
 if [[ -f "$TOML_PATH" ]]; then
   HAD_EXISTING_TOML=1
-  warn "Existing wrangler.toml found, will restore after test"
+  cp "$TOML_PATH" "$BACKUP_TOML"
+  BEFORE_SUM=$(cksum "$TOML_PATH" 2>/dev/null | awk '{print $1}' || shasum "$TOML_PATH" 2>/dev/null | awk '{print $1}' || true)
+  warn "Existing wrangler.toml backed up, will restore after test"
 fi
 
 cat > "$TOML_PATH" <<'EOF'
@@ -140,23 +142,14 @@ else
   exit 1
 fi
 
-# ── Verify no git changes ───────────────────────────────────────────────────
-
-echo ""
-echo "--- Verifying no git changes ---"
-echo ""
-
-if [[ "$HAD_EXISTING_TOML" == "0" ]]; then
-  rm -f "$TOML_PATH"
-fi
-CLEANED_UP=1
-
-if git -C "$ROOT" diff --quiet 2>/dev/null && git -C "$ROOT" diff --cached --quiet 2>/dev/null; then
-  pass "No uncommitted git changes"
-else
-  warn "Git has uncommitted changes (may be pre-existing)"
-fi
+# ── Done ────────────────────────────────────────────────────────────────────
 
 echo ""
 echo -e "  ${GREEN}Bundle test passed!${NC}"
+
+if [[ "$HAD_EXISTING_TOML" == "1" ]]; then
+  if [[ -f "$BACKUP_TOML" ]]; then
+    pass "Backup file ready for restore"
+  fi
+fi
 echo ""

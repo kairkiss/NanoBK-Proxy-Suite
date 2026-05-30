@@ -78,6 +78,8 @@ bash tests/wrangler-nanok-dry-run.sh
 bash tests/wrangler-nanob-dry-run.sh
 ```
 
+These tests temporarily generate `wrangler.toml` in the worker directories. If a `wrangler.toml` already exists, it is backed up and restored after the test. No Cloudflare resources are modified.
+
 ## All Options
 
 ### General
