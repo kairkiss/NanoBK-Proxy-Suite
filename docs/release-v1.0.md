@@ -1,4 +1,17 @@
-# NanoBK Proxy Suite v1.0.0 — CLI Core Release
+# NanoBK Proxy Suite — Release Notes
+
+## v1.0.2 — Production Installer Hotfix
+
+v1.0.0 在真实 Ubuntu 24.04 VPS 上安装时发现以下问题，v1.0.2 已修复：
+
+- Hysteria 最新 release 是裸二进制，不是 tar.gz → 已支持
+- TUIC 最新 release 是裸二进制，不是 zip → 已支持
+- Xray x25519 输出格式解析失败 → 已改为大小写/空格容错
+- TUIC v1.0.0 不兼容 `udp_relay_mode` 和整数 `gc_interval` → 已移除
+
+如果用户已经使用 v1.0.0 手动安装成功但 TUIC 失败，升级到 v1.0.2 后重新运行安装器即可。
+
+## v1.0.0 — CLI Core Release
 
 ## v1.0 是什么
 

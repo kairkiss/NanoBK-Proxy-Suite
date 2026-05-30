@@ -78,8 +78,9 @@ generate_all_credentials() {
   if command -v xray &>/dev/null; then
     local keypair
     keypair=$(xray x25519) || die "Failed to generate Reality keypair"
-    REALITY_PRIVATE_KEY=$(echo "$keypair" | awk -F': ' '/Private key/ {print $2}' | tr -d '\r\n')
-    REALITY_PUBLIC_KEY=$(echo "$keypair" | awk -F': ' '/Public key/ {print $2}' | tr -d '\r\n')
+    # Robust parser: handles "Private key:", "PrivateKey:", "private key:" etc.
+    REALITY_PRIVATE_KEY=$(printf '%s\n' "$keypair" | awk -F': *' 'tolower($1) ~ /private/ {print $2; exit}' | tr -d '\r\n')
+    REALITY_PUBLIC_KEY=$(printf '%s\n' "$keypair" | awk -F': *' 'tolower($1) ~ /public/ {print $2; exit}' | tr -d '\r\n')
   elif [[ "$NANOBK_DRY_RUN" == "1" ]] || [[ "$NANOBK_RENDER_ONLY" == "1" ]]; then
     warn "xray not available for keypair generation (using placeholder for test)"
     REALITY_PRIVATE_KEY="RENDER_ONLY_PLACEHOLDER_PRIVATE_KEY_NOT_FOR_PRODUCTION"

@@ -12,7 +12,7 @@
 # Usage: download_latest_asset OWNER REPO PATTERN OUTPUT_PATH
 #   OWNER    — GitHub org/user
 #   REPO     — GitHub repo name
-#   PATTERN  — grep -iE pattern to match asset filename (e.g., "linux.*64.*\.tar\.gz$")
+#   PATTERN  — grep -iE pattern to match asset filename
 #   OUTPUT   — where to save the downloaded file
 #
 # Respects NANOBK_<REPO_UPPER>_DOWNLOAD_URL override env var.
@@ -80,6 +80,36 @@ download_latest_asset() {
 
   log "Downloading: ${asset_url}"
   curl -fsSL -o "$output" "$asset_url"
+}
+
+# ── Helper: install a downloaded binary ─────────────────────────────────────
+
+install_binary() {
+  local src="$1"
+  local dest="$2"
+
+  if [[ "$NANOBK_DRY_RUN" == "1" ]]; then
+    echo -e "  ${CYAN}[DRY-RUN]${NC} install ${src} → ${dest}"
+    echo -e "  ${CYAN}[DRY-RUN]${NC} chmod +x ${dest}"
+    return 0
+  fi
+
+  mv "$src" "$dest"
+  chmod +x "$dest"
+}
+
+# ── Helper: check if file is an archive ─────────────────────────────────────
+
+is_archive() {
+  local file="$1"
+  local mime
+  mime=$(file -b --mime-type "$file" 2>/dev/null || echo "")
+  case "$mime" in
+    application/zip|application/gzip|application/x-tar|application/x-gzip)
+      return 0 ;;
+    *)
+      return 1 ;;
+  esac
 }
 
 # ── Xray installation ──────────────────────────────────────────────────────
@@ -153,39 +183,58 @@ install_hysteria() {
 
   log "Installing hysteria2..."
 
-  local os_name
+  # Pattern for bare binary: hysteria-linux-amd64 or hysteria-linux-arm64
+  # Exclude: hashes.txt, windows, darwin, android, freebsd, .sha256
+  local arch_pattern
   if [[ "$ARCH" == "aarch64" ]]; then
-    os_name="linux-arm64"
+    arch_pattern="arm64"
   else
-    os_name="linux-amd64"
+    arch_pattern="amd64"
   fi
 
   local tmp_dir
   tmp_dir=$(mktemp -d)
   trap "rm -rf '$tmp_dir'" RETURN
-  local tar_file="${tmp_dir}/hysteria.tar.gz"
 
-  download_latest_asset "apernet" "hysteria" "linux.*amd64.*\.tar\.gz$|linux-amd64.*\.tar\.gz$|hysteria-linux.*\.tar\.gz$|hysteria-linux-${ARCH}.*\.tar\.gz$" "$tar_file" || {
+  # Try bare binary first (most common in recent releases)
+  local downloaded=0
+  local asset_pattern="hysteria-linux-${arch_pattern}$"
+  local output_file="${tmp_dir}/hysteria"
+
+  if download_latest_asset "apernet" "hysteria" "$asset_pattern" "$output_file" 2>/dev/null; then
+    downloaded=1
+  fi
+
+  # Fallback: try tar.gz
+  if [[ "$downloaded" == "0" ]]; then
+    local tar_file="${tmp_dir}/hysteria.tar.gz"
+    if download_latest_asset "apernet" "hysteria" "hysteria-linux-${arch_pattern}.*\.tar\.gz$" "$tar_file" 2>/dev/null; then
+      if [[ "$NANOBK_DRY_RUN" != "1" ]]; then
+        tar -xzf "$tar_file" -C "$tmp_dir" 2>/dev/null
+        local found
+        found=$(find "$tmp_dir" -name 'hysteria*' -type f -executable 2>/dev/null | head -1)
+        if [[ -z "$found" ]]; then
+          found=$(find "$tmp_dir" -name 'hysteria*' -type f | head -1)
+        fi
+        [[ -n "$found" ]] && mv "$found" "$output_file"
+      fi
+      downloaded=1
+    fi
+  fi
+
+  if [[ "$downloaded" == "0" ]]; then
     err "Failed to download hysteria2."
     err "Set NANOBK_HYSTERIA_DOWNLOAD_URL to a direct binary URL."
     return 1
-  }
-
-  if [[ "$NANOBK_DRY_RUN" == "1" ]]; then
-    echo -e "  ${CYAN}[DRY-RUN]${NC} extract hysteria to ${bin}"
-    echo -e "  ${CYAN}[DRY-RUN]${NC} chmod +x ${bin}"
-    return 0
   fi
 
-  tar -xzf "$tar_file" -C "$tmp_dir" 2>/dev/null
-  local found
-  found=$(find "$tmp_dir" -name 'hysteria*' -type f -executable 2>/dev/null | head -1)
-  if [[ -z "$found" ]]; then
-    found=$(find "$tmp_dir" -name 'hysteria*' -type f | head -1)
+  install_binary "$output_file" "$bin"
+
+  # Best-effort version check
+  if [[ "$NANOBK_DRY_RUN" != "1" ]]; then
+    "$bin" version 2>/dev/null || "$bin" --version 2>/dev/null || true
   fi
-  [[ -n "$found" ]] || { err "Cannot find hysteria binary in archive"; return 1; }
-  mv "$found" "$bin"
-  chmod +x "$bin"
+
   ok "hysteria installed: ${bin}"
 }
 
@@ -206,36 +255,54 @@ install_tuic() {
 
   log "Installing tuic-server..."
 
-  local os_name
+  # Pattern for bare binary: tuic-server-*-x86_64-unknown-linux-gnu
+  local arch_pattern
   if [[ "$ARCH" == "aarch64" ]]; then
-    os_name="aarch64-unknown-linux-gnu"
+    arch_pattern="aarch64-unknown-linux-gnu"
   else
-    os_name="x86_64-unknown-linux-gnu"
+    arch_pattern="x86_64-unknown-linux-gnu"
   fi
 
   local tmp_dir
   tmp_dir=$(mktemp -d)
   trap "rm -rf '$tmp_dir'" RETURN
-  local zip_file="${tmp_dir}/tuic.zip"
 
-  download_latest_asset "EAimTY" "tuic" "${os_name}\.zip$|tuic-server.*${os_name}.*\.zip$" "$zip_file" || {
+  # Try bare binary first (most common in recent releases)
+  local downloaded=0
+  local asset_pattern="tuic-server.*${arch_pattern}$"
+  local output_file="${tmp_dir}/tuic-server"
+
+  if download_latest_asset "EAimTY" "tuic" "$asset_pattern" "$output_file" 2>/dev/null; then
+    downloaded=1
+  fi
+
+  # Fallback: try zip
+  if [[ "$downloaded" == "0" ]]; then
+    local zip_file="${tmp_dir}/tuic.zip"
+    if download_latest_asset "EAimTY" "tuic" "${arch_pattern}\.zip$|tuic-server.*${arch_pattern}.*\.zip$" "$zip_file" 2>/dev/null; then
+      if [[ "$NANOBK_DRY_RUN" != "1" ]]; then
+        unzip -o "$zip_file" -d "$tmp_dir" >/dev/null 2>&1
+        local found
+        found=$(find "$tmp_dir" -name 'tuic-server*' -type f | head -1)
+        [[ -n "$found" ]] && mv "$found" "$output_file"
+      fi
+      downloaded=1
+    fi
+  fi
+
+  if [[ "$downloaded" == "0" ]]; then
     err "Failed to download tuic-server."
     err "Set NANOBK_TUIC_DOWNLOAD_URL to a direct binary URL."
     return 1
-  }
-
-  if [[ "$NANOBK_DRY_RUN" == "1" ]]; then
-    echo -e "  ${CYAN}[DRY-RUN]${NC} extract tuic-server to ${bin}"
-    echo -e "  ${CYAN}[DRY-RUN]${NC} chmod +x ${bin}"
-    return 0
   fi
 
-  unzip -o "$zip_file" -d "$tmp_dir" >/dev/null 2>&1
-  local found
-  found=$(find "$tmp_dir" -name 'tuic-server*' -type f | head -1)
-  [[ -n "$found" ]] || { err "Cannot find tuic-server binary in archive"; return 1; }
-  mv "$found" "$bin"
-  chmod +x "$bin"
+  install_binary "$output_file" "$bin"
+
+  # Best-effort version check
+  if [[ "$NANOBK_DRY_RUN" != "1" ]]; then
+    "$bin" --version 2>/dev/null || "$bin" version 2>/dev/null || true
+  fi
+
   ok "tuic-server installed: ${bin}"
 }
 

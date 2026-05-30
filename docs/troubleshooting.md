@@ -51,6 +51,24 @@ xcode-select --install
 
 ---
 
+## Installer: "Reality private key is empty"
+
+v1.0.0 的 x25519 解析器对新版 xray 输出格式兼容不好。升级到 v1.0.2+ 后重新运行安装器。
+
+---
+
+## Installer: TUIC config errors on tuic-server 1.0.0
+
+v1.0.0 的 TUIC 模板包含 `udp_relay_mode` 和整数 `gc_interval`/`gc_lifetime`，tuic-server 1.0.0 不支持。升级到 v1.0.2+ 后重新运行安装器。
+
+---
+
+## Installer: Hysteria/TUIC download fails
+
+v1.0.0 只匹配 tar.gz/zip 格式，最新 release 可能是裸二进制。升级到 v1.0.2+ 后重新运行安装器。
+
+---
+
 ## Installer: "NanoBK VPS installer only supports Linux VPS"
 
 You are running the installer on macOS or another non-Linux system without `--render-only` or `--dry-run`.

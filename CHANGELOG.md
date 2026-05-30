@@ -1,5 +1,25 @@
 # Changelog
 
+## v1.0.2 — Production Installer Hotfix
+
+### Fixed
+
+- Support bare binary Hysteria release assets (not just tar.gz)
+- Support bare binary TUIC release assets (not just zip)
+- Harden Xray Reality x25519 keypair parsing (case-insensitive, space-tolerant)
+- Make TUIC config compatible with tuic-server 1.0.0
+- Remove unsupported `udp_relay_mode` from TUIC template
+- Remove incompatible integer `gc_interval` / `gc_lifetime` from TUIC template
+- Add `log_level` to TUIC template
+
+### Verified
+
+- Ubuntu 24.04 production VPS install hotfixed successfully
+- HY2 UDP 443 active
+- TUIC UDP 9443 active
+- Reality TCP 8443 active
+- Trojan TCP 2443 active
+
 ## v1.0.0 — CLI Core Release
 
 ### Added
