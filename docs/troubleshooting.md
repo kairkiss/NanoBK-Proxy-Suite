@@ -1,5 +1,19 @@
 # Troubleshooting
 
+## Installer: "NanoBK VPS installer only supports Linux VPS"
+
+You are running the installer on macOS or another non-Linux system without `--render-only` or `--dry-run`.
+
+**Fix**: Use `--render-only` for local testing:
+
+```bash
+bash installer/install-vps.sh --render-only --yes \
+  --config-dir /tmp/nanobk-test/etc/nanobk \
+  --domain proxy.example.com --cert-mode self-signed
+```
+
+---
+
 ## Installer: "not running as root"
 
 The VPS installer requires root privileges. Run with `sudo`:
@@ -216,6 +230,18 @@ Run the diagnostic script:
 
 ```bash
 bash installer/doctor.sh
+```
+
+Healthcheck also supports custom config directory and skip options:
+
+```bash
+# Check render-only output
+bash vps/scripts/healthcheck.sh \
+  --config-dir /tmp/nanobk-test/etc/nanobk \
+  --skip-services --skip-ports
+
+# Full VPS check
+bash vps/scripts/healthcheck.sh
 ```
 
 It checks (read-only, does not modify anything):

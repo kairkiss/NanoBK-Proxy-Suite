@@ -4,6 +4,7 @@
 #
 # Usage:
 #   bash vps/scripts/healthcheck.sh
+#   bash vps/scripts/healthcheck.sh --config-dir /tmp/nanobk-test/etc/nanobk --skip-services --skip-ports
 #   bash /opt/nanobk/bin/healthcheck.sh
 
 set -Eeuo pipefail
@@ -24,20 +25,65 @@ header() { echo -e "\n${BLUE}── $* ──${NC}"; }
 ERRORS=0
 WARNINGS=0
 
-# ── Config discovery ────────────────────────────────────────────────────────
+# ── Options ─────────────────────────────────────────────────────────────────
 
 NANOBK_CONFIG_DIR="${NANOBK_CONFIG_DIR:-/etc/nanobk}"
+SKIP_SERVICES=0
+SKIP_PORTS=0
 
-# Try to load config.env
-if [[ -f "${NANOBK_CONFIG_DIR}/config.env" ]]; then
-  # shellcheck source=/dev/null
-  source "${NANOBK_CONFIG_DIR}/config.env"
-fi
+show_help() {
+  cat <<'EOF'
+NanoBK Proxy Suite — Health Check
+
+Usage:
+  bash vps/scripts/healthcheck.sh [OPTIONS]
+
+Options:
+  --config-dir PATH    Config directory (default: /etc/nanobk or NANOBK_CONFIG_DIR env)
+  --skip-services      Skip systemd service checks
+  --skip-ports         Skip port listening checks
+  --help               Show this help
+
+Examples:
+  # Full check on VPS
+  bash vps/scripts/healthcheck.sh
+
+  # Check render-only output
+  bash vps/scripts/healthcheck.sh --config-dir /tmp/nanobk-test/etc/nanobk --skip-services --skip-ports
+EOF
+}
+
+parse_args() {
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --config-dir)     NANOBK_CONFIG_DIR="$2"; shift ;;
+      --skip-services)  SKIP_SERVICES=1 ;;
+      --skip-ports)     SKIP_PORTS=1 ;;
+      --help|-h)        show_help; exit 0 ;;
+      *)                echo "Unknown option: $1" >&2; exit 1 ;;
+    esac
+    shift
+  done
+}
+
+# ── Load config.env ─────────────────────────────────────────────────────────
+
+load_config() {
+  if [[ -f "${NANOBK_CONFIG_DIR}/config.env" ]]; then
+    # shellcheck source=/dev/null
+    source "${NANOBK_CONFIG_DIR}/config.env"
+  fi
+}
 
 # ── Services check ──────────────────────────────────────────────────────────
 
 check_services() {
   header "Systemd Services"
+
+  if [[ "$SKIP_SERVICES" == "1" ]]; then
+    warn "Skipped (--skip-services)"
+    return
+  fi
 
   local services=(
     "${HY2_SERVICE:-hysteria-server.service}"
@@ -96,6 +142,11 @@ check_port() {
 check_ports() {
   header "Port Listening"
 
+  if [[ "$SKIP_PORTS" == "1" ]]; then
+    warn "Skipped (--skip-ports)"
+    return
+  fi
+
   check_port "${HY2_PORT:-443}"  "udp" "HY2"
   check_port "${TUIC_PORT:-9443}" "udp" "TUIC"
   check_port "${REALITY_PORT:-8443}" "tcp" "Reality"
@@ -108,10 +159,10 @@ check_config_files() {
   header "Config Files"
 
   local configs=(
-    "${HY2_CONFIG:-/etc/nanobk/hysteria/config.yaml}:HY2"
-    "${TUIC_CONFIG:-/etc/nanobk/tuic-v5-9443/config.json}:TUIC"
-    "${REALITY_CONFIG:-/etc/nanobk/xray-reality-8443/config.json}:Reality"
-    "${TROJAN_CONFIG:-/etc/nanobk/xray-trojan-2443/config.json}:Trojan"
+    "${HY2_CONFIG:-/etc/nanobk/generated/hysteria/config.yaml}:HY2"
+    "${TUIC_CONFIG:-/etc/nanobk/generated/proxy-stack/tuic-v5-9443/config.json}:TUIC"
+    "${REALITY_CONFIG:-/etc/nanobk/generated/proxy-stack/xray-reality-8443/config.json}:Reality"
+    "${TROJAN_CONFIG:-/etc/nanobk/generated/proxy-stack/xray-trojan-2443/config.json}:Trojan"
   )
 
   for entry in "${configs[@]}"; do
@@ -119,8 +170,64 @@ check_config_files() {
     local name="${entry##*:}"
     if [[ -f "$path" ]]; then
       pass "${name} config: ${path}"
+
+      # Validate JSON for TUIC, Reality, Trojan
+      if [[ "$path" == *.json ]] && command -v jq &>/dev/null; then
+        if jq . "$path" >/dev/null 2>&1; then
+          pass "${name} config: valid JSON"
+        else
+          fail "${name} config: invalid JSON"
+          ERRORS=$((ERRORS + 1))
+        fi
+      fi
     else
       fail "${name} config not found: ${path}"
+      ERRORS=$((ERRORS + 1))
+    fi
+  done
+}
+
+# ── Systemd units check ─────────────────────────────────────────────────────
+
+check_systemd_units() {
+  header "Systemd Units"
+
+  local systemd_dir="${NANOBK_CONFIG_DIR}/systemd"
+  local units=(
+    "hysteria-server.service"
+    "tuic-v5-9443.service"
+    "xray-reality-8443.service"
+    "xray-trojan-2443.service"
+  )
+
+  local expected_configs=(
+    "${HY2_CONFIG:-/etc/hysteria/config.yaml}"
+    "${TUIC_CONFIG:-/etc/proxy-stack/tuic-v5-9443/config.json}"
+    "${REALITY_CONFIG:-/etc/proxy-stack/xray-reality-8443/config.json}"
+    "${TROJAN_CONFIG:-/etc/proxy-stack/xray-trojan-2443/config.json}"
+  )
+
+  for i in "${!units[@]}"; do
+    local unit="${units[$i]}"
+    local expected_cfg="${expected_configs[$i]}"
+    local unit_path="${systemd_dir}/${unit}"
+
+    if [[ -f "$unit_path" ]]; then
+      pass "${unit}: exists at ${unit_path}"
+
+      # Check ExecStart references the correct config
+      if grep -q "ExecStart.*${expected_cfg}" "$unit_path" 2>/dev/null; then
+        pass "${unit}: ExecStart references ${expected_cfg}"
+      elif grep -q "ExecStart" "$unit_path" 2>/dev/null; then
+        local actual_exec
+        actual_exec=$(grep 'ExecStart' "$unit_path" | head -1)
+        warn "${unit}: ExecStart does not reference expected config"
+        warn "  Expected: ${expected_cfg}"
+        warn "  Got: ${actual_exec}"
+        WARNINGS=$((WARNINGS + 1))
+      fi
+    else
+      fail "${unit}: not found at ${unit_path}"
       ERRORS=$((ERRORS + 1))
     fi
   done
@@ -154,24 +261,27 @@ check_profile() {
     ERRORS=$((ERRORS + 1))
   fi
 
-  # Check for control characters
-  if python3 -c "
-import json, sys
-with open('$profile_path') as f:
-    data = json.load(f)
-def has_bad(s):
-    return any((ord(c) < 32 and c not in '\t\n\r') or ord(c) == 127 or 0x80 <= ord(c) <= 0x9f for c in s)
-def walk(v):
-    if isinstance(v, str): return has_bad(v)
-    if isinstance(v, dict): return any(walk(x) for x in v.values())
-    if isinstance(v, list): return any(walk(x) for x in v)
-    return False
-sys.exit(1 if walk(data) else 0)
-" 2>/dev/null; then
-    pass "No invalid control characters in profile"
+  # Check Reality private key is NOT in profile
+  if grep -q 'privateKey\|REALITY_PRIVATE_KEY' "$profile_path" 2>/dev/null; then
+    fail "Reality private key leaked into profile JSON"
+    ERRORS=$((ERRORS + 1))
   else
-    warn "Profile may contain control characters"
-    WARNINGS=$((WARNINGS + 1))
+    pass "Reality private key not in profile JSON"
+  fi
+}
+
+# ── Config env check ────────────────────────────────────────────────────────
+
+check_config_env() {
+  header "Config Environment"
+
+  local env_path="${NANOBK_CONFIG_DIR}/config.env"
+
+  if [[ -f "$env_path" ]]; then
+    pass "config.env exists: ${env_path}"
+  else
+    fail "config.env not found: ${env_path}"
+    ERRORS=$((ERRORS + 1))
   fi
 }
 
@@ -223,13 +333,20 @@ print_summary() {
 # ── Main ────────────────────────────────────────────────────────────────────
 
 main() {
+  parse_args "$@"
+  load_config
+
   echo ""
   echo "NanoBK Proxy Suite — Health Check"
+  echo "  Config dir: ${NANOBK_CONFIG_DIR}"
+
+  check_config_env
+  check_secrets
+  check_config_files
+  check_systemd_units
+  check_profile
   check_services
   check_ports
-  check_config_files
-  check_profile
-  check_secrets
   print_summary
 
   if [[ $ERRORS -gt 0 ]]; then

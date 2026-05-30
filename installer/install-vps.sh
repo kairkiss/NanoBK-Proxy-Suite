@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — VPS Installer v0.2
+# NanoBK Proxy Suite — VPS Installer v0.2.1
 #
 # Installs and configures four proxy services on a Linux VPS:
 #   - Hysteria2 (UDP 443)
@@ -9,11 +9,18 @@
 #
 # Generates Cloudflare Worker-compatible profile JSON.
 #
+# Modes:
+#   (default)      Full installation on Linux VPS (requires root + systemd)
+#   --dry-run      Print actions without modifying the system
+#   --render-only  Render all configs to --config-dir, no system changes
+#
 # Usage:
 #   sudo bash installer/install-vps.sh --domain proxy.example.com --cert-mode existing \
 #     --cert-file /etc/ssl/fullchain.pem --key-file /etc/ssl/privkey.pem
 #
-#   sudo bash installer/install-vps.sh --dry-run --domain proxy.example.com --cert-mode self-signed
+#   bash installer/install-vps.sh --render-only --yes \
+#     --config-dir /tmp/nanobk-test/etc/nanobk \
+#     --domain proxy.example.com --cert-mode self-signed
 
 set -Eeuo pipefail
 
@@ -32,6 +39,7 @@ source "${REPO_DIR}/vps/lib/profile.sh"
 # ── Default configuration ──────────────────────────────────────────────────
 
 NANOBK_DRY_RUN=0
+NANOBK_RENDER_ONLY=0
 NANOBK_YES=0
 NANOBK_FORCE=0
 NANOBK_OPEN_FIREWALL=0
@@ -47,13 +55,15 @@ NANOBK_KEY_FILE=""
 NANOBK_INSTALL_DIR="/opt/nanobk"
 NANOBK_CONFIG_DIR="/etc/nanobk"
 
-# Derived paths
+# Derived paths (set in parse_args)
 NANOBK_SECRETS_FILE=""
 NANOBK_PROFILE_FILE=""
 NANOBK_PROFILE_INITIAL=""
 NANOBK_CONFIG_ENV_FILE=""
+NANOBK_CERTS_DIR=""
+NANOBK_SYSTEMD_DIR=""
 
-# Service config paths
+# Service config paths (set in derive_paths)
 HY2_CONFIG=""
 TUIC_CONFIG=""
 REALITY_CONFIG=""
@@ -63,13 +73,19 @@ TROJAN_CONFIG=""
 
 show_help() {
   cat <<'EOF'
-NanoBK Proxy Suite — VPS Installer v0.2
+NanoBK Proxy Suite — VPS Installer v0.2.1
 
 Usage:
   sudo bash installer/install-vps.sh [OPTIONS]
 
+Modes:
+  (default)      Full installation on Linux VPS (requires root + systemd)
+  --dry-run      Print actions without modifying the system
+  --render-only  Render configs to --config-dir only, no system changes needed
+
 Options:
   --dry-run                   Print actions without modifying the system
+  --render-only               Render all configs to config-dir, no system changes
   --yes                       Non-interactive mode (accept defaults)
   --domain DOMAIN             Domain for HY2/TUIC/Trojan (required for TLS)
   --reality-servername NAME   Reality camouflage SNI (default: www.microsoft.com)
@@ -97,18 +113,44 @@ Examples:
     --cert-file /etc/letsencrypt/live/proxy.example.com/fullchain.pem \
     --key-file /etc/letsencrypt/live/proxy.example.com/privkey.pem
 
+  # Render-only test (safe, no system changes)
+  bash installer/install-vps.sh --render-only --yes \
+    --config-dir /tmp/nanobk-test/etc/nanobk \
+    --domain proxy.example.com \
+    --vps-ip 198.51.100.10 \
+    --cert-mode self-signed
+
   # Dry-run to preview actions
   sudo bash installer/install-vps.sh --dry-run \
     --domain proxy.example.com \
     --cert-mode self-signed
-
-  # Test with custom directories (no root needed)
-  bash installer/install-vps.sh --dry-run \
-    --install-dir /tmp/nanobk-test/opt \
-    --config-dir /tmp/nanobk-test/etc \
-    --domain proxy.example.com \
-    --cert-mode self-signed --yes
 EOF
+}
+
+# ── Path derivation ─────────────────────────────────────────────────────────
+
+derive_paths() {
+  NANOBK_SECRETS_FILE="${NANOBK_CONFIG_DIR}/secrets.private.env"
+  NANOBK_PROFILE_FILE="${NANOBK_CONFIG_DIR}/profile.current.json"
+  NANOBK_PROFILE_INITIAL="${NANOBK_CONFIG_DIR}/profile.initial.json"
+  NANOBK_CONFIG_ENV_FILE="${NANOBK_CONFIG_DIR}/config.env"
+  NANOBK_CERTS_DIR="${NANOBK_CONFIG_DIR}/certs"
+
+  if [[ "$NANOBK_RENDER_ONLY" == "1" ]]; then
+    # Render-only: all generated configs go inside config-dir
+    NANOBK_SYSTEMD_DIR="${NANOBK_CONFIG_DIR}/systemd"
+    HY2_CONFIG="${NANOBK_CONFIG_DIR}/generated/hysteria/config.yaml"
+    TUIC_CONFIG="${NANOBK_CONFIG_DIR}/generated/proxy-stack/tuic-v5-9443/config.json"
+    REALITY_CONFIG="${NANOBK_CONFIG_DIR}/generated/proxy-stack/xray-reality-8443/config.json"
+    TROJAN_CONFIG="${NANOBK_CONFIG_DIR}/generated/proxy-stack/xray-trojan-2443/config.json"
+  else
+    # Production: real system paths
+    NANOBK_SYSTEMD_DIR="/etc/systemd/system"
+    HY2_CONFIG="/etc/hysteria/config.yaml"
+    TUIC_CONFIG="/etc/proxy-stack/tuic-v5-9443/config.json"
+    REALITY_CONFIG="/etc/proxy-stack/xray-reality-8443/config.json"
+    TROJAN_CONFIG="/etc/proxy-stack/xray-trojan-2443/config.json"
+  fi
 }
 
 # ── Argument parsing ────────────────────────────────────────────────────────
@@ -117,6 +159,7 @@ parse_args() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --dry-run)          NANOBK_DRY_RUN=1 ;;
+      --render-only)      NANOBK_RENDER_ONLY=1 ;;
       --yes)              NANOBK_YES=1 ;;
       --domain)           NANOBK_DOMAIN="$2"; shift ;;
       --reality-servername) NANOBK_REALITY_SERVERNAME="$2"; shift ;;
@@ -141,40 +184,49 @@ parse_args() {
     *) die "Invalid --cert-mode: ${NANOBK_CERT_MODE}. Must be: existing, self-signed, none" ;;
   esac
 
-  # Derive paths
-  NANOBK_SECRETS_FILE="${NANOBK_CONFIG_DIR}/secrets.private.env"
-  NANOBK_PROFILE_FILE="${NANOBK_CONFIG_DIR}/profile.current.json"
-  NANOBK_PROFILE_INITIAL="${NANOBK_CONFIG_DIR}/profile.initial.json"
-  NANOBK_CONFIG_ENV_FILE="${NANOBK_CONFIG_DIR}/config.env"
+  derive_paths
+}
 
-  HY2_CONFIG="${NANOBK_CONFIG_DIR}/hysteria/config.yaml"
-  TUIC_CONFIG="${NANOBK_CONFIG_DIR}/tuic-v5-9443/config.json"
-  REALITY_CONFIG="${NANOBK_CONFIG_DIR}/xray-reality-8443/config.json"
-  TROJAN_CONFIG="${NANOBK_CONFIG_DIR}/xray-trojan-2443/config.json"
+# ── Platform safety guard ───────────────────────────────────────────────────
+
+check_platform_safety() {
+  # render-only and dry-run can run anywhere
+  if [[ "$NANOBK_RENDER_ONLY" == "1" ]] || [[ "$NANOBK_DRY_RUN" == "1" ]]; then
+    return 0
+  fi
+
+  # Full install requires Linux
+  if [[ "$(uname -s)" != "Linux" ]]; then
+    die "NanoBK VPS installer only supports Linux VPS. Use --render-only for local test."
+  fi
+
+  # Full install requires systemd
+  if ! command -v systemctl &>/dev/null; then
+    die "systemctl not found. This installer requires systemd. Use --render-only for local test."
+  fi
 }
 
 # ── Confirmation ────────────────────────────────────────────────────────────
 
 confirm_install() {
+  local mode_label="PRODUCTION"
+  [[ "$NANOBK_DRY_RUN" == "1" ]] && mode_label="DRY-RUN"
+  [[ "$NANOBK_RENDER_ONLY" == "1" ]] && mode_label="RENDER-ONLY"
+
   echo ""
   echo "╔══════════════════════════════════════════════════════════╗"
-  echo "║          NanoBK Proxy Suite — VPS Installer             ║"
+  echo "║    NanoBK VPS Installer — ${mode_label}                "
   echo "╚══════════════════════════════════════════════════════════╝"
   echo ""
   echo "  Domain:          ${NANOBK_DOMAIN:-<not set>}"
   echo "  VPS IP:          ${NANOBK_VPS_IP:-<auto-detect>}"
   echo "  Reality SNI:     ${NANOBK_REALITY_SERVERNAME}"
   echo "  Cert mode:       ${NANOBK_CERT_MODE}"
-  echo "  Cert file:       ${NANOBK_CERT_FILE:-<none>}"
-  echo "  Key file:        ${NANOBK_KEY_FILE:-<none>}"
   echo "  Config dir:      ${NANOBK_CONFIG_DIR}"
   echo "  Install dir:     ${NANOBK_INSTALL_DIR}"
-  echo "  Open firewall:   $([ "$NANOBK_OPEN_FIREWALL" == "1" ] && echo "yes" || echo "no")"
-  echo "  Force overwrite: $([ "$NANOBK_FORCE" == "1" ] && echo "yes" || echo "no")"
-  echo "  Dry-run:         $([ "$NANOBK_DRY_RUN" == "1" ] && echo "yes" || echo "no")"
   echo ""
 
-  confirm_or_die "Proceed with installation?"
+  confirm_or_die "Proceed?"
 }
 
 # ── Certificate validation ──────────────────────────────────────────────────
@@ -195,9 +247,9 @@ validate_cert_inputs() {
       ;;
     self-signed)
       warn "Certificate mode: self-signed (NOT recommended for production)"
-      warn "Clients will need to enable skip-cert-verify."
-      NANOBK_CERT_FILE="${NANOBK_CONFIG_DIR}/tls/selfsigned.pem"
-      NANOBK_KEY_FILE="${NANOBK_CONFIG_DIR}/tls/selfsigned-key.pem"
+      warn "Self-signed cert is for testing only. Some clients may reject it unless skip-cert-verify is enabled."
+      NANOBK_CERT_FILE="${NANOBK_CERTS_DIR}/selfsigned.fullchain.pem"
+      NANOBK_KEY_FILE="${NANOBK_CERTS_DIR}/selfsigned.privkey.pem"
       ;;
     none)
       warn "Certificate mode: none"
@@ -218,21 +270,31 @@ generate_self_signed_cert() {
 
   require_var "NANOBK_DOMAIN" "$NANOBK_DOMAIN"
 
-  local cert_dir="${NANOBK_CONFIG_DIR}/tls"
-  ensure_dir "$cert_dir"
+  ensure_dir "$NANOBK_CERTS_DIR"
 
   if [[ -f "$NANOBK_CERT_FILE" ]] && [[ -f "$NANOBK_KEY_FILE" ]] && [[ "$NANOBK_FORCE" != "1" ]]; then
     ok "Self-signed certificate already exists"
     return 0
   fi
 
-  run_cmd "Generate self-signed certificate" \
-    openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 \
+  if [[ "$NANOBK_DRY_RUN" == "1" ]]; then
+    echo -e "  ${CYAN}[DRY-RUN]${NC} Generate self-signed certificate"
+    echo -e "  ${CYAN}  cert:${NC} ${NANOBK_CERT_FILE}"
+    echo -e "  ${CYAN}  key:${NC}  ${NANOBK_KEY_FILE}"
+    return 0
+  fi
+
+  log "Generating self-signed certificate..."
+  openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 \
     -keyout "$NANOBK_KEY_FILE" \
     -out "$NANOBK_CERT_FILE" \
     -days 3650 -nodes \
     -subj "/CN=${NANOBK_DOMAIN}" \
-    -addext "subjectAltName=DNS:${NANOBK_DOMAIN},IP:${NANOBK_VPS_IP:-127.0.0.1}"
+    -addext "subjectAltName=DNS:${NANOBK_DOMAIN},IP:${NANOBK_VPS_IP:-127.0.0.1}" \
+    2>/dev/null
+
+  ok "Self-signed certificate generated"
+  warn "Self-signed cert is for testing only. Some clients may reject it unless skip-cert-verify is enabled."
 }
 
 # ── Config rendering ────────────────────────────────────────────────────────
@@ -242,14 +304,12 @@ render_configs() {
 
   local tpl_dir="${REPO_DIR}/vps/templates"
 
-  # Read templates
   local hy2_tpl tuic_tpl reality_tpl trojan_tpl
   hy2_tpl=$(cat "${tpl_dir}/hysteria2.config.yaml.tpl")
   tuic_tpl=$(cat "${tpl_dir}/tuic-v5.config.json.tpl")
   reality_tpl=$(cat "${tpl_dir}/xray-reality.config.json.tpl")
   trojan_tpl=$(cat "${tpl_dir}/xray-trojan.config.json.tpl")
 
-  # Render HY2
   local hy2_content
   hy2_content=$(render_template "$hy2_tpl" \
     "HY2_PORT=443" \
@@ -258,7 +318,6 @@ render_configs() {
     "HY2_PASSWORD=${HY2_PASSWORD}")
   write_file "$HY2_CONFIG" 600 "$hy2_content"
 
-  # Render TUIC
   local tuic_content
   tuic_content=$(render_template "$tuic_tpl" \
     "TUIC_PORT=9443" \
@@ -268,10 +327,7 @@ render_configs() {
     "TUIC_PASSWORD=${TUIC_PASSWORD}")
   write_file "$TUIC_CONFIG" 600 "$tuic_content"
 
-  # Reality dest: servername:443
   local reality_dest="${NANOBK_REALITY_SERVERNAME}:443"
-
-  # Render Reality
   local reality_content
   reality_content=$(render_template "$reality_tpl" \
     "REALITY_PORT=8443" \
@@ -282,7 +338,6 @@ render_configs() {
     "REALITY_SHORT_ID=${REALITY_SHORT_ID}")
   write_file "$REALITY_CONFIG" 600 "$reality_content"
 
-  # Render Trojan
   local trojan_content
   trojan_content=$(render_template "$trojan_tpl" \
     "TROJAN_PORT=2443" \
@@ -316,11 +371,13 @@ render_systemd_units() {
     local rendered
     rendered=$(render_template "$tpl_content" "${kv_key}=${kv_val}")
 
-    local svc_path="/etc/systemd/system/${svc_name}"
+    local svc_path="${NANOBK_SYSTEMD_DIR}/${svc_name}"
     write_file "$svc_path" 644 "$rendered"
   done
 
-  run_cmd "Reload systemd daemon" systemctl daemon-reload
+  if [[ "$NANOBK_RENDER_ONLY" != "1" ]]; then
+    run_cmd "Reload systemd daemon" systemctl daemon-reload
+  fi
 }
 
 # ── Config env file ────────────────────────────────────────────────────────
@@ -362,9 +419,14 @@ EOF
   write_file "$NANOBK_CONFIG_ENV_FILE" 600 "$content"
 }
 
-# ── Service management ──────────────────────────────────────────────────────
+# ── Service management (production only) ────────────────────────────────────
 
 enable_and_start_services() {
+  if [[ "$NANOBK_RENDER_ONLY" == "1" ]]; then
+    log "Skipping service start (render-only mode)"
+    return 0
+  fi
+
   log "Enabling and starting services..."
 
   local services=(
@@ -393,10 +455,10 @@ enable_and_start_services() {
   fi
 }
 
-# ── Firewall ────────────────────────────────────────────────────────────────
+# ── Firewall (production only) ──────────────────────────────────────────────
 
 open_firewall() {
-  if [[ "$NANOBK_OPEN_FIREWALL" != "1" ]]; then
+  if [[ "$NANOBK_OPEN_FIREWALL" != "1" ]] || [[ "$NANOBK_RENDER_ONLY" == "1" ]]; then
     return 0
   fi
 
@@ -418,32 +480,87 @@ open_firewall() {
   fi
 }
 
+# ── Placeholder residue check ───────────────────────────────────────────────
+
+check_placeholder_residue() {
+  if [[ "$NANOBK_DRY_RUN" == "1" ]]; then
+    return 0
+  fi
+
+  log "Checking for unreplaced placeholders..."
+
+  local check_dirs=(
+    "${NANOBK_CONFIG_DIR}/generated"
+    "${NANOBK_CONFIG_DIR}/systemd"
+    "${NANOBK_CONFIG_DIR}/certs"
+  )
+
+  local found=0
+  for dir in "${check_dirs[@]}"; do
+    if [[ -d "$dir" ]]; then
+      if grep -R '__[A-Z0-9_]\+__' "$dir" 2>/dev/null; then
+        found=1
+      fi
+    fi
+  done
+
+  # Also check top-level config files
+  for f in "$NANOBK_CONFIG_ENV_FILE" "$NANOBK_SECRETS_FILE" "$NANOBK_PROFILE_FILE"; do
+    if [[ -f "$f" ]]; then
+      if grep -q '__[A-Z0-9_]\+__' "$f" 2>/dev/null; then
+        err "Placeholder residue in: $f"
+        found=1
+      fi
+    fi
+  done
+
+  if [[ $found -eq 1 ]]; then
+    die "Unreplaced placeholders found in generated files"
+  fi
+  ok "No unreplaced placeholders"
+}
+
 # ── Print next steps ────────────────────────────────────────────────────────
 
 print_next_steps() {
   echo ""
   echo "╔══════════════════════════════════════════════════════════╗"
-  echo "║          NanoBK VPS Install Completed                   ║"
+  if [[ "$NANOBK_RENDER_ONLY" == "1" ]]; then
+    echo "║          NanoBK Render Complete                         ║"
+  else
+    echo "║          NanoBK VPS Install Completed                   ║"
+  fi
   echo "╚══════════════════════════════════════════════════════════╝"
   echo ""
   echo "  Generated profile: ${NANOBK_PROFILE_FILE}"
-  echo ""
-  echo "  Next steps:"
-  echo "    1. Deploy nanok Worker on Cloudflare."
-  echo "    2. Upload profile.current.json into KV key profile:main."
-  echo "    3. Set SUB_TOKEN and ADMIN_TOKEN secrets."
-  echo "    4. Import subscription URL into Clash/Mihomo."
-  echo "    5. Optional: configure nanob and edgetunnel backup."
+
+  if [[ "$NANOBK_RENDER_ONLY" == "1" ]]; then
+    echo ""
+    echo "  Render-only mode: all files written to ${NANOBK_CONFIG_DIR}"
+    echo "  No system services were started."
+    echo ""
+    echo "  To validate:"
+    echo "    bash vps/scripts/healthcheck.sh --config-dir ${NANOBK_CONFIG_DIR} --skip-services --skip-ports"
+  else
+    echo ""
+    echo "  Next steps:"
+    echo "    1. Deploy nanok Worker on Cloudflare."
+    echo "    2. Upload profile.current.json into KV key profile:main."
+    echo "    3. Set SUB_TOKEN and ADMIN_TOKEN secrets."
+    echo "    4. Import subscription URL into Clash/Mihomo."
+    echo "    5. Optional: configure nanob and edgetunnel backup."
+    echo ""
+    echo "  To rotate keys later:"
+    echo "    bash ${NANOBK_INSTALL_DIR}/bin/rotate-keys.sh"
+    echo ""
+    echo "  To check health:"
+    echo "    bash ${NANOBK_INSTALL_DIR}/bin/healthcheck.sh"
+  fi
+
   echo ""
   echo "  Full secrets are stored locally:"
   echo "    ${NANOBK_SECRETS_FILE}"
   echo "  Never commit this file."
-  echo ""
-  echo "  To rotate keys later:"
-  echo "    bash ${NANOBK_INSTALL_DIR}/bin/rotate-keys.sh"
-  echo ""
-  echo "  To check health:"
-  echo "    bash ${NANOBK_INSTALL_DIR}/bin/healthcheck.sh"
   echo ""
 }
 
@@ -451,90 +568,134 @@ print_next_steps() {
 
 main() {
   parse_args "$@"
-
-  if [[ "$NANOBK_DRY_RUN" == "1" ]]; then
-    echo ""
-    echo "╔══════════════════════════════════════════════════════════╗"
-    echo "║    NanoBK VPS Installer — DRY-RUN MODE                  ║"
-    echo "╚══════════════════════════════════════════════════════════╝"
-    echo ""
-  fi
-
-  # Phase 1: Environment
-  detect_os
-  ensure_root_or_dry_run
-  ensure_systemd
+  check_platform_safety
   confirm_install
 
-  # Phase 2: Dependencies
-  install_dependencies
+  if [[ "$NANOBK_RENDER_ONLY" == "1" ]]; then
+    # ── Render-only mode: skip system operations ──
 
-  # Phase 3: Binaries
-  install_all_binaries
+    # Generate credentials
+    generate_all_credentials
 
-  # Phase 4: Network detection
-  if [[ -z "$NANOBK_VPS_IP" ]]; then
-    log "Detecting public IP..."
-    NANOBK_VPS_IP=$(detect_public_ip) || warn "Could not auto-detect VPS IP. Use --vps-ip."
+    # Create directories
+    ensure_dir "$NANOBK_CONFIG_DIR"
+    ensure_dir "$NANOBK_CERTS_DIR"
+    ensure_dir "$(dirname "$HY2_CONFIG")"
+    ensure_dir "$(dirname "$TUIC_CONFIG")"
+    ensure_dir "$(dirname "$REALITY_CONFIG")"
+    ensure_dir "$(dirname "$TROJAN_CONFIG")"
+    ensure_dir "$NANOBK_SYSTEMD_DIR"
+
+    # Certificates
+    validate_cert_inputs
+    generate_self_signed_cert
+
+    # Render configs
+    render_configs
+    render_systemd_units
+    write_config_env
+
+    # Secrets
+    write_file "$NANOBK_SECRETS_FILE" 600 "$(generate_secrets_env)"
+
+    # Profile JSON
+    local profile_json
+    profile_json=$(generate_profile_json \
+      "$NANOBK_DOMAIN" \
+      "${NANOBK_VPS_IP:-0.0.0.0}" \
+      "${NANOBK_GEO_LABEL:-UN}" \
+      "$NANOBK_REALITY_SERVERNAME")
+
+    write_file "$NANOBK_PROFILE_FILE" 644 "$profile_json"
+    write_file "$NANOBK_PROFILE_INITIAL" 644 "$profile_json"
+
+    # Validate
+    check_placeholder_residue
+
+    if command -v jq &>/dev/null; then
+      jq -e 'has("hy2") and has("tuic") and has("reality") and has("trojan")' \
+        "$NANOBK_PROFILE_FILE" >/dev/null || die "Profile JSON validation failed"
+      ok "Profile JSON validated"
+    fi
+
+  else
+    # ── Production / dry-run mode ──
+
+    # Phase 1: Environment
+    detect_os
+    ensure_root_or_dry_run
+    ensure_systemd
+
+    # Phase 2: Dependencies
+    install_dependencies
+
+    # Phase 3: Binaries
+    install_all_binaries
+
+    # Phase 4: Network detection
+    if [[ -z "$NANOBK_VPS_IP" ]]; then
+      log "Detecting public IP..."
+      NANOBK_VPS_IP=$(detect_public_ip) || warn "Could not auto-detect VPS IP. Use --vps-ip."
+    fi
+    if [[ -n "$NANOBK_VPS_IP" ]]; then
+      ok "VPS IP: ${NANOBK_VPS_IP}"
+    fi
+
+    log "Resolving geo label..."
+    NANOBK_GEO_LABEL=$(resolve_geo_label "$NANOBK_VPS_IP")
+    ok "Geo label: ${NANOBK_GEO_LABEL}"
+
+    # Phase 5: Certificates
+    validate_cert_inputs
+    generate_self_signed_cert
+
+    # Phase 6: Credentials
+    generate_all_credentials
+
+    # Phase 7: Config files
+    ensure_dir "$NANOBK_CONFIG_DIR"
+    ensure_dir "${NANOBK_INSTALL_DIR}/bin"
+    ensure_dir "${NANOBK_INSTALL_DIR}/backups"
+    ensure_dir "${NANOBK_INSTALL_DIR}/logs"
+
+    render_configs
+    render_systemd_units
+    write_config_env
+
+    # Phase 8: Secrets
+    write_file "$NANOBK_SECRETS_FILE" 600 "$(generate_secrets_env)"
+
+    # Phase 9: Profile JSON
+    local profile_json
+    profile_json=$(generate_profile_json \
+      "$NANOBK_DOMAIN" \
+      "$NANOBK_VPS_IP" \
+      "${NANOBK_GEO_LABEL:-UN}" \
+      "$NANOBK_REALITY_SERVERNAME")
+
+    write_file "$NANOBK_PROFILE_FILE" 644 "$profile_json"
+    write_file "$NANOBK_PROFILE_INITIAL" 644 "$profile_json"
+
+    # Validate profile
+    if [[ "$NANOBK_DRY_RUN" != "1" ]]; then
+      check_placeholder_residue
+      jq -e 'has("hy2") and has("tuic") and has("reality") and has("trojan")' \
+        "$NANOBK_PROFILE_FILE" >/dev/null || die "Profile JSON validation failed"
+      ok "Profile JSON validated"
+    fi
+
+    # Phase 10: Services
+    enable_and_start_services
+    open_firewall
+
+    # Phase 11: Install management scripts
+    run_cmd "Copy healthcheck.sh" cp "${REPO_DIR}/vps/scripts/healthcheck.sh" "${NANOBK_INSTALL_DIR}/bin/healthcheck.sh"
+    run_cmd "Copy rotate-keys.sh" cp "${REPO_DIR}/vps/scripts/rotate-keys.sh" "${NANOBK_INSTALL_DIR}/bin/rotate-keys.sh"
+    if [[ "$NANOBK_DRY_RUN" != "1" ]]; then
+      chmod +x "${NANOBK_INSTALL_DIR}/bin/"*.sh 2>/dev/null || true
+    fi
   fi
-  if [[ -n "$NANOBK_VPS_IP" ]]; then
-    ok "VPS IP: ${NANOBK_VPS_IP}"
-  fi
 
-  log "Resolving geo label..."
-  NANOBK_GEO_LABEL=$(resolve_geo_label "$NANOBK_VPS_IP")
-  ok "Geo label: ${NANOBK_GEO_LABEL}"
-
-  # Phase 5: Certificates
-  validate_cert_inputs
-  generate_self_signed_cert
-
-  # Phase 6: Credentials
-  generate_all_credentials
-
-  # Phase 7: Config files
-  ensure_dir "$NANOBK_CONFIG_DIR"
-  ensure_dir "${NANOBK_INSTALL_DIR}/bin"
-  ensure_dir "${NANOBK_INSTALL_DIR}/backups"
-  ensure_dir "${NANOBK_INSTALL_DIR}/logs"
-
-  render_configs
-  render_systemd_units
-  write_config_env
-
-  # Phase 8: Secrets
-  write_file "$NANOBK_SECRETS_FILE" 600 "$(generate_secrets_env)"
-
-  # Phase 9: Profile JSON
-  local profile_json
-  profile_json=$(generate_profile_json \
-    "$NANOBK_DOMAIN" \
-    "$NANOBK_VPS_IP" \
-    "$NANOBK_GEO_LABEL" \
-    "$NANOBK_REALITY_SERVERNAME")
-
-  write_file "$NANOBK_PROFILE_FILE" 644 "$profile_json"
-  write_file "$NANOBK_PROFILE_INITIAL" 644 "$profile_json"
-
-  # Validate profile
-  if [[ "$NANOBK_DRY_RUN" != "1" ]]; then
-    jq -e 'has("hy2") and has("tuic") and has("reality") and has("trojan")' \
-      "$NANOBK_PROFILE_FILE" >/dev/null || die "Profile JSON validation failed"
-    ok "Profile JSON validated"
-  fi
-
-  # Phase 10: Services
-  enable_and_start_services
-  open_firewall
-
-  # Phase 11: Install management scripts
-  run_cmd "Copy healthcheck.sh" cp "${REPO_DIR}/vps/scripts/healthcheck.sh" "${NANOBK_INSTALL_DIR}/bin/healthcheck.sh"
-  run_cmd "Copy rotate-keys.sh" cp "${REPO_DIR}/vps/scripts/rotate-keys.sh" "${NANOBK_INSTALL_DIR}/bin/rotate-keys.sh"
-  if [[ "$NANOBK_DRY_RUN" != "1" ]]; then
-    chmod +x "${NANOBK_INSTALL_DIR}/bin/"*.sh 2>/dev/null || true
-  fi
-
-  # Done
   print_next_steps
 }
 

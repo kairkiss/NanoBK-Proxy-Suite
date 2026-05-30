@@ -113,6 +113,8 @@ bash /root/rotate-proxy-keys.sh
 │   └── shared/
 │       ├── yaml-safe.js           # YAML 安全工具
 │       └── geo.js                 # Geo 识别模块
+├── tests/
+│   └── render-install-vps.sh      # 集成测试（render-only 模式）
 ├── examples/
 │   ├── profile.example.json       # KV profile 示例
 │   ├── env.vps.example            # VPS 环境变量示例

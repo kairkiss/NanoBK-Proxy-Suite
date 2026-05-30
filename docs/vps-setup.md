@@ -43,6 +43,39 @@ sudo bash installer/install-vps.sh --dry-run \
   --cert-mode self-signed
 ```
 
+## Render-Only Mode (Testing / Validation)
+
+Render all configs to a local directory without any system changes:
+
+```bash
+bash installer/install-vps.sh --render-only --yes \
+  --config-dir /tmp/nanobk-test/etc/nanobk \
+  --domain proxy.example.com \
+  --vps-ip 198.51.100.10 \
+  --cert-mode self-signed
+```
+
+This mode:
+- Generates all config files, systemd units, profile JSON, and secrets
+- Writes everything to `--config-dir` (no `/etc`, `/opt`, or `/usr/local` changes)
+- Does not require root
+- Works on macOS and Linux
+- Uses placeholder Reality keypair if xray is not installed
+
+Run the integration test:
+
+```bash
+bash tests/render-install-vps.sh
+```
+
+Validate rendered output:
+
+```bash
+bash vps/scripts/healthcheck.sh \
+  --config-dir /tmp/nanobk-test/etc/nanobk \
+  --skip-services --skip-ports
+```
+
 ## Certificate Modes
 
 ### `existing` (recommended for production)
