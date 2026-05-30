@@ -29,11 +29,16 @@ After cloning, you can use the unified CLI:
 
 ```bash
 bash bin/nanobk status          # Show config and service status
+bash bin/nanobk --json status   # JSON output for Bot/Panel integration
 bash bin/nanobk doctor          # Run environment diagnostics
 bash bin/nanobk install         # Launch interactive installer
 bash bin/nanobk cf deploy       # Deploy Cloudflare Workers
 bash bin/nanobk rotate all      # Rotate all keys
 bash bin/nanobk test            # Run local tests
+
+# --dry-run can be global or command-level:
+bash bin/nanobk --dry-run test
+bash bin/nanobk test --dry-run
 ```
 
 Optional: install to PATH for shorter commands:

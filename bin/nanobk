@@ -17,7 +17,7 @@ set -Eeuo pipefail
 
 # ── Version ─────────────────────────────────────────────────────────────────
 
-NANOBK_VERSION="0.7.0"
+NANOBK_VERSION="0.7.1"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -42,10 +42,35 @@ JSON_OUT=0
 REPO_DIR=""
 CONFIG_DIR="/etc/nanobk"
 
+# ── JSON helpers ────────────────────────────────────────────────────────────
+
+# Escape a string for safe JSON embedding.
+json_escape() {
+  local input="$1"
+  if command -v python3 &>/dev/null; then
+    printf '%s' "$input" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()), end="")'
+  else
+    # Fallback: escape backslash, double-quote, tab, newline, carriage return
+    local result="$input"
+    result="${result//\\/\\\\}"
+    result="${result//\"/\\\"}"
+    result="${result//$'\t'/\\t}"
+    result="${result//$'\n'/\\n}"
+    result="${result//$'\r'/\\r}"
+    printf '"%s"' "$result"
+  fi
+}
+
+# Print a JSON string field: "key": "escaped_value"
+json_field() {
+  local key="$1"
+  local value="$2"
+  printf '    "%s": %s' "$key" "$(json_escape "$value")"
+}
+
 # ── Repo resolution ─────────────────────────────────────────────────────────
 
 resolve_repo_dir() {
-  # Priority: --repo-dir > NANOBK_REPO_DIR > config.env > defaults
   if [[ -n "$REPO_DIR" ]]; then
     return
   fi
@@ -55,7 +80,6 @@ resolve_repo_dir() {
     return
   fi
 
-  # Try config.env
   local config_file="${CONFIG_DIR}/config.env"
   if [[ -f "$config_file" ]]; then
     local repo_from_config
@@ -66,7 +90,6 @@ resolve_repo_dir() {
     fi
   fi
 
-  # Default locations
   for candidate in "/opt/NanoBK-Proxy-Suite" "${HOME}/NanoBK-Proxy-Suite"; do
     if [[ -d "$candidate" ]] && [[ -f "$candidate/installer/install.sh" ]]; then
       REPO_DIR="$candidate"
@@ -74,7 +97,6 @@ resolve_repo_dir() {
     fi
   done
 
-  # If running from repo (bin/nanobk → repo root)
   local script_dir
   script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
   if [[ -f "${script_dir}/../installer/install.sh" ]]; then
@@ -133,13 +155,19 @@ NanoBK Proxy Suite — Unified CLI v${NANOBK_VERSION}
   --version          显示版本
 
 命令:
-  status             显示当前配置和服务状态
-  doctor             运行环境诊断
-  install [args...]  启动交互式安装器
-  cf deploy [args.]  部署 Cloudflare Workers
-  rotate all [args.] 一键换密钥
-  test [--all]       运行本地测试
-  version            显示版本
+  status [--config-dir PATH]  显示当前配置和服务状态
+  doctor                      运行环境诊断
+  install [args...]           启动交互式安装器
+  cf deploy [args...]         部署 Cloudflare Workers
+  rotate all [args...]        一键换密钥
+  test [--all]                运行本地测试
+  version                     显示版本
+
+--dry-run 可以放在全局位置或命令后:
+  nanobk --dry-run test
+  nanobk test --dry-run
+  nanobk --dry-run doctor
+  nanobk doctor --dry-run
 
 示例:
   nanobk status
@@ -167,10 +195,10 @@ EOF
 
 cmd_status() {
   local config_dir="$CONFIG_DIR"
-  # Parse --config-dir for status command
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --config-dir) config_dir="$2"; shift ;;
+      --dry-run) ;; # accepted, no-op for status
       *) die "Unknown status option: $1" ;;
     esac
     shift
@@ -182,13 +210,14 @@ cmd_status() {
 
   # Load config
   local domain="" vps_ip="" geo="" reality_sname=""
-  local hy2_config="" tuic_config="" reality_config="" trojan_config=""
   local hy2_service="hysteria-server.service"
   local tuic_service="tuic-v5-9443.service"
   local reality_service="xray-reality-8443.service"
   local trojan_service="xray-trojan-2443.service"
 
+  local config_exists=0
   if [[ -f "$config_file" ]]; then
+    config_exists=1
     # shellcheck source=/dev/null
     source "$config_file"
     domain="${NANOBK_DOMAIN:-}"
@@ -233,37 +262,70 @@ cmd_status() {
     secrets_mode=$(stat -c '%a' "$secrets_file" 2>/dev/null || stat -f '%Lp' "$secrets_file" 2>/dev/null || echo "unknown")
   fi
 
+  # Compute ok and warnings
+  local status_ok="true"
+  local warnings=()
+
+  if [[ "$config_exists" != "1" ]]; then
+    status_ok="false"
+    warnings+=("config.env missing")
+  fi
+  if [[ "$profile_exists" != "1" ]]; then
+    status_ok="false"
+    warnings+=("profile.current.json missing")
+  elif [[ "$has_hy2" != "1" || "$has_tuic" != "1" || "$has_reality" != "1" || "$has_trojan" != "1" ]]; then
+    status_ok="false"
+    warnings+=("profile incomplete (missing protocol sections)")
+  fi
+  if [[ "$secrets_exists" == "1" && "$secrets_mode" != "600" ]]; then
+    warnings+=("secrets.private.env mode ${secrets_mode} (should be 600)")
+  fi
+
   # Output
   if [[ "$JSON_OUT" == "1" ]]; then
     local secrets_mode_ok="true"
     [[ "$secrets_mode" != "600" ]] && secrets_mode_ok="false"
 
+    # Build warnings JSON array
+    local warnings_json="["
+    local first=1
+    for w in "${warnings[@]}"; do
+      if [[ $first -eq 1 ]]; then
+        first=0
+      else
+        warnings_json+=","
+      fi
+      warnings_json+="$(json_escape "$w")"
+    done
+    warnings_json+="]"
+
     cat <<EOF
 {
-  "ok": true,
-  "configDir": "${config_dir}",
-  "domain": "${domain}",
-  "vpsIp": "${vps_ip}",
-  "geo": "${geo}",
+  "ok": ${status_ok},
+  "configDir": $(json_escape "${config_dir}"),
+  "domain": $(json_escape "${domain}"),
+  "vpsIp": $(json_escape "${vps_ip}"),
+  "geo": $(json_escape "${geo}"),
   "profile": {
     "exists": $([ "$profile_exists" == "1" ] && echo "true" || echo "false"),
-    "updatedAt": "${profile_updated}",
+    "updatedAt": $(json_escape "${profile_updated}"),
     "hy2": $([ "$has_hy2" == "1" ] && echo "true" || echo "false"),
     "tuic": $([ "$has_tuic" == "1" ] && echo "true" || echo "false"),
     "reality": $([ "$has_reality" == "1" ] && echo "true" || echo "false"),
     "trojan": $([ "$has_trojan" == "1" ] && echo "true" || echo "false")
   },
   "services": {
-    "hy2": "${svc_hy2}",
-    "tuic": "${svc_tuic}",
-    "reality": "${svc_reality}",
-    "trojan": "${svc_trojan}"
+    "hy2": $(json_escape "${svc_hy2}"),
+    "tuic": $(json_escape "${svc_tuic}"),
+    "reality": $(json_escape "${svc_reality}"),
+    "trojan": $(json_escape "${svc_trojan}")
   },
   "security": {
     "secretsExists": $([ "$secrets_exists" == "1" ] && echo "true" || echo "false"),
-    "secretsMode": "${secrets_mode}",
+    "secretsMode": $(json_escape "${secrets_mode}"),
     "secretsModeOk": ${secrets_mode_ok}
-  }
+  },
+  "warnings": ${warnings_json}
 }
 EOF
   else
@@ -301,6 +363,13 @@ EOF
     else
       echo "    secrets.private.env: missing"
     fi
+    if [[ ${#warnings[@]} -gt 0 ]]; then
+      echo ""
+      echo "  Warnings:"
+      for w in "${warnings[@]}"; do
+        echo "    - ${w}"
+      done
+    fi
     echo ""
   fi
 }
@@ -308,15 +377,23 @@ EOF
 # ── doctor ──────────────────────────────────────────────────────────────────
 
 cmd_doctor() {
+  # Parse command-level flags
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --dry-run) DRY_RUN=1 ;;
+      --json)    JSON_OUT=1 ;;
+      *) die "Unknown doctor option: $1" ;;
+    esac
+    shift
+  done
+
   if [[ "$JSON_OUT" == "1" ]]; then
     echo '{"ok":true,"command":"doctor","note":"JSON doctor output is planned for v1.x; raw output is text-only in v0.7"}'
     echo ""
   fi
   run_script "运行环境诊断" bash "$REPO_DIR/installer/doctor.sh" || {
     local exit_code=$?
-    if [[ $exit_code -ne 0 ]]; then
-      warn "doctor 退出码: ${exit_code}（有错误或警告）"
-    fi
+    warn "doctor 退出码: ${exit_code}（有错误或警告）"
     return $exit_code
   }
 }
@@ -324,8 +401,13 @@ cmd_doctor() {
 # ── install ─────────────────────────────────────────────────────────────────
 
 cmd_install() {
+  # Build command, avoid duplicate --dry-run
   local cmd=(bash "$REPO_DIR/installer/install.sh" --repo-dir "$REPO_DIR")
-  [[ "$DRY_RUN" == "1" ]] && cmd+=(--dry-run)
+  local has_dry_run=0
+  for arg in "$@"; do
+    [[ "$arg" == "--dry-run" ]] && has_dry_run=1
+  done
+  [[ "$DRY_RUN" == "1" && "$has_dry_run" == "0" ]] && cmd+=(--dry-run)
   cmd+=("$@")
 
   run_script "启动安装器" "${cmd[@]}"
@@ -335,7 +417,11 @@ cmd_install() {
 
 cmd_cf_deploy() {
   local cmd=(bash "$REPO_DIR/installer/install-cloudflare.sh")
-  [[ "$DRY_RUN" == "1" ]] && cmd+=(--dry-run)
+  local has_dry_run=0
+  for arg in "$@"; do
+    [[ "$arg" == "--dry-run" ]] && has_dry_run=1
+  done
+  [[ "$DRY_RUN" == "1" && "$has_dry_run" == "0" ]] && cmd+=(--dry-run)
   cmd+=("$@")
 
   run_script "部署 Cloudflare Workers" "${cmd[@]}"
@@ -345,20 +431,27 @@ cmd_cf_deploy() {
 
 cmd_rotate() {
   local subcmd="${1:-}"
-  shift || true
+  shift 2>/dev/null || true
 
   case "$subcmd" in
     all)
       local cmd=(bash "$REPO_DIR/vps/scripts/rotate-keys.sh")
-      [[ "$DRY_RUN" == "1" ]] && cmd+=(--dry-run)
+      local has_dry_run=0
+      for arg in "$@"; do
+        [[ "$arg" == "--dry-run" ]] && has_dry_run=1
+      done
+      [[ "$DRY_RUN" == "1" && "$has_dry_run" == "0" ]] && cmd+=(--dry-run)
       cmd+=("$@")
       run_script "一键换密钥" "${cmd[@]}"
       ;;
     hy2|tuic|reality|trojan)
       die "nanobk rotate ${subcmd} is planned for v1.x. Use 'nanobk rotate all' for now."
       ;;
-    *)
+    "")
       die "Usage: nanobk rotate <all|hy2|tuic|reality|trojan> [args...]"
+      ;;
+    *)
+      die "Unknown rotate subcommand: ${subcmd}. Use: nanobk rotate all"
       ;;
   esac
 }
@@ -370,7 +463,7 @@ cmd_test() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --all) run_all=1 ;;
-      --dry-run) ;; # Already handled globally, ignore
+      --dry-run) DRY_RUN=1 ;;
       *) die "Unknown test option: $1" ;;
     esac
     shift
@@ -443,25 +536,30 @@ main() {
 
   local command="${CMD_ARGS[0]:-}"
   local cmd_rest=()
-  [[ ${#CMD_ARGS[@]} -gt 1 ]] && cmd_rest=("${CMD_ARGS[@]:1}")
+  if [[ ${#CMD_ARGS[@]} -gt 1 ]]; then
+    cmd_rest=("${CMD_ARGS[@]:1}")
+  fi
 
   resolve_repo_dir
 
+  # Use ${arr[@]+"${arr[@]}"} to handle empty arrays under set -u
   case "$command" in
-    status)   cmd_status "${cmd_rest[@]}" ;;
-    doctor)   cmd_doctor "${cmd_rest[@]}" ;;
-    install)  cmd_install "${cmd_rest[@]}" ;;
+    status)   cmd_status ${cmd_rest[@]+"${cmd_rest[@]}"} ;;
+    doctor)   cmd_doctor ${cmd_rest[@]+"${cmd_rest[@]}"} ;;
+    install)  cmd_install ${cmd_rest[@]+"${cmd_rest[@]}"} ;;
     cf)
       local cf_sub="${cmd_rest[0]:-}"
       local cf_rest=()
-      [[ ${#cmd_rest[@]} -gt 1 ]] && cf_rest=("${cmd_rest[@]:1}")
+      if [[ ${#cmd_rest[@]} -gt 1 ]]; then
+        cf_rest=("${cmd_rest[@]:1}")
+      fi
       case "$cf_sub" in
-        deploy) cmd_cf_deploy "${cf_rest[@]}" ;;
+        deploy) cmd_cf_deploy ${cf_rest[@]+"${cf_rest[@]}"} ;;
         *)      die "Usage: nanobk cf <deploy> [args...]" ;;
       esac
       ;;
-    rotate)   cmd_rotate "${cmd_rest[@]}" ;;
-    test)     cmd_test "${cmd_rest[@]}" ;;
+    rotate)   cmd_rotate ${cmd_rest[@]+"${cmd_rest[@]}"} ;;
+    test)     cmd_test ${cmd_rest[@]+"${cmd_rest[@]}"} ;;
     version)  cmd_version ;;
     "")       cmd_help ;;
     *)        die "Unknown command: ${command}. Use --help for usage." ;;
