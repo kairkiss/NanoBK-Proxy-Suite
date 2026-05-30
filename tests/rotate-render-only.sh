@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
 # NanoBK Proxy Suite — Key Rotation Render Test
 #
-# Tests the key rotation script in offline mode:
-#   1. Generates initial configs via render-install-vps.sh
-#   2. Runs rotate-keys.sh with --skip-services --skip-cloudflare
-#   3. Verifies profile changed, secrets updated, no key leaks
+# Tests:
+#   A. Normal rotation succeeds (credentials change, profile valid, no key leak)
+#   B. Rollback restores correct per-protocol files on failure
 #
 # Requirements: jq
 #
@@ -15,6 +14,7 @@ set -Eeuo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TMP="${TMPDIR:-/tmp}/nanobk-rotate-test"
+TMP_FAIL="${TMPDIR:-/tmp}/nanobk-rotate-fail-test"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -49,44 +49,22 @@ if ! command -v jq &>/dev/null; then
 fi
 pass "jq found"
 
-echo "  Temp dir: ${TMP}"
-echo ""
+# ── Helper: generate test configs ───────────────────────────────────────────
 
-# ── Phase 1: Generate initial configs ───────────────────────────────────────
+generate_test_configs() {
+  local tmp="$1"
 
-echo "--- Phase 1: Generating initial configs ---"
-echo ""
+  rm -rf "$tmp"
 
-rm -rf "$TMP"
+  bash "$ROOT/installer/install-vps.sh" --render-only --yes \
+    --install-dir "$tmp/opt/nanobk" \
+    --config-dir "$tmp/etc/nanobk" \
+    --domain proxy.example.com \
+    --vps-ip 198.51.100.10 \
+    --cert-mode self-signed
 
-bash "$ROOT/installer/install-vps.sh" --render-only --yes \
-  --install-dir "$TMP/opt/nanobk" \
-  --config-dir "$TMP/etc/nanobk" \
-  --domain proxy.example.com \
-  --vps-ip 198.51.100.10 \
-  --cert-mode self-signed
-
-echo ""
-
-# Save old credentials for comparison
-OLD_TUIC_UUID=$(jq -r '.tuic.uuid' "$TMP/etc/nanobk/profile.current.json")
-OLD_HY2_PW=$(jq -r '.hy2.password' "$TMP/etc/nanobk/profile.current.json")
-OLD_REALITY_UUID=$(jq -r '.reality.uuid' "$TMP/etc/nanobk/profile.current.json")
-pass "Saved old credentials for comparison"
-
-# Create fake service configs (rotate expects them to exist)
-mkdir -p "$TMP/etc/nanobk/generated/hysteria"
-mkdir -p "$TMP/etc/nanobk/generated/proxy-stack/tuic-v5-9443"
-mkdir -p "$TMP/etc/nanobk/generated/proxy-stack/xray-reality-8443"
-mkdir -p "$TMP/etc/nanobk/generated/proxy-stack/xray-trojan-2443"
-
-# Copy the rendered configs to where rotate expects them
-# (rotate reads HY2_CONFIG etc from config.env)
-cp "$TMP/etc/nanobk/generated/hysteria/config.yaml" "$TMP/etc/nanobk/generated/hysteria/config.yaml" 2>/dev/null || true
-
-# Create minimal valid configs for rotation
-# HY2 config
-cat > "$TMP/etc/nanobk/generated/hysteria/config.yaml" <<YAML
+  # Create minimal valid service configs for rotation
+  cat > "$tmp/etc/nanobk/generated/hysteria/config.yaml" <<YAML
 listen: :443
 tls:
   cert: /dev/null
@@ -96,16 +74,14 @@ auth:
   password: "old-password"
 YAML
 
-# TUIC config
-cat > "$TMP/etc/nanobk/generated/proxy-stack/tuic-v5-9443/config.json" <<JSON
+  cat > "$tmp/etc/nanobk/generated/proxy-stack/tuic-v5-9443/config.json" <<JSON
 {
   "server": "[::]:9443",
   "users": {"old-uuid": "old-password"}
 }
 JSON
 
-# Reality config
-cat > "$TMP/etc/nanobk/generated/proxy-stack/xray-reality-8443/config.json" <<JSON
+  cat > "$tmp/etc/nanobk/generated/proxy-stack/xray-reality-8443/config.json" <<JSON
 {
   "inbounds": [{
     "protocol": "vless",
@@ -120,8 +96,7 @@ cat > "$TMP/etc/nanobk/generated/proxy-stack/xray-reality-8443/config.json" <<JS
 }
 JSON
 
-# Trojan config
-cat > "$TMP/etc/nanobk/generated/proxy-stack/xray-trojan-2443/config.json" <<JSON
+  cat > "$tmp/etc/nanobk/generated/proxy-stack/xray-trojan-2443/config.json" <<JSON
 {
   "inbounds": [{
     "protocol": "trojan",
@@ -129,27 +104,42 @@ cat > "$TMP/etc/nanobk/generated/proxy-stack/xray-trojan-2443/config.json" <<JSO
   }]
 }
 JSON
+}
 
-pass "Created minimal service configs"
+# ═══════════════════════════════════════════════════════════════════════════
+# Test A: Normal rotation
+# ═══════════════════════════════════════════════════════════════════════════
 
 echo ""
+echo "╔══════════════════════════════════════════════════════════╗"
+echo "║  Test A: Normal Rotation                                ║"
+echo "╚══════════════════════════════════════════════════════════╝"
+echo ""
 
-# ── Phase 2: Run rotation ───────────────────────────────────────────────────
+echo "--- Generating initial configs ---"
+echo ""
 
-echo "--- Phase 2: Running key rotation ---"
+generate_test_configs "$TMP"
+
+# Save old credentials
+OLD_TUIC_UUID=$(jq -r '.tuic.uuid' "$TMP/etc/nanobk/profile.current.json")
+OLD_HY2_PW=$(jq -r '.hy2.password' "$TMP/etc/nanobk/profile.current.json")
+OLD_REALITY_UUID=$(jq -r '.reality.uuid' "$TMP/etc/nanobk/profile.current.json")
+pass "Saved old credentials for comparison"
+
+echo ""
+echo "--- Running key rotation ---"
 echo ""
 
 bash "$ROOT/vps/scripts/rotate-keys.sh" --yes \
   --config-dir "$TMP/etc/nanobk" \
   --install-dir "$TMP/opt/nanobk" \
   --skip-services \
-  --skip-cloudflare
+  --skip-cloudflare \
+  --allow-placeholder-reality
 
 echo ""
-
-# ── Phase 3: Verify results ─────────────────────────────────────────────────
-
-echo "--- Phase 3: Verifying rotation results ---"
+echo "--- Verifying rotation results ---"
 echo ""
 
 # Profile changed
@@ -193,7 +183,7 @@ else
   ERRORS=$((ERRORS + 1))
 fi
 
-# Secrets contain new values (use UUID from new profile, not from old variable)
+# Secrets contain new values
 NEW_TUIC_UUID_FROM_PROFILE=$(jq -r '.tuic.uuid' "$TMP/etc/nanobk/profile.current.json")
 if grep -q "TUIC_UUID=\"${NEW_TUIC_UUID_FROM_PROFILE}\"" "$TMP/etc/nanobk/secrets.private.env" 2>/dev/null \
    || grep -q "TUIC_UUID=${NEW_TUIC_UUID_FROM_PROFILE}" "$TMP/etc/nanobk/secrets.private.env" 2>/dev/null; then
@@ -203,7 +193,7 @@ else
   ERRORS=$((ERRORS + 1))
 fi
 
-# Also verify reality UUID changed
+# Reality UUID changed
 NEW_REALITY_UUID_FROM_PROFILE=$(jq -r '.reality.uuid' "$TMP/etc/nanobk/profile.current.json")
 if [[ "$NEW_REALITY_UUID_FROM_PROFILE" != "$OLD_REALITY_UUID" ]]; then
   pass "Reality UUID changed"
@@ -212,22 +202,41 @@ else
   ERRORS=$((ERRORS + 1))
 fi
 
-# Backup exists
+# Backup exists with unique names
 BACKUP_DIR=$(find "$TMP/opt/nanobk/backups" -maxdepth 1 -name 'rotate-*' -type d | head -1)
 if [[ -n "$BACKUP_DIR" ]]; then
   pass "Backup directory exists: $(basename "$BACKUP_DIR")"
+
+  # Check all four backup files exist with unique names
+  check "hy2.config.yaml.bak exists"     test -f "$BACKUP_DIR/hy2.config.yaml.bak"
+  check "tuic.config.json.bak exists"    test -f "$BACKUP_DIR/tuic.config.json.bak"
+  check "reality.config.json.bak exists" test -f "$BACKUP_DIR/reality.config.json.bak"
+  check "trojan.config.json.bak exists"  test -f "$BACKUP_DIR/trojan.config.json.bak"
+
+  # Verify they are different files (not overwritten by each other)
+  hy2_size=$(wc -c < "$BACKUP_DIR/hy2.config.yaml.bak" | tr -d ' ')
+  tuic_size=$(wc -c < "$BACKUP_DIR/tuic.config.json.bak" | tr -d ' ')
+  reality_size=$(wc -c < "$BACKUP_DIR/reality.config.json.bak" | tr -d ' ')
+  trojan_size=$(wc -c < "$BACKUP_DIR/trojan.config.json.bak" | tr -d ' ')
+
+  if [[ "$tuic_size" != "$reality_size" ]] || [[ "$tuic_size" != "$trojan_size" ]]; then
+    pass "Backup files have different sizes (no collision)"
+  else
+    # Content check: JSON files may coincidentally have same size
+    if ! diff -q "$BACKUP_DIR/tuic.config.json.bak" "$BACKUP_DIR/reality.config.json.bak" >/dev/null 2>&1; then
+      pass "Backup files have different content (no collision)"
+    else
+      fail "tuic and reality backup files are identical (collision!)"
+      ERRORS=$((ERRORS + 1))
+    fi
+  fi
 else
   fail "No backup directory found"
   ERRORS=$((ERRORS + 1))
 fi
 
 # profile.previous.json exists
-if [[ -f "$TMP/etc/nanobk/profile.previous.json" ]]; then
-  pass "profile.previous.json exists"
-else
-  fail "profile.previous.json not found"
-  ERRORS=$((ERRORS + 1))
-fi
+check "profile.previous.json exists" test -f "$TMP/etc/nanobk/profile.previous.json"
 
 # Offline healthcheck
 echo ""
@@ -243,6 +252,140 @@ else
   ERRORS=$((ERRORS + 1))
 fi
 
+# ═══════════════════════════════════════════════════════════════════════════
+# Test B: Rollback on failure
+# ═══════════════════════════════════════════════════════════════════════════
+
+echo ""
+echo "╔══════════════════════════════════════════════════════════╗"
+echo "║  Test B: Rollback on Failure                            ║"
+echo "╚══════════════════════════════════════════════════════════╝"
+echo ""
+
+echo "--- Generating fresh configs for rollback test ---"
+echo ""
+
+generate_test_configs "$TMP_FAIL"
+
+# Inject markers into configs
+HY2_MARKER="HY2_MARKER_BEFORE_$(date +%s)"
+TUIC_MARKER="TUIC_MARKER_BEFORE_$(date +%s)"
+REALITY_MARKER="REALITY_MARKER_BEFORE_$(date +%s)"
+TROJAN_MARKER="TROJAN_MARKER_BEFORE_$(date +%s)"
+
+# HY2: add marker comment
+echo "# ${HY2_MARKER}" >> "$TMP_FAIL/etc/nanobk/generated/hysteria/config.yaml"
+
+# TUIC: add marker field
+python3 -c "
+import json
+with open('$TMP_FAIL/etc/nanobk/generated/proxy-stack/tuic-v5-9443/config.json') as f:
+    data = json.load(f)
+data['_test_marker'] = '${TUIC_MARKER}'
+with open('$TMP_FAIL/etc/nanobk/generated/proxy-stack/tuic-v5-9443/config.json', 'w') as f:
+    json.dump(data, f, indent=2)
+"
+
+# Reality: add marker field
+python3 -c "
+import json
+with open('$TMP_FAIL/etc/nanobk/generated/proxy-stack/xray-reality-8443/config.json') as f:
+    data = json.load(f)
+data['_test_marker'] = '${REALITY_MARKER}'
+with open('$TMP_FAIL/etc/nanobk/generated/proxy-stack/xray-reality-8443/config.json', 'w') as f:
+    json.dump(data, f, indent=2)
+"
+
+# Trojan: add marker field
+python3 -c "
+import json
+with open('$TMP_FAIL/etc/nanobk/generated/proxy-stack/xray-trojan-2443/config.json') as f:
+    data = json.load(f)
+data['_test_marker'] = '${TROJAN_MARKER}'
+with open('$TMP_FAIL/etc/nanobk/generated/proxy-stack/xray-trojan-2443/config.json', 'w') as f:
+    json.dump(data, f, indent=2)
+"
+
+pass "Injected markers into configs"
+
+echo ""
+echo "--- Running rotation with forced failure ---"
+echo ""
+
+# This should fail after patching (NANOBK_TEST_FAIL_AFTER_PATCH=1)
+if NANOBK_TEST_FAIL_AFTER_PATCH=1 bash "$ROOT/vps/scripts/rotate-keys.sh" --yes \
+  --config-dir "$TMP_FAIL/etc/nanobk" \
+  --install-dir "$TMP_FAIL/opt/nanobk" \
+  --skip-services \
+  --skip-cloudflare \
+  --allow-placeholder-reality 2>&1; then
+  fail "Rotation should have failed but succeeded"
+  ERRORS=$((ERRORS + 1))
+else
+  pass "Rotation failed as expected (test hook triggered)"
+fi
+
+echo ""
+echo "--- Verifying rollback restored original files ---"
+echo ""
+
+# Check markers are still present (rollback restored originals)
+if grep -q "$HY2_MARKER" "$TMP_FAIL/etc/nanobk/generated/hysteria/config.yaml" 2>/dev/null; then
+  pass "HY2 config restored (marker present)"
+else
+  fail "HY2 config NOT restored (marker missing)"
+  ERRORS=$((ERRORS + 1))
+fi
+
+if python3 -c "
+import json
+with open('$TMP_FAIL/etc/nanobk/generated/proxy-stack/tuic-v5-9443/config.json') as f:
+    data = json.load(f)
+assert data.get('_test_marker') == '${TUIC_MARKER}', f'got: {data.get(\"_test_marker\")}'
+" 2>/dev/null; then
+  pass "TUIC config restored (marker present)"
+else
+  fail "TUIC config NOT restored (marker missing or wrong)"
+  ERRORS=$((ERRORS + 1))
+fi
+
+if python3 -c "
+import json
+with open('$TMP_FAIL/etc/nanobk/generated/proxy-stack/xray-reality-8443/config.json') as f:
+    data = json.load(f)
+assert data.get('_test_marker') == '${REALITY_MARKER}', f'got: {data.get(\"_test_marker\")}'
+" 2>/dev/null; then
+  pass "Reality config restored (marker present)"
+else
+  fail "Reality config NOT restored (marker missing or wrong)"
+  ERRORS=$((ERRORS + 1))
+fi
+
+if python3 -c "
+import json
+with open('$TMP_FAIL/etc/nanobk/generated/proxy-stack/xray-trojan-2443/config.json') as f:
+    data = json.load(f)
+assert data.get('_test_marker') == '${TROJAN_MARKER}', f'got: {data.get(\"_test_marker\")}'
+" 2>/dev/null; then
+  pass "Trojan config restored (marker present)"
+else
+  fail "Trojan config NOT restored (marker missing or wrong)"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# Verify backup directory has unique files
+FAIL_BACKUP_DIR=$(find "$TMP_FAIL/opt/nanobk/backups" -maxdepth 1 -name 'rotate-*' -type d | head -1)
+if [[ -n "$FAIL_BACKUP_DIR" ]]; then
+  pass "Rollback backup directory exists: $(basename "$FAIL_BACKUP_DIR")"
+  check "rollback backup has hy2.config.yaml.bak"     test -f "$FAIL_BACKUP_DIR/hy2.config.yaml.bak"
+  check "rollback backup has tuic.config.json.bak"    test -f "$FAIL_BACKUP_DIR/tuic.config.json.bak"
+  check "rollback backup has reality.config.json.bak" test -f "$FAIL_BACKUP_DIR/reality.config.json.bak"
+  check "rollback backup has trojan.config.json.bak"  test -f "$FAIL_BACKUP_DIR/trojan.config.json.bak"
+else
+  fail "No rollback backup directory found"
+  ERRORS=$((ERRORS + 1))
+fi
+
 echo ""
 
 # ── Summary ─────────────────────────────────────────────────────────────────
@@ -252,10 +395,12 @@ echo ""
 
 if [[ $ERRORS -eq 0 ]]; then
   echo -e "  ${GREEN}All rotation tests passed!${NC}"
-  echo "  Output: ${TMP}"
+  echo "  Output A: ${TMP}"
+  echo "  Output B: ${TMP_FAIL}"
   exit 0
 else
   echo -e "  ${RED}${ERRORS} test(s) failed.${NC}"
-  echo "  Output: ${TMP}"
+  echo "  Output A: ${TMP}"
+  echo "  Output B: ${TMP_FAIL}"
   exit 1
 fi

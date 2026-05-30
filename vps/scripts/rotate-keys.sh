@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — Key Rotation v0.3.2
+# NanoBK Proxy Suite — Key Rotation v0.3.3
 #
 # Rotates credentials for all four proxy services on the VPS
 # and syncs the new profile to Cloudflare Workers via admin API.
@@ -13,8 +13,6 @@
 #   sudo bash vps/scripts/rotate-keys.sh
 #   sudo bash vps/scripts/rotate-keys.sh --dry-run
 #   sudo bash vps/scripts/rotate-keys.sh --skip-cloudflare --skip-services
-#
-# Derived from: scripts/rotate-proxy-keys.example.sh
 
 set -Eeuo pipefail
 
@@ -45,6 +43,8 @@ NANOBK_YES=0
 FORCE=0
 SKIP_CLOUDFLARE=0
 SKIP_SERVICES=0
+ALLOW_PLACEHOLDER_REALITY=0
+INSTALL_DIR_EXPLICIT=0
 
 NANOBK_CONFIG_DIR="/etc/nanobk"
 NANOBK_INSTALL_DIR="/opt/nanobk"
@@ -67,21 +67,22 @@ BACKUP_DIR=""
 
 show_help() {
   cat <<'EOF'
-NanoBK Proxy Suite — Key Rotation v0.3.2
+NanoBK Proxy Suite — Key Rotation v0.3.3
 
 Usage:
   sudo bash vps/scripts/rotate-keys.sh [OPTIONS]
 
 Options:
-  --dry-run              Print actions without modifying anything
-  --yes                  Non-interactive mode
-  --config-dir PATH      Config directory (default: /etc/nanobk)
-  --install-dir PATH     Install directory (default: from config.env or /opt/nanobk)
-  --cf-admin-env PATH    Cloudflare admin env file (default: /root/.nanok-cf-admin.env)
-  --skip-cloudflare      Do not sync to Cloudflare (local only)
-  --skip-services        Do not restart services or check ports
-  --force                Skip confirmation prompts
-  --help                 Show this help
+  --dry-run                    Print actions without modifying anything
+  --yes                        Non-interactive mode
+  --config-dir PATH            Config directory (default: /etc/nanobk)
+  --install-dir PATH           Install directory (default: from config.env or /opt/nanobk)
+  --cf-admin-env PATH          Cloudflare admin env file (default: /root/.nanok-cf-admin.env)
+  --skip-cloudflare            Do not sync to Cloudflare (local only)
+  --skip-services              Do not restart services or check ports
+  --allow-placeholder-reality  Allow placeholder Reality key when xray is missing (TEST ONLY)
+  --force                      Skip confirmation prompts
+  --help                       Show this help
 
 Examples:
   # Full rotation (production)
@@ -93,7 +94,7 @@ Examples:
   # Local-only rotation (no Cloudflare, no service restart)
   sudo bash vps/scripts/rotate-keys.sh --skip-cloudflare --skip-services
 
-  # Test with custom directories
+  # Test with custom directories (requires --allow-placeholder-reality if xray missing)
   bash vps/scripts/rotate-keys.sh --dry-run \
     --config-dir /tmp/nanobk-test/etc/nanobk \
     --install-dir /tmp/nanobk-test/opt/nanobk \
@@ -106,16 +107,17 @@ EOF
 parse_args() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --dry-run)          NANOBK_DRY_RUN=1 ;;
-      --yes)              NANOBK_YES=1 ;;
-      --force)            FORCE=1 ;;
-      --config-dir)       NANOBK_CONFIG_DIR="$2"; shift ;;
-      --install-dir)      NANOBK_INSTALL_DIR="$2"; shift ;;
-      --cf-admin-env)     CF_ADMIN_ENV="$2"; shift ;;
-      --skip-cloudflare)  SKIP_CLOUDFLARE=1 ;;
-      --skip-services)    SKIP_SERVICES=1 ;;
-      --help|-h)          show_help; exit 0 ;;
-      *)                  die "Unknown option: $1. Use --help for usage." ;;
+      --dry-run)                    NANOBK_DRY_RUN=1 ;;
+      --yes)                        NANOBK_YES=1 ;;
+      --force)                      FORCE=1 ;;
+      --config-dir)                 NANOBK_CONFIG_DIR="$2"; shift ;;
+      --install-dir)                NANOBK_INSTALL_DIR="$2"; INSTALL_DIR_EXPLICIT=1; shift ;;
+      --cf-admin-env)               CF_ADMIN_ENV="$2"; shift ;;
+      --skip-cloudflare)            SKIP_CLOUDFLARE=1 ;;
+      --skip-services)              SKIP_SERVICES=1 ;;
+      --allow-placeholder-reality)  ALLOW_PLACEHOLDER_REALITY=1 ;;
+      --help|-h)                    show_help; exit 0 ;;
+      *)                            die "Unknown option: $1. Use --help for usage." ;;
     esac
     shift
   done
@@ -128,7 +130,6 @@ load_nanobk_config() {
   if [[ ! -f "$config_file" ]]; then
     if [[ "$NANOBK_DRY_RUN" == "1" ]]; then
       warn "config.env not found: ${config_file} (OK in dry-run)"
-      # Set minimal defaults for dry-run
       NANOBK_DOMAIN="${NANOBK_DOMAIN:-proxy.example.com}"
       NANOBK_VPS_IP="${NANOBK_VPS_IP:-198.51.100.10}"
       NANOBK_GEO_LABEL="${NANOBK_GEO_LABEL:-UN}"
@@ -152,16 +153,16 @@ Run the VPS installer first: bash installer/install-vps.sh"
   fi
 
   log "Loading config: ${config_file}"
+
+  # Save CLI override before sourcing config.env
+  local cli_install_dir="$NANOBK_INSTALL_DIR"
+
   # shellcheck source=/dev/null
   source "$config_file"
 
-  # Override install dir if config.env has it
-  if [[ -n "${NANOBK_INSTALL_DIR_FROM_ENV:-}" ]]; then
-    NANOBK_INSTALL_DIR="$NANOBK_INSTALL_DIR_FROM_ENV"
-  fi
-  # config.env has NANOBK_INSTALL_DIR, use it if --install-dir wasn't explicitly set
-  if [[ -n "${NANOBK_INSTALL_DIR_ENV:-${NANOBK_INSTALL_DIR:-}}" ]]; then
-    : # already set
+  # Restore CLI override if explicitly set
+  if [[ "$INSTALL_DIR_EXPLICIT" == "1" ]]; then
+    NANOBK_INSTALL_DIR="$cli_install_dir"
   fi
 
   # Validate required vars
@@ -186,11 +187,17 @@ Run the VPS installer first: bash installer/install-vps.sh"
   # shellcheck source=/dev/null
   source "$secrets_file"
 
-  # Validate
-  [[ -n "${HY2_PASSWORD:-}" ]] || fail "HY2_PASSWORD not in secrets"
-  [[ -n "${TUIC_UUID:-}" ]] || fail "TUIC_UUID not in secrets"
-  [[ -n "${REALITY_PRIVATE_KEY:-}" ]] || fail "REALITY_PRIVATE_KEY not in secrets"
-  [[ -n "${TROJAN_PASSWORD:-}" ]] || fail "TROJAN_PASSWORD not in secrets"
+  # Validate all required secrets
+  local required_secrets=(
+    HY2_PASSWORD TUIC_UUID TUIC_PASSWORD
+    REALITY_UUID REALITY_PRIVATE_KEY REALITY_PUBLIC_KEY REALITY_SHORT_ID
+    TROJAN_PASSWORD
+  )
+  for var in "${required_secrets[@]}"; do
+    if [[ -z "${!var:-}" ]]; then
+      die "Missing required secret in secrets.private.env: ${var}"
+    fi
+  done
 
   ok "Secrets loaded"
 }
@@ -224,9 +231,9 @@ Or use --skip-cloudflare for local-only rotation."
     ADMIN_UPDATE_URL="${NANOK_ROUTE_URL}${ADMIN_PATH:-/admin/update}"
   fi
 
-  [[ -n "${ADMIN_TOKEN:-}" ]] || fail "ADMIN_TOKEN not in CF admin env"
-  [[ -n "${ADMIN_UPDATE_URL:-}" ]] || fail "ADMIN_UPDATE_URL not in CF admin env"
-  [[ -n "${ADMIN_CURRENT_URL:-}" ]] || fail "ADMIN_CURRENT_URL not in CF admin env"
+  [[ -n "${ADMIN_TOKEN:-}" ]] || die "ADMIN_TOKEN not in CF admin env"
+  [[ -n "${ADMIN_UPDATE_URL:-}" ]] || die "ADMIN_UPDATE_URL not in CF admin env"
+  [[ -n "${ADMIN_CURRENT_URL:-}" ]] || die "ADMIN_CURRENT_URL not in CF admin env"
 
   ok "CF admin env loaded (token fingerprint: $(fingerprint "$ADMIN_TOKEN"))"
 }
@@ -249,12 +256,17 @@ generate_new_credentials() {
     keypair=$(xray x25519) || die "Failed to generate Reality keypair"
     NEW_REALITY_PRIVATE_KEY=$(echo "$keypair" | awk -F': ' '/Private key/ {print $2}' | tr -d '\r\n')
     NEW_REALITY_PUBLIC_KEY=$(echo "$keypair" | awk -F': ' '/Public key/ {print $2}' | tr -d '\r\n')
-  elif [[ "$NANOBK_DRY_RUN" == "1" ]] || [[ "$SKIP_SERVICES" == "1" ]]; then
+  elif [[ "$NANOBK_DRY_RUN" == "1" ]]; then
+    warn "xray not available (using placeholder for dry-run)"
+    NEW_REALITY_PRIVATE_KEY="DRY_RUN_PLACEHOLDER_PRIVATE_KEY"
+    NEW_REALITY_PUBLIC_KEY="DRY_RUN_PLACEHOLDER_PUBLIC_KEY"
+  elif [[ "$ALLOW_PLACEHOLDER_REALITY" == "1" ]]; then
     warn "xray not available (using placeholder — NOT for production)"
     NEW_REALITY_PRIVATE_KEY="PLACEHOLDER_PRIVATE_KEY_NOT_FOR_PRODUCTION"
     NEW_REALITY_PUBLIC_KEY="PLACEHOLDER_PUBLIC_KEY_NOT_FOR_PRODUCTION"
   else
-    die "xray is required for Reality keypair generation. Install xray or use --skip-services for testing."
+    die "xray is required for Reality keypair generation.
+For offline tests only, add --allow-placeholder-reality."
   fi
 
   [[ -n "$NEW_REALITY_PRIVATE_KEY" ]] || die "Reality private key is empty"
@@ -272,6 +284,32 @@ generate_new_credentials() {
 
 # ── Backup ──────────────────────────────────────────────────────────────────
 
+backup_service_config() {
+  local src="$1"
+  local dest_name="$2"
+  if [[ -f "$src" ]]; then
+    if [[ "$NANOBK_DRY_RUN" == "1" ]]; then
+      echo -e "  ${CYAN}[DRY-RUN]${NC} Would backup ${src} → ${BACKUP_DIR}/${dest_name}"
+    else
+      cp -a "$src" "${BACKUP_DIR}/${dest_name}"
+    fi
+  fi
+}
+
+restore_service_config() {
+  local dest="$1"
+  local src_name="$2"
+  local bak="${BACKUP_DIR}/${src_name}"
+  if [[ -f "$bak" ]]; then
+    if [[ "$NANOBK_DRY_RUN" == "1" ]]; then
+      echo -e "  ${CYAN}[DRY-RUN]${NC} Would restore ${bak} → ${dest}"
+    else
+      cp -a "$bak" "$dest"
+      warn "Restored: ${dest}"
+    fi
+  fi
+}
+
 make_backup() {
   local stamp
   stamp=$(date +%Y%m%d-%H%M%S)
@@ -281,7 +319,6 @@ make_backup() {
 
   if [[ "$NANOBK_DRY_RUN" == "1" ]]; then
     echo -e "  ${CYAN}[DRY-RUN]${NC} Would create ${BACKUP_DIR}"
-    echo -e "  ${CYAN}[DRY-RUN]${NC} Would backup config.env, secrets.private.env, profile, service configs"
     BACKUP_DIR="/tmp/nanobk-dry-run-backup-${stamp}"
     return 0
   fi
@@ -289,7 +326,7 @@ make_backup() {
   mkdir -p "$BACKUP_DIR"
   chmod 700 "$BACKUP_DIR"
 
-  # Backup config files
+  # Backup top-level config files
   for f in \
     "${NANOBK_CONFIG_DIR}/config.env" \
     "${NANOBK_CONFIG_DIR}/secrets.private.env" \
@@ -297,10 +334,11 @@ make_backup() {
     [[ -f "$f" ]] && cp -a "$f" "$BACKUP_DIR/" || true
   done
 
-  # Backup service configs
-  for f in "$HY2_CONFIG" "$TUIC_CONFIG" "$REALITY_CONFIG" "$TROJAN_CONFIG"; do
-    [[ -f "$f" ]] && cp -a "$f" "$BACKUP_DIR/$(basename "$f").bak" || true
-  done
+  # Backup service configs with unique names (no collision)
+  backup_service_config "$HY2_CONFIG"     "hy2.config.yaml.bak"
+  backup_service_config "$TUIC_CONFIG"    "tuic.config.json.bak"
+  backup_service_config "$REALITY_CONFIG" "reality.config.json.bak"
+  backup_service_config "$TROJAN_CONFIG"  "trojan.config.json.bak"
 
   ok "Backup created: ${BACKUP_DIR}"
 }
@@ -435,6 +473,11 @@ patch_all_configs() {
   patch_tuic_config
   patch_reality_config
   patch_trojan_config
+
+  # Test-only hook: simulate failure after patching
+  if [[ "${NANOBK_TEST_FAIL_AFTER_PATCH:-}" == "1" ]]; then
+    die "Test-only failure after patch (NANOBK_TEST_FAIL_AFTER_PATCH=1)"
+  fi
 }
 
 # ── Generate new profile ────────────────────────────────────────────────────
@@ -599,7 +642,6 @@ sync_cloudflare() {
 
   local profile_path="${NANOBK_CONFIG_DIR}/profile.current.json"
 
-  # POST new profile
   log "Uploading profile to Cloudflare..."
 
   if [[ "$NANOBK_DRY_RUN" == "1" ]]; then
@@ -634,7 +676,6 @@ sync_cloudflare() {
     return 1
   }
 
-  # Check key fields match
   if command -v jq &>/dev/null; then
     local cf_tuic_uuid cf_reality_pub
     cf_tuic_uuid=$(echo "$current" | jq -r '.tuic.uuid // empty')
@@ -737,22 +778,23 @@ rollback_local() {
 
   warn "ROLLING BACK local configuration from ${BACKUP_DIR}..."
 
-  # Restore config files
+  # Restore top-level config files
   for f in config.env secrets.private.env profile.current.json; do
     if [[ -f "${BACKUP_DIR}/${f}" ]]; then
-      cp -a "${BACKUP_DIR}/${f}" "${NANOBK_CONFIG_DIR}/${f}"
-      warn "Restored: ${f}"
+      if [[ "$NANOBK_DRY_RUN" == "1" ]]; then
+        echo -e "  ${CYAN}[DRY-RUN]${NC} Would restore ${BACKUP_DIR}/${f} → ${NANOBK_CONFIG_DIR}/${f}"
+      else
+        cp -a "${BACKUP_DIR}/${f}" "${NANOBK_CONFIG_DIR}/${f}"
+        warn "Restored: ${f}"
+      fi
     fi
   done
 
-  # Restore service configs
-  for f in "$HY2_CONFIG" "$TUIC_CONFIG" "$REALITY_CONFIG" "$TROJAN_CONFIG"; do
-    local bak="${BACKUP_DIR}/$(basename "$f").bak"
-    if [[ -f "$bak" ]]; then
-      cp -a "$bak" "$f"
-      warn "Restored: ${f}"
-    fi
-  done
+  # Restore service configs with unique backup names
+  restore_service_config "$HY2_CONFIG"     "hy2.config.yaml.bak"
+  restore_service_config "$TUIC_CONFIG"    "tuic.config.json.bak"
+  restore_service_config "$REALITY_CONFIG" "reality.config.json.bak"
+  restore_service_config "$TROJAN_CONFIG"  "trojan.config.json.bak"
 
   # Restart services if they were restarted
   if [[ "$SKIP_SERVICES" != "1" ]] && [[ "$NANOBK_DRY_RUN" != "1" ]]; then
