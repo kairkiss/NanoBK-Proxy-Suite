@@ -53,7 +53,7 @@ bash installer/install.sh
 bash bin/nanobk --version
 
 # Status (text)
-bash bin/nanok status
+bash bin/nanobk status
 
 # Status (JSON)
 bash bin/nanobk --json status
@@ -94,7 +94,7 @@ git push origin v1.0.0
 | v1.1 | Telegram Bot（调用 nanobk CLI） |
 | v1.2 | Web Panel（调用 nanobk CLI） |
 | v1.3 | 流量监控 |
-| v1.4 | 单协议换密钥 CLI 完善 |
+| v1.4 | 单协议换密钥审计、日志与权限增强 |
 | v1.5 | Cloudflare 配置向导 |
 | v1.6 | 操作日志 |
 | v1.7 | 权限控制 |
