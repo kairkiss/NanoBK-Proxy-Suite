@@ -61,7 +61,12 @@ sudo bash installer/install-vps.sh --dry-run \
 ### 3. 部署 Cloudflare Workers
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/kairkiss/NanoBK-Proxy-Suite/main/installer/install-cloudflare.sh)
+wrangler login
+
+bash installer/install-cloudflare.sh --yes \
+  --create-kv \
+  --profile /etc/nanobk/profile.current.json \
+  --route-url https://nanok.yourdomain.com
 ```
 
 ### 4. 换密钥
@@ -137,7 +142,7 @@ bash /root/rotate-proxy-keys.sh
 |------|------|
 | **v0.1** | ✅ 工程整理、产品化结构、文档骨架 |
 | **v0.2** | ✅ VPS 一键部署（install-vps.sh 已实现） |
-| **v0.3** | Cloudflare 一键部署（install-cloudflare.sh 完整实现） |
+| **v0.3** | ✅ Cloudflare nanok 自动部署（install-cloudflare.sh 已实现） |
 | **v0.4** | edgetunnel 可选整合完善 |
 | **v0.5** | 小白化交互向导 |
 

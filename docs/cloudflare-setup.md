@@ -1,181 +1,138 @@
 # Cloudflare Setup Guide
 
-Detailed guide for deploying nanok and nanob Workers on Cloudflare.
+Deploy the nanok primary subscription Worker to Cloudflare.
 
 ## Prerequisites
 
-- Cloudflare account
-- Domain added to Cloudflare
-- Node.js installed locally
-- Wrangler CLI (`npm install -g wrangler`)
+- Cloudflare account with Workers enabled
+- Node.js and npm installed locally
+- Wrangler CLI (auto-detected: `npx wrangler` or global `wrangler`)
+- Cloudflare authentication (`wrangler login`)
+- A `profile.current.json` from the VPS installer (or `examples/profile.example.json`)
 
-## Step 1: Authenticate Wrangler
+## Quick Deploy (v0.3)
 
 ```bash
+# 1. Login to Cloudflare
 wrangler login
+
+# 2. Deploy nanok with auto-created KV
+bash installer/install-cloudflare.sh --yes \
+  --create-kv \
+  --profile /etc/nanobk/profile.current.json \
+  --route-url https://nanok.yourdomain.com
 ```
 
-## Step 2: Create KV Namespaces
+This will:
+1. Create a KV namespace for profile storage
+2. Generate SUB_TOKEN and ADMIN_TOKEN
+3. Generate a temporary `wrangler.toml`
+4. Set Worker secrets via `wrangler secret put`
+5. Deploy the nanok Worker
+6. Upload the profile to KV via admin API
+7. Verify the subscription endpoint returns valid Clash/Mihomo YAML
+8. Save credentials to `.cloudflare.local.env` (mode 600)
+
+## Dry-Run Preview
+
+Preview all actions without modifying Cloudflare:
 
 ```bash
-# For nanok (profile storage)
-wrangler kv:namespace create SUB_STORE
-# Note the output: { binding = "SUB_STORE", id = "xxxxxxxx" }
-
-# For nanob (geo cache)
-wrangler kv:namespace create NANOB_GEO_CACHE
-# Note the output: { binding = "NANOB_GEO_CACHE", id = "xxxxxxxx" }
+bash installer/install-cloudflare.sh --dry-run --yes \
+  --profile examples/profile.example.json \
+  --kv-namespace-id REPLACE_WITH_KV_ID \
+  --route-url https://nanok.example.workers.dev
 ```
 
-## Step 3: Deploy nanok
+## Using an Existing KV Namespace
+
+If you already have a KV namespace:
 
 ```bash
-cd workers/nanok
-
-# Create wrangler.toml from example
-cp wrangler.toml.example wrangler.toml
-
-# Edit wrangler.toml:
-# - Set KV namespace ID for SUB_STORE
-# - Uncomment and set any custom vars
-
-# Set secrets
-wrangler secret put SUB_TOKEN
-# Enter your subscription token
-
-wrangler secret put ADMIN_TOKEN
-# Enter your admin token (different from SUB_TOKEN!)
-
-# Deploy
-wrangler deploy
+bash installer/install-cloudflare.sh --yes \
+  --kv-namespace-id YOUR_KV_NAMESPACE_ID \
+  --profile /etc/nanobk/profile.current.json \
+  --route-url https://nanok.yourdomain.com
 ```
 
-### Verify nanok
+## Custom Tokens
+
+Provide your own tokens instead of auto-generating:
 
 ```bash
-# Root page should show HTML status
-curl https://YOUR_NANOK_HOST/
-
-# Without token should return 404
-curl -i https://YOUR_NANOK_HOST/jb
-
-# With wrong token should return 404
-curl -i https://YOUR_NANOK_HOST/jb?token=wrong
-
-# With correct token should return YAML (after profile init)
-curl -i https://YOUR_NANOK_HOST/jb?token=YOUR_SUB_TOKEN
+bash installer/install-cloudflare.sh --yes \
+  --create-kv \
+  --sub-token YOUR_SUB_TOKEN \
+  --admin-token YOUR_ADMIN_TOKEN \
+  --profile /etc/nanobk/profile.current.json \
+  --route-url https://nanok.yourdomain.com
 ```
 
-## Step 4: Initialize KV Profile
+## Deploy Only (No Profile Upload)
+
+If you want to deploy the Worker and upload the profile later:
 
 ```bash
-# Edit the example profile with your actual VPS credentials
-cp examples/profile.example.json /tmp/profile.json
-# Edit /tmp/profile.json with real values
+bash installer/install-cloudflare.sh --yes \
+  --kv-namespace-id YOUR_KV_ID \
+  --skip-profile-upload --skip-verify
+```
 
-# Upload to KV via admin API
-curl -X POST https://YOUR_NANOK_HOST/admin/update \
+Then upload manually:
+
+```bash
+curl -X POST https://nanok.yourdomain.com/admin/update \
   -H "Authorization: Bearer YOUR_ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
-  --data-binary @/tmp/profile.json
-
-# Verify
-curl -H "Authorization: Bearer YOUR_ADMIN_TOKEN" \
-  https://YOUR_NANOK_HOST/admin/current
+  --data-binary @/etc/nanobk/profile.current.json
 ```
 
-## Step 5: Deploy nanob (Optional)
+## All Options
 
-nanob is optional. If you only need the primary subscription, skip this step.
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--dry-run` | off | Print actions without modifying Cloudflare |
+| `--yes` | off | Non-interactive mode |
+| `--worker-name` | `nanok` | Worker name |
+| `--worker-dir` | `workers/nanok` | Worker source directory |
+| `--profile` | `/etc/nanobk/profile.current.json` | Profile JSON path |
+| `--sub-token` | auto-generated | Subscription token |
+| `--admin-token` | auto-generated | Admin API token |
+| `--sub-path` | `/jb` | Subscription path |
+| `--admin-path` | `/admin/update` | Admin update path |
+| `--admin-current-path` | `/admin/current` | Admin read path |
+| `--kv-namespace-id` | (none) | Use existing KV namespace |
+| `--create-kv` | off | Auto-create KV namespace |
+| `--kv-binding` | `SUB_STORE` | KV binding name |
+| `--route-url` | (none) | Worker URL for upload/verify |
+| `--skip-profile-upload` | off | Skip profile upload |
+| `--skip-verify` | off | Skip HTTP verification |
 
-```bash
-cd workers/nanob
+## Token Model
 
-# Create wrangler.toml from example
-cp wrangler.toml.example wrangler.toml
+| Token | Purpose |
+|-------|---------|
+| `SUB_TOKEN` | Public subscription access (used by clients) |
+| `ADMIN_TOKEN` | Private admin API (used by VPS rotation script) |
 
-# Edit wrangler.toml:
-# - Set KV namespace ID for NANOB_GEO_CACHE
+These are separate secrets. The subscription URL uses `SUB_TOKEN`; the admin API uses `ADMIN_TOKEN`.
 
-# Set secrets
-wrangler secret put NANOB_TOKEN
-# Enter your public aggregator token
+## After Deployment
 
-wrangler secret put NANOK_SUB_TOKEN
-# Enter the same value as SUB_TOKEN on nanok
+1. **Import subscription URL** into Clash/Mihomo client.
+2. **On VPS**, create admin env for key rotation:
+   ```bash
+   cat > /root/.nanok-cf-admin.env <<'EOF'
+   ADMIN_TOKEN="YOUR_ADMIN_TOKEN"
+   ADMIN_CURRENT_URL="https://nanok.yourdomain.com/admin/current"
+   ADMIN_UPDATE_URL="https://nanok.yourdomain.com/admin/update"
+   EOF
+   chmod 600 /root/.nanok-cf-admin.env
+   ```
+3. **Key rotation** later: `bash /opt/nanobk/bin/rotate-keys.sh`
 
-# Optional: edgetunnel integration
-wrangler secret put EDGETUNNEL_EXPORT_TOKEN
-# Enter shared secret for edgetunnel (or skip if not using edgetunnel)
+## nanob / edgetunnel (Future)
 
-# Deploy
-wrangler deploy
-```
+The nanob aggregator and edgetunnel integration are optional enhancements planned for future versions. The nanok Worker alone provides a complete subscription endpoint.
 
-### Verify nanob
-
-```bash
-# With correct token should return merged YAML
-curl -i https://YOUR_NANOB_HOST/jb?token=YOUR_NANOB_TOKEN
-```
-
-## Step 6: Attach Custom Domains
-
-In the Cloudflare Dashboard:
-
-1. Go to **Workers & Pages**.
-2. Select your Worker.
-3. Go to **Settings** → **Triggers** → **Custom Domains**.
-4. Add your custom domain.
-
-Or via CLI:
-
-```bash
-# nanok
-wrangler domains add YOUR_NANOK_HOST
-
-# nanob
-wrangler domains add YOUR_NANOB_HOST
-```
-
-## Step 7: Configure VPS Admin Token
-
-On your VPS, create the admin environment file:
-
-```bash
-cat > /root/.nanok-cf-admin.env <<'EOF'
-ADMIN_TOKEN="YOUR_ADMIN_TOKEN"
-ADMIN_CURRENT_URL="https://YOUR_NANOK_HOST/admin/current"
-ADMIN_UPDATE_URL="https://YOUR_NANOK_HOST/admin/update"
-EOF
-chmod 600 /root/.nanok-cf-admin.env
-```
-
-## Token Summary
-
-| Token | Set on | Purpose |
-|-------|--------|---------|
-| SUB_TOKEN | nanok | Public subscription access |
-| ADMIN_TOKEN | nanok + VPS env | Private admin API |
-| NANOB_TOKEN | nanob | Public aggregator access |
-| NANOK_SUB_TOKEN | nanob | Fetch from nanok internally |
-| EDGETUNNEL_EXPORT_TOKEN | nanob + edgetunnel | Shared internal auth (optional) |
-
-## Worker Bindings Summary
-
-### nanok
-
-| Binding | Type | Value |
-|---------|------|-------|
-| SUB_STORE | KV namespace | Profile storage |
-| SUB_TOKEN | Secret | Public subscription token |
-| ADMIN_TOKEN | Secret | Admin API token |
-
-### nanob
-
-| Binding | Type | Value |
-|---------|------|-------|
-| NANOB_GEO_CACHE | KV namespace | Geo cache |
-| NANOB_TOKEN | Secret | Public aggregator token |
-| NANOK_SUB_TOKEN | Secret | Token to fetch nanok |
-| EDGETUNNEL_EXPORT_TOKEN | Secret | Shared edgetunnel token (optional) |
+See [edgetunnel-optional.md](edgetunnel-optional.md) for more details.

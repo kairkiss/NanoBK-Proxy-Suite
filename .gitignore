@@ -4,3 +4,11 @@ node_modules/
 .dev.vars
 *.local
 
+# Cloudflare installer output (contains real tokens)
+.cloudflare.local.env
+*.local.env
+.work/
+
+# Generated wrangler.toml (use .example files as templates)
+workers/**/wrangler.toml
+

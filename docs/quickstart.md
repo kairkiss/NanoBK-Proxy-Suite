@@ -33,21 +33,16 @@ sudo bash installer/install-vps.sh --dry-run \
 
 ## Step 2: Deploy nanok Worker
 
-See [cloudflare-setup.md](cloudflare-setup.md) for detailed instructions.
+```bash
+wrangler login
 
-Quick version:
+bash installer/install-cloudflare.sh --yes \
+  --create-kv \
+  --profile /etc/nanobk/profile.current.json \
+  --route-url https://nanok.yourdomain.com
+```
 
-1. Install Wrangler: `npm install -g wrangler && wrangler login`
-2. Create KV: `wrangler kv:namespace create SUB_STORE`
-3. Deploy: `cd workers/nanok && cp wrangler.toml.example wrangler.toml && wrangler deploy`
-4. Set secrets: `wrangler secret put SUB_TOKEN` and `wrangler secret put ADMIN_TOKEN`
-5. Upload profile via admin API:
-   ```bash
-   curl -X POST https://YOUR_WORKER/admin/update \
-     -H "Authorization: Bearer YOUR_ADMIN_TOKEN" \
-     -H "Content-Type: application/json" \
-     --data-binary @/etc/nanobk/profile.current.json
-   ```
+See [cloudflare-setup.md](cloudflare-setup.md) for all options and manual steps.
 
 ## Step 3: Import Subscription
 

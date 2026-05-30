@@ -158,6 +158,78 @@ Check:
 
 ---
 
+## Cloudflare: "Wrangler CLI not found"
+
+```
+ERROR Wrangler CLI not found.
+```
+
+**Fix**: Install Wrangler and authenticate:
+
+```bash
+npm install -g wrangler
+wrangler login
+```
+
+Or use `npx wrangler` (the installer auto-detects this).
+
+---
+
+## Cloudflare: "Wrangler is not logged in"
+
+```
+ERROR Wrangler is not logged in. Run: wrangler login
+```
+
+**Fix**: Run `wrangler login` and authenticate in your browser.
+
+---
+
+## Cloudflare: KV namespace ID parse failed
+
+```
+ERROR Could not parse KV namespace ID from Wrangler output
+```
+
+**Fix**: Create the KV namespace manually and copy the ID:
+
+```bash
+wrangler kv:namespace create SUB_STORE
+# Copy the id from the output, then re-run:
+bash installer/install-cloudflare.sh --kv-namespace-id YOUR_ID ...
+```
+
+---
+
+## Cloudflare: profile upload 401/404
+
+```
+ERROR Profile upload failed
+```
+
+Check:
+1. `--route-url` is correct (include `https://`)
+2. `ADMIN_TOKEN` matches the Worker secret
+3. `--admin-path` matches the Worker config
+4. Worker is deployed: `curl https://YOUR_WORKER/`
+
+---
+
+## Cloudflare: subscription YAML missing fields
+
+```
+ERROR Subscription YAML missing: type: hysteria2
+```
+
+The profile in KV may be incomplete. Re-upload:
+
+```bash
+curl -X POST https://YOUR_WORKER/admin/update \
+  -H "Authorization: Bearer YOUR_ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  --data-binary @/etc/nanobk/profile.current.json
+```
+
 ## edgetunnel fails but primary subscription works
 
 **This is expected behavior.** nanob is designed so that edgetunnel failure never blocks the primary subscription.
