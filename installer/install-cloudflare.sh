@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — Cloudflare nanok Deployment Automation
+# NanoBK Proxy Suite — Cloudflare Deployment Automation
 #
-# Deploys the nanok primary subscription Worker to Cloudflare,
-# creates or uses a KV namespace, sets secrets, uploads profile,
-# and verifies the deployment.
+# Deploys nanok (primary subscription) and optionally nanob (aggregator) Workers.
+# nanob can optionally merge edgetunnel backup nodes.
+# Without edgetunnel, nanob returns nanok primary subscription only.
 #
 # Prerequisites:
 #   - Node.js and npm
@@ -13,11 +13,10 @@
 #
 # Usage:
 #   bash installer/install-cloudflare.sh --yes \
-#     --create-kv \
+#     --create-kv --create-nanob-geo-kv \
 #     --profile /etc/nanobk/profile.current.json \
-#     --route-url https://nanok.yourdomain.com
-#
-# Status: v0.3.1 — nanok deployment automated. nanob/edgetunnel: future versions.
+#     --route-url https://nanok.yourdomain.com \
+#     --deploy-nanob --nanob-route-url https://nanob.yourdomain.com
 
 set -Eeuo pipefail
 
@@ -47,28 +46,43 @@ DRY_RUN=0
 NANOBK_YES=0
 FORCE=0
 
+# nanok
 WORKER_NAME="nanok"
 WORKER_DIR="${REPO_DIR}/workers/nanok"
 PROFILE_PATH="/etc/nanobk/profile.current.json"
-
 SUB_TOKEN=""
 ADMIN_TOKEN=""
 SUB_PATH="/jb"
 ADMIN_PATH="/admin/update"
 ADMIN_CURRENT_PATH="/admin/current"
-
 KV_NAMESPACE_ID=""
 CREATE_KV=0
 KV_BINDING="SUB_STORE"
-
 ROUTE_URL=""
 SKIP_PROFILE_UPLOAD=0
 SKIP_VERIFY=0
 
+# nanob
+DEPLOY_NANOB=0
+NANOB_WORKER_NAME="nanob"
+NANOB_WORKER_DIR="${REPO_DIR}/workers/nanob"
+NANOB_ROUTE_URL=""
+NANOB_TOKEN=""
+NANOB_PATH="/jb"
+NANOB_GEO_KV_NAMESPACE_ID=""
+CREATE_NANOB_GEO_KV=0
+NANOB_GEO_KV_BINDING="NANOB_GEO_CACHE"
+EDGE_HOST=""
+EDGE_SUB_PATH="/sub?target=clash"
+EDGETUNNEL_EXPORT_TOKEN=""
+SKIP_NANOB_VERIFY=0
+
 # Derived
 WRANGLER=""
 WRANGLER_TOML_PATH=""
+NANOB_WRANGLER_TOML_PATH=""
 LOCAL_ENV_FILE="${REPO_DIR}/.cloudflare.local.env"
+NANOB_LOCAL_ENV_FILE="${REPO_DIR}/.nanob.local.env"
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -98,19 +112,21 @@ confirm_or_die() {
   fi
 }
 
+clean_host() {
+  local text="$1"
+  echo "$text" | sed 's|^https\?://||; s|/$||'
+}
+
 # ── Help ────────────────────────────────────────────────────────────────────
 
 show_help() {
   cat <<'EOF'
-NanoBK Proxy Suite — Cloudflare nanok Deployment v0.3.1
+NanoBK Proxy Suite — Cloudflare Deployment v0.4
 
 Usage:
   bash installer/install-cloudflare.sh [OPTIONS]
 
-Options:
-  --dry-run                  Print actions without modifying Cloudflare
-  --yes                      Non-interactive mode
-  --force                    Overwrite existing wrangler.toml in worker dir
+nanok options (primary subscription):
   --worker-name NAME         Worker name (default: nanok)
   --worker-dir PATH          Worker source dir (default: workers/nanok)
   --profile PATH             Path to profile.current.json
@@ -122,28 +138,52 @@ Options:
   --kv-namespace-id ID       Use existing KV namespace
   --create-kv                Auto-create KV namespace
   --kv-binding NAME          KV binding name (default: SUB_STORE)
-  --route-url URL            Worker URL for profile upload and verification
+  --route-url URL            nanok Worker URL for profile upload and verification
   --skip-profile-upload      Deploy Worker only, do not upload profile
-  --skip-verify              Skip HTTP verification after deploy
+  --skip-verify              Skip nanok HTTP verification
+
+nanob options (optional aggregator):
+  --deploy-nanob             Deploy nanob aggregator Worker
+  --nanob-worker-name NAME   nanob Worker name (default: nanob)
+  --nanob-worker-dir PATH    nanob Worker source dir (default: workers/nanob)
+  --nanob-route-url URL      nanob Worker URL for verification
+  --nanob-token TOKEN        nanob subscription token (auto-generated if omitted)
+  --nanob-path PATH          nanob subscription path (default: /jb)
+  --nanob-geo-kv-namespace-id ID  Use existing Geo KV namespace
+  --create-nanob-geo-kv      Auto-create Geo KV namespace
+  --nanob-geo-kv-binding NAME Geo KV binding (default: NANOB_GEO_CACHE)
+  --edge-host HOST           Optional edgetunnel host (enables edgetunnel)
+  --edge-sub-path PATH       Edgetunnel sub path (default: /sub?target=clash)
+  --edgetunnel-export-token TOKEN  Edgetunnel internal auth token (optional)
+  --skip-nanob-verify        Skip nanob HTTP verification
+
+General:
+  --dry-run                  Print actions without modifying Cloudflare
+  --yes                      Non-interactive mode
+  --force                    Overwrite existing wrangler.toml in worker dirs
   --help                     Show this help
 
 Examples:
-  # Dry-run with existing KV and profile
-  bash installer/install-cloudflare.sh --dry-run --yes \
-    --profile examples/profile.example.json \
-    --kv-namespace-id abc123 \
-    --route-url https://nanok.example.workers.dev
-
-  # Auto-create KV, generate tokens
+  # nanok only
   bash installer/install-cloudflare.sh --yes \
-    --create-kv \
-    --profile /etc/nanobk/profile.current.json \
+    --create-kv --profile /etc/nanobk/profile.current.json \
     --route-url https://nanok.yourdomain.com
 
-  # Deploy only (manual profile upload later)
+  # nanok + nanob (no edgetunnel)
   bash installer/install-cloudflare.sh --yes \
-    --kv-namespace-id abc123 \
-    --skip-profile-upload --skip-verify
+    --create-kv --create-nanob-geo-kv \
+    --profile /etc/nanobk/profile.current.json \
+    --route-url https://nanok.yourdomain.com \
+    --deploy-nanob --nanob-route-url https://nanob.yourdomain.com
+
+  # nanok + nanob + edgetunnel
+  bash installer/install-cloudflare.sh --yes \
+    --create-kv --create-nanob-geo-kv \
+    --profile /etc/nanobk/profile.current.json \
+    --route-url https://nanok.yourdomain.com \
+    --deploy-nanob --nanob-route-url https://nanob.yourdomain.com \
+    --edge-host edge-subscription.example.com \
+    --edgetunnel-export-token YOUR_EDGE_TOKEN
 EOF
 }
 
@@ -152,6 +192,7 @@ EOF
 parse_args() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
+      # nanok
       --dry-run)              DRY_RUN=1 ;;
       --yes)                  NANOBK_YES=1 ;;
       --force)                FORCE=1 ;;
@@ -169,13 +210,28 @@ parse_args() {
       --route-url)            ROUTE_URL="$2"; shift ;;
       --skip-profile-upload)  SKIP_PROFILE_UPLOAD=1 ;;
       --skip-verify)          SKIP_VERIFY=1 ;;
+      # nanob
+      --deploy-nanob)               DEPLOY_NANOB=1 ;;
+      --nanob-worker-name)          NANOB_WORKER_NAME="$2"; shift ;;
+      --nanob-worker-dir)           NANOB_WORKER_DIR="$2"; shift ;;
+      --nanob-route-url)            NANOB_ROUTE_URL="$2"; shift ;;
+      --nanob-token)                NANOB_TOKEN="$2"; shift ;;
+      --nanob-path)                 NANOB_PATH="$2"; shift ;;
+      --nanob-geo-kv-namespace-id)  NANOB_GEO_KV_NAMESPACE_ID="$2"; shift ;;
+      --create-nanob-geo-kv)        CREATE_NANOB_GEO_KV=1 ;;
+      --nanob-geo-kv-binding)       NANOB_GEO_KV_BINDING="$2"; shift ;;
+      --edge-host)                  EDGE_HOST="$2"; shift ;;
+      --edge-sub-path)              EDGE_SUB_PATH="$2"; shift ;;
+      --edgetunnel-export-token)    EDGETUNNEL_EXPORT_TOKEN="$2"; shift ;;
+      --skip-nanob-verify)          SKIP_NANOB_VERIFY=1 ;;
+      # general
       --help|-h)              show_help; exit 0 ;;
       *)                      die "Unknown option: $1. Use --help for usage." ;;
     esac
     shift
   done
 
-  # Validate KV config
+  # Validate nanok KV config
   if [[ -z "$KV_NAMESPACE_ID" ]] && [[ "$CREATE_KV" != "1" ]]; then
     if [[ "$NANOBK_YES" == "1" ]]; then
       die "Either --kv-namespace-id or --create-kv is required. Use --create-kv to auto-create."
@@ -189,8 +245,30 @@ parse_args() {
     fi
   fi
 
-  # Trim trailing slash from route URL
+  # Validate nanob config
+  if [[ "$DEPLOY_NANOB" == "1" ]]; then
+    if [[ -z "$NANOB_ROUTE_URL" ]]; then
+      die "--nanob-route-url is required when using --deploy-nanob"
+    fi
+    # nanob needs nanok origin
+    if [[ -z "$ROUTE_URL" ]] && [[ "$DRY_RUN" != "1" ]]; then
+      die "--route-url is required when deploying nanob (nanob needs nanok origin)"
+    fi
+    # Validate nanob Geo KV
+    if [[ -z "$NANOB_GEO_KV_NAMESPACE_ID" ]] && [[ "$CREATE_NANOB_GEO_KV" != "1" ]]; then
+      if [[ "$NANOBK_YES" == "1" ]]; then
+        die "nanob Geo KV: use --nanob-geo-kv-namespace-id or --create-nanob-geo-kv"
+      else
+        confirm_or_die "Create a new Geo KV namespace for nanob?" && CREATE_NANOB_GEO_KV=1 || die "Aborted."
+      fi
+    fi
+  fi
+
+  # Trim trailing slashes
   ROUTE_URL="${ROUTE_URL%/}"
+  NANOB_ROUTE_URL="${NANOB_ROUTE_URL%/}"
+  # Clean edge host
+  EDGE_HOST=$(clean_host "$EDGE_HOST")
 }
 
 # ── Wrangler detection ──────────────────────────────────────────────────────
@@ -205,7 +283,6 @@ check_wrangler() {
     return 0
   fi
 
-  # Try npx wrangler first, then global
   if command -v npx &>/dev/null; then
     if npx wrangler --version &>/dev/null; then
       WRANGLER="npx wrangler"
@@ -224,7 +301,6 @@ check_wrangler() {
   wrangler login"
   fi
 
-  # Check login
   log "Checking Wrangler authentication..."
   if ! $WRANGLER whoami &>/dev/null; then
     die "Wrangler is not logged in. Run: wrangler login"
@@ -232,61 +308,62 @@ check_wrangler() {
   ok "Wrangler authenticated"
 }
 
-# ── KV namespace ────────────────────────────────────────────────────────────
+# ── KV namespace (generic) ──────────────────────────────────────────────────
 
-ensure_kv_namespace() {
-  if [[ -n "$KV_NAMESPACE_ID" ]]; then
-    ok "Using existing KV namespace: ${KV_NAMESPACE_ID}"
+# Args: binding_name create_flag_var namespace_id_var
+create_kv_namespace_generic() {
+  local binding="$1"
+  local create_flag="$2"
+  local id_var="$3"
+
+  # Check if already set
+  local current_id="${!id_var:-}"
+  if [[ -n "$current_id" ]]; then
+    ok "Using existing KV namespace: ${current_id}"
     return 0
   fi
 
-  if [[ "$CREATE_KV" != "1" ]]; then
-    die "No KV namespace configured. Use --kv-namespace-id or --create-kv."
+  if [[ "${!create_flag}" != "1" ]]; then
+    return 1
   fi
 
-  log "Creating KV namespace '${KV_BINDING}'..."
+  log "Creating KV namespace '${binding}'..."
 
   if [[ "$DRY_RUN" == "1" ]]; then
-    echo -e "  ${CYAN}[DRY-RUN]${NC} ${WRANGLER} kv:namespace create ${KV_BINDING}"
-    KV_NAMESPACE_ID="DRY_RUN_KV_NAMESPACE_ID"
+    echo -e "  ${CYAN}[DRY-RUN]${NC} ${WRANGLER} kv:namespace create ${binding}"
+    eval "$id_var=\"DRY_RUN_KV_ID\""
     return 0
   fi
 
   local output
-  output=$($WRANGLER kv:namespace create "$KV_BINDING" 2>&1) || {
-    err "Failed to create KV namespace:"
+  output=$($WRANGLER kv:namespace create "$binding" 2>&1) || {
+    err "Failed to create KV namespace '${binding}':"
     echo "$output" >&2
-    die "Try manually: wrangler kv:namespace create ${KV_BINDING}"
+    die "Try manually: wrangler kv:namespace create ${binding}"
   }
 
   echo "$output"
 
-  # Parse KV namespace ID from output
-  # Wrangler output formats vary:
-  #   id = "xxxxxxxx"
-  #   { binding = "SUB_STORE", id = "xxxxxxxx" }
-  #   {"id":"xxxxxxxx",...}
+  # Parse ID
+  local parsed_id
+  parsed_id=$(echo "$output" | grep -oP 'id\s*=\s*"\K[^"]+' | head -1) || true
 
-  # Try: id = "..." format
-  KV_NAMESPACE_ID=$(echo "$output" | grep -oP 'id\s*=\s*"\K[^"]+' | head -1) || true
-
-  # Try: JSON format
-  if [[ -z "$KV_NAMESPACE_ID" ]] && command -v jq &>/dev/null; then
-    KV_NAMESPACE_ID=$(echo "$output" | jq -r '.id // empty' 2>/dev/null) || true
+  if [[ -z "$parsed_id" ]] && command -v jq &>/dev/null; then
+    parsed_id=$(echo "$output" | jq -r '.id // empty' 2>/dev/null) || true
   fi
 
-  # Try: "id: " format
-  if [[ -z "$KV_NAMESPACE_ID" ]]; then
-    KV_NAMESPACE_ID=$(echo "$output" | grep -oP 'id:\s*\K[a-f0-9]+' | head -1) || true
+  if [[ -z "$parsed_id" ]]; then
+    parsed_id=$(echo "$output" | grep -oP 'id:\s*\K[a-f0-9]+' | head -1) || true
   fi
 
-  if [[ -z "$KV_NAMESPACE_ID" ]]; then
+  if [[ -z "$parsed_id" ]]; then
     err "Could not parse KV namespace ID from Wrangler output:"
     echo "$output" >&2
-    die "Please copy the ID manually and re-run with --kv-namespace-id ID"
+    die "Copy the ID manually and re-run with the appropriate --*-kv-namespace-id flag"
   fi
 
-  ok "Created KV namespace: ${KV_NAMESPACE_ID}"
+  eval "$id_var=\"$parsed_id\""
+  ok "Created KV namespace '${binding}': ${parsed_id}"
 }
 
 # ── Generate tokens ─────────────────────────────────────────────────────────
@@ -307,33 +384,48 @@ generate_tokens() {
   else
     ok "ADMIN_TOKEN provided: $(fingerprint "$ADMIN_TOKEN")"
   fi
+
+  # Generate nanob token if deploying nanob
+  if [[ "$DEPLOY_NANOB" == "1" ]] && [[ -z "$NANOB_TOKEN" ]]; then
+    NANOB_TOKEN=$(generate_token)
+    ok "Generated NANOB_TOKEN: $(fingerprint "$NANOB_TOKEN")"
+  elif [[ "$DEPLOY_NANOB" == "1" ]]; then
+    ok "NANOB_TOKEN provided: $(fingerprint "$NANOB_TOKEN")"
+  fi
 }
 
-# ── Generate wrangler.toml ──────────────────────────────────────────────────
+# ── Check existing wrangler.toml ────────────────────────────────────────────
+
+check_existing_toml() {
+  local toml_path="$1"
+  local label="$2"
+
+  if [[ -f "$toml_path" ]]; then
+    if grep -q 'Generated by NanoBK install-cloudflare.sh' "$toml_path" 2>/dev/null; then
+      ok "${label}: existing wrangler.toml was generated by NanoBK, will overwrite"
+    elif [[ "$FORCE" == "1" ]]; then
+      warn "${label}: overwriting existing wrangler.toml (--force)"
+    else
+      die "${label}: existing wrangler.toml was not generated by NanoBK.
+  Path: ${toml_path}
+  Use --force to overwrite, or back it up manually first."
+    fi
+  fi
+}
+
+# ── Generate nanok wrangler.toml ────────────────────────────────────────────
 
 generate_wrangler_toml() {
   WRANGLER_TOML_PATH="${WORKER_DIR}/wrangler.toml"
 
-  log "Generating wrangler.toml at ${WRANGLER_TOML_PATH}..."
+  log "Generating nanok wrangler.toml at ${WRANGLER_TOML_PATH}..."
 
-  # Validate worker dir
   if [[ "$DRY_RUN" != "1" ]]; then
     [[ -d "$WORKER_DIR" ]] || die "Worker dir not found: ${WORKER_DIR}"
     [[ -f "$WORKER_DIR/src/index.js" ]] || die "Worker entry not found: ${WORKER_DIR}/src/index.js"
   fi
 
-  # Check for existing wrangler.toml
-  if [[ -f "$WRANGLER_TOML_PATH" ]]; then
-    if grep -q 'Generated by NanoBK install-cloudflare.sh' "$WRANGLER_TOML_PATH" 2>/dev/null; then
-      ok "Existing wrangler.toml was generated by NanoBK, will overwrite"
-    elif [[ "$FORCE" == "1" ]]; then
-      warn "Overwriting existing wrangler.toml (--force)"
-    else
-      die "Existing wrangler.toml was not generated by NanoBK.
-  Path: ${WRANGLER_TOML_PATH}
-  Use --force to overwrite, or back it up manually first."
-    fi
-  fi
+  check_existing_toml "$WRANGLER_TOML_PATH" "nanok"
 
   local content="# Generated by NanoBK install-cloudflare.sh. Do not commit.
 name = \"${WORKER_NAME}\"
@@ -360,10 +452,58 @@ ADMIN_CURRENT_PATH = \"${ADMIN_CURRENT_PATH}\"
   ok "Generated: ${WRANGLER_TOML_PATH}"
 }
 
-# ── Set Worker secrets ──────────────────────────────────────────────────────
+# ── Generate nanob wrangler.toml ────────────────────────────────────────────
+
+generate_nanob_wrangler_toml() {
+  if [[ "$DEPLOY_NANOB" != "1" ]]; then
+    return 0
+  fi
+
+  NANOB_WRANGLER_TOML_PATH="${NANOB_WORKER_DIR}/wrangler.toml"
+
+  log "Generating nanob wrangler.toml at ${NANOB_WRANGLER_TOML_PATH}..."
+
+  if [[ "$DRY_RUN" != "1" ]]; then
+    [[ -d "$NANOB_WORKER_DIR" ]] || die "nanob worker dir not found: ${NANOB_WORKER_DIR}"
+    [[ -f "$NANOB_WORKER_DIR/src/index.js" ]] || die "nanob entry not found: ${NANOB_WORKER_DIR}/src/index.js"
+  fi
+
+  check_existing_toml "$NANOB_WRANGLER_TOML_PATH" "nanob"
+
+  local nanok_origin="${ROUTE_URL}"
+  [[ -z "$nanok_origin" ]] && nanok_origin="https://nanok.example.workers.dev"
+
+  local content="# Generated by NanoBK install-cloudflare.sh. Do not commit.
+name = \"${NANOB_WORKER_NAME}\"
+main = \"src/index.js\"
+compatibility_date = \"2024-01-01\"
+
+[[kv_namespaces]]
+binding = \"${NANOB_GEO_KV_BINDING}\"
+id = \"${NANOB_GEO_KV_NAMESPACE_ID}\"
+
+[vars]
+NANOK_ORIGIN = \"${nanok_origin}\"
+NANOK_SUB_PATH = \"${SUB_PATH}\"
+NANOB_PATH = \"${NANOB_PATH}\"
+EDGE_HOST = \"${EDGE_HOST}\"
+EDGE_SUB_PATH = \"${EDGE_SUB_PATH}\"
+"
+
+  if [[ "$DRY_RUN" == "1" ]]; then
+    echo -e "  ${CYAN}[DRY-RUN]${NC} Would write ${NANOB_WRANGLER_TOML_PATH}:"
+    echo "$content" | sed 's/^/    /'
+    return 0
+  fi
+
+  printf '%s\n' "$content" > "$NANOB_WRANGLER_TOML_PATH"
+  ok "Generated: ${NANOB_WRANGLER_TOML_PATH}"
+}
+
+# ── Set nanok secrets ───────────────────────────────────────────────────────
 
 set_worker_secrets() {
-  log "Setting Worker secrets..."
+  log "Setting nanok Worker secrets..."
 
   if [[ "$DRY_RUN" == "1" ]]; then
     echo -e "  ${CYAN}[DRY-RUN]${NC} Would set secret SUB_TOKEN (fingerprint: $(fingerprint "$SUB_TOKEN"))"
@@ -371,27 +511,64 @@ set_worker_secrets() {
     return 0
   fi
 
-  # Run from WORKER_DIR so wrangler.toml relative paths work
   (
     cd "$WORKER_DIR"
-    log "Setting SUB_TOKEN..."
-    if ! printf '%s' "$SUB_TOKEN" | $WRANGLER secret put SUB_TOKEN --config wrangler.toml 2>&1; then
-      die "Failed to set SUB_TOKEN secret"
-    fi
-  )
-  ok "SUB_TOKEN set"
+    printf '%s' "$SUB_TOKEN" | $WRANGLER secret put SUB_TOKEN --config wrangler.toml 2>&1
+  ) || die "Failed to set nanok SUB_TOKEN"
+  ok "nanok SUB_TOKEN set"
 
   (
     cd "$WORKER_DIR"
-    log "Setting ADMIN_TOKEN..."
-    if ! printf '%s' "$ADMIN_TOKEN" | $WRANGLER secret put ADMIN_TOKEN --config wrangler.toml 2>&1; then
-      die "Failed to set ADMIN_TOKEN secret"
-    fi
-  )
-  ok "ADMIN_TOKEN set"
+    printf '%s' "$ADMIN_TOKEN" | $WRANGLER secret put ADMIN_TOKEN --config wrangler.toml 2>&1
+  ) || die "Failed to set nanok ADMIN_TOKEN"
+  ok "nanok ADMIN_TOKEN set"
 }
 
-# ── Deploy Worker ───────────────────────────────────────────────────────────
+# ── Set nanob secrets ───────────────────────────────────────────────────────
+
+set_nanob_secrets() {
+  if [[ "$DEPLOY_NANOB" != "1" ]]; then
+    return 0
+  fi
+
+  log "Setting nanob Worker secrets..."
+
+  if [[ "$DRY_RUN" == "1" ]]; then
+    echo -e "  ${CYAN}[DRY-RUN]${NC} Would set nanob secret NANOB_TOKEN (fingerprint: $(fingerprint "$NANOB_TOKEN"))"
+    echo -e "  ${CYAN}[DRY-RUN]${NC} Would set nanob secret NANOK_SUB_TOKEN (fingerprint: $(fingerprint "$SUB_TOKEN"))"
+    if [[ -n "$EDGETUNNEL_EXPORT_TOKEN" ]]; then
+      echo -e "  ${CYAN}[DRY-RUN]${NC} Would set nanob secret EDGETUNNEL_EXPORT_TOKEN (fingerprint: $(fingerprint "$EDGETUNNEL_EXPORT_TOKEN"))"
+    else
+      echo -e "  ${CYAN}[DRY-RUN]${NC} EDGETUNNEL_EXPORT_TOKEN not provided, edgetunnel will be disabled"
+    fi
+    return 0
+  fi
+
+  (
+    cd "$NANOB_WORKER_DIR"
+    printf '%s' "$NANOB_TOKEN" | $WRANGLER secret put NANOB_TOKEN --config wrangler.toml 2>&1
+  ) || die "Failed to set nanob NANOB_TOKEN"
+  ok "nanob NANOB_TOKEN set"
+
+  (
+    cd "$NANOB_WORKER_DIR"
+    printf '%s' "$SUB_TOKEN" | $WRANGLER secret put NANOK_SUB_TOKEN --config wrangler.toml 2>&1
+  ) || die "Failed to set nanob NANOK_SUB_TOKEN"
+  ok "nanob NANOK_SUB_TOKEN set"
+
+  # EDGETUNNEL_EXPORT_TOKEN is optional
+  if [[ -n "$EDGETUNNEL_EXPORT_TOKEN" ]]; then
+    (
+      cd "$NANOB_WORKER_DIR"
+      printf '%s' "$EDGETUNNEL_EXPORT_TOKEN" | $WRANGLER secret put EDGETUNNEL_EXPORT_TOKEN --config wrangler.toml 2>&1
+    ) || die "Failed to set nanob EDGETUNNEL_EXPORT_TOKEN"
+    ok "nanob EDGETUNNEL_EXPORT_TOKEN set (edgetunnel enabled)"
+  else
+    log "No EDGETUNNEL_EXPORT_TOKEN provided — edgetunnel disabled on nanob"
+  fi
+}
+
+# ── Deploy nanok ────────────────────────────────────────────────────────────
 
 deploy_nanok() {
   log "Deploying nanok Worker..."
@@ -406,28 +583,47 @@ deploy_nanok() {
     cd "$WORKER_DIR"
     $WRANGLER deploy --config wrangler.toml 2>&1
   ) || {
-    err "Wrangler deploy failed:"
+    err "nanok deploy failed:"
     echo "$output" >&2
     die "Check your wrangler.toml and try again."
   }
 
   echo "$output"
   ok "nanok Worker deployed"
-
-  if [[ -z "$ROUTE_URL" ]]; then
-    warn "No --route-url provided. Profile upload and verification will be skipped."
-    warn "Set --route-url to your Worker URL (e.g., https://nanok.yourdomain.com)"
-  fi
 }
 
-# ── Validate profile file ───────────────────────────────────────────────────
+# ── Deploy nanob ────────────────────────────────────────────────────────────
 
-validate_profile_file() {
-  if [[ "$SKIP_PROFILE_UPLOAD" == "1" ]]; then
+deploy_nanob() {
+  if [[ "$DEPLOY_NANOB" != "1" ]]; then
     return 0
   fi
 
-  if [[ -z "$ROUTE_URL" ]]; then
+  log "Deploying nanob Worker..."
+
+  if [[ "$DRY_RUN" == "1" ]]; then
+    echo -e "  ${CYAN}[DRY-RUN]${NC} (cd ${NANOB_WORKER_DIR} && ${WRANGLER} deploy --config wrangler.toml)"
+    return 0
+  fi
+
+  local output
+  output=$(
+    cd "$NANOB_WORKER_DIR"
+    $WRANGLER deploy --config wrangler.toml 2>&1
+  ) || {
+    err "nanob deploy failed:"
+    echo "$output" >&2
+    die "Check your wrangler.toml and try again."
+  }
+
+  echo "$output"
+  ok "nanob Worker deployed"
+}
+
+# ── Validate profile ────────────────────────────────────────────────────────
+
+validate_profile_file() {
+  if [[ "$SKIP_PROFILE_UPLOAD" == "1" ]] || [[ -z "$ROUTE_URL" ]]; then
     return 0
   fi
 
@@ -442,54 +638,35 @@ validate_profile_file() {
     return 0
   fi
 
-  [[ -f "$PROFILE_PATH" ]] || die "Profile file not found: ${PROFILE_PATH}
-Run the VPS installer first, or provide --profile PATH."
+  [[ -f "$PROFILE_PATH" ]] || die "Profile file not found: ${PROFILE_PATH}"
 
-  # Validate JSON structure
   if command -v jq &>/dev/null; then
     if ! jq -e 'has("hy2") and has("tuic") and has("reality") and has("trojan")' "$PROFILE_PATH" >/dev/null 2>&1; then
-      die "Profile JSON missing required sections (hy2/tuic/reality/trojan): ${PROFILE_PATH}"
+      die "Profile JSON missing required sections: ${PROFILE_PATH}"
     fi
-    ok "Profile JSON validated: ${PROFILE_PATH}"
+    ok "Profile JSON validated"
   elif command -v python3 &>/dev/null; then
-    if ! python3 -c "
-import json, sys
-with open('${PROFILE_PATH}') as f:
-    data = json.load(f)
-for k in ('hy2','tuic','reality','trojan'):
-    if k not in data:
-        print(f'Missing: {k}', file=sys.stderr)
-        sys.exit(1)
-" 2>/dev/null; then
+    if ! python3 -c "import json; d=json.load(open('$PROFILE_PATH')); [d[k] for k in ('hy2','tuic','reality','trojan')]" 2>/dev/null; then
       die "Profile JSON validation failed: ${PROFILE_PATH}"
     fi
-    ok "Profile JSON validated (via python3): ${PROFILE_PATH}"
+    ok "Profile JSON validated (python3)"
   else
-    warn "Neither jq nor python3 available, skipping profile JSON validation"
+    warn "Neither jq nor python3 available, skipping profile validation"
   fi
 }
 
 # ── Upload profile ──────────────────────────────────────────────────────────
 
 upload_profile() {
-  if [[ "$SKIP_PROFILE_UPLOAD" == "1" ]]; then
-    log "Skipping profile upload (--skip-profile-upload)"
-    return 0
-  fi
-
-  if [[ -z "$ROUTE_URL" ]]; then
-    warn "Skipping profile upload: no --route-url provided"
+  if [[ "$SKIP_PROFILE_UPLOAD" == "1" ]] || [[ -z "$ROUTE_URL" ]]; then
     return 0
   fi
 
   local upload_url="${ROUTE_URL}${ADMIN_PATH}"
-
   log "Uploading profile to ${upload_url}..."
 
   if [[ "$DRY_RUN" == "1" ]]; then
-    echo -e "  ${CYAN}[DRY-RUN]${NC} curl -X POST ${upload_url}"
-    echo -e "  ${CYAN}[DRY-RUN]${NC}   -H 'Authorization: Bearer $(fingerprint "$ADMIN_TOKEN")...'"
-    echo -e "  ${CYAN}[DRY-RUN]${NC}   --data-binary @${PROFILE_PATH}"
+    echo -e "  ${CYAN}[DRY-RUN]${NC} curl -X POST ${upload_url} --data-binary @${PROFILE_PATH}"
     return 0
   fi
 
@@ -499,14 +676,8 @@ upload_profile() {
     -H "Content-Type: application/json" \
     --data-binary "@${PROFILE_PATH}" \
     2>&1) || {
-    err "Profile upload failed. HTTP response:"
+    err "Profile upload failed:"
     echo "$response" >&2
-    echo "" >&2
-    echo "Troubleshooting:" >&2
-    echo "  1. Check --route-url is correct" >&2
-    echo "  2. Check ADMIN_TOKEN matches the Worker secret" >&2
-    echo "  3. Check ADMIN_PATH matches the Worker config" >&2
-    echo "  4. Try: curl -v ${upload_url}" >&2
     return 1
   }
 
@@ -514,104 +685,129 @@ upload_profile() {
   ok "Profile uploaded successfully"
 }
 
-# ── Verify deployment ───────────────────────────────────────────────────────
+# ── Verify nanok ────────────────────────────────────────────────────────────
 
 verify_nanok() {
-  if [[ "$SKIP_VERIFY" == "1" ]]; then
-    log "Skipping verification (--skip-verify)"
-    return 0
-  fi
-
-  if [[ -z "$ROUTE_URL" ]]; then
-    warn "Skipping verification: no --route-url provided"
+  if [[ "$SKIP_VERIFY" == "1" ]] || [[ -z "$ROUTE_URL" ]]; then
     return 0
   fi
 
   log "Verifying nanok deployment..."
 
-  # Check admin endpoint
-  local admin_url="${ROUTE_URL}${ADMIN_CURRENT_PATH}"
-  log "Checking admin endpoint: ${admin_url}"
-
   if [[ "$DRY_RUN" == "1" ]]; then
-    echo -e "  ${CYAN}[DRY-RUN]${NC} curl ${admin_url} -H 'Authorization: Bearer $(fingerprint "$ADMIN_TOKEN")...'"
-    echo -e "  ${CYAN}[DRY-RUN]${NC} curl ${ROUTE_URL}${SUB_PATH}?token=$(fingerprint "$SUB_TOKEN")..."
+    echo -e "  ${CYAN}[DRY-RUN]${NC} Would verify nanok at ${ROUTE_URL}"
     return 0
   fi
 
+  # Admin endpoint
+  local admin_url="${ROUTE_URL}${ADMIN_CURRENT_PATH}"
   local admin_response
-  admin_response=$(curl -fsS "$admin_url" \
-    -H "Authorization: Bearer ${ADMIN_TOKEN}" \
-    2>&1) || {
-    err "Admin endpoint check failed:"
-    echo "$admin_response" >&2
+  admin_response=$(curl -fsS "$admin_url" -H "Authorization: Bearer ${ADMIN_TOKEN}" 2>&1) || {
+    err "nanok admin endpoint check failed"
     return 1
   }
 
-  # Validate admin response has required fields
   if command -v jq &>/dev/null; then
     if echo "$admin_response" | jq -e 'has("hy2") and has("tuic") and has("reality") and has("trojan")' >/dev/null 2>&1; then
-      ok "Admin endpoint: profile has all four protocol sections"
+      ok "nanok admin: profile has all four sections"
     else
-      err "Admin endpoint: profile missing required sections"
-      echo "$admin_response" | jq . 2>/dev/null || echo "$admin_response"
+      err "nanok admin: profile missing sections"
       return 1
     fi
-  else
-    ok "Admin endpoint: responded (jq not available for deep validation)"
   fi
 
-  # Check subscription endpoint
+  # Subscription endpoint
   local sub_url="${ROUTE_URL}${SUB_PATH}?token=${SUB_TOKEN}"
-  log "Checking subscription endpoint..."
-
   local sub_response
   sub_response=$(curl -fsS "$sub_url" 2>&1) || {
-    err "Subscription endpoint check failed:"
-    echo "$sub_response" >&2
+    err "nanok subscription check failed"
     return 1
   }
 
-  # Check YAML contains required sections
   local yaml_ok=1
   for marker in "proxies:" "type: hysteria2" "type: tuic" "type: vless" "type: trojan" "proxy-groups:" "rules:"; do
     if ! echo "$sub_response" | grep -q "$marker"; then
-      err "Subscription YAML missing: ${marker}"
+      err "nanok YAML missing: ${marker}"
       yaml_ok=0
     fi
   done
 
   if [[ "$yaml_ok" == "0" ]]; then
-    err "Subscription YAML validation failed"
     return 1
   fi
-  ok "Subscription YAML: all required sections present"
+  ok "nanok subscription YAML: all sections present"
 
-  # Check for control characters
-  if echo "$sub_response" | python3 -c "
-import sys
-data = sys.stdin.buffer.read()
-bad = [b for b in data if (b < 32 and b not in (9, 10, 13)) or b == 127]
-sys.exit(1 if bad else 0)
-" 2>/dev/null; then
-    ok "Subscription YAML: no invalid control characters"
+  if echo "$sub_response" | python3 -c "import sys; d=sys.stdin.buffer.read(); sys.exit(1 if any((b<32 and b not in (9,10,13)) or b==127 for b in d) else 0)" 2>/dev/null; then
+    ok "nanok YAML: no invalid control characters"
   else
-    err "Subscription YAML contains invalid control characters"
+    err "nanok YAML contains invalid control characters"
     return 1
   fi
 
-  ok "Verification passed"
+  ok "nanok verification passed"
 }
 
-# ── Write local env file ────────────────────────────────────────────────────
+# ── Verify nanob ────────────────────────────────────────────────────────────
 
-# Usage: write_local_env [deploy_status] [upload_status] [verify_status]
+verify_nanob() {
+  if [[ "$DEPLOY_NANOB" != "1" ]]; then
+    return 0
+  fi
+
+  if [[ "$SKIP_NANOB_VERIFY" == "1" ]] || [[ -z "$NANOB_ROUTE_URL" ]]; then
+    log "Skipping nanob verification"
+    return 0
+  fi
+
+  log "Verifying nanob deployment..."
+
+  if [[ "$DRY_RUN" == "1" ]]; then
+    echo -e "  ${CYAN}[DRY-RUN]${NC} Would verify nanob at ${NANOB_ROUTE_URL}"
+    return 0
+  fi
+
+  local sub_url="${NANOB_ROUTE_URL}${NANOB_PATH}?token=${NANOB_TOKEN}"
+  local sub_response
+  sub_response=$(curl -fsS "$sub_url" 2>&1) || {
+    err "nanob subscription check failed"
+    return 1
+  }
+
+  # Check primary nodes are present
+  local yaml_ok=1
+  for marker in "proxies:" "type: hysteria2" "type: tuic" "type: vless" "type: trojan" "proxy-groups:" "rules:"; do
+    if ! echo "$sub_response" | grep -q "$marker"; then
+      err "nanob YAML missing: ${marker}"
+      yaml_ok=0
+    fi
+  done
+
+  if [[ "$yaml_ok" == "0" ]]; then
+    return 1
+  fi
+  ok "nanob subscription YAML: primary nodes present"
+
+  # Note: we do NOT check for edgetunnel nodes here — edgetunnel may fail
+  # and nanob correctly falls back to primary-only. That's expected behavior.
+
+  if echo "$sub_response" | python3 -c "import sys; d=sys.stdin.buffer.read(); sys.exit(1 if any((b<32 and b not in (9,10,13)) or b==127 for b in d) else 0)" 2>/dev/null; then
+    ok "nanob YAML: no invalid control characters"
+  else
+    err "nanob YAML contains invalid control characters"
+    return 1
+  fi
+
+  ok "nanob verification passed"
+}
+
+# ── Write local env files ───────────────────────────────────────────────────
+
 write_local_env() {
   local deploy_status="${1:-pending}"
   local upload_status="${2:-pending}"
   local verify_status="${3:-pending}"
 
-  log "Saving local secret file..."
+  log "Saving nanok local secret file..."
 
   local content="# Generated by NanoBK install-cloudflare.sh
 # KEEP THIS FILE PRIVATE — never commit to Git.
@@ -632,13 +828,56 @@ NANOBK_VERIFY_STATUS=\"${verify_status}\"
 
   if [[ "$DRY_RUN" == "1" ]]; then
     echo -e "  ${CYAN}[DRY-RUN]${NC} Would write ${LOCAL_ENV_FILE} (mode 600)"
-    echo -e "  ${CYAN}[DRY-RUN]${NC}   deploy_status=${deploy_status}, upload_status=${upload_status}, verify_status=${verify_status}"
     return 0
   fi
 
   printf '%s\n' "$content" > "$LOCAL_ENV_FILE"
   chmod 600 "$LOCAL_ENV_FILE"
   ok "Saved ${LOCAL_ENV_FILE} (mode 600) [deploy=${deploy_status}]"
+}
+
+write_nanob_local_env() {
+  if [[ "$DEPLOY_NANOB" != "1" ]]; then
+    return 0
+  fi
+
+  local deploy_status="${1:-pending}"
+  local verify_status="${2:-pending}"
+
+  local edge_status="disabled"
+  if [[ -n "$EDGE_HOST" ]] && [[ -n "$EDGETUNNEL_EXPORT_TOKEN" ]]; then
+    edge_status="enabled"
+  elif [[ -n "$EDGE_HOST" ]]; then
+    edge_status="host-set-no-token"
+  fi
+
+  log "Saving nanob local secret file..."
+
+  local content="# Generated by NanoBK install-cloudflare.sh
+# KEEP THIS FILE PRIVATE — never commit to Git.
+
+NANOB_WORKER_NAME=\"${NANOB_WORKER_NAME}\"
+NANOB_ROUTE_URL=\"${NANOB_ROUTE_URL}\"
+NANOB_TOKEN=\"${NANOB_TOKEN}\"
+NANOB_PATH=\"${NANOB_PATH}\"
+NANOK_ORIGIN=\"${ROUTE_URL}\"
+NANOK_SUB_PATH=\"${SUB_PATH}\"
+NANOB_GEO_KV_NAMESPACE_ID=\"${NANOB_GEO_KV_NAMESPACE_ID}\"
+EDGE_HOST=\"${EDGE_HOST}\"
+EDGE_SUB_PATH=\"${EDGE_SUB_PATH}\"
+EDGETUNNEL_STATUS=\"${edge_status}\"
+NANOB_DEPLOY_STATUS=\"${deploy_status}\"
+NANOB_VERIFY_STATUS=\"${verify_status}\"
+"
+
+  if [[ "$DRY_RUN" == "1" ]]; then
+    echo -e "  ${CYAN}[DRY-RUN]${NC} Would write ${NANOB_LOCAL_ENV_FILE} (mode 600)"
+    return 0
+  fi
+
+  printf '%s\n' "$content" > "$NANOB_LOCAL_ENV_FILE"
+  chmod 600 "$NANOB_LOCAL_ENV_FILE"
+  ok "Saved ${NANOB_LOCAL_ENV_FILE} (mode 600) [deploy=${deploy_status}]"
 }
 
 # ── Print next steps ────────────────────────────────────────────────────────
@@ -652,34 +891,51 @@ print_next_steps() {
   echo "  nanok Worker:"
   echo "    name:  ${WORKER_NAME}"
   [[ -n "$ROUTE_URL" ]] && echo "    url:   ${ROUTE_URL}"
+
+  if [[ "$DEPLOY_NANOB" == "1" ]]; then
+    echo ""
+    echo "  nanob Worker:"
+    echo "    name:  ${NANOB_WORKER_NAME}"
+    [[ -n "$NANOB_ROUTE_URL" ]] && echo "    url:   ${NANOB_ROUTE_URL}"
+    echo "    edgetunnel: $([ -n "$EDGE_HOST" ] && [ -n "$EDGETUNNEL_EXPORT_TOKEN" ] && echo "enabled (${EDGE_HOST})" || echo "disabled")"
+  fi
+
   echo ""
-  if [[ -n "$ROUTE_URL" ]]; then
+  if [[ "$DEPLOY_NANOB" == "1" ]] && [[ -n "$NANOB_ROUTE_URL" ]]; then
+    echo "  Recommended subscription (nanob aggregator):"
+    echo "    ${NANOB_ROUTE_URL}${NANOB_PATH}?token=${NANOB_TOKEN}"
+    echo ""
+    echo "  Direct subscription (nanok only):"
+    [[ -n "$ROUTE_URL" ]] && echo "    ${ROUTE_URL}${SUB_PATH}?token=${SUB_TOKEN}"
+  elif [[ -n "$ROUTE_URL" ]]; then
     echo "  Subscription URL (contains SUB_TOKEN — keep private):"
     echo "    ${ROUTE_URL}${SUB_PATH}?token=${SUB_TOKEN}"
-    echo ""
-    echo "  Admin update URL:"
-    echo "    ${ROUTE_URL}${ADMIN_PATH}"
   fi
+
   echo ""
-  echo "  Local secret file:"
+  echo "  Local secret files:"
   echo "    ${LOCAL_ENV_FILE}"
+  [[ "$DEPLOY_NANOB" == "1" ]] && echo "    ${NANOB_LOCAL_ENV_FILE}"
+
   echo ""
   echo "  Next steps:"
   echo "    1. Import subscription URL into Clash/Mihomo."
   echo "    2. On VPS, create admin env for key rotation:"
-    echo ""
+  echo ""
   echo "       cat > /root/.nanok-cf-admin.env <<'ENVEOF'"
   echo "       ADMIN_TOKEN=\"${ADMIN_TOKEN}\""
-  if [[ -n "$ROUTE_URL" ]]; then
-    echo "       ADMIN_CURRENT_URL=\"${ROUTE_URL}${ADMIN_CURRENT_PATH}\""
-    echo "       ADMIN_UPDATE_URL=\"${ROUTE_URL}${ADMIN_PATH}\""
-  fi
+  [[ -n "$ROUTE_URL" ]] && echo "       ADMIN_CURRENT_URL=\"${ROUTE_URL}${ADMIN_CURRENT_PATH}\""
+  [[ -n "$ROUTE_URL" ]] && echo "       ADMIN_UPDATE_URL=\"${ROUTE_URL}${ADMIN_PATH}\""
   echo "       ENVEOF"
   echo "       chmod 600 /root/.nanok-cf-admin.env"
   echo ""
-  echo "    3. Optional: deploy nanob aggregator (future version)."
+
+  if [[ "$DEPLOY_NANOB" != "1" ]]; then
+    echo "    3. Optional: deploy nanob aggregator with --deploy-nanob"
+  fi
+
   echo ""
-  warn "Keep ${LOCAL_ENV_FILE} and /root/.nanok-cf-admin.env private."
+  warn "Keep .cloudflare.local.env and .nanob.local.env private."
   warn "Never commit these files to Git."
   echo ""
 }
@@ -690,24 +946,24 @@ main() {
   parse_args "$@"
 
   echo ""
-  if [[ "$DRY_RUN" == "1" ]]; then
-    echo "╔══════════════════════════════════════════════════════════╗"
-    echo "║   NanoBK Cloudflare Installer — DRY-RUN                ║"
-    echo "╚══════════════════════════════════════════════════════════╝"
-  else
-    echo "╔══════════════════════════════════════════════════════════╗"
-    echo "║   NanoBK Cloudflare Installer                           ║"
-    echo "╚══════════════════════════════════════════════════════════╝"
-  fi
+  local mode_label=""
+  [[ "$DRY_RUN" == "1" ]] && mode_label=" — DRY-RUN"
+  echo "╔══════════════════════════════════════════════════════════╗"
+  echo "║   NanoBK Cloudflare Installer${mode_label}                "
+  echo "╚══════════════════════════════════════════════════════════╝"
   echo ""
-  echo "  Worker name:    ${WORKER_NAME}"
-  echo "  Worker dir:     ${WORKER_DIR}"
-  echo "  Profile:        ${PROFILE_PATH}"
-  echo "  KV binding:     ${KV_BINDING}"
-  echo "  KV namespace:   ${KV_NAMESPACE_ID:-<will create>}"
-  echo "  Route URL:      ${ROUTE_URL:-<not set>}"
-  echo "  Sub path:       ${SUB_PATH}"
-  echo "  Admin path:     ${ADMIN_PATH}"
+  echo "  nanok:"
+  echo "    name:       ${WORKER_NAME}"
+  echo "    route-url:  ${ROUTE_URL:-<not set>}"
+  echo "    kv:         ${KV_NAMESPACE_ID:-<will create>}"
+  if [[ "$DEPLOY_NANOB" == "1" ]]; then
+    echo ""
+    echo "  nanob:"
+    echo "    name:       ${NANOB_WORKER_NAME}"
+    echo "    route-url:  ${NANOB_ROUTE_URL}"
+    echo "    geo-kv:     ${NANOB_GEO_KV_NAMESPACE_ID:-<will create>}"
+    echo "    edge-host:  ${EDGE_HOST:-<disabled>}"
+  fi
   echo ""
 
   confirm_or_die "Proceed with Cloudflare deployment?"
@@ -715,37 +971,53 @@ main() {
   # Phase 1: Wrangler
   check_wrangler
 
-  # Phase 2: KV
-  ensure_kv_namespace
+  # Phase 2: nanok KV
+  create_kv_namespace_generic "$KV_BINDING" CREATE_KV KV_NAMESPACE_ID
 
-  # Phase 3: Tokens
+  # Phase 3: nanob Geo KV (if deploying nanob)
+  if [[ "$DEPLOY_NANOB" == "1" ]]; then
+    create_kv_namespace_generic "$NANOB_GEO_KV_BINDING" CREATE_NANOB_GEO_KV NANOB_GEO_KV_NAMESPACE_ID
+  fi
+
+  # Phase 4: Tokens
   generate_tokens
 
-  # Phase 4: Save secrets early (before any Cloudflare operations)
+  # Phase 5: Save secrets early
   write_local_env "prepared" "pending" "pending"
+  write_nanob_local_env "prepared" "pending"
 
-  # Phase 5: Generate wrangler.toml
+  # Phase 6: Generate wrangler.toml files
   generate_wrangler_toml
+  generate_nanob_wrangler_toml
 
-  # Phase 6: Validate profile file
+  # Phase 7: Validate profile
   validate_profile_file
 
-  # Phase 7: Set secrets
+  # Phase 8: Set nanok secrets
   set_worker_secrets
 
-  # Phase 8: Deploy
+  # Phase 9: Deploy nanok
   deploy_nanok
   write_local_env "deployed" "pending" "pending"
 
-  # Phase 9: Upload profile
+  # Phase 10: Upload profile
   upload_profile
   write_local_env "deployed" "uploaded" "pending"
 
-  # Phase 10: Verify
+  # Phase 11: Verify nanok
   verify_nanok
   write_local_env "deployed" "uploaded" "verified"
 
-  # Phase 11: Next steps
+  # Phase 12: Set nanob secrets + deploy
+  set_nanob_secrets
+  deploy_nanob
+  write_nanob_local_env "deployed" "pending"
+
+  # Phase 13: Verify nanob
+  verify_nanob
+  write_nanob_local_env "deployed" "verified"
+
+  # Phase 14: Next steps
   print_next_steps
 }
 

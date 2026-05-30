@@ -4,8 +4,9 @@ node_modules/
 .dev.vars
 *.local
 
-# Cloudflare installer output (contains real tokens)
+# Cloudflare installer output (contains real tokens — never commit)
 .cloudflare.local.env
+.nanob.local.env
 *.local.env
 .work/
 

@@ -43,13 +43,22 @@ proxies:
 
 ## Setup
 
+### With install-cloudflare.sh (v0.4+)
+
+```bash
+bash installer/install-cloudflare.sh --yes \
+  --deploy-nanob --nanob-route-url https://nanob.yourdomain.com \
+  --edge-host edge-subscription.example.com \
+  --edgetunnel-export-token YOUR_EDGE_TOKEN \
+  ...other flags...
+```
+
+### Manual setup
+
 1. Deploy edgetunnel from [cmliu/edgetunnel](https://github.com/cmliu/edgetunnel).
 2. Add internal authorization check (see `docs/edgetunnel-internal-auth.md`).
-3. Set `EDGETUNNEL_EXPORT_TOKEN` secret on nanob:
-   ```bash
-   wrangler secret put EDGETUNNEL_EXPORT_TOKEN
-   ```
-4. Set `EDGE_HOST` in nanob wrangler.toml `[vars]` (e.g., `EDGE_HOST = "edge.example.com"`).
+3. Set `EDGETUNNEL_EXPORT_TOKEN` secret on nanob.
+4. Set `EDGE_HOST` in nanob wrangler.toml `[vars]`.
 5. Bind `NANOB_TOKEN` secret on edgetunnel.
 
 **No source code editing is needed.** All configuration comes from env vars.

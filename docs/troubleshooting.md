@@ -253,8 +253,8 @@ curl -X POST https://YOUR_WORKER/admin/update \
 **This is expected behavior.** nanob is designed so that edgetunnel failure never blocks the primary subscription.
 
 If edgetunnel nodes are missing from output:
-1. Check `EDGETUNNEL_EXPORT_TOKEN` is set on nanob
-2. Check `EDGE_HOST` is set correctly in nanob source
+1. Check `EDGETUNNEL_EXPORT_TOKEN` is set on nanob (via `wrangler secret put`)
+2. Check `EDGE_HOST` is set in nanob wrangler.toml `[vars]`
 3. Check edgetunnel Worker is deployed and has `NANOB_TOKEN` binding
 4. Test edgetunnel directly:
    ```bash
@@ -311,6 +311,8 @@ If edgetunnel backup nodes are missing from the subscription output:
      https://YOUR_EDGE_HOST/sub?target=clash
    ```
 5. If edgetunnel returns an error, nanob gracefully falls back to primary-only. This is expected behavior, not an error.
+
+If nanob is not deployed at all, you need `--deploy-nanob` and `--nanob-route-url`. The nanob subscription URL is separate from the nanok URL.
 
 ---
 

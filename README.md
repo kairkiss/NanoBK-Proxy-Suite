@@ -119,7 +119,10 @@ bash /root/rotate-proxy-keys.sh
 │       ├── yaml-safe.js           # YAML 安全工具
 │       └── geo.js                 # Geo 识别模块
 ├── tests/
-│   └── render-install-vps.sh      # 集成测试（render-only 模式）
+│   ├── render-install-vps.sh      # VPS 渲染集成测试
+│   ├── rotate-render-only.sh      # 密钥轮换测试
+│   ├── wrangler-nanok-dry-run.sh  # nanok bundle 测试
+│   └── wrangler-nanob-dry-run.sh  # nanob bundle 测试
 ├── examples/
 │   ├── profile.example.json       # KV profile 示例
 │   ├── env.vps.example            # VPS 环境变量示例
@@ -143,7 +146,7 @@ bash /root/rotate-proxy-keys.sh
 | **v0.1** | ✅ 工程整理、产品化结构、文档骨架 |
 | **v0.2** | ✅ VPS 一键部署（install-vps.sh 已实现） |
 | **v0.3** | ✅ Cloudflare nanok 自动部署（install-cloudflare.sh 已实现） |
-| **v0.4** | edgetunnel 可选整合完善 |
+| **v0.4** | ✅ nanob 聚合器自动部署 + edgetunnel 可选整合 |
 | **v0.5** | 小白化交互向导 |
 
 ## License
