@@ -201,7 +201,7 @@ NanoBK Proxy Suite — Unified CLI v${NANOBK_VERSION}
   install [args...]           启动交互式安装器
   install-cli                 安装 nanobk 到 /usr/local/bin
   cf deploy [args...]         部署 Cloudflare Workers
-  rotate all [args...]        一键换密钥
+  rotate <protocol> [args.]  换密钥: all|hy2|tuic|reality|trojan
   test [--all]                运行本地测试
   version                     显示版本
 
@@ -688,24 +688,21 @@ cmd_rotate() {
   shift 2>/dev/null || true
 
   case "$subcmd" in
-    all)
-      local cmd=(bash "$REPO_DIR/vps/scripts/rotate-keys.sh")
+    all|hy2|tuic|reality|trojan)
+      local cmd=(bash "$REPO_DIR/vps/scripts/rotate-keys.sh" --protocol "$subcmd")
       local has_dry_run=0
       for arg in "$@"; do
         [[ "$arg" == "--dry-run" ]] && has_dry_run=1
       done
       [[ "$DRY_RUN" == "1" && "$has_dry_run" == "0" ]] && cmd+=(--dry-run)
       cmd+=("$@")
-      run_script "一键换密钥" "${cmd[@]}"
-      ;;
-    hy2|tuic|reality|trojan)
-      die "nanobk rotate ${subcmd} is planned for v1.x. Use 'nanobk rotate all' for now."
+      run_script "换密钥 (${subcmd})" "${cmd[@]}"
       ;;
     "")
       die "Usage: nanobk rotate <all|hy2|tuic|reality|trojan> [args...]"
       ;;
     *)
-      die "Unknown rotate subcommand: ${subcmd}. Use: nanobk rotate all"
+      die "Unknown rotate subcommand: ${subcmd}. Use: nanobk rotate <all|hy2|tuic|reality|trojan>"
       ;;
   esac
 }

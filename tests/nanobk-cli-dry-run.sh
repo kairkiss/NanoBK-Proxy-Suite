@@ -185,6 +185,30 @@ else
   pass "no eval in nanobk"
 fi
 
+# ── Single-protocol rotate --dry-run ────────────────────────────────────────
+
+echo ""
+echo "--- Single-protocol rotate --dry-run ---"
+echo ""
+
+for proto in hy2 tuic reality trojan; do
+  ROTATE_OUTPUT=$(bash "$ROOT/bin/nanobk" --repo-dir "$ROOT" rotate "$proto" --dry-run --yes --skip-cloudflare --skip-services 2>&1 || true)
+  # Strip ANSI codes for grep
+  ROTATE_CLEAN=$(echo "$ROTATE_OUTPUT" | sed $'s/\x1b\\[[0-9;]*m//g')
+  if echo "$ROTATE_CLEAN" | grep -q "DRY-RUN"; then
+    pass "nanobk rotate ${proto} --dry-run shows DRY-RUN"
+  else
+    fail "nanobk rotate ${proto} --dry-run missing DRY-RUN"
+    ERRORS=$((ERRORS + 1))
+  fi
+  if echo "$ROTATE_CLEAN" | grep -q "\-\-protocol ${proto}"; then
+    pass "nanobk rotate ${proto} passes --protocol ${proto}"
+  else
+    fail "nanobk rotate ${proto} missing --protocol ${proto}"
+    ERRORS=$((ERRORS + 1))
+  fi
+done
+
 # ── Summary ─────────────────────────────────────────────────────────────────
 
 echo ""

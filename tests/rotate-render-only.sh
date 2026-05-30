@@ -388,6 +388,134 @@ fi
 
 echo ""
 
+# ═══════════════════════════════════════════════════════════════════════════
+# Test C: Single-protocol rotation matrix
+# ═══════════════════════════════════════════════════════════════════════════
+
+echo ""
+echo "╔══════════════════════════════════════════════════════════╗"
+echo "║  Test C: Single-Protocol Rotation                       ║"
+echo "╚══════════════════════════════════════════════════════════╝"
+echo ""
+
+# Helper: read a value from secrets file
+read_secret() {
+  local file="$1" key="$2"
+  grep "^${key}=" "$file" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"' || echo ""
+}
+
+# Helper: read a value from profile JSON
+read_profile() {
+  local file="$1" path="$2"
+  if command -v jq &>/dev/null; then
+    jq -r "$path // empty" "$file" 2>/dev/null
+  else
+    python3 -c "import json; d=json.load(open('$file')); print(d$(echo "$path" | sed 's/\.\[/\[/g; s/\.\([a-zA-Z]*\)/[\"\1\"]/g'))" 2>/dev/null || echo ""
+  fi
+}
+
+run_single_protocol_test() {
+  local proto="$1"
+  local tmp_dir="${TMPDIR:-/tmp}/nanobk-rotate-${proto}-test"
+
+  echo "--- Testing protocol: ${proto} ---"
+  echo ""
+
+  rm -rf "$tmp_dir"
+  generate_test_configs "$tmp_dir"
+
+  # Save old values
+  local old_secrets="$tmp_dir/etc/nanobk/secrets.private.env"
+  local old_hy2_pw old_tuic_uuid old_tuic_pw old_reality_uuid old_reality_pub old_reality_short old_trojan_pw
+  old_hy2_pw=$(read_secret "$old_secrets" "HY2_PASSWORD")
+  old_tuic_uuid=$(read_secret "$old_secrets" "TUIC_UUID")
+  old_tuic_pw=$(read_secret "$old_secrets" "TUIC_PASSWORD")
+  old_reality_uuid=$(read_secret "$old_secrets" "REALITY_UUID")
+  old_reality_pub=$(read_secret "$old_secrets" "REALITY_PUBLIC_KEY")
+  old_reality_short=$(read_secret "$old_secrets" "REALITY_SHORT_ID")
+  old_trojan_pw=$(read_secret "$old_secrets" "TROJAN_PASSWORD")
+
+  # Run rotation
+  if bash "$ROOT/vps/scripts/rotate-keys.sh" --yes \
+    --config-dir "$tmp_dir/etc/nanobk" \
+    --install-dir "$tmp_dir/opt/nanobk" \
+    --skip-services --skip-cloudflare \
+    --allow-placeholder-reality \
+    --protocol "$proto" 2>&1; then
+    pass "${proto}: rotation completed"
+  else
+    fail "${proto}: rotation failed"
+    ERRORS=$((ERRORS + 1))
+    rm -rf "$tmp_dir"
+    return
+  fi
+
+  # Read new values
+  local new_secrets="$tmp_dir/etc/nanobk/secrets.private.env"
+  local new_hy2_pw new_tuic_uuid new_tuic_pw new_reality_uuid new_reality_pub new_reality_short new_trojan_pw
+  new_hy2_pw=$(read_secret "$new_secrets" "HY2_PASSWORD")
+  new_tuic_uuid=$(read_secret "$new_secrets" "TUIC_UUID")
+  new_tuic_pw=$(read_secret "$new_secrets" "TUIC_PASSWORD")
+  new_reality_uuid=$(read_secret "$new_secrets" "REALITY_UUID")
+  new_reality_pub=$(read_secret "$new_secrets" "REALITY_PUBLIC_KEY")
+  new_reality_short=$(read_secret "$new_secrets" "REALITY_SHORT_ID")
+  new_trojan_pw=$(read_secret "$new_secrets" "TROJAN_PASSWORD")
+
+  # Verify: rotated protocol changed, others unchanged
+  case "$proto" in
+    hy2)
+      [[ "$new_hy2_pw" != "$old_hy2_pw" ]] && pass "${proto}: HY2 password changed" || { fail "${proto}: HY2 password unchanged"; ERRORS=$((ERRORS + 1)); }
+      [[ "$new_tuic_uuid" == "$old_tuic_uuid" ]] && pass "${proto}: TUIC UUID unchanged" || { fail "${proto}: TUIC UUID changed unexpectedly"; ERRORS=$((ERRORS + 1)); }
+      [[ "$new_reality_uuid" == "$old_reality_uuid" ]] && pass "${proto}: Reality UUID unchanged" || { fail "${proto}: Reality UUID changed unexpectedly"; ERRORS=$((ERRORS + 1)); }
+      [[ "$new_trojan_pw" == "$old_trojan_pw" ]] && pass "${proto}: Trojan password unchanged" || { fail "${proto}: Trojan password changed unexpectedly"; ERRORS=$((ERRORS + 1)); }
+      ;;
+    tuic)
+      [[ "$new_tuic_uuid" != "$old_tuic_uuid" ]] && pass "${proto}: TUIC UUID changed" || { fail "${proto}: TUIC UUID unchanged"; ERRORS=$((ERRORS + 1)); }
+      [[ "$new_tuic_pw" != "$old_tuic_pw" ]] && pass "${proto}: TUIC password changed" || { fail "${proto}: TUIC password unchanged"; ERRORS=$((ERRORS + 1)); }
+      [[ "$new_hy2_pw" == "$old_hy2_pw" ]] && pass "${proto}: HY2 password unchanged" || { fail "${proto}: HY2 password changed unexpectedly"; ERRORS=$((ERRORS + 1)); }
+      [[ "$new_reality_uuid" == "$old_reality_uuid" ]] && pass "${proto}: Reality UUID unchanged" || { fail "${proto}: Reality UUID changed unexpectedly"; ERRORS=$((ERRORS + 1)); }
+      [[ "$new_trojan_pw" == "$old_trojan_pw" ]] && pass "${proto}: Trojan password unchanged" || { fail "${proto}: Trojan password changed unexpectedly"; ERRORS=$((ERRORS + 1)); }
+      ;;
+    reality)
+      [[ "$new_reality_uuid" != "$old_reality_uuid" ]] && pass "${proto}: Reality UUID changed" || { fail "${proto}: Reality UUID unchanged"; ERRORS=$((ERRORS + 1)); }
+      [[ "$new_reality_pub" != "$old_reality_pub" ]] && pass "${proto}: Reality public key changed" || { fail "${proto}: Reality public key unchanged"; ERRORS=$((ERRORS + 1)); }
+      [[ "$new_reality_short" != "$old_reality_short" ]] && pass "${proto}: Reality shortId changed" || { fail "${proto}: Reality shortId unchanged"; ERRORS=$((ERRORS + 1)); }
+      [[ "$new_hy2_pw" == "$old_hy2_pw" ]] && pass "${proto}: HY2 password unchanged" || { fail "${proto}: HY2 password changed unexpectedly"; ERRORS=$((ERRORS + 1)); }
+      [[ "$new_tuic_uuid" == "$old_tuic_uuid" ]] && pass "${proto}: TUIC UUID unchanged" || { fail "${proto}: TUIC UUID changed unexpectedly"; ERRORS=$((ERRORS + 1)); }
+      [[ "$new_trojan_pw" == "$old_trojan_pw" ]] && pass "${proto}: Trojan password unchanged" || { fail "${proto}: Trojan password changed unexpectedly"; ERRORS=$((ERRORS + 1)); }
+      ;;
+    trojan)
+      [[ "$new_trojan_pw" != "$old_trojan_pw" ]] && pass "${proto}: Trojan password changed" || { fail "${proto}: Trojan password unchanged"; ERRORS=$((ERRORS + 1)); }
+      [[ "$new_hy2_pw" == "$old_hy2_pw" ]] && pass "${proto}: HY2 password unchanged" || { fail "${proto}: HY2 password changed unexpectedly"; ERRORS=$((ERRORS + 1)); }
+      [[ "$new_tuic_uuid" == "$old_tuic_uuid" ]] && pass "${proto}: TUIC UUID unchanged" || { fail "${proto}: TUIC UUID changed unexpectedly"; ERRORS=$((ERRORS + 1)); }
+      [[ "$new_reality_uuid" == "$old_reality_uuid" ]] && pass "${proto}: Reality UUID unchanged" || { fail "${proto}: Reality UUID changed unexpectedly"; ERRORS=$((ERRORS + 1)); }
+      ;;
+  esac
+
+  # Verify profile has all four protocols
+  local profile_file="$tmp_dir/etc/nanobk/profile.current.json"
+  if [[ -f "$profile_file" ]]; then
+    pass "${proto}: profile exists"
+    if grep -q 'privateKey' "$profile_file" 2>/dev/null; then
+      fail "${proto}: Reality private key in profile"
+      ERRORS=$((ERRORS + 1))
+    else
+      pass "${proto}: Reality private key NOT in profile"
+    fi
+  else
+    fail "${proto}: profile missing"
+    ERRORS=$((ERRORS + 1))
+  fi
+
+  rm -rf "$tmp_dir"
+  echo ""
+}
+
+run_single_protocol_test hy2
+run_single_protocol_test tuic
+run_single_protocol_test reality
+run_single_protocol_test trojan
+
 # ── Summary ─────────────────────────────────────────────────────────────────
 
 echo "=== Test Summary ==="

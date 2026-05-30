@@ -19,6 +19,7 @@
 | v0.7 | ✅ nanobk 统一 CLI foundation（bin/nanobk） |
 | v0.8 | ✅ install-cli + status Cloudflare 可见性 |
 | v0.8.1 | ✅ CLI safety patch: install-cli dry-run + safe env parsing |
+| v0.9 | ✅ single-protocol key rotation foundation |
 
 ### 计划中
 

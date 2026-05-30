@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — Key Rotation v0.3.3
+# NanoBK Proxy Suite — Key Rotation v0.9
 #
-# Rotates credentials for all four proxy services on the VPS
+# Rotates credentials for proxy services on the VPS
 # and syncs the new profile to Cloudflare Workers via admin API.
+#
+# Supports single-protocol rotation:
+#   --protocol all|hy2|tuic|reality|trojan
 #
 # Reads configuration from:
 #   /etc/nanobk/config.env          (VPS paths and settings)
@@ -11,8 +14,8 @@
 #
 # Usage:
 #   sudo bash vps/scripts/rotate-keys.sh
-#   sudo bash vps/scripts/rotate-keys.sh --dry-run
-#   sudo bash vps/scripts/rotate-keys.sh --skip-cloudflare --skip-services
+#   sudo bash vps/scripts/rotate-keys.sh --protocol hy2
+#   sudo bash vps/scripts/rotate-keys.sh --protocol reality --skip-cloudflare
 
 set -Eeuo pipefail
 
@@ -45,6 +48,7 @@ SKIP_CLOUDFLARE=0
 SKIP_SERVICES=0
 ALLOW_PLACEHOLDER_REALITY=0
 INSTALL_DIR_EXPLICIT=0
+ROTATE_PROTOCOL="all"
 
 NANOBK_CONFIG_DIR="/etc/nanobk"
 NANOBK_INSTALL_DIR="/opt/nanobk"
@@ -67,12 +71,13 @@ BACKUP_DIR=""
 
 show_help() {
   cat <<'EOF'
-NanoBK Proxy Suite — Key Rotation v0.3.3
+NanoBK Proxy Suite — Key Rotation v0.9
 
 Usage:
   sudo bash vps/scripts/rotate-keys.sh [OPTIONS]
 
 Options:
+  --protocol PROTO             Protocol to rotate: all|hy2|tuic|reality|trojan (default: all)
   --dry-run                    Print actions without modifying anything
   --yes                        Non-interactive mode
   --config-dir PATH            Config directory (default: /etc/nanobk)
@@ -85,20 +90,17 @@ Options:
   --help                       Show this help
 
 Examples:
-  # Full rotation (production)
+  # Rotate all protocols
   sudo bash vps/scripts/rotate-keys.sh
 
-  # Dry-run preview
-  sudo bash vps/scripts/rotate-keys.sh --dry-run
+  # Rotate only HY2 password
+  sudo bash vps/scripts/rotate-keys.sh --protocol hy2
 
-  # Local-only rotation (no Cloudflare, no service restart)
-  sudo bash vps/scripts/rotate-keys.sh --skip-cloudflare --skip-services
+  # Rotate only Reality keys
+  sudo bash vps/scripts/rotate-keys.sh --protocol reality --skip-cloudflare
 
-  # Test with custom directories (requires --allow-placeholder-reality if xray missing)
-  bash vps/scripts/rotate-keys.sh --dry-run \
-    --config-dir /tmp/nanobk-test/etc/nanobk \
-    --install-dir /tmp/nanobk-test/opt/nanobk \
-    --skip-cloudflare --skip-services --yes
+  # Dry-run single protocol
+  bash vps/scripts/rotate-keys.sh --protocol tuic --dry-run --skip-services --skip-cloudflare
 EOF
 }
 
@@ -107,20 +109,27 @@ EOF
 parse_args() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --dry-run)                    NANOBK_DRY_RUN=1 ;;
-      --yes)                        NANOBK_YES=1 ;;
-      --force)                      FORCE=1 ;;
-      --config-dir)                 NANOBK_CONFIG_DIR="$2"; shift ;;
-      --install-dir)                NANOBK_INSTALL_DIR="$2"; INSTALL_DIR_EXPLICIT=1; shift ;;
-      --cf-admin-env)               CF_ADMIN_ENV="$2"; shift ;;
-      --skip-cloudflare)            SKIP_CLOUDFLARE=1 ;;
-      --skip-services)              SKIP_SERVICES=1 ;;
-      --allow-placeholder-reality)  ALLOW_PLACEHOLDER_REALITY=1 ;;
-      --help|-h)                    show_help; exit 0 ;;
-      *)                            die "Unknown option: $1. Use --help for usage." ;;
+      --protocol)                     ROTATE_PROTOCOL="$2"; shift ;;
+      --dry-run)                      NANOBK_DRY_RUN=1 ;;
+      --yes)                          NANOBK_YES=1 ;;
+      --force)                        FORCE=1 ;;
+      --config-dir)                   NANOBK_CONFIG_DIR="$2"; shift ;;
+      --install-dir)                  NANOBK_INSTALL_DIR="$2"; INSTALL_DIR_EXPLICIT=1; shift ;;
+      --cf-admin-env)                 CF_ADMIN_ENV="$2"; shift ;;
+      --skip-cloudflare)              SKIP_CLOUDFLARE=1 ;;
+      --skip-services)                SKIP_SERVICES=1 ;;
+      --allow-placeholder-reality)    ALLOW_PLACEHOLDER_REALITY=1 ;;
+      --help|-h)                      show_help; exit 0 ;;
+      *)                              die "Unknown option: $1. Use --help for usage." ;;
     esac
     shift
   done
+
+  # Validate protocol
+  case "$ROTATE_PROTOCOL" in
+    all|hy2|tuic|reality|trojan) ;;
+    *) die "Invalid protocol: ${ROTATE_PROTOCOL}. Use all|hy2|tuic|reality|trojan." ;;
+  esac
 }
 
 # ── Load configuration ──────────────────────────────────────────────────────
@@ -154,18 +163,13 @@ Run the VPS installer first: bash installer/install-vps.sh"
 
   log "Loading config: ${config_file}"
 
-  # Save CLI override before sourcing config.env
   local cli_install_dir="$NANOBK_INSTALL_DIR"
-
   # shellcheck source=/dev/null
   source "$config_file"
-
-  # Restore CLI override if explicitly set
   if [[ "$INSTALL_DIR_EXPLICIT" == "1" ]]; then
     NANOBK_INSTALL_DIR="$cli_install_dir"
   fi
 
-  # Validate required vars
   [[ -n "${NANOBK_DOMAIN:-}" ]] || die "NANOBK_DOMAIN not set in config.env"
   [[ -n "${NANOBK_VPS_IP:-}" ]] || die "NANOBK_VPS_IP not set in config.env"
 
@@ -179,15 +183,13 @@ load_secrets() {
       warn "secrets.private.env not found: ${secrets_file} (OK in dry-run)"
       return 0
     fi
-    die "secrets.private.env not found: ${secrets_file}
-Run the VPS installer first: bash installer/install-vps.sh"
+    die "secrets.private.env not found: ${secrets_file}"
   fi
 
   log "Loading secrets: ${secrets_file}"
   # shellcheck source=/dev/null
   source "$secrets_file"
 
-  # Validate all required secrets
   local required_secrets=(
     HY2_PASSWORD TUIC_UUID TUIC_PASSWORD
     REALITY_UUID REALITY_PRIVATE_KEY REALITY_PUBLIC_KEY REALITY_SHORT_ID
@@ -216,16 +218,13 @@ load_cf_admin_env() {
       ADMIN_CURRENT_URL="https://nanok.example.workers.dev/admin/current"
       return 0
     fi
-    die "Cloudflare admin env not found: ${CF_ADMIN_ENV}
-Create it from .cloudflare.local.env or examples/env.cloudflare.example.
-Or use --skip-cloudflare for local-only rotation."
+    die "Cloudflare admin env not found: ${CF_ADMIN_ENV}"
   fi
 
   log "Loading CF admin env: ${CF_ADMIN_ENV}"
   # shellcheck source=/dev/null
   source "$CF_ADMIN_ENV"
 
-  # Handle .cloudflare.local.env format (v0.3.1)
   if [[ -z "${ADMIN_CURRENT_URL:-}" ]] && [[ -n "${NANOK_ROUTE_URL:-}" ]]; then
     ADMIN_CURRENT_URL="${NANOK_ROUTE_URL}${ADMIN_CURRENT_PATH:-/admin/current}"
     ADMIN_UPDATE_URL="${NANOK_ROUTE_URL}${ADMIN_PATH:-/admin/update}"
@@ -240,17 +239,7 @@ Or use --skip-cloudflare for local-only rotation."
 
 # ── Generate staged credentials ─────────────────────────────────────────────
 
-generate_new_credentials() {
-  log "Generating new credentials..."
-
-  NEW_HY2_PASSWORD=$(openssl rand -base64 24 | tr -d '\n')
-  NEW_TUIC_UUID=$(generate_uuid)
-  NEW_TUIC_PASSWORD=$(openssl rand -hex 32 | tr -d '\n')
-  NEW_TROJAN_PASSWORD=$(openssl rand -base64 24 | tr -d '\n')
-  NEW_REALITY_UUID=$(generate_uuid)
-  NEW_REALITY_SHORT_ID=$(openssl rand -hex 8 | tr -d '\n')
-
-  # Reality X25519 keypair
+generate_reality_keypair() {
   if command -v xray &>/dev/null; then
     local keypair
     keypair=$(xray x25519) || die "Failed to generate Reality keypair"
@@ -268,18 +257,72 @@ generate_new_credentials() {
     die "xray is required for Reality keypair generation.
 For offline tests only, add --allow-placeholder-reality."
   fi
+}
+
+generate_new_credentials() {
+  log "Generating new credentials for protocol: ${ROTATE_PROTOCOL}"
+
+  # Start with current values (unchanged protocols keep old values)
+  NEW_HY2_PASSWORD="$HY2_PASSWORD"
+  NEW_TUIC_UUID="$TUIC_UUID"
+  NEW_TUIC_PASSWORD="$TUIC_PASSWORD"
+  NEW_REALITY_UUID="$REALITY_UUID"
+  NEW_REALITY_PRIVATE_KEY="$REALITY_PRIVATE_KEY"
+  NEW_REALITY_PUBLIC_KEY="$REALITY_PUBLIC_KEY"
+  NEW_REALITY_SHORT_ID="$REALITY_SHORT_ID"
+  NEW_TROJAN_PASSWORD="$TROJAN_PASSWORD"
+
+  case "$ROTATE_PROTOCOL" in
+    all)
+      NEW_HY2_PASSWORD=$(openssl rand -base64 24 | tr -d '\n')
+      NEW_TUIC_UUID=$(generate_uuid)
+      NEW_TUIC_PASSWORD=$(openssl rand -hex 32 | tr -d '\n')
+      NEW_REALITY_UUID=$(generate_uuid)
+      NEW_REALITY_SHORT_ID=$(openssl rand -hex 8 | tr -d '\n')
+      generate_reality_keypair
+      NEW_TROJAN_PASSWORD=$(openssl rand -base64 24 | tr -d '\n')
+      ;;
+    hy2)
+      NEW_HY2_PASSWORD=$(openssl rand -base64 24 | tr -d '\n')
+      ;;
+    tuic)
+      NEW_TUIC_UUID=$(generate_uuid)
+      NEW_TUIC_PASSWORD=$(openssl rand -hex 32 | tr -d '\n')
+      ;;
+    reality)
+      NEW_REALITY_UUID=$(generate_uuid)
+      NEW_REALITY_SHORT_ID=$(openssl rand -hex 8 | tr -d '\n')
+      generate_reality_keypair
+      ;;
+    trojan)
+      NEW_TROJAN_PASSWORD=$(openssl rand -base64 24 | tr -d '\n')
+      ;;
+  esac
 
   [[ -n "$NEW_REALITY_PRIVATE_KEY" ]] || die "Reality private key is empty"
   [[ -n "$NEW_REALITY_PUBLIC_KEY" ]] || die "Reality public key is empty"
 
-  ok "New credential fingerprints:"
-  echo "    HY2 password:     $(fingerprint "$NEW_HY2_PASSWORD")"
-  echo "    TUIC UUID:        $(fingerprint "$NEW_TUIC_UUID")"
-  echo "    TUIC password:    $(fingerprint "$NEW_TUIC_PASSWORD")"
-  echo "    Reality UUID:     $(fingerprint "$NEW_REALITY_UUID")"
-  echo "    Reality public:   $(fingerprint "$NEW_REALITY_PUBLIC_KEY")"
-  echo "    Reality shortId:  $(fingerprint "$NEW_REALITY_SHORT_ID")"
-  echo "    Trojan password:  $(fingerprint "$NEW_TROJAN_PASSWORD")"
+  # Log fingerprints for rotated protocols only
+  ok "New credential fingerprints (protocol=${ROTATE_PROTOCOL}):"
+  case "$ROTATE_PROTOCOL" in
+    all|hy2)     echo "    HY2 password:     $(fingerprint "$NEW_HY2_PASSWORD")" ;;
+  esac
+  case "$ROTATE_PROTOCOL" in
+    all|tuic)
+      echo "    TUIC UUID:        $(fingerprint "$NEW_TUIC_UUID")"
+      echo "    TUIC password:    $(fingerprint "$NEW_TUIC_PASSWORD")"
+      ;;
+  esac
+  case "$ROTATE_PROTOCOL" in
+    all|reality)
+      echo "    Reality UUID:     $(fingerprint "$NEW_REALITY_UUID")"
+      echo "    Reality public:   $(fingerprint "$NEW_REALITY_PUBLIC_KEY")"
+      echo "    Reality shortId:  $(fingerprint "$NEW_REALITY_SHORT_ID")"
+      ;;
+  esac
+  case "$ROTATE_PROTOCOL" in
+    all|trojan)  echo "    Trojan password:  $(fingerprint "$NEW_TROJAN_PASSWORD")" ;;
+  esac
 }
 
 # ── Backup ──────────────────────────────────────────────────────────────────
@@ -326,7 +369,6 @@ make_backup() {
   mkdir -p "$BACKUP_DIR"
   chmod 700 "$BACKUP_DIR"
 
-  # Backup top-level config files
   for f in \
     "${NANOBK_CONFIG_DIR}/config.env" \
     "${NANOBK_CONFIG_DIR}/secrets.private.env" \
@@ -334,7 +376,7 @@ make_backup() {
     [[ -f "$f" ]] && cp -a "$f" "$BACKUP_DIR/" || true
   done
 
-  # Backup service configs with unique names (no collision)
+  # Always backup all configs (simplifies rollback)
   backup_service_config "$HY2_CONFIG"     "hy2.config.yaml.bak"
   backup_service_config "$TUIC_CONFIG"    "tuic.config.json.bak"
   backup_service_config "$REALITY_CONFIG" "reality.config.json.bak"
@@ -468,13 +510,20 @@ PY
   ok "Trojan config patched"
 }
 
-patch_all_configs() {
-  patch_hy2_config
-  patch_tuic_config
-  patch_reality_config
-  patch_trojan_config
+patch_selected_configs() {
+  case "$ROTATE_PROTOCOL" in
+    all)
+      patch_hy2_config
+      patch_tuic_config
+      patch_reality_config
+      patch_trojan_config
+      ;;
+    hy2)     patch_hy2_config ;;
+    tuic)    patch_tuic_config ;;
+    reality) patch_reality_config ;;
+    trojan)  patch_trojan_config ;;
+  esac
 
-  # Test-only hook: simulate failure after patching
   if [[ "${NANOBK_TEST_FAIL_AFTER_PATCH:-}" == "1" ]]; then
     die "Test-only failure after patch (NANOBK_TEST_FAIL_AFTER_PATCH=1)"
   fi
@@ -485,7 +534,6 @@ patch_all_configs() {
 generate_new_profile() {
   log "Generating new profile..."
 
-  # Save old profile as previous
   if [[ -f "${NANOBK_CONFIG_DIR}/profile.current.json" ]]; then
     if [[ "$NANOBK_DRY_RUN" != "1" ]]; then
       cp -a "${NANOBK_CONFIG_DIR}/profile.current.json" "${NANOBK_CONFIG_DIR}/profile.previous.json"
@@ -532,13 +580,11 @@ generate_new_profile() {
 
   printf '%s\n' "$profile_json" > "${NANOBK_CONFIG_DIR}/profile.current.json"
 
-  # Validate
   if command -v jq &>/dev/null; then
     jq -e 'has("hy2") and has("tuic") and has("reality") and has("trojan")' \
       "${NANOBK_CONFIG_DIR}/profile.current.json" >/dev/null || die "Profile JSON validation failed"
   fi
 
-  # Verify Reality private key NOT in profile
   if grep -q 'privateKey' "${NANOBK_CONFIG_DIR}/profile.current.json" 2>/dev/null; then
     die "Reality private key leaked into profile JSON"
   fi
@@ -556,14 +602,12 @@ validate_configs() {
     return 0
   fi
 
-  # Validate JSON
   for f in "$TUIC_CONFIG" "$REALITY_CONFIG" "$TROJAN_CONFIG"; do
     if [[ -f "$f" ]]; then
       python3 -c "import json; json.load(open('$f'))" || die "Invalid JSON: $f"
     fi
   done
 
-  # Xray config test
   if command -v xray &>/dev/null; then
     xray -test -config "$REALITY_CONFIG" >/dev/null 2>&1 || die "Reality config test failed"
     xray -test -config "$TROJAN_CONFIG" >/dev/null 2>&1 || die "Trojan config test failed"
@@ -583,7 +627,16 @@ restart_services() {
 
   log "Restarting services..."
 
-  for svc in "$REALITY_SERVICE" "$TROJAN_SERVICE" "$TUIC_SERVICE" "$HY2_SERVICE"; do
+  local services=()
+  case "$ROTATE_PROTOCOL" in
+    all)     services=("$REALITY_SERVICE" "$TROJAN_SERVICE" "$TUIC_SERVICE" "$HY2_SERVICE") ;;
+    hy2)     services=("$HY2_SERVICE") ;;
+    tuic)    services=("$TUIC_SERVICE") ;;
+    reality) services=("$REALITY_SERVICE") ;;
+    trojan)  services=("$TROJAN_SERVICE") ;;
+  esac
+
+  for svc in "${services[@]}"; do
     if [[ "$NANOBK_DRY_RUN" == "1" ]]; then
       echo -e "  ${CYAN}[DRY-RUN]${NC} systemctl restart ${svc}"
       continue
@@ -634,6 +687,20 @@ run_healthcheck() {
 
 # ── Cloudflare sync ─────────────────────────────────────────────────────────
 
+verify_cf_field() {
+  local current="$1"
+  local field="$2"
+  local expected="$3"
+  local label="$4"
+
+  local actual
+  actual=$(echo "$current" | jq -r "$field // empty" 2>/dev/null)
+  if [[ "$actual" != "$expected" ]]; then
+    err "Cloudflare ${label} mismatch"
+    return 1
+  fi
+}
+
 sync_cloudflare() {
   if [[ "$SKIP_CLOUDFLARE" == "1" ]]; then
     log "Skipping Cloudflare sync (--skip-cloudflare)"
@@ -646,9 +713,7 @@ sync_cloudflare() {
 
   if [[ "$NANOBK_DRY_RUN" == "1" ]]; then
     echo -e "  ${CYAN}[DRY-RUN]${NC} curl -X POST ${ADMIN_UPDATE_URL}"
-    echo -e "  ${CYAN}[DRY-RUN]${NC}   -H 'Authorization: Bearer $(fingerprint "$ADMIN_TOKEN")...'"
     echo -e "  ${CYAN}[DRY-RUN]${NC}   --data-binary @${profile_path}"
-    echo -e "  ${CYAN}[DRY-RUN]${NC} curl ${ADMIN_CURRENT_URL} -H 'Authorization: Bearer $(fingerprint "$ADMIN_TOKEN")...'"
     return 0
   fi
 
@@ -666,7 +731,7 @@ sync_cloudflare() {
   echo "$response"
   ok "Profile uploaded to Cloudflare"
 
-  # Verify
+  # Verify per-protocol
   log "Verifying Cloudflare profile..."
   local current
   current=$(curl -fsS "$ADMIN_CURRENT_URL" \
@@ -676,23 +741,43 @@ sync_cloudflare() {
     return 1
   }
 
-  if command -v jq &>/dev/null; then
-    local cf_tuic_uuid cf_reality_pub
-    cf_tuic_uuid=$(echo "$current" | jq -r '.tuic.uuid // empty')
-    cf_reality_pub=$(echo "$current" | jq -r '.reality.publicKey // empty')
-
-    if [[ "$cf_tuic_uuid" != "$NEW_TUIC_UUID" ]]; then
-      err "Cloudflare TUIC UUID mismatch"
-      return 1
-    fi
-    if [[ "$cf_reality_pub" != "$NEW_REALITY_PUBLIC_KEY" ]]; then
-      err "Cloudflare Reality publicKey mismatch"
-      return 1
-    fi
-    ok "Cloudflare profile verified"
-  else
+  if ! command -v jq &>/dev/null; then
     ok "Cloudflare profile uploaded (jq not available for deep verify)"
+    return 0
   fi
+
+  local verify_ok=1
+  case "$ROTATE_PROTOCOL" in
+    all)
+      verify_cf_field "$current" '.hy2.password' "$NEW_HY2_PASSWORD" "HY2 password" || verify_ok=0
+      verify_cf_field "$current" '.tuic.uuid' "$NEW_TUIC_UUID" "TUIC UUID" || verify_ok=0
+      verify_cf_field "$current" '.tuic.password' "$NEW_TUIC_PASSWORD" "TUIC password" || verify_ok=0
+      verify_cf_field "$current" '.reality.uuid' "$NEW_REALITY_UUID" "Reality UUID" || verify_ok=0
+      verify_cf_field "$current" '.reality.publicKey' "$NEW_REALITY_PUBLIC_KEY" "Reality publicKey" || verify_ok=0
+      verify_cf_field "$current" '.reality.shortId' "$NEW_REALITY_SHORT_ID" "Reality shortId" || verify_ok=0
+      verify_cf_field "$current" '.trojan.password' "$NEW_TROJAN_PASSWORD" "Trojan password" || verify_ok=0
+      ;;
+    hy2)
+      verify_cf_field "$current" '.hy2.password' "$NEW_HY2_PASSWORD" "HY2 password" || verify_ok=0
+      ;;
+    tuic)
+      verify_cf_field "$current" '.tuic.uuid' "$NEW_TUIC_UUID" "TUIC UUID" || verify_ok=0
+      verify_cf_field "$current" '.tuic.password' "$NEW_TUIC_PASSWORD" "TUIC password" || verify_ok=0
+      ;;
+    reality)
+      verify_cf_field "$current" '.reality.uuid' "$NEW_REALITY_UUID" "Reality UUID" || verify_ok=0
+      verify_cf_field "$current" '.reality.publicKey' "$NEW_REALITY_PUBLIC_KEY" "Reality publicKey" || verify_ok=0
+      verify_cf_field "$current" '.reality.shortId' "$NEW_REALITY_SHORT_ID" "Reality shortId" || verify_ok=0
+      ;;
+    trojan)
+      verify_cf_field "$current" '.trojan.password' "$NEW_TROJAN_PASSWORD" "Trojan password" || verify_ok=0
+      ;;
+  esac
+
+  if [[ "$verify_ok" == "0" ]]; then
+    return 1
+  fi
+  ok "Cloudflare profile verified (protocol=${ROTATE_PROTOCOL})"
 }
 
 # ── Write secrets ───────────────────────────────────────────────────────────
@@ -741,6 +826,7 @@ write_rotation_record() {
 # Latest Key Rotation Record
 
 Generated: $(iso_date)
+Protocol: ${ROTATE_PROTOCOL}
 
 ## Fingerprints
 
@@ -778,7 +864,6 @@ rollback_local() {
 
   warn "ROLLING BACK local configuration from ${BACKUP_DIR}..."
 
-  # Restore top-level config files
   for f in config.env secrets.private.env profile.current.json; do
     if [[ -f "${BACKUP_DIR}/${f}" ]]; then
       if [[ "$NANOBK_DRY_RUN" == "1" ]]; then
@@ -790,13 +875,11 @@ rollback_local() {
     fi
   done
 
-  # Restore service configs with unique backup names
   restore_service_config "$HY2_CONFIG"     "hy2.config.yaml.bak"
   restore_service_config "$TUIC_CONFIG"    "tuic.config.json.bak"
   restore_service_config "$REALITY_CONFIG" "reality.config.json.bak"
   restore_service_config "$TROJAN_CONFIG"  "trojan.config.json.bak"
 
-  # Restart services if they were restarted
   if [[ "$SKIP_SERVICES" != "1" ]] && [[ "$NANOBK_DRY_RUN" != "1" ]]; then
     for svc in "$HY2_SERVICE" "$TUIC_SERVICE" "$REALITY_SERVICE" "$TROJAN_SERVICE"; do
       systemctl restart "$svc" 2>/dev/null || true
@@ -804,8 +887,6 @@ rollback_local() {
   fi
 
   warn "Rollback completed. Check services manually."
-  warn "If Cloudflare was already updated, re-run rotation or manually POST old profile:"
-  warn "  curl -X POST \$ADMIN_UPDATE_URL -H 'Authorization: Bearer \$ADMIN_TOKEN' --data-binary @${BACKUP_DIR}/profile.current.json"
 }
 
 # ── Main ────────────────────────────────────────────────────────────────────
@@ -824,6 +905,8 @@ main() {
     echo "╚══════════════════════════════════════════════════════════╝"
   fi
   echo ""
+  echo "  Protocol: ${ROTATE_PROTOCOL}"
+  echo ""
 
   # Phase 1: Load config
   load_nanobk_config
@@ -833,7 +916,7 @@ main() {
   # Phase 2: Confirm
   if [[ "$NANOBK_YES" != "1" ]] && [[ "$FORCE" != "1" ]]; then
     echo ""
-    echo "  This will rotate credentials for all four proxy services."
+    echo "  This will rotate credentials for: ${ROTATE_PROTOCOL}"
     echo "  Config dir:    ${NANOBK_CONFIG_DIR}"
     echo "  Cloudflare:    $([ "$SKIP_CLOUDFLARE" == "1" ] && echo "skip" || echo "sync")"
     echo "  Services:      $([ "$SKIP_SERVICES" == "1" ] && echo "skip" || echo "restart")"
@@ -850,7 +933,7 @@ main() {
   make_backup
 
   # Phase 5: Patch configs
-  if ! patch_all_configs; then
+  if ! patch_selected_configs; then
     err "Config patching failed"
     rollback_local
     exit 1
@@ -899,10 +982,10 @@ main() {
   echo "║   Key Rotation Completed                                ║"
   echo "╚══════════════════════════════════════════════════════════╝"
   echo ""
+  echo "  Protocol:  ${ROTATE_PROTOCOL}"
   echo "  Backup:    ${BACKUP_DIR}"
   echo "  Secrets:   ${NANOBK_CONFIG_DIR}/secrets.private.env"
   echo "  Profile:   ${NANOBK_CONFIG_DIR}/profile.current.json"
-  echo "  Record:    ${NANOBK_INSTALL_DIR}/backups/rotate-latest.private.md"
   echo ""
   echo "  Subscription URL unchanged — clients refresh to get new keys."
   echo ""
