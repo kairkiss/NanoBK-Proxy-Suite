@@ -63,6 +63,7 @@ function getConfig(env) {
     adminCurrentPath: normalizePath(env.ADMIN_CURRENT_PATH, DEFAULT_ADMIN_CURRENT_PATH),
     subToken: typeof env.SUB_TOKEN === 'string' ? env.SUB_TOKEN : '',
     adminToken: typeof env.ADMIN_TOKEN === 'string' ? env.ADMIN_TOKEN : '',
+    allowEmptySubToken: env.ALLOW_EMPTY_SUB_TOKEN === 'true',
     edgeSubUrl: typeof env.EDGE_SUB_URL === 'string' && env.EDGE_SUB_URL.trim()
       ? env.EDGE_SUB_URL.trim()
       : DEFAULT_EDGE_SUB_URL,
@@ -83,7 +84,7 @@ function getConfig(env) {
 }
 
 function checkSubToken(url, cfg) {
-  if (!cfg.subToken) return true;
+  if (!cfg.subToken) return cfg.allowEmptySubToken;
   return url.searchParams.get('token') === cfg.subToken;
 }
 

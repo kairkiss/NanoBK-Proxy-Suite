@@ -14,8 +14,8 @@ binding = "SUB_STORE"
 id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID"
 
 # Worker secrets (set via CLI, NOT in this file):
-#   wrangler secret put SUB_TOKEN
-#   wrangler secret put ADMIN_TOKEN
+#   wrangler secret put SUB_TOKEN    # public subscription token (required)
+#   wrangler secret put ADMIN_TOKEN  # private admin API token (required)
 
 # Optional environment variables (uncomment and set as needed):
 # [vars]
@@ -26,3 +26,4 @@ id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID"
 # EDGE_SUB_URL = "https://edge-subscription.example.com/sub?target=clash"
 # POETRY_NODE_NAME = "Status placeholder"
 # RECOMMEND_NODE_NAME = "Project placeholder"
+# ALLOW_EMPTY_SUB_TOKEN = "true"  # development only, not recommended for production

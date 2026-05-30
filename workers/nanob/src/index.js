@@ -3,25 +3,61 @@
 // Merges nanok primary subscription with optional edgetunnel backup nodes.
 //
 // Key design:
-//   - edgetunnel is OPTIONAL. If not configured, returns nanok primary only.
+//   - edgetunnel is OPTIONAL. Set EDGE_HOST + EDGETUNNEL_EXPORT_TOKEN to enable.
 //   - edgetunnel fetch failure NEVER blocks the primary subscription.
 //   - Geo labels from shared/geo.js enrich edgetunnel backup node names.
+//   - All config comes from env vars — no source code editing needed.
 //
-// Derived from: workers/nanob.worker.example.js
 // No production tokens, hosts, or IDs are included.
 
 import { loadGeoMap, geoLabel } from '../../shared/geo.js';
 
 // ---------------------------------------------------------------------------
-// Configuration — replace in your deployment
+// Configuration — all from env vars
 // ---------------------------------------------------------------------------
 
-const NANOK_ORIGIN = 'https://primary-subscription.example.com';
-const NANOK_SUB_PATH = '/jb';
+function normalizePath(value, fallback) {
+  const raw = typeof value === 'string' && value.trim() ? value.trim() : fallback;
+  return raw.startsWith('/') ? raw : `/${raw}`;
+}
 
-// Edgetunnel config — leave empty to disable edgetunnel entirely.
-const EDGE_HOST = '';                    // e.g. 'edge-subscription.example.com'
-const EDGE_SUB_PATH = '/sub?target=clash';
+function cleanHost(value) {
+  // Accept "host.example.com" or "https://host.example.com" — return host only
+  const text = String(value || '').trim();
+  if (!text) return '';
+  return text.replace(/^https?:\/\//, '').replace(/\/+$/, '');
+}
+
+function getConfig(env) {
+  const nanokOrigin = typeof env.NANOK_ORIGIN === 'string' ? env.NANOK_ORIGIN.trim() : '';
+  const nanobToken = typeof env.NANOB_TOKEN === 'string' ? env.NANOB_TOKEN : '';
+  const nanokSubToken = typeof env.NANOK_SUB_TOKEN === 'string' ? env.NANOK_SUB_TOKEN : '';
+
+  const nanokSubPath = normalizePath(env.NANOK_SUB_PATH, '/jb');
+  const nanobPath = normalizePath(env.NANOB_PATH, '/jb');
+  const edgeHost = cleanHost(env.EDGE_HOST);
+  const edgeSubPath = typeof env.EDGE_SUB_PATH === 'string' && env.EDGE_SUB_PATH.trim()
+    ? env.EDGE_SUB_PATH.trim()
+    : '/sub?target=clash';
+  const edgetunnelExportToken = typeof env.EDGETUNNEL_EXPORT_TOKEN === 'string'
+    ? env.EDGETUNNEL_EXPORT_TOKEN
+    : '';
+
+  return {
+    nanokOrigin,
+    nanokSubPath,
+    nanobPath,
+    nanobToken,
+    nanokSubToken,
+    edgeHost,
+    edgeSubPath,
+    edgetunnelExportToken,
+  };
+}
+
+function isEdgetunnelConfigured(cfg) {
+  return Boolean(cfg.edgeHost && cfg.edgetunnelExportToken);
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -139,90 +175,84 @@ async function mergeSubscriptions(primaryYaml, edgeYaml, env, ctx) {
 }
 
 // ---------------------------------------------------------------------------
-// Edgetunnel availability check
-// ---------------------------------------------------------------------------
-
-function isEdgetunnelConfigured(env) {
-  return !!(env.EDGETUNNEL_EXPORT_TOKEN && EDGE_HOST);
-}
-
-// ---------------------------------------------------------------------------
 // Request handler
 // ---------------------------------------------------------------------------
 
 export default {
   async fetch(request, env, ctx) {
+    const cfg = getConfig(env);
     const url = new URL(request.url);
-    if (request.method !== 'GET' || url.pathname !== '/jb') {
+
+    // --- Validate config ---
+    if (!cfg.nanokOrigin) {
+      return errorResponse(500, 'NANOK_ORIGIN is not configured');
+    }
+    if (!cfg.nanobToken) {
+      return errorResponse(500, 'NANOB_TOKEN is not configured');
+    }
+    if (!cfg.nanokSubToken) {
+      return errorResponse(500, 'NANOK_SUB_TOKEN is not configured');
+    }
+
+    // --- Route matching ---
+    if (request.method !== 'GET' || url.pathname !== cfg.nanobPath) {
       return errorResponse(404, 'Not Found');
     }
 
-    if (!env.NANOB_TOKEN || !env.NANOK_SUB_TOKEN) {
-      return errorResponse(500, 'aggregator is missing required secrets');
-    }
-
-    if (url.searchParams.get('token') !== env.NANOB_TOKEN) {
+    // --- Token check ---
+    if (url.searchParams.get('token') !== cfg.nanobToken) {
       return errorResponse(404, 'Not Found');
     }
-
-    const requestHeaders = relayHeaders(request);
 
     // --- Fetch primary subscription (always required) ---
-    const primaryUrl = new URL(NANOK_SUB_PATH, NANOK_ORIGIN);
-    primaryUrl.searchParams.set('token', env.NANOK_SUB_TOKEN);
+    const primaryUrl = new URL(cfg.nanokSubPath, cfg.nanokOrigin);
+    primaryUrl.searchParams.set('token', cfg.nanokSubToken);
+
+    const requestHeaders = relayHeaders(request);
 
     let primaryResponse;
     try {
       primaryResponse = await fetch(primaryUrl, { headers: requestHeaders, redirect: 'follow' });
     } catch (fetchError) {
-      return errorResponse(502, `primary fetch failed: ${String(fetchError?.message || fetchError)}`);
+      return errorResponse(502, 'primary fetch failed');
     }
 
     if (!primaryResponse.ok) {
-      return new Response(primaryResponse.body, {
-        status: primaryResponse.status,
-        headers: responseHeaders(primaryResponse.headers.get('content-type')),
-      });
+      return errorResponse(primaryResponse.status, 'primary subscription returned error');
     }
 
+    // --- Read primary text early, before any body consumption ---
+    const primaryText = await primaryResponse.text();
+
     // --- If edgetunnel is not configured, return primary only ---
-    if (!isEdgetunnelConfigured(env)) {
-      return new Response(primaryResponse.body, {
-        status: 200,
-        headers: responseHeaders(),
-      });
+    if (!isEdgetunnelConfigured(cfg)) {
+      return new Response(primaryText, { headers: responseHeaders() });
     }
 
     // --- Try fetching edgetunnel, but never block primary on failure ---
     let edgeResponse;
     try {
-      const edgeRequest = new Request(`https://${EDGE_HOST}${EDGE_SUB_PATH}`, {
+      const edgeRequest = new Request(`https://${cfg.edgeHost}${cfg.edgeSubPath}`, {
         headers: {
           ...requestHeaders,
-          'x-nanob-token': env.EDGETUNNEL_EXPORT_TOKEN,
+          'x-nanob-token': cfg.edgetunnelExportToken,
         },
       });
       edgeResponse = await fetch(edgeRequest, { redirect: 'follow' });
     } catch {
       // Edgetunnel fetch failed — return primary only
-      return new Response(primaryResponse.body, {
-        status: 200,
-        headers: responseHeaders(),
-      });
+      return new Response(primaryText, { headers: responseHeaders() });
     }
 
     if (!edgeResponse.ok) {
       // Edgetunnel returned error — return primary only
-      return new Response(primaryResponse.body, {
-        status: 200,
-        headers: responseHeaders(),
-      });
+      return new Response(primaryText, { headers: responseHeaders() });
     }
 
     // --- Try merging, but fall back to primary on any error ---
     try {
       const merged = await mergeSubscriptions(
-        await primaryResponse.text(),
+        primaryText,
         await edgeResponse.text(),
         env,
         ctx,
@@ -230,7 +260,6 @@ export default {
       return new Response(merged, { headers: responseHeaders() });
     } catch {
       // Merge failed — return primary only
-      const primaryText = await primaryResponse.text();
       return new Response(primaryText, { headers: responseHeaders() });
     }
   },

@@ -5,7 +5,7 @@ Automatic country/region detection for proxy nodes using free GeoIP lookup.
 ## How It Works
 
 1. When nanob fetches edgetunnel backup nodes, it extracts IP addresses from proxy definitions.
-2. For each IP, it checks the `NANOB_GEO_CACHE` KV namespace.
+2. For each IP, it checks the KV cache (binding name `GEO_CACHE` or `NANOB_GEO_CACHE`).
 3. If not cached, it queries `https://ipwho.is/{ip}` (free, no API key).
 4. Results are cached in KV with a 30-day write TTL and 1-hour read cache.
 5. IPv4 /24 network prefixes are learned for cache efficiency (e.g., `net4:203.0`).
@@ -19,6 +19,17 @@ Node names are prefixed with geo labels:
 [JP / Tokyo] [EDT backup] CF Preferred 2
 [EDT backup] CF Preferred 3          ← geo lookup failed, still works
 ```
+
+## KV Binding
+
+The geo module accepts either of these KV binding names:
+
+| Binding name | Used by |
+|---|---|
+| `GEO_CACHE` | Generic (recommended for new deployments) |
+| `NANOB_GEO_CACHE` | Legacy (still supported) |
+
+If both are bound, `GEO_CACHE` takes priority. This allows nanok and nanob to share the same geo cache in the future.
 
 ## Caching Strategy
 

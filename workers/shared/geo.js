@@ -6,6 +6,8 @@
 //   - Background warming via ctx.waitUntil
 //   - Failure-safe: lookup errors never block subscription output
 //
+// KV binding: accepts either GEO_CACHE or NANOB_GEO_CACHE.
+//
 // Usage:
 //   import { loadGeoMap, geoLabel } from '../shared/geo.js';
 //   const geoMap = await loadGeoMap(env, ipList, ctx);
@@ -16,6 +18,18 @@ const GEO_READ_CACHE_TTL_SECONDS = 60 * 60;          // 1 hour KV read cache
 const GEO_LOOKUP_TIMEOUT_MS = 2500;
 const GEO_LOOKUP_DELAY_MS = 1100;                     // rate-limit ipwho.is
 const GEO_MAX_BACKGROUND_LOOKUPS = 24;
+
+// ---------------------------------------------------------------------------
+// KV binding helper — accepts GEO_CACHE or NANOB_GEO_CACHE
+// ---------------------------------------------------------------------------
+
+function getGeoCache(env) {
+  return env.GEO_CACHE || env.NANOB_GEO_CACHE || null;
+}
+
+// ---------------------------------------------------------------------------
+// Label helpers
+// ---------------------------------------------------------------------------
 
 function cleanLabel(value) {
   return String(value || '')
@@ -43,10 +57,15 @@ export function geoNetworkKey(ip) {
   return '';
 }
 
+// ---------------------------------------------------------------------------
+// KV read helpers
+// ---------------------------------------------------------------------------
+
 async function cachedGeoKey(env, key) {
-  if (!env.NANOB_GEO_CACHE || !key) return null;
+  const cache = getGeoCache(env);
+  if (!cache || !key) return null;
   try {
-    return await env.NANOB_GEO_CACHE.get(key, {
+    return await cache.get(key, {
       type: 'json',
       cacheTtl: GEO_READ_CACHE_TTL_SECONDS,
     });
@@ -58,6 +77,10 @@ async function cachedGeoKey(env, key) {
 async function cachedGeo(env, ip) {
   return cachedGeoKey(env, `geo:${ip}`);
 }
+
+// ---------------------------------------------------------------------------
+// GeoIP fetch
+// ---------------------------------------------------------------------------
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -88,22 +111,27 @@ async function fetchGeo(ip) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Background warming
+// ---------------------------------------------------------------------------
+
 async function warmMissingGeo(env, ips) {
-  if (!env.NANOB_GEO_CACHE) return;
+  const cache = getGeoCache(env);
+  if (!cache) return;
   for (const ip of [...new Set(ips)]) {
     const existing = await cachedGeo(env, ip);
     if (!existing) {
       const geo = await fetchGeo(ip);
       if (geo) {
         const writes = [
-          env.NANOB_GEO_CACHE.put(`geo:${ip}`, JSON.stringify(geo), {
+          cache.put(`geo:${ip}`, JSON.stringify(geo), {
             expirationTtl: GEO_CACHE_TTL_SECONDS,
           }),
         ];
         const networkKey = geoNetworkKey(ip);
         if (networkKey) {
           writes.push(
-            env.NANOB_GEO_CACHE.put(networkKey, JSON.stringify(geo), {
+            cache.put(networkKey, JSON.stringify(geo), {
               expirationTtl: GEO_CACHE_TTL_SECONDS,
             }),
           );
@@ -115,9 +143,14 @@ async function warmMissingGeo(env, ips) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Main export: load geo map for a list of IPs
+// ---------------------------------------------------------------------------
+
 export async function loadGeoMap(env, ips, ctx) {
   const map = new Map();
-  if (!env.NANOB_GEO_CACHE || ips.length === 0) return map;
+  const cache = getGeoCache(env);
+  if (!cache || ips.length === 0) return map;
 
   const results = await Promise.all(ips.map(async (ip) => [ip, await cachedGeo(env, ip)]));
   const missing = [];

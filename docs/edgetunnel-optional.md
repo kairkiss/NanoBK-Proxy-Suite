@@ -45,18 +45,38 @@ proxies:
 
 1. Deploy edgetunnel from [cmliu/edgetunnel](https://github.com/cmliu/edgetunnel).
 2. Add internal authorization check (see `docs/edgetunnel-internal-auth.md`).
-3. Set `EDGETUNNEL_EXPORT_TOKEN` secret on nanob.
-4. Set `EDGE_HOST` constant in nanob source code.
+3. Set `EDGETUNNEL_EXPORT_TOKEN` secret on nanob:
+   ```bash
+   wrangler secret put EDGETUNNEL_EXPORT_TOKEN
+   ```
+4. Set `EDGE_HOST` in nanob wrangler.toml `[vars]` (e.g., `EDGE_HOST = "edge.example.com"`).
 5. Bind `NANOB_TOKEN` secret on edgetunnel.
+
+**No source code editing is needed.** All configuration comes from env vars.
+
+## Enabling edgetunnel
+
+Set both `EDGE_HOST` and `EDGETUNNEL_EXPORT_TOKEN`. If either is empty/missing, edgetunnel is disabled.
+
+```toml
+# wrangler.toml
+[vars]
+EDGE_HOST = "edge-subscription.example.com"
+EDGE_SUB_PATH = "/sub?target=clash"
+```
+
+```bash
+wrangler secret put EDGETUNNEL_EXPORT_TOKEN
+```
 
 ## Disabling edgetunnel
 
-To remove edgetunnel:
+To disable edgetunnel without removing the secret:
 
-1. Unset `EDGETUNNEL_EXPORT_TOKEN` secret on nanob, OR
-2. Set `EDGE_HOST = ''` in nanob source code.
+1. Set `EDGE_HOST = ""` in wrangler.toml `[vars]`, OR
+2. Unset the `EDGETUNNEL_EXPORT_TOKEN` secret.
 
-nanob will immediately return primary-only subscriptions.
+nanob will immediately return primary-only subscriptions. No redeployment needed if only changing the env var (Wrangler auto-picks up `[vars]` on next deploy).
 
 ## Internal Authorization
 

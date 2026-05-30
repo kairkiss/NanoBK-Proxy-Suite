@@ -135,6 +135,22 @@ curl -X POST https://YOUR_WORKER/admin/update \
 
 ---
 
+## nanob only returns primary nodes (no edgetunnel)
+
+If edgetunnel backup nodes are missing from the subscription output:
+
+1. Check `EDGE_HOST` is set in nanob wrangler.toml `[vars]` (not empty).
+2. Check `EDGETUNNEL_EXPORT_TOKEN` secret is set on nanob.
+3. Both must be present — if either is missing, edgetunnel is disabled.
+4. Test edgetunnel directly:
+   ```bash
+   curl -i -H "x-nanob-token: YOUR_TOKEN" \
+     https://YOUR_EDGE_HOST/sub?target=clash
+   ```
+5. If edgetunnel returns an error, nanob gracefully falls back to primary-only. This is expected behavior, not an error.
+
+---
+
 ## Doctor check
 
 Run the diagnostic script:
@@ -143,9 +159,15 @@ Run the diagnostic script:
 bash installer/doctor.sh
 ```
 
-It checks:
+It checks (read-only, does not modify anything):
 - OS and root access
 - Required tools (curl, jq, python3, openssl, systemctl, ss)
 - Config files existence
 - Service status
 - Port listening status
+
+Exit codes:
+- `0`: All checks passed (or warnings only)
+- `1`: One or more errors detected
+
+If you see `local: can only be used in a function`, you are running an older version of doctor.sh. Update to the latest version.

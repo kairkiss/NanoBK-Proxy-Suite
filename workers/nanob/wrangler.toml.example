@@ -6,14 +6,25 @@ name = "nanob"
 main = "src/index.js"
 compatibility_date = "2024-01-01"
 
-# KV namespace binding for geo cache
+# KV namespace binding for geo cache.
+# shared/geo.js accepts either GEO_CACHE or NANOB_GEO_CACHE binding.
 # Create with: wrangler kv:namespace create NANOB_GEO_CACHE
 # Then paste the id below.
 [[kv_namespaces]]
 binding = "NANOB_GEO_CACHE"
 id = "REPLACE_WITH_YOUR_GEO_CACHE_KV_NAMESPACE_ID"
 
+# Required environment variables
+[vars]
+NANOK_ORIGIN = "https://primary-subscription.example.com"
+NANOK_SUB_PATH = "/jb"
+NANOB_PATH = "/jb"
+
+# Edgetunnel (optional) — leave EDGE_HOST empty to disable
+EDGE_HOST = ""
+EDGE_SUB_PATH = "/sub?target=clash"
+
 # Worker secrets (set via CLI, NOT in this file):
-#   wrangler secret put NANOB_TOKEN         # public import-link token
-#   wrangler secret put NANOK_SUB_TOKEN     # token to fetch nanok internally
-#   wrangler secret put EDGETUNNEL_EXPORT_TOKEN  # shared token for edgetunnel (optional)
+#   wrangler secret put NANOB_TOKEN              # public import-link token (required)
+#   wrangler secret put NANOK_SUB_TOKEN           # token to fetch nanok internally (required)
+#   wrangler secret put EDGETUNNEL_EXPORT_TOKEN   # shared token for edgetunnel (optional, only if EDGE_HOST is set)
