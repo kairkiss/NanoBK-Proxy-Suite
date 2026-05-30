@@ -13,3 +13,7 @@ node_modules/
 # Generated wrangler.toml (use .example files as templates)
 workers/**/wrangler.toml
 
+# Telegram Bot (contains real tokens — never commit)
+bot/.env
+bot/.venv/
+

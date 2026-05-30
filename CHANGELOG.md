@@ -1,5 +1,29 @@
 # Changelog
 
+## v1.1.0 — Telegram Bot Foundation
+
+### Added
+
+- Telegram Bot skeleton under `bot/`
+- Owner-only command authorization (`OWNER_TELEGRAM_ID`)
+- `/status`, `/status_json`, `/doctor` commands
+- `/rotate_all`, `/rotate_hy2`, `/rotate_tuic`, `/rotate_reality`, `/rotate_trojan` with confirmation flow
+- Safe nanobk CLI subprocess wrapper (no `shell=True`)
+- Output redaction (tokens, passwords, keys)
+- Message length limiting for Telegram
+- `NANOBK_BOT_DRY_RUN` mode for testing rotate without execution
+- `bot/run.sh` — one-command bot startup with auto venv
+- `bot/systemd/nanobk-telegram-bot.service.example` — systemd unit
+- `tests/bot-cli-mock.sh` — bot self-test without Telegram connection
+
+### Security
+
+- Bot never directly reads or writes NanoBK secrets/profile/config
+- Bot token and owner ID loaded from untracked `.env`
+- Rotate actions require explicit `/confirm_rotate_*` (120s expiry)
+- All output passes through `redact_text()` and `limit_text()`
+- Unauthorized users get "Unauthorized." — no owner ID leaked
+
 ## v1.0.3 — Installed Rotate and Reality Rotation Hotfix
 
 ### Fixed

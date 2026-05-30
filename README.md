@@ -2,7 +2,7 @@
 
 > VPS 四协议节点 + Cloudflare Clash/Mihomo 订阅 + 自动换密钥 + 可选 edgetunnel 聚合
 
-**v1.0.0 CLI Core Release** — 一套基于脚本/CLI 的代理部署与管理工具。
+**v1.1.0** — CLI Core + Telegram Bot foundation。
 
 ## 最快开始
 
@@ -28,7 +28,8 @@ bash installer/install.sh
 | **edgetunnel 兼容** | 可选增强，edgetunnel 失败不影响主订阅 |
 | **nanobk CLI** | 统一入口：status / doctor / install / cf deploy / rotate / test |
 | **全部/单协议换密钥** | `nanobk rotate all` / `nanobk rotate hy2` / `nanobk rotate reality` 等 |
-| **status JSON** | `nanobk --json status` — 为未来 Bot/Panel 准备的稳定输出 |
+| **status JSON** | `nanobk --json status` — 为 Bot/Panel 准备的稳定输出 |
+| **Telegram Bot** | Owner-only 授权、状态查询、换密钥二次确认、dry-run 模式 |
 
 ## 不包含在 v1.0
 

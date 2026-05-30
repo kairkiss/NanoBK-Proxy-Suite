@@ -1,0 +1,15 @@
+[Unit]
+Description=NanoBK Telegram Bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/NanoBK-Proxy-Suite/bot
+ExecStart=/opt/NanoBK-Proxy-Suite/bot/.venv/bin/python /opt/NanoBK-Proxy-Suite/bot/nanobk_bot.py
+Restart=always
+RestartSec=5
+EnvironmentFile=/opt/NanoBK-Proxy-Suite/bot/.env
+
+[Install]
+WantedBy=multi-user.target

@@ -13,6 +13,9 @@ All test scripts in `tests/` are designed to be safe for local development. None
 | `wrangler-nanob-dry-run.sh` | nanob Worker bundle test | Maybe¹ | No | No | ✅ | ✅ |
 | `nanobk-cli-dry-run.sh` | CLI command dry-run tests | No | No | No | ✅ | ✅ |
 | `nanobk-status-cloudflare.sh` | Status JSON + security test | No | No | No | ✅ | ✅ |
+| `production-hotfix-static.sh` | TUIC template + x25519 parser + download patterns | No | No | No | ✅ | ✅ |
+| `installed-layout-rotate.sh` | Installed layout rotate (tuic/reality/all) | No | No | No | ✅ | ✅ |
+| `bot-cli-mock.sh` | Bot self-test (no Telegram connection) | No | No | No | ✅ | ✅ |
 
 ¹ Wrangler may download npm packages on first run.
 

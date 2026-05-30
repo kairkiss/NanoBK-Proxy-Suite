@@ -20,6 +20,7 @@
 | v0.9 | 单协议换密钥（nanobk rotate hy2/tuic/reality/trojan） |
 | v0.9.1 | 单协议 profile 测试加固 |
 | **v1.0.0** | **CLI Core Release** — 0.x 核心能力封版 |
+| v1.0.1-1.0.3 | Release docs polish + production installer hotfixes |
 
 ## 1.x 系列：控制层（Bot / Panel）
 
@@ -27,7 +28,7 @@
 
 | 版本 | 内容 |
 |------|------|
-| v1.1 | Telegram Bot：状态查询、一键换密钥、订阅链接推送 |
+| **v1.1.0** | ✅ Telegram Bot foundation（状态查询、换密钥确认、dry-run） |
 | v1.2 | Web Panel：可视化管理界面 |
 | v1.3 | 流量监控：每个节点的连接数 / 流量统计 |
 | v1.4 | 单协议换密钥审计、日志与权限增强 |
