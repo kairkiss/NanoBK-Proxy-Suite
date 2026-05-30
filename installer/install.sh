@@ -52,6 +52,7 @@ log()   { echo -e "${BLUE}[INFO]${NC}  $*"; }
 ok()    { echo -e "${GREEN}[OK]${NC}    $*"; }
 warn()  { echo -e "${YELLOW}[WARN]${NC}  $*"; }
 err()   { echo -e "${RED}[ERROR]${NC} $*" >&2; }
+die()   { err "$*"; exit 1; }
 
 # Safe command printing with proper quoting
 print_cmd() {

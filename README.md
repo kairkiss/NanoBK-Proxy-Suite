@@ -165,6 +165,8 @@ sudo bash /opt/nanobk/bin/rotate-keys.sh --yes
 | **v0.4** | ✅ nanob 聚合器自动部署 + edgetunnel 可选整合 |
 | **v0.5** | ✅ 小白化交互向导（install.sh 已实现） |
 
+详见 [docs/roadmap.md](docs/roadmap.md)。
+
 ## License
 
 Private use only.
