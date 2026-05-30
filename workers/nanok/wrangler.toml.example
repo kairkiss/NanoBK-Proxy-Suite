@@ -1,0 +1,28 @@
+# NanoK Worker — wrangler.toml example
+# Copy this to wrangler.toml and replace placeholders with your values.
+# Do NOT commit real tokens or IDs.
+
+name = "nanok"
+main = "src/index.js"
+compatibility_date = "2024-01-01"
+
+# KV namespace binding for profile storage
+# Create with: wrangler kv:namespace create SUB_STORE
+# Then paste the id below.
+[[kv_namespaces]]
+binding = "SUB_STORE"
+id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID"
+
+# Worker secrets (set via CLI, NOT in this file):
+#   wrangler secret put SUB_TOKEN
+#   wrangler secret put ADMIN_TOKEN
+
+# Optional environment variables (uncomment and set as needed):
+# [vars]
+# SUB_PATH = "/jb"
+# EDGE_PATH = "/edge"
+# ADMIN_PATH = "/admin/update"
+# ADMIN_CURRENT_PATH = "/admin/current"
+# EDGE_SUB_URL = "https://edge-subscription.example.com/sub?target=clash"
+# POETRY_NODE_NAME = "Status placeholder"
+# RECOMMEND_NODE_NAME = "Project placeholder"

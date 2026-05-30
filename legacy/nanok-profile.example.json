@@ -1,0 +1,38 @@
+{
+  "updatedAt": "2026-01-01T00:00:00.000Z",
+  "hy2": {
+    "name": "tokyo-001-hy2",
+    "server": "hy2.example.com",
+    "port": 443,
+    "password": "REPLACE_WITH_HY2_PASSWORD",
+    "sni": "hy2.example.com"
+  },
+  "tuic": {
+    "name": "tokyo-002-tuic-v5",
+    "server": "tuic.example.com",
+    "port": 9443,
+    "uuid": "00000000-0000-0000-0000-000000000000",
+    "password": "REPLACE_WITH_TUIC_PASSWORD",
+    "sni": "tuic.example.com"
+  },
+  "reality": {
+    "name": "tokyo-003-vless-reality",
+    "server": "198.51.100.10",
+    "port": 8443,
+    "uuid": "00000000-0000-0000-0000-000000000000",
+    "servername": "www.example.com",
+    "publicKey": "REPLACE_WITH_REALITY_PUBLIC_KEY",
+    "shortId": "REPLACE_WITH_REALITY_SHORT_ID"
+  },
+  "trojan": {
+    "name": "tokyo-004-trojan",
+    "server": "trojan.example.com",
+    "port": 2443,
+    "password": "REPLACE_WITH_TROJAN_PASSWORD",
+    "sni": "trojan.example.com"
+  },
+  "extraNodes": {
+    "poetryNodeName": "example display-only node",
+    "recommendNodeName": "example recommendation display-only node"
+  }
+}

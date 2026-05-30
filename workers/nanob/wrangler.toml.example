@@ -1,0 +1,19 @@
+# NanoB Worker — wrangler.toml example
+# Copy this to wrangler.toml and replace placeholders with your values.
+# Do NOT commit real tokens or IDs.
+
+name = "nanob"
+main = "src/index.js"
+compatibility_date = "2024-01-01"
+
+# KV namespace binding for geo cache
+# Create with: wrangler kv:namespace create NANOB_GEO_CACHE
+# Then paste the id below.
+[[kv_namespaces]]
+binding = "NANOB_GEO_CACHE"
+id = "REPLACE_WITH_YOUR_GEO_CACHE_KV_NAMESPACE_ID"
+
+# Worker secrets (set via CLI, NOT in this file):
+#   wrangler secret put NANOB_TOKEN         # public import-link token
+#   wrangler secret put NANOK_SUB_TOKEN     # token to fetch nanok internally
+#   wrangler secret put EDGETUNNEL_EXPORT_TOKEN  # shared token for edgetunnel (optional)
