@@ -1,5 +1,7 @@
 # Quick Start
 
+**NanoBK Proxy Suite v1.0.0 — CLI Core Release**
+
 ## One-Line Bootstrap (Recommended)
 
 ```bash
@@ -34,6 +36,7 @@ bash bin/nanobk doctor          # Run environment diagnostics
 bash bin/nanobk install         # Launch interactive installer
 bash bin/nanobk cf deploy       # Deploy Cloudflare Workers
 bash bin/nanobk rotate all      # Rotate all keys
+bash bin/nanobk rotate hy2      # Rotate only HY2
 bash bin/nanobk test            # Run local tests
 
 # --dry-run can be global or command-level:
@@ -61,25 +64,9 @@ bash installer/install.sh
 
 The interactive menu guides you through VPS setup, Cloudflare deployment, key rotation, and testing.
 
-Direct mode shortcuts:
+## Step-by-Step
 
-```bash
-bash installer/install.sh --mode doctor       # Environment check
-bash installer/install.sh --mode vps           # VPS deployment
-bash installer/install.sh --mode cloudflare    # Cloudflare deployment
-bash installer/install.sh --mode commands      # Show command templates
-bash installer/install.sh --mode test          # Run local tests
-```
-
-## Manual Setup
-
-### Prerequisites
-
-- A Linux VPS (Debian 11+, Ubuntu 20.04+, or RHEL-family)
-- A domain name (on Cloudflare recommended)
-- A TLS certificate (Let's Encrypt or Cloudflare Origin Certificate)
-
-## Step 1: Deploy VPS Proxy Services
+### Step 1: Deploy VPS Proxy Services
 
 ```bash
 sudo bash installer/install-vps.sh --yes \
@@ -89,22 +76,7 @@ sudo bash installer/install-vps.sh --yes \
   --key-file /etc/letsencrypt/live/proxy.example.com/privkey.pem
 ```
 
-This installs and configures:
-- **Hysteria2** (UDP 443)
-- **TUIC v5** (UDP 9443)
-- **VLESS Reality** (TCP 8443)
-- **Trojan TLS** (TCP 2443)
-
-And generates a Cloudflare-compatible profile at `/etc/nanobk/profile.current.json`.
-
-To preview without changing anything:
-
-```bash
-sudo bash installer/install-vps.sh --dry-run \
-  --domain proxy.example.com --cert-mode self-signed
-```
-
-## Step 2: Deploy nanok Worker
+### Step 2: Deploy Cloudflare Workers
 
 ```bash
 wrangler login
@@ -115,24 +87,27 @@ bash installer/install-cloudflare.sh --yes \
   --route-url https://nanok.yourdomain.com
 ```
 
-See [cloudflare-setup.md](cloudflare-setup.md) for all options and manual steps.
+See [cloudflare-setup.md](cloudflare-setup.md) for all options.
 
-## Step 3: Import Subscription
-
-Use this URL in Clash/Mihomo:
+### Step 3: Import Subscription
 
 ```
-https://YOUR_WORKER_HOST/jb?token=YOUR_SUB_TOKEN
+https://nanok.yourdomain.com/jb?token=YOUR_SUB_TOKEN
 ```
 
-See [client-import.md](../examples/client-import.md) for client-specific instructions.
+### Step 4: Key Rotation
 
-## Step 4: Optional Enhancements
+```bash
+nanobk rotate all
+# or
+nanobk rotate hy2 --skip-cloudflare
+```
 
-- **nanob aggregator**: merges nanok + edgetunnel backup nodes (see [edgetunnel-optional.md](edgetunnel-optional.md))
-- **Key rotation**: `bash /opt/nanobk/bin/rotate-keys.sh`
-- **Health check**: `bash /opt/nanobk/bin/healthcheck.sh`
+## What's Not in v1.0
 
-## Troubleshooting
+- Telegram Bot (planned v1.1)
+- Web Panel (planned v1.2)
+- Let's Encrypt automation
+- edgetunnel deployment automation
 
-See [troubleshooting.md](troubleshooting.md).
+These will call `nanobk` CLI commands — they won't duplicate core logic.

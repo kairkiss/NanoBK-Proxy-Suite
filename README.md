@@ -1,79 +1,16 @@
 # NanoBK Proxy Suite
 
-> 一键部署 VPS 四协议节点 + Cloudflare Clash/Mihomo 订阅 + 自动换密钥 + 可选 edgetunnel backup 聚合。
+> VPS 四协议节点 + Cloudflare Clash/Mihomo 订阅 + 自动换密钥 + 可选 edgetunnel 聚合
 
-## 适用用户
+**v1.0.0 CLI Core Release** — 一套基于脚本/CLI 的代理部署与管理工具。
 
-- 有一台 VPS（Linux）
-- 有 Cloudflare 域名和 Workers
-- 想要私有的 Clash/Mihomo 订阅链接
-- 不想手动维护多协议配置和密钥轮换
-
-## 核心能力
-
-| 能力 | 说明 |
-|------|------|
-| **四协议部署** | HY2 (443) / TUIC v5 (9443) / VLESS Reality (8443) / Trojan TLS (2443) |
-| **一键换密钥** | 一个脚本生成新凭据、更新 VPS 配置、同步 Cloudflare KV |
-| **Cloudflare KV 动态订阅** | 纳米级 Worker 从 KV profile 生成 Clash/Mihomo YAML |
-| **YAML 安全输出** | 严格 control character 检查，避免 `yaml: control characters are not allowed` |
-| **edgetunnel 可选增强** | 没有 edgetunnel 也能完整运行，配置后追加 backup 节点 |
-| **Geo 自动识别** | 使用 ipwho.is 自动识别节点国家/地区，缓存到 KV |
-
-## 架构
-
-```
-VPS 四协议 ──rotate-keys.sh──▶ nanok KV Worker ──fetch──▶ nanob Aggregator ──▶ Clients
-  (HY2/TUIC/Reality/Trojan)     (profile:main)            (optional merge)
-                                     │                          │
-                                     │ admin API                │ edgetunnel (optional)
-                                     ▼                          ▼
-                               Cloudflare KV              edgetunnel Worker
-```
-
-## 快速开始
-
-### 1. 一行命令启动（推荐）
+## 最快开始
 
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/kairkiss/NanoBK-Proxy-Suite/main/installer/bootstrap.sh)
 ```
 
-或使用统一 CLI：
-
-```bash
-bash bin/nanobk status
-bash bin/nanobk doctor
-bash bin/nanobk install --mode commands
-```
-
-可选安装到 PATH：
-
-```bash
-sudo ln -sf "$(pwd)/bin/nanobk" /usr/local/bin/nanobk
-nanobk status
-```
-
-### 2. 手动 clone 后安装
-
-```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/kairkiss/NanoBK-Proxy-Suite/main/installer/bootstrap.sh)
-```
-
-bootstrap 会自动 clone 仓库并启动交互式安装器。也可以直接传参数：
-
-```bash
-# 只看命令模板
-bash <(curl -fsSL ...) -- --mode commands
-
-# 运行诊断
-bash <(curl -fsSL ...) -- --mode doctor
-
-# 预演 VPS 部署
-bash <(curl -fsSL ...) -- --mode vps --dry-run
-```
-
-### 2. 手动 clone 后安装
+或手动 clone：
 
 ```bash
 git clone https://github.com/kairkiss/NanoBK-Proxy-Suite.git
@@ -81,131 +18,62 @@ cd NanoBK-Proxy-Suite
 bash installer/install.sh
 ```
 
-或直接运行特定模式：
+## 核心能力
 
-```bash
-bash installer/install.sh --mode doctor      # 环境诊断
-bash installer/install.sh --mode vps          # VPS 部署
-bash installer/install.sh --mode cloudflare   # Cloudflare 部署
-bash installer/install.sh --mode commands     # 只生成命令
-```
-
-### 2. 部署 VPS 四协议节点
-
-```bash
-sudo bash installer/install-vps.sh --yes \
-  --domain proxy.example.com \
-  --cert-mode existing \
-  --cert-file /etc/letsencrypt/live/proxy.example.com/fullchain.pem \
-  --key-file /etc/letsencrypt/live/proxy.example.com/privkey.pem
-```
-
-预览模式（不修改系统）：
-
-```bash
-sudo bash installer/install-vps.sh --dry-run \
-  --domain proxy.example.com --cert-mode self-signed
-```
-
-### 3. 部署 Cloudflare Workers
-
-```bash
-wrangler login
-
-bash installer/install-cloudflare.sh --yes \
-  --create-kv \
-  --profile /etc/nanobk/profile.current.json \
-  --route-url https://nanok.yourdomain.com
-```
-
-### 4. 换密钥
-
-```bash
-sudo bash vps/scripts/rotate-keys.sh --yes
-```
-
-如果已部署到 VPS，也可使用：
-
-```bash
-sudo bash /opt/nanobk/bin/rotate-keys.sh --yes
-```
-
-## 当前状态
-
-- ✅ 完整链路已跑通（VPS 四协议 → nanok Worker → nanob 聚合 → Clash/Mihomo 导入）
-- ✅ v0.5 小白化交互入口已完成：VPS 安装、Cloudflare nanok/nanob 部署、密钥轮换和本地安全测试均已有自动化脚本
-- ✅ Shadowrocket 和 Clash/Mihomo 导入验证通过
-- 📦 现有代码为脱敏模板，不包含真实密钥
-- ⚠️ 仍建议先在测试 VPS 上验证
-
-## 仓库结构
-
-```
-├── README.md
-├── docs/                          # 文档
-│   ├── architecture.md            # 完整链路架构
-│   ├── quickstart.md              # 快速开始
-│   ├── vps-setup.md               # VPS 部署指南
-│   ├── cloudflare-setup.md        # Cloudflare 部署指南
-│   ├── key-rotation.md            # 换密钥指南
-│   ├── edgetunnel-optional.md     # edgetunnel 可选说明
-│   ├── geo-labeling.md            # Geo 自动识别说明
-│   └── troubleshooting.md         # 故障排查
-├── installer/                     # 安装脚本
-│   ├── install.sh                 # 主入口
-│   ├── install-vps.sh             # VPS 安装
-│   ├── install-cloudflare.sh      # Cloudflare 安装
-│   └── doctor.sh                  # 环境诊断
-├── vps/
-│   ├── lib/
-│   │   ├── common.sh              # 共享函数（日志、dry-run、模板渲染）
-│   │   ├── os.sh                  # OS 检测、依赖安装
-│   │   ├── download.sh            # 二进制下载（GitHub releases）
-│   │   └── profile.sh             # Geo 检测、凭证生成、profile JSON
-│   ├── scripts/
-│   │   ├── rotate-keys.sh         # 一键换密钥
-│   │   ├── healthcheck.sh         # 健康检查
-│   │   └── rollback.example.sh    # 回滚示例
-│   ├── templates/                 # 配置模板（__PLACEHOLDER__ 语法）
-│   └── systemd/                   # systemd 服务模板
-├── workers/
-│   ├── nanok/src/index.js         # 主订阅 Worker
-│   ├── nanob/src/index.js         # 聚合 Worker (edgetunnel 可选)
-│   └── shared/
-│       ├── yaml-safe.js           # YAML 安全工具
-│       └── geo.js                 # Geo 识别模块
-├── tests/
-│   ├── render-install-vps.sh      # VPS 渲染集成测试
-│   ├── rotate-render-only.sh      # 密钥轮换测试
-│   ├── wrangler-nanok-dry-run.sh  # nanok bundle 测试
-│   └── wrangler-nanob-dry-run.sh  # nanob bundle 测试
-├── examples/
-│   ├── profile.example.json       # KV profile 示例
-│   ├── env.vps.example            # VPS 环境变量示例
-│   ├── env.cloudflare.example     # Cloudflare 环境变量示例
-│   └── client-import.md           # 客户端导入说明
-└── legacy/                        # 原始文件存档
-```
-
-## 安全说明
-
-- **不提交真实密钥。** 所有示例使用占位符。
-- **admin token 只在 VPS 本地。** 存储在 `/root/.nanok-cf-admin.env`，权限 600。
-- **Reality private key 不进入 Cloudflare KV。** 只有 publicKey 和 shortId 存入 KV。
-- **换密钥私有记录。** 全量密钥只写入 `chmod 600` 的本地文件，不提交 Git。
-- **token 分离。** 公开订阅 token 和 admin token 是不同的密钥。
-
-## Roadmap
-
-| 版本 | 目标 |
+| 能力 | 说明 |
 |------|------|
-| **v0.1** | ✅ 工程整理、产品化结构、文档骨架 |
-| **v0.2** | ✅ VPS 一键部署（install-vps.sh 已实现） |
-| **v0.3** | ✅ Cloudflare nanok 自动部署（install-cloudflare.sh 已实现） |
-| **v0.4** | ✅ nanob 聚合器自动部署 + edgetunnel 可选整合 |
-| **v0.5** | ✅ 小白化交互向导（install.sh 已实现） |
+| **VPS 四协议** | HY2 (UDP 443) / TUIC v5 (UDP 9443) / VLESS Reality (TCP 8443) / Trojan TLS (TCP 2443) |
+| **Cloudflare nanok** | 主订阅 Worker，从 KV profile 生成 Clash/Mihomo YAML |
+| **nanob 聚合** | 可选聚合 Worker，合并 nanok + edgetunnel backup |
+| **edgetunnel 兼容** | 可选增强，edgetunnel 失败不影响主订阅 |
+| **nanobk CLI** | 统一入口：status / doctor / install / cf deploy / rotate / test |
+| **全部/单协议换密钥** | `nanobk rotate all` / `nanobk rotate hy2` / `nanobk rotate reality` 等 |
+| **status JSON** | `nanobk --json status` — 为未来 Bot/Panel 准备的稳定输出 |
 
-详见 [docs/roadmap.md](docs/roadmap.md)。
+## 不包含在 v1.0
+
+- Telegram Bot（计划 v1.1）
+- Web Panel（计划 v1.2）
+- Let's Encrypt 自动证书
+- edgetunnel 自动部署
+
+TG Bot / Web Panel 属于后续控制层，会调用 `nanobk` CLI 命令，不复制底层逻辑。
+
+## nanobk CLI 用法
+
+```bash
+nanobk status                          # 显示 VPS / Cloudflare 状态
+nanobk --json status                   # JSON 输出
+nanobk doctor                          # 环境诊断
+nanobk install                         # 交互式安装器
+nanobk install-cli                     # 安装到 /usr/local/bin
+nanobk cf deploy --create-kv ...       # 部署 Cloudflare Workers
+nanobk rotate all                      # 全部换密钥
+nanobk rotate hy2                      # 只换 HY2
+nanobk rotate reality --skip-cloudflare # 只换 Reality，不同步 CF
+nanobk test                            # 运行测试
+nanobk test --all                      # 包含 wrangler bundle 测试
+```
+
+## 文档
+
+| 文档 | 说明 |
+|------|------|
+| [docs/quickstart.md](docs/quickstart.md) | 快速开始 |
+| [docs/key-rotation.md](docs/key-rotation.md) | 换密钥指南 |
+| [docs/cloudflare-setup.md](docs/cloudflare-setup.md) | Cloudflare 部署 |
+| [docs/test-matrix.md](docs/test-matrix.md) | 测试矩阵 |
+| [docs/release-v1.0.md](docs/release-v1.0.md) | v1.0 Release Notes |
+| [docs/roadmap.md](docs/roadmap.md) | Roadmap |
+| [docs/troubleshooting.md](docs/troubleshooting.md) | 故障排查 |
+
+## 安全提醒
+
+以下文件包含真实密钥，绝不能提交到 Git：
+
+- `.cloudflare.local.env` / `.nanob.local.env`
+- `/etc/nanobk/secrets.private.env`
+- `/root/.nanok-cf-admin.env`
 
 ## License
 
