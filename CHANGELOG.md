@@ -1,5 +1,18 @@
 # Changelog
 
+## v1.1.1 — Telegram Bot Safety Polish
+
+### Fixed
+
+- Confirmation mismatch no longer clears pending rotate action
+- Owner receives "Unknown command" for unsupported commands instead of "Unauthorized."
+- Bot startup logs no longer print the numeric owner Telegram ID
+
+### Tests
+
+- Expanded Bot self-test for confirmation mismatch preserves pending
+- Expanded Bot self-test for matched pop clears pending
+
 ## v1.1.0 — Telegram Bot Foundation
 
 ### Added

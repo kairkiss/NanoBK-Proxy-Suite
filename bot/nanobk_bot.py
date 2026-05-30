@@ -267,8 +267,15 @@ def run_self_test() -> bool:
     cm.set(12345, "rotate_tuic", ["rotate", "tuic", "--yes"])
     check("confirmation set", cm.get_action(12345) == "rotate_tuic")
     check("confirmation mismatch rejected", cm.get_action(12345) != "rotate_hy2")
-    cm.clear(12345)
-    check("confirmation cleared", cm.get_action(12345) is None)
+
+    # 6b. Mismatch does NOT clear pending (get without pop)
+    pending = cm.get(12345)
+    check("mismatch preserves pending (get returns entry)", pending is not None)
+    check("mismatch preserves pending (action still rotate_tuic)", cm.get_action(12345) == "rotate_tuic")
+
+    # 6c. Match clears pending (pop)
+    cm.pop(12345)
+    check("matched pop clears pending", cm.get_action(12345) is None)
 
     # 7. Dry-run rotate does not execute
     config_dry = BotConfig(owner_id=12345, nanobk_cli="/usr/bin/echo", dry_run=True)
@@ -458,7 +465,7 @@ def create_bot_app(config: BotConfig):
             await update.message.reply_text("Unknown confirmation command.")
             return
 
-        pending = confirmations.pop(update.effective_user.id)
+        pending = confirmations.get(update.effective_user.id)
         if pending is None:
             await update.message.reply_text("No pending confirmation (may have expired).")
             return
@@ -468,6 +475,9 @@ def create_bot_app(config: BotConfig):
                 f"Confirmation mismatch. Pending: {pending.action}, got: {action}"
             )
             return
+
+        # Only clear after match
+        confirmations.pop(update.effective_user.id)
 
         # Execute rotate
         if config.dry_run:
@@ -507,8 +517,13 @@ def create_bot_app(config: BotConfig):
     for confirm_cmd in CONFIRM_COMMANDS:
         app.add_handler(CommandHandler(confirm_cmd, cmd_confirm_rotate))
 
-    # Unauthorized fallback
-    app.add_handler(MessageHandler(filters.COMMAND, unauthorized))
+    # Unknown command fallback
+    async def cmd_unknown(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        if not is_owner(update):
+            return await unauthorized(update, context)
+        await update.message.reply_text("Unknown command. Use /help.")
+
+    app.add_handler(MessageHandler(filters.COMMAND, cmd_unknown))
 
     return app
 
@@ -534,7 +549,7 @@ def main():
     if config.dry_run:
         print("[DRY-RUN] Bot started. Rotate commands will not execute.")
 
-    print(f"Starting NanoBK Bot (owner={config.owner_id})...")
+    print("Starting NanoBK Bot (owner configured)...")
     app = create_bot_app(config)
     app.run_polling(drop_pending_updates=True)
 
