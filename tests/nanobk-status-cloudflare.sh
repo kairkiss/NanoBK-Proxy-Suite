@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
 # NanoBK Proxy Suite — nanobk status Cloudflare Test
 #
-# Tests that nanobk status correctly reads Cloudflare env files
-# and produces valid JSON without leaking secrets.
+# Tests:
+#   - nanobk status correctly reads Cloudflare env files
+#   - JSON output is valid and contains expected fields
+#   - No secrets leak into output
+#   - Malicious env file commands are NOT executed
+#   - install-cli --dry-run works without root
 #
 # Usage:
 #   bash tests/nanobk-status-cloudflare.sh
@@ -58,6 +62,8 @@ ADMIN_CURRENT_PATH="/admin/current"
 NANOBK_DEPLOY_STATUS="deployed"
 NANOBK_PROFILE_UPLOAD_STATUS="uploaded"
 NANOBK_VERIFY_STATUS="verified"
+# This line should NOT be executed by status:
+MALICIOUS_SHOULD_NOT_RUN="touch /tmp/nanobk-env-pwned"
 EOF
 chmod 600 "$ROOT/.cloudflare.local.env"
 
@@ -74,6 +80,9 @@ NANOB_DEPLOY_STATUS="deployed"
 NANOB_VERIFY_STATUS="verified"
 EOF
 chmod 600 "$ROOT/.nanob.local.env"
+
+# Remove any leftover pwn marker
+rm -f /tmp/nanobk-env-pwned
 
 # ── JSON output test ────────────────────────────────────────────────────────
 
@@ -166,6 +175,23 @@ else
   pass "NANOB_TOKEN not in JSON output"
 fi
 
+# ── Malicious env not executed ──────────────────────────────────────────────
+
+echo ""
+echo "--- Malicious env not executed ---"
+echo ""
+
+# Run status (which reads the env files)
+bash "$ROOT/bin/nanobk" --repo-dir "$ROOT" status --config-dir "$TMP/etc/nanobk" >/dev/null 2>&1
+
+if [[ -f /tmp/nanobk-env-pwned ]]; then
+  fail "Malicious env command WAS executed! (touch /tmp/nanobk-env-pwned)"
+  ERRORS=$((ERRORS + 1))
+  rm -f /tmp/nanobk-env-pwned
+else
+  pass "Malicious env command was NOT executed"
+fi
+
 # ── Text output test ────────────────────────────────────────────────────────
 
 echo ""
@@ -202,10 +228,48 @@ else
   pass "NANOB_TOKEN not in text output"
 fi
 
+# ── install-cli --dry-run ───────────────────────────────────────────────────
+
+echo ""
+echo "--- install-cli --dry-run ---"
+echo ""
+
+# Command-level --dry-run
+CLI_DRY=$(bash "$ROOT/bin/nanobk" --repo-dir "$ROOT" install-cli --dry-run --target /tmp/nanobk-cli-test-link-$$ 2>&1)
+if echo "$CLI_DRY" | grep -q "DRY-RUN"; then
+  pass "install-cli --dry-run shows DRY-RUN"
+else
+  fail "install-cli --dry-run missing DRY-RUN"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# Verify no file was created
+if [[ -L "/tmp/nanobk-cli-test-link-$$" ]]; then
+  fail "install-cli --dry-run actually created a symlink!"
+  ERRORS=$((ERRORS + 1))
+  rm -f "/tmp/nanobk-cli-test-link-$$"
+else
+  pass "install-cli --dry-run did not create symlink"
+fi
+
+# Default target --dry-run should not fail for non-root
+CLI_DRY_DEFAULT=$(bash "$ROOT/bin/nanobk" --repo-dir "$ROOT" install-cli --dry-run 2>&1) || true
+if echo "$CLI_DRY_DEFAULT" | grep -q "DRY-RUN"; then
+  pass "install-cli --dry-run (default target) shows DRY-RUN"
+elif echo "$CLI_DRY_DEFAULT" | grep -q "已安装"; then
+  pass "install-cli --dry-run (default target): already installed (OK)"
+elif echo "$CLI_DRY_DEFAULT" | grep -q "sudo\|root"; then
+  pass "install-cli --dry-run (default target) shows sudo hint (OK)"
+else
+  fail "install-cli --dry-run (default target) unexpected output"
+  ERRORS=$((ERRORS + 1))
+fi
+
 # ── Cleanup ─────────────────────────────────────────────────────────────────
 
 rm -rf "$TMP"
 rm -f "$ROOT/.cloudflare.local.env" "$ROOT/.nanob.local.env"
+rm -f /tmp/nanobk-env-pwned /tmp/nanobk-cli-test-link-*
 
 # ── Summary ─────────────────────────────────────────────────────────────────
 

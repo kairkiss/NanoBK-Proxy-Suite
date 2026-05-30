@@ -18,6 +18,7 @@
 | v0.6 | ✅ 远程一行命令 bootstrap（bootstrap.sh） |
 | v0.7 | ✅ nanobk 统一 CLI foundation（bin/nanobk） |
 | v0.8 | ✅ install-cli + status Cloudflare 可见性 |
+| v0.8.1 | ✅ CLI safety patch: install-cli dry-run + safe env parsing |
 
 ### 计划中
 
