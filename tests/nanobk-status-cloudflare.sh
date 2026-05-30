@@ -62,8 +62,9 @@ ADMIN_CURRENT_PATH="/admin/current"
 NANOBK_DEPLOY_STATUS="deployed"
 NANOBK_PROFILE_UPLOAD_STATUS="uploaded"
 NANOBK_VERIFY_STATUS="verified"
-# This line should NOT be executed by status:
-MALICIOUS_SHOULD_NOT_RUN="touch /tmp/nanobk-env-pwned"
+# These lines should NOT be executed by status (safe parser ignores them):
+MALICIOUS_CMD_SUB="$(touch /tmp/nanobk-env-pwned)"
+touch /tmp/nanobk-env-pwned-2
 EOF
 chmod 600 "$ROOT/.cloudflare.local.env"
 
@@ -81,8 +82,8 @@ NANOB_VERIFY_STATUS="verified"
 EOF
 chmod 600 "$ROOT/.nanob.local.env"
 
-# Remove any leftover pwn marker
-rm -f /tmp/nanobk-env-pwned
+# Remove any leftover pwn markers
+rm -f /tmp/nanobk-env-pwned /tmp/nanobk-env-pwned-2
 
 # ── JSON output test ────────────────────────────────────────────────────────
 
@@ -185,11 +186,19 @@ echo ""
 bash "$ROOT/bin/nanobk" --repo-dir "$ROOT" status --config-dir "$TMP/etc/nanobk" >/dev/null 2>&1
 
 if [[ -f /tmp/nanobk-env-pwned ]]; then
-  fail "Malicious env command WAS executed! (touch /tmp/nanobk-env-pwned)"
+  fail "Command substitution WAS executed! (\$(touch /tmp/nanobk-env-pwned))"
   ERRORS=$((ERRORS + 1))
   rm -f /tmp/nanobk-env-pwned
 else
-  pass "Malicious env command was NOT executed"
+  pass "Command substitution was NOT executed"
+fi
+
+if [[ -f /tmp/nanobk-env-pwned-2 ]]; then
+  fail "Bare command WAS executed! (touch /tmp/nanobk-env-pwned-2)"
+  ERRORS=$((ERRORS + 1))
+  rm -f /tmp/nanobk-env-pwned-2
+else
+  pass "Bare command was NOT executed"
 fi
 
 # ── Text output test ────────────────────────────────────────────────────────
@@ -269,7 +278,7 @@ fi
 
 rm -rf "$TMP"
 rm -f "$ROOT/.cloudflare.local.env" "$ROOT/.nanob.local.env"
-rm -f /tmp/nanobk-env-pwned /tmp/nanobk-cli-test-link-*
+rm -f /tmp/nanobk-env-pwned /tmp/nanobk-env-pwned-2 /tmp/nanobk-cli-test-link-*
 
 # ── Summary ─────────────────────────────────────────────────────────────────
 
