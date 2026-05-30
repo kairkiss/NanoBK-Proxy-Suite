@@ -10,6 +10,8 @@ bash installer/install.sh
 
 The interactive menu guides you through VPS setup, Cloudflare deployment, key rotation, and testing. It collects parameters interactively and shows commands before executing.
 
+> **Note**: Remote single-file curl execution (`bash <(curl ...)`) is not supported — the installer needs multiple files from the repository. Please clone the repo first.
+
 Direct mode shortcuts:
 
 ```bash

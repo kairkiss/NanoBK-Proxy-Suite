@@ -81,15 +81,22 @@ bash installer/install-cloudflare.sh --yes \
 ### 4. 换密钥
 
 ```bash
-bash /root/rotate-proxy-keys.sh
+sudo bash vps/scripts/rotate-keys.sh --yes
+```
+
+如果已部署到 VPS，也可使用：
+
+```bash
+sudo bash /opt/nanobk/bin/rotate-keys.sh --yes
 ```
 
 ## 当前状态
 
 - ✅ 完整链路已跑通（VPS 四协议 → nanok Worker → nanob 聚合 → Clash/Mihomo 导入）
+- ✅ v0.5 小白化交互入口已完成：VPS 安装、Cloudflare nanok/nanob 部署、密钥轮换和本地安全测试均已有自动化脚本
 - ✅ Shadowrocket 和 Clash/Mihomo 导入验证通过
-- 🔄 仓库正在产品化整理中（v0.1 scaffold）
 - 📦 现有代码为脱敏模板，不包含真实密钥
+- ⚠️ 仍建议先在测试 VPS 上验证
 
 ## 仓库结构
 
@@ -156,7 +163,7 @@ bash /root/rotate-proxy-keys.sh
 | **v0.2** | ✅ VPS 一键部署（install-vps.sh 已实现） |
 | **v0.3** | ✅ Cloudflare nanok 自动部署（install-cloudflare.sh 已实现） |
 | **v0.4** | ✅ nanob 聚合器自动部署 + edgetunnel 可选整合 |
-| **v0.5** | 小白化交互向导 |
+| **v0.5** | ✅ 小白化交互向导（install.sh 已实现） |
 
 ## License
 

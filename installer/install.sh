@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — Main Installer v0.5
+# NanoBK Proxy Suite — Main Installer v0.5.1
 #
 # Interactive entry point for NanoBK Proxy Suite.
 # Guides users through VPS deployment, Cloudflare setup, key rotation, and testing.
@@ -20,7 +20,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # ── Constants ───────────────────────────────────────────────────────────────
 
 REPO_URL="https://github.com/kairkiss/NanoBK-Proxy-Suite"
-VERSION="0.5.0"
+VERSION="0.5.1"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -39,6 +39,12 @@ YES=0
 LANG_CODE="zh"
 MODE=""
 COMMAND_ONLY=0
+REPO_DIR_OVERRIDE=""
+
+# Environment state (set by detect_environment)
+ENV_IS_LINUX=0
+ENV_HAS_SYSTEMD=0
+ENV_HAS_ROOT=0
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -47,10 +53,12 @@ ok()    { echo -e "${GREEN}[OK]${NC}    $*"; }
 warn()  { echo -e "${YELLOW}[WARN]${NC}  $*"; }
 err()   { echo -e "${RED}[ERROR]${NC} $*" >&2; }
 
-# Safe command printing
+# Safe command printing with proper quoting
 print_cmd() {
   local cmd=("$@")
-  echo -e "  ${CYAN}\$${NC} ${cmd[*]}"
+  printf "  ${CYAN}\$${NC} "
+  printf "%q " "${cmd[@]}"
+  printf "\n"
 }
 
 # Safe command execution
@@ -92,7 +100,7 @@ prompt() {
   local default="${3:-}"
 
   if [[ "$YES" == "1" ]] && [[ -n "$default" ]]; then
-    eval "$var_name=\"$default\""
+    eval "$var_name=\"\$default\""
     return
   fi
 
@@ -104,9 +112,9 @@ prompt() {
   read -r input
 
   if [[ -z "$input" ]] && [[ -n "$default" ]]; then
-    eval "$var_name=\"$default\""
+    eval "$var_name=\"\$default\""
   else
-    eval "$var_name=\"$input\""
+    eval "$var_name=\"\$input\""
   fi
 }
 
@@ -133,6 +141,36 @@ confirm() {
   fi
 }
 
+# Run a single test script safely (no eval)
+run_one_test() {
+  local script="$1"
+  local label="$2"
+  local cmd=(bash "$script")
+
+  log "运行: ${label}"
+  print_cmd "${cmd[@]}"
+
+  if [[ "$DRY_RUN" == "1" ]]; then
+    echo -e "  ${CYAN}[DRY-RUN]${NC} 跳过执行"
+    return 0
+  fi
+  if [[ "$COMMAND_ONLY" == "1" ]]; then
+    echo -e "  ${YELLOW}(仅生成命令，未执行)${NC}"
+    return 0
+  fi
+
+  "${cmd[@]}" || warn "测试失败: ${label}"
+}
+
+# Check if mode is destructive (requires real system/CF changes)
+is_destructive_mode() {
+  local mode="$1"
+  case "$mode" in
+    vps|cloudflare|nanob|rotate|full) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 # ── Environment detection ───────────────────────────────────────────────────
 
 detect_environment() {
@@ -145,13 +183,9 @@ detect_environment() {
 
   echo "  操作系统: ${os_name} ${arch}"
 
-  local is_linux=0
-  local has_systemd=0
-  local has_root=0
-
-  [[ "$os_name" == "Linux" ]] && is_linux=1
-  command -v systemctl &>/dev/null && has_systemd=1
-  [[ $EUID -eq 0 ]] && has_root=1
+  [[ "$os_name" == "Linux" ]] && ENV_IS_LINUX=1
+  command -v systemctl &>/dev/null && ENV_HAS_SYSTEMD=1
+  [[ $EUID -eq 0 ]] && ENV_HAS_ROOT=1
 
   # Check tools
   local tools_status=""
@@ -166,20 +200,16 @@ detect_environment() {
   echo ""
   echo -e "${BOLD}  工具状态:${NC}"
   echo -e "$tools_status"
-
-  # Store for later use
-  ENV_IS_LINUX=$is_linux
-  ENV_HAS_SYSTEMD=$has_systemd
-  ENV_HAS_ROOT=$has_root
 }
 
 # ── Repo check ──────────────────────────────────────────────────────────────
 
 check_repo() {
   if [[ ! -f "$REPO_DIR/installer/install-vps.sh" ]]; then
-    err "未找到仓库文件。检测到你是远程单文件运行。"
+    err "检测到你正在远程单文件运行或不在完整仓库中。"
     echo ""
-    echo "  完整安装需要先 clone 仓库："
+    echo "  NanoBK 需要调用 installer/、vps/、workers/、tests/ 下的多个文件。"
+    echo "  请先 clone 仓库后运行："
     echo ""
     echo "    git clone ${REPO_URL}.git"
     echo "    cd NanoBK-Proxy-Suite"
@@ -199,11 +229,43 @@ parse_args() {
       --yes)        YES=1 ;;
       --lang)       LANG_CODE="$2"; shift ;;
       --mode)       MODE="$2"; shift ;;
+      --repo-dir)   REPO_DIR_OVERRIDE="$2"; shift ;;
       --help|-h)    show_help; exit 0 ;;
       *)            err "未知参数: $1"; show_help; exit 1 ;;
     esac
     shift
   done
+
+  # Handle --repo-dir override
+  if [[ -n "$REPO_DIR_OVERRIDE" ]]; then
+    if [[ ! -d "$REPO_DIR_OVERRIDE" ]]; then
+      die "指定的仓库目录不存在: ${REPO_DIR_OVERRIDE}"
+    fi
+    REPO_DIR="$(cd "$REPO_DIR_OVERRIDE" && pwd)"
+  fi
+
+  # Handle --lang en (reserved)
+  if [[ "$LANG_CODE" == "en" ]]; then
+    warn "English UI is reserved and incomplete; falling back to Chinese for now."
+    LANG_CODE="zh"
+  fi
+
+  # Safety: --yes without --dry-run on destructive modes
+  if [[ "$YES" == "1" ]] && [[ "$DRY_RUN" != "1" ]] && [[ -n "$MODE" ]]; then
+    if is_destructive_mode "$MODE"; then
+      err "为避免使用 example.com 默认值执行真实部署，install.sh 不支持 --yes 直接运行 ${MODE}。"
+      echo ""
+      echo "  请去掉 --yes 使用交互式输入，或使用具体子安装器并显式提供完整参数："
+      echo ""
+      echo "    bash installer/install-vps.sh --yes --domain your-domain.com ..."
+      echo "    bash installer/install-cloudflare.sh --yes --route-url https://your-worker ..."
+      echo ""
+      echo "  或使用 --dry-run 预览："
+      echo "    bash installer/install.sh --mode ${MODE} --yes --dry-run"
+      echo ""
+      exit 1
+    fi
+  fi
 }
 
 show_help() {
@@ -215,9 +277,10 @@ NanoBK Proxy Suite — 交互式安装器 v${VERSION}
 
 选项:
   --dry-run          只打印命令，不执行
-  --yes              非交互模式
-  --lang zh|en       语言（默认 zh）
+  --yes              非交互模式（仅限 doctor/test/commands 模式）
+  --lang zh|en       语言（当前主要支持 zh，en 为预留）
   --mode MODE        直接指定模式，跳过菜单
+  --repo-dir PATH    指定仓库根目录
   --help             显示帮助
 
 模式（--mode）:
@@ -235,6 +298,7 @@ NanoBK Proxy Suite — 交互式安装器 v${VERSION}
   bash installer/install.sh --mode doctor
   bash installer/install.sh --mode vps --dry-run
   bash installer/install.sh --mode commands
+  bash installer/install.sh --repo-dir /path/to/NanoBK-Proxy-Suite --mode doctor
 EOF
 }
 
@@ -336,7 +400,6 @@ collect_cloudflare_nanok_args() {
 
   print_cmd "${cmd[@]}"
 
-  # Return values via global
   CF_CMD=("${cmd[@]}")
   CF_ROUTE_URL="$route_url"
   CF_PROFILE="$profile"
@@ -345,14 +408,13 @@ collect_cloudflare_nanok_args() {
 # ── Cloudflare nanob parameter collection ───────────────────────────────────
 
 collect_cloudflare_nanob_args() {
-  # First collect nanok args
   collect_cloudflare_nanok_args
 
   echo ""
   echo -e "${BOLD}── nanob 聚合器参数 ──${NC}"
   echo ""
 
-  local nanob_url geo_choice geo_id edge_choice edge_host edge_token_choice edge_token
+  local nanob_url geo_choice geo_id edge_host edge_token
 
   prompt nanob_url "nanob Worker URL" "https://nanob.example.workers.dev"
 
@@ -522,7 +584,7 @@ run_full_wizard() {
   echo "  以后需要换密钥时，运行："
   echo "    bash installer/install.sh --mode rotate"
   echo "  或直接："
-  echo "    sudo bash vps/scripts/rotate-keys.sh"
+  echo "    sudo bash vps/scripts/rotate-keys.sh --yes"
   echo ""
   echo -e "${GREEN}  向导完成！${NC}"
 }
@@ -553,32 +615,19 @@ run_test_mode() {
   local choice
   prompt choice "请选择" "5"
 
-  local test_cmds=()
   case "$choice" in
-    1) test_cmds+=("bash $REPO_DIR/tests/render-install-vps.sh") ;;
-    2) test_cmds+=("bash $REPO_DIR/tests/rotate-render-only.sh") ;;
-    3) test_cmds+=("bash $REPO_DIR/tests/wrangler-nanok-dry-run.sh") ;;
-    4) test_cmds+=("bash $REPO_DIR/tests/wrangler-nanob-dry-run.sh") ;;
-    5) test_cmds+=(
-      "bash $REPO_DIR/tests/render-install-vps.sh"
-      "bash $REPO_DIR/tests/rotate-render-only.sh"
-      "bash $REPO_DIR/tests/wrangler-nanok-dry-run.sh"
-      "bash $REPO_DIR/tests/wrangler-nanob-dry-run.sh"
-    ) ;;
+    1) run_one_test "$REPO_DIR/tests/render-install-vps.sh" "VPS render-only 测试" ;;
+    2) run_one_test "$REPO_DIR/tests/rotate-render-only.sh" "rotate 离线测试" ;;
+    3) run_one_test "$REPO_DIR/tests/wrangler-nanok-dry-run.sh" "nanok wrangler bundle 测试" ;;
+    4) run_one_test "$REPO_DIR/tests/wrangler-nanob-dry-run.sh" "nanob wrangler bundle 测试" ;;
+    5)
+      run_one_test "$REPO_DIR/tests/render-install-vps.sh" "VPS render-only 测试"
+      run_one_test "$REPO_DIR/tests/rotate-render-only.sh" "rotate 离线测试"
+      run_one_test "$REPO_DIR/tests/wrangler-nanok-dry-run.sh" "nanok wrangler bundle 测试"
+      run_one_test "$REPO_DIR/tests/wrangler-nanob-dry-run.sh" "nanob wrangler bundle 测试"
+      ;;
     *) err "无效选择"; return 1 ;;
   esac
-
-  for test_cmd in "${test_cmds[@]}"; do
-    echo ""
-    log "运行: ${test_cmd}"
-    if [[ "$DRY_RUN" == "1" ]]; then
-      echo -e "  ${CYAN}[DRY-RUN]${NC} 跳过执行"
-    elif [[ "$COMMAND_ONLY" == "1" ]]; then
-      print_cmd $test_cmd
-    else
-      eval "$test_cmd" || warn "测试失败: ${test_cmd}"
-    fi
-  done
 }
 
 run_commands_mode() {
