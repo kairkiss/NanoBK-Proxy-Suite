@@ -16,6 +16,7 @@
 | v0.5 | 小白化交互入口（install.sh） |
 | v0.5.1-0.5.2 | 安全修复、文档完善 |
 | v0.6 | ✅ 远程一行命令 bootstrap（bootstrap.sh） |
+| v0.7 | ✅ nanobk 统一 CLI foundation（bin/nanobk） |
 
 ### 计划中
 

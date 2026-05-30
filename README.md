@@ -39,6 +39,27 @@ VPS 四协议 ──rotate-keys.sh──▶ nanok KV Worker ──fetch──▶
 bash <(curl -fsSL https://raw.githubusercontent.com/kairkiss/NanoBK-Proxy-Suite/main/installer/bootstrap.sh)
 ```
 
+或使用统一 CLI：
+
+```bash
+bash bin/nanobk status
+bash bin/nanobk doctor
+bash bin/nanobk install --mode commands
+```
+
+可选安装到 PATH：
+
+```bash
+sudo ln -sf "$(pwd)/bin/nanobk" /usr/local/bin/nanobk
+nanobk status
+```
+
+### 2. 手动 clone 后安装
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/kairkiss/NanoBK-Proxy-Suite/main/installer/bootstrap.sh)
+```
+
 bootstrap 会自动 clone 仓库并启动交互式安装器。也可以直接传参数：
 
 ```bash

@@ -23,6 +23,26 @@ The bootstrap script only clones/updates the repository and starts `install.sh`.
 
 In `--dry-run` mode, the install.sh launch command shown is a preview — the repository has not been cloned yet. The actual flow is: clone → then launch install.sh.
 
+## Unified CLI (nanobk)
+
+After cloning, you can use the unified CLI:
+
+```bash
+bash bin/nanobk status          # Show config and service status
+bash bin/nanobk doctor          # Run environment diagnostics
+bash bin/nanobk install         # Launch interactive installer
+bash bin/nanobk cf deploy       # Deploy Cloudflare Workers
+bash bin/nanobk rotate all      # Rotate all keys
+bash bin/nanobk test            # Run local tests
+```
+
+Optional: install to PATH for shorter commands:
+
+```bash
+sudo ln -sf "$(pwd)/bin/nanobk" /usr/local/bin/nanobk
+nanobk status
+```
+
 ## Manual Setup
 
 ```bash
