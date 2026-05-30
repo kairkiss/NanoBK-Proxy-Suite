@@ -44,9 +44,12 @@ bash bin/nanobk test --dry-run
 Optional: install to PATH for shorter commands:
 
 ```bash
-sudo ln -sf "$(pwd)/bin/nanobk" /usr/local/bin/nanobk
+sudo bash bin/nanobk install-cli
+# or manually: sudo ln -sf "$(pwd)/bin/nanobk" /usr/local/bin/nanobk
 nanobk status
 ```
+
+`nanobk status` shows VPS config, Cloudflare deployment status, and aggregator state. Use `nanobk --json status` for Bot/Panel integration (no secrets leaked, only fingerprints).
 
 ## Manual Setup
 

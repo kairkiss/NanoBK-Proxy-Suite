@@ -11,13 +11,14 @@
 #   nanobk cf deploy --dry-run
 #   nanobk rotate all --skip-cloudflare
 #   nanobk test
+#   nanobk install-cli
 #   nanobk version
 
 set -Eeuo pipefail
 
 # ── Version ─────────────────────────────────────────────────────────────────
 
-NANOBK_VERSION="0.7.1"
+NANOBK_VERSION="0.8.0"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -44,13 +45,11 @@ CONFIG_DIR="/etc/nanobk"
 
 # ── JSON helpers ────────────────────────────────────────────────────────────
 
-# Escape a string for safe JSON embedding.
 json_escape() {
   local input="$1"
   if command -v python3 &>/dev/null; then
     printf '%s' "$input" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()), end="")'
   else
-    # Fallback: escape backslash, double-quote, tab, newline, carriage return
     local result="$input"
     result="${result//\\/\\\\}"
     result="${result//\"/\\\"}"
@@ -61,11 +60,21 @@ json_escape() {
   fi
 }
 
-# Print a JSON string field: "key": "escaped_value"
-json_field() {
-  local key="$1"
-  local value="$2"
-  printf '    "%s": %s' "$key" "$(json_escape "$value")"
+# ── Fingerprint helper ──────────────────────────────────────────────────────
+
+fingerprint_secret() {
+  local value="$1"
+  if [[ -z "$value" ]]; then
+    echo ""
+    return
+  fi
+  if command -v sha256sum &>/dev/null; then
+    printf '%s' "$value" | sha256sum | awk '{print "sha256:" substr($1,1,8)}'
+  elif command -v shasum &>/dev/null; then
+    printf '%s' "$value" | shasum -a 256 | awk '{print "sha256:" substr($1,1,8)}'
+  else
+    echo "present"
+  fi
 }
 
 # ── Repo resolution ─────────────────────────────────────────────────────────
@@ -155,9 +164,10 @@ NanoBK Proxy Suite — Unified CLI v${NANOBK_VERSION}
   --version          显示版本
 
 命令:
-  status [--config-dir PATH]  显示当前配置和服务状态
+  status [--config-dir PATH]  显示 VPS / Cloudflare / 聚合器状态
   doctor                      运行环境诊断
   install [args...]           启动交互式安装器
+  install-cli                 安装 nanobk 到 /usr/local/bin
   cf deploy [args...]         部署 Cloudflare Workers
   rotate all [args...]        一键换密钥
   test [--all]                运行本地测试
@@ -166,29 +176,98 @@ NanoBK Proxy Suite — Unified CLI v${NANOBK_VERSION}
 --dry-run 可以放在全局位置或命令后:
   nanobk --dry-run test
   nanobk test --dry-run
-  nanobk --dry-run doctor
-  nanobk doctor --dry-run
 
 示例:
   nanobk status
   nanobk --json status
   nanobk doctor
+  nanobk install-cli
   nanobk install --mode commands
   nanobk cf deploy --dry-run --create-kv --route-url https://nanok.example.com
   nanobk rotate all --skip-cloudflare
   nanobk test --all
 
-仓库定位:
-  nanobk 通过以下优先级定位仓库:
-  1. --repo-dir PATH
-  2. NANOBK_REPO_DIR 环境变量
-  3. /etc/nanobk/config.env 中的 NANOBK_REPO_DIR
-  4. /opt/NanoBK-Proxy-Suite
-  5. ~/NanoBK-Proxy-Suite
-
-CLI 安装（可选）:
-  sudo ln -sf "\$(pwd)/bin/nanobk" /usr/local/bin/nanobk
+CLI 安装:
+  sudo nanobk install-cli
+  # 或手动: sudo ln -sf "\$(pwd)/bin/nanobk" /usr/local/bin/nanobk
 EOF
+}
+
+# ── install-cli ─────────────────────────────────────────────────────────────
+
+cmd_install_cli() {
+  local target="/usr/local/bin/nanobk"
+  local force=0
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --target) target="$2"; shift ;;
+      --force)  force=1 ;;
+      --dry-run) ;; # handled globally
+      *) die "Unknown install-cli option: $1" ;;
+    esac
+    shift
+  done
+
+  local source_path="${REPO_DIR}/bin/nanobk"
+
+  if [[ ! -f "$source_path" ]]; then
+    die "Source not found: ${source_path}"
+  fi
+
+  # Check target
+  if [[ -e "$target" ]] || [[ -L "$target" ]]; then
+    if [[ -L "$target" ]]; then
+      local current_link
+      current_link=$(readlink "$target" 2>/dev/null || echo "")
+      if [[ "$current_link" == "$source_path" ]]; then
+        ok "nanobk 已安装: ${target} → ${source_path}"
+        return 0
+      fi
+      # Different symlink
+      if [[ "$force" != "1" ]]; then
+        die "目标已存在，指向其他位置:
+  ${target} → ${current_link}
+  期望: ${source_path}
+  使用 --force 覆盖。"
+      fi
+      warn "覆盖已有 symlink (--force): ${target} → ${current_link}"
+    else
+      # Regular file
+      if [[ "$force" != "1" ]]; then
+        die "目标已存在（非 symlink），不会覆盖:
+  ${target}
+  使用 --force 覆盖。"
+      fi
+      warn "覆盖已有文件 (--force): ${target}"
+    fi
+  fi
+
+  # Check if target directory needs root
+  local target_dir
+  target_dir=$(dirname "$target")
+  if [[ ! -w "$target_dir" ]] && [[ $EUID -ne 0 ]]; then
+    echo ""
+    warn "目标目录需要 root 权限: ${target_dir}"
+    echo ""
+    echo "  推荐命令:"
+    echo "    sudo ln -sf \"${source_path}\" \"${target}\""
+    echo ""
+    die "请使用 sudo 重试。"
+  fi
+
+  log "安装 nanobk CLI:"
+  print_cmd ln -sf "$source_path" "$target"
+
+  if [[ "$DRY_RUN" == "1" ]]; then
+    echo -e "  ${CYAN}[DRY-RUN]${NC} 跳过执行"
+    return 0
+  fi
+
+  ln -sf "$source_path" "$target"
+  ok "已安装: ${target} → ${source_path}"
+  echo ""
+  echo "  现在可以直接使用: nanobk status"
 }
 
 # ── status ──────────────────────────────────────────────────────────────────
@@ -198,7 +277,7 @@ cmd_status() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --config-dir) config_dir="$2"; shift ;;
-      --dry-run) ;; # accepted, no-op for status
+      --dry-run) ;;
       *) die "Unknown status option: $1" ;;
     esac
     shift
@@ -208,7 +287,7 @@ cmd_status() {
   local profile_file="${config_dir}/profile.current.json"
   local secrets_file="${config_dir}/secrets.private.env"
 
-  # Load config
+  # Load VPS config
   local domain="" vps_ip="" geo="" reality_sname=""
   local hy2_service="hysteria-server.service"
   local tuic_service="tuic-v5-9443.service"
@@ -255,14 +334,96 @@ cmd_status() {
     svc_trojan=$(systemctl is-active "$trojan_service" 2>/dev/null || echo "inactive")
   fi
 
-  # Check secrets
+  # Check VPS secrets
   local secrets_exists=0 secrets_mode="missing"
   if [[ -f "$secrets_file" ]]; then
     secrets_exists=1
     secrets_mode=$(stat -c '%a' "$secrets_file" 2>/dev/null || stat -f '%Lp' "$secrets_file" 2>/dev/null || echo "unknown")
   fi
 
-  # Compute ok and warnings
+  # ── Cloudflare nanok env ──
+  local cf_nanok_env="missing"
+  local cf_nanok_worker="" cf_nanok_url="" cf_nanok_sub_path="" cf_nanok_deploy=""
+  local cf_nanok_profile_upload="" cf_nanok_verify=""
+  local cf_nanok_sub_token="" cf_nanok_admin_token="" cf_nanok_kv=""
+  local cf_admin_env_exists="false"
+  local cf_sub_token_fp="" cf_admin_token_fp=""
+
+  # Try to find .cloudflare.local.env
+  local cf_env_file=""
+  for candidate in \
+    "${REPO_DIR}/.cloudflare.local.env" \
+    "${config_dir}/cloudflare.local.env" \
+    "/root/.nanok-cf-admin.env"; do
+    if [[ -f "$candidate" ]]; then
+      cf_env_file="$candidate"
+      break
+    fi
+  done
+
+  if [[ -n "$cf_env_file" ]] && [[ -f "$cf_env_file" ]]; then
+    cf_nanok_env="present"
+    # shellcheck source=/dev/null
+    source "$cf_env_file" 2>/dev/null || true
+    cf_nanok_worker="${NANOK_WORKER_NAME:-}"
+    cf_nanok_url="${NANOK_ROUTE_URL:-}"
+    cf_nanok_sub_path="${SUB_PATH:-}"
+    cf_nanok_deploy="${NANOBK_DEPLOY_STATUS:-unknown}"
+    cf_nanok_profile_upload="${NANOBK_PROFILE_UPLOAD_STATUS:-unknown}"
+    cf_nanok_verify="${NANOBK_VERIFY_STATUS:-unknown}"
+    cf_nanok_kv="${SUB_STORE_KV_NAMESPACE_ID:-}"
+
+    if [[ -n "${SUB_TOKEN:-}" ]]; then
+      cf_nanok_sub_token="present"
+      cf_sub_token_fp=$(fingerprint_secret "$SUB_TOKEN")
+    fi
+    if [[ -n "${ADMIN_TOKEN:-}" ]]; then
+      cf_nanok_admin_token="present"
+      cf_admin_token_fp=$(fingerprint_secret "$ADMIN_TOKEN")
+    fi
+  fi
+
+  # Check admin env separately
+  if [[ -f "/root/.nanok-cf-admin.env" ]]; then
+    cf_admin_env_exists="true"
+  fi
+
+  # ── Cloudflare nanob env ──
+  local cf_nanob_env="missing"
+  local cf_nanob_worker="" cf_nanob_url="" cf_nanob_path=""
+  local cf_nanob_deploy="" cf_nanob_verify=""
+  local cf_nanob_token="" cf_nanob_token_fp=""
+  local cf_nanob_geo_kv="" cf_nanob_edge_host=""
+
+  local nanob_env_file=""
+  for candidate in \
+    "${REPO_DIR}/.nanob.local.env" \
+    "${config_dir}/nanob.local.env"; do
+    if [[ -f "$candidate" ]]; then
+      nanob_env_file="$candidate"
+      break
+    fi
+  done
+
+  if [[ -n "$nanob_env_file" ]] && [[ -f "$nanob_env_file" ]]; then
+    cf_nanob_env="present"
+    # shellcheck source=/dev/null
+    source "$nanob_env_file" 2>/dev/null || true
+    cf_nanob_worker="${NANOB_WORKER_NAME:-}"
+    cf_nanob_url="${NANOB_ROUTE_URL:-}"
+    cf_nanob_path="${NANOB_PATH:-}"
+    cf_nanob_deploy="${NANOB_DEPLOY_STATUS:-unknown}"
+    cf_nanob_verify="${NANOB_VERIFY_STATUS:-unknown}"
+    cf_nanob_geo_kv="${NANOB_GEO_KV_NAMESPACE_ID:-}"
+    cf_nanob_edge_host="${EDGE_HOST:-}"
+
+    if [[ -n "${NANOB_TOKEN:-}" ]]; then
+      cf_nanob_token="present"
+      cf_nanob_token_fp=$(fingerprint_secret "$NANOB_TOKEN")
+    fi
+  fi
+
+  # ── Compute ok and warnings ──
   local status_ok="true"
   local warnings=()
 
@@ -280,21 +441,19 @@ cmd_status() {
   if [[ "$secrets_exists" == "1" && "$secrets_mode" != "600" ]]; then
     warnings+=("secrets.private.env mode ${secrets_mode} (should be 600)")
   fi
+  if [[ "$cf_nanok_env" == "missing" ]]; then
+    warnings+=("cloudflare local env missing")
+  fi
 
-  # Output
+  # ── Output ──
   if [[ "$JSON_OUT" == "1" ]]; then
     local secrets_mode_ok="true"
     [[ "$secrets_mode" != "600" ]] && secrets_mode_ok="false"
 
-    # Build warnings JSON array
     local warnings_json="["
     local first=1
     for w in "${warnings[@]}"; do
-      if [[ $first -eq 1 ]]; then
-        first=0
-      else
-        warnings_json+=","
-      fi
+      [[ $first -eq 1 ]] && first=0 || warnings_json+=","
       warnings_json+="$(json_escape "$w")"
     done
     warnings_json+="]"
@@ -324,6 +483,35 @@ cmd_status() {
     "secretsExists": $([ "$secrets_exists" == "1" ] && echo "true" || echo "false"),
     "secretsMode": $(json_escape "${secrets_mode}"),
     "secretsModeOk": ${secrets_mode_ok}
+  },
+  "cloudflare": {
+    "nanok": {
+      "envExists": $([ "$cf_nanok_env" == "present" ] && echo "true" || echo "false"),
+      "workerName": $(json_escape "${cf_nanok_worker}"),
+      "routeUrl": $(json_escape "${cf_nanok_url}"),
+      "subPath": $(json_escape "${cf_nanok_sub_path}"),
+      "deployStatus": $(json_escape "${cf_nanok_deploy}"),
+      "profileUploadStatus": $(json_escape "${cf_nanok_profile_upload}"),
+      "verifyStatus": $(json_escape "${cf_nanok_verify}"),
+      "subTokenPresent": $([ "$cf_nanok_sub_token" == "present" ] && echo "true" || echo "false"),
+      "subTokenFingerprint": $(json_escape "${cf_sub_token_fp}"),
+      "adminTokenPresent": $([ "$cf_nanok_admin_token" == "present" ] && echo "true" || echo "false"),
+      "adminTokenFingerprint": $(json_escape "${cf_admin_token_fp}"),
+      "kvNamespacePresent": $([ -n "$cf_nanok_kv" ] && echo "true" || echo "false"),
+      "adminEnvExists": ${cf_admin_env_exists}
+    },
+    "nanob": {
+      "envExists": $([ "$cf_nanob_env" == "present" ] && echo "true" || echo "false"),
+      "workerName": $(json_escape "${cf_nanob_worker}"),
+      "routeUrl": $(json_escape "${cf_nanob_url}"),
+      "path": $(json_escape "${cf_nanob_path}"),
+      "deployStatus": $(json_escape "${cf_nanob_deploy}"),
+      "verifyStatus": $(json_escape "${cf_nanob_verify}"),
+      "tokenPresent": $([ "$cf_nanob_token" == "present" ] && echo "true" || echo "false"),
+      "tokenFingerprint": $(json_escape "${cf_nanob_token_fp}"),
+      "geoKvNamespacePresent": $([ -n "$cf_nanob_geo_kv" ] && echo "true" || echo "false"),
+      "edgeHostConfigured": $([ -n "$cf_nanob_edge_host" ] && echo "true" || echo "false")
+    }
   },
   "warnings": ${warnings_json}
 }
@@ -363,6 +551,33 @@ EOF
     else
       echo "    secrets.private.env: missing"
     fi
+    echo ""
+    echo "  Cloudflare:"
+    echo "    nanok env:       ${cf_nanok_env}"
+    if [[ "$cf_nanok_env" == "present" ]]; then
+      echo "    nanok worker:    ${cf_nanok_worker:-<not set>}"
+      echo "    nanok url:       ${cf_nanok_url:-<not set>}"
+      echo "    nanok deploy:    ${cf_nanok_deploy}"
+      echo "    profile upload:  ${cf_nanok_profile_upload}"
+      echo "    verify:          ${cf_nanok_verify}"
+      echo "    sub token:       ${cf_nanok_sub_token:-missing}${cf_nanok_sub_token:+ fingerprint=${cf_sub_token_fp}}"
+      echo "    admin token:     ${cf_nanok_admin_token:-missing}${cf_nanok_admin_token:+ fingerprint=${cf_admin_token_fp}}"
+      echo "    kv namespace:    $([ -n "$cf_nanok_kv" ] && echo "present" || echo "missing")"
+    fi
+    echo ""
+    echo "  Aggregator:"
+    if [[ "$cf_nanob_env" == "present" ]]; then
+      echo "    nanob env:       ${cf_nanob_env}"
+      echo "    nanob worker:    ${cf_nanob_worker:-<not set>}"
+      echo "    nanob url:       ${cf_nanob_url:-<not set>}"
+      echo "    nanob deploy:    ${cf_nanob_deploy}"
+      echo "    nanob verify:    ${cf_nanob_verify}"
+      echo "    nanob token:     ${cf_nanob_token:-missing}${cf_nanob_token:+ fingerprint=${cf_nanob_token_fp}}"
+      echo "    geo kv:          $([ -n "$cf_nanob_geo_kv" ] && echo "present" || echo "missing")"
+      echo "    edge host:       $([ -n "$cf_nanob_edge_host" ] && echo "configured" || echo "disabled")"
+    else
+      echo "    nanob: not configured"
+    fi
     if [[ ${#warnings[@]} -gt 0 ]]; then
       echo ""
       echo "  Warnings:"
@@ -377,7 +592,6 @@ EOF
 # ── doctor ──────────────────────────────────────────────────────────────────
 
 cmd_doctor() {
-  # Parse command-level flags
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --dry-run) DRY_RUN=1 ;;
@@ -388,7 +602,7 @@ cmd_doctor() {
   done
 
   if [[ "$JSON_OUT" == "1" ]]; then
-    echo '{"ok":true,"command":"doctor","note":"JSON doctor output is planned for v1.x; raw output is text-only in v0.7"}'
+    echo '{"ok":true,"command":"doctor","note":"JSON doctor output is planned for v1.x; raw output is text-only in v0.8"}'
     echo ""
   fi
   run_script "运行环境诊断" bash "$REPO_DIR/installer/doctor.sh" || {
@@ -401,7 +615,6 @@ cmd_doctor() {
 # ── install ─────────────────────────────────────────────────────────────────
 
 cmd_install() {
-  # Build command, avoid duplicate --dry-run
   local cmd=(bash "$REPO_DIR/installer/install.sh" --repo-dir "$REPO_DIR")
   local has_dry_run=0
   for arg in "$@"; do
@@ -542,11 +755,11 @@ main() {
 
   resolve_repo_dir
 
-  # Use ${arr[@]+"${arr[@]}"} to handle empty arrays under set -u
   case "$command" in
-    status)   cmd_status ${cmd_rest[@]+"${cmd_rest[@]}"} ;;
-    doctor)   cmd_doctor ${cmd_rest[@]+"${cmd_rest[@]}"} ;;
-    install)  cmd_install ${cmd_rest[@]+"${cmd_rest[@]}"} ;;
+    status)       cmd_status ${cmd_rest[@]+"${cmd_rest[@]}"} ;;
+    doctor)       cmd_doctor ${cmd_rest[@]+"${cmd_rest[@]}"} ;;
+    install)      cmd_install ${cmd_rest[@]+"${cmd_rest[@]}"} ;;
+    install-cli)  cmd_install_cli ${cmd_rest[@]+"${cmd_rest[@]}"} ;;
     cf)
       local cf_sub="${cmd_rest[0]:-}"
       local cf_rest=()
