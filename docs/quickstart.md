@@ -1,6 +1,28 @@
 # Quick Start
 
-## Prerequisites
+## Interactive Installer (Recommended)
+
+```bash
+git clone https://github.com/kairkiss/NanoBK-Proxy-Suite.git
+cd NanoBK-Proxy-Suite
+bash installer/install.sh
+```
+
+The interactive menu guides you through VPS setup, Cloudflare deployment, key rotation, and testing. It collects parameters interactively and shows commands before executing.
+
+Direct mode shortcuts:
+
+```bash
+bash installer/install.sh --mode doctor       # Environment check
+bash installer/install.sh --mode vps           # VPS deployment
+bash installer/install.sh --mode cloudflare    # Cloudflare deployment
+bash installer/install.sh --mode commands      # Show command templates
+bash installer/install.sh --mode test          # Run local tests
+```
+
+## Manual Setup
+
+### Prerequisites
 
 - A Linux VPS (Debian 11+, Ubuntu 20.04+, or RHEL-family)
 - A domain name (on Cloudflare recommended)

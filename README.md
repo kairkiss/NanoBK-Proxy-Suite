@@ -33,12 +33,21 @@ VPS 四协议 ──rotate-keys.sh──▶ nanok KV Worker ──fetch──▶
 
 ## 快速开始
 
-> ⚠️ **当前为 v0.1 productization scaffold。** 以下为规划中的最终命令，尚未完全一键可用。
-
-### 1. 检查 VPS 环境
+### 1. 交互式安装（推荐）
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/kairkiss/NanoBK-Proxy-Suite/main/installer/doctor.sh)
+git clone https://github.com/kairkiss/NanoBK-Proxy-Suite.git
+cd NanoBK-Proxy-Suite
+bash installer/install.sh
+```
+
+或直接运行特定模式：
+
+```bash
+bash installer/install.sh --mode doctor      # 环境诊断
+bash installer/install.sh --mode vps          # VPS 部署
+bash installer/install.sh --mode cloudflare   # Cloudflare 部署
+bash installer/install.sh --mode commands     # 只生成命令
 ```
 
 ### 2. 部署 VPS 四协议节点
