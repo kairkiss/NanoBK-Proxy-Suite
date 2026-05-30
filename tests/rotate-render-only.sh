@@ -406,11 +406,23 @@ read_secret() {
 
 # Helper: read a value from profile JSON
 read_profile() {
-  local file="$1" path="$2"
+  local file="$1" field="$2"
   if command -v jq &>/dev/null; then
-    jq -r "$path // empty" "$file" 2>/dev/null
+    jq -r "${field} // empty" "$file" 2>/dev/null
   else
-    python3 -c "import json; d=json.load(open('$file')); print(d$(echo "$path" | sed 's/\.\[/\[/g; s/\.\([a-zA-Z]*\)/[\"\1\"]/g'))" 2>/dev/null || echo ""
+    # python3 fallback for common paths
+    python3 -c "
+import json, sys
+d = json.load(open('$file'))
+keys = '$field'.lstrip('.').split('.')
+for k in keys:
+    if isinstance(d, dict):
+        d = d.get(k, '')
+    else:
+        d = ''
+        break
+print(d if d else '')
+" 2>/dev/null || echo ""
   fi
 }
 
@@ -424,7 +436,7 @@ run_single_protocol_test() {
   rm -rf "$tmp_dir"
   generate_test_configs "$tmp_dir"
 
-  # Save old values
+  # Save old secrets values
   local old_secrets="$tmp_dir/etc/nanobk/secrets.private.env"
   local old_hy2_pw old_tuic_uuid old_tuic_pw old_reality_uuid old_reality_pub old_reality_short old_trojan_pw
   old_hy2_pw=$(read_secret "$old_secrets" "HY2_PASSWORD")
@@ -434,6 +446,17 @@ run_single_protocol_test() {
   old_reality_pub=$(read_secret "$old_secrets" "REALITY_PUBLIC_KEY")
   old_reality_short=$(read_secret "$old_secrets" "REALITY_SHORT_ID")
   old_trojan_pw=$(read_secret "$old_secrets" "TROJAN_PASSWORD")
+
+  # Save old profile values
+  local old_profile="$tmp_dir/etc/nanobk/profile.current.json"
+  local old_p_hy2_pw old_p_tuic_uuid old_p_tuic_pw old_p_reality_uuid old_p_reality_pub old_p_reality_short old_p_trojan_pw
+  old_p_hy2_pw=$(read_profile "$old_profile" ".hy2.password")
+  old_p_tuic_uuid=$(read_profile "$old_profile" ".tuic.uuid")
+  old_p_tuic_pw=$(read_profile "$old_profile" ".tuic.password")
+  old_p_reality_uuid=$(read_profile "$old_profile" ".reality.uuid")
+  old_p_reality_pub=$(read_profile "$old_profile" ".reality.publicKey")
+  old_p_reality_short=$(read_profile "$old_profile" ".reality.shortId")
+  old_p_trojan_pw=$(read_profile "$old_profile" ".trojan.password")
 
   # Run rotation
   if bash "$ROOT/vps/scripts/rotate-keys.sh" --yes \
@@ -450,7 +473,7 @@ run_single_protocol_test() {
     return
   fi
 
-  # Read new values
+  # Read new secrets values
   local new_secrets="$tmp_dir/etc/nanobk/secrets.private.env"
   local new_hy2_pw new_tuic_uuid new_tuic_pw new_reality_uuid new_reality_pub new_reality_short new_trojan_pw
   new_hy2_pw=$(read_secret "$new_secrets" "HY2_PASSWORD")
@@ -461,42 +484,114 @@ run_single_protocol_test() {
   new_reality_short=$(read_secret "$new_secrets" "REALITY_SHORT_ID")
   new_trojan_pw=$(read_secret "$new_secrets" "TROJAN_PASSWORD")
 
-  # Verify: rotated protocol changed, others unchanged
+  # Read new profile values
+  local new_profile="$tmp_dir/etc/nanobk/profile.current.json"
+  local new_p_hy2_pw new_p_tuic_uuid new_p_tuic_pw new_p_reality_uuid new_p_reality_pub new_p_reality_short new_p_trojan_pw
+  new_p_hy2_pw=$(read_profile "$new_profile" ".hy2.password")
+  new_p_tuic_uuid=$(read_profile "$new_profile" ".tuic.uuid")
+  new_p_tuic_pw=$(read_profile "$new_profile" ".tuic.password")
+  new_p_reality_uuid=$(read_profile "$new_profile" ".reality.uuid")
+  new_p_reality_pub=$(read_profile "$new_profile" ".reality.publicKey")
+  new_p_reality_short=$(read_profile "$new_profile" ".reality.shortId")
+  new_p_trojan_pw=$(read_profile "$new_profile" ".trojan.password")
+
+  # Helper: assert changed
+  assert_changed() {
+    local label="$1" old="$2" new="$3"
+    if [[ "$old" != "$new" ]]; then
+      pass "${proto}: ${label} changed"
+    else
+      fail "${proto}: ${label} unchanged"
+      ERRORS=$((ERRORS + 1))
+    fi
+  }
+
+  # Helper: assert unchanged
+  assert_unchanged() {
+    local label="$1" old="$2" new="$3"
+    if [[ "$old" == "$new" ]]; then
+      pass "${proto}: ${label} unchanged"
+    else
+      fail "${proto}: ${label} changed unexpectedly"
+      ERRORS=$((ERRORS + 1))
+    fi
+  }
+
+  # ── Verify secrets changes ──
   case "$proto" in
     hy2)
-      [[ "$new_hy2_pw" != "$old_hy2_pw" ]] && pass "${proto}: HY2 password changed" || { fail "${proto}: HY2 password unchanged"; ERRORS=$((ERRORS + 1)); }
-      [[ "$new_tuic_uuid" == "$old_tuic_uuid" ]] && pass "${proto}: TUIC UUID unchanged" || { fail "${proto}: TUIC UUID changed unexpectedly"; ERRORS=$((ERRORS + 1)); }
-      [[ "$new_reality_uuid" == "$old_reality_uuid" ]] && pass "${proto}: Reality UUID unchanged" || { fail "${proto}: Reality UUID changed unexpectedly"; ERRORS=$((ERRORS + 1)); }
-      [[ "$new_trojan_pw" == "$old_trojan_pw" ]] && pass "${proto}: Trojan password unchanged" || { fail "${proto}: Trojan password changed unexpectedly"; ERRORS=$((ERRORS + 1)); }
+      assert_changed "secrets.HY2 password" "$old_hy2_pw" "$new_hy2_pw"
+      assert_unchanged "secrets.TUIC UUID" "$old_tuic_uuid" "$new_tuic_uuid"
+      assert_unchanged "secrets.Reality UUID" "$old_reality_uuid" "$new_reality_uuid"
+      assert_unchanged "secrets.Trojan password" "$old_trojan_pw" "$new_trojan_pw"
       ;;
     tuic)
-      [[ "$new_tuic_uuid" != "$old_tuic_uuid" ]] && pass "${proto}: TUIC UUID changed" || { fail "${proto}: TUIC UUID unchanged"; ERRORS=$((ERRORS + 1)); }
-      [[ "$new_tuic_pw" != "$old_tuic_pw" ]] && pass "${proto}: TUIC password changed" || { fail "${proto}: TUIC password unchanged"; ERRORS=$((ERRORS + 1)); }
-      [[ "$new_hy2_pw" == "$old_hy2_pw" ]] && pass "${proto}: HY2 password unchanged" || { fail "${proto}: HY2 password changed unexpectedly"; ERRORS=$((ERRORS + 1)); }
-      [[ "$new_reality_uuid" == "$old_reality_uuid" ]] && pass "${proto}: Reality UUID unchanged" || { fail "${proto}: Reality UUID changed unexpectedly"; ERRORS=$((ERRORS + 1)); }
-      [[ "$new_trojan_pw" == "$old_trojan_pw" ]] && pass "${proto}: Trojan password unchanged" || { fail "${proto}: Trojan password changed unexpectedly"; ERRORS=$((ERRORS + 1)); }
+      assert_changed "secrets.TUIC UUID" "$old_tuic_uuid" "$new_tuic_uuid"
+      assert_changed "secrets.TUIC password" "$old_tuic_pw" "$new_tuic_pw"
+      assert_unchanged "secrets.HY2 password" "$old_hy2_pw" "$new_hy2_pw"
+      assert_unchanged "secrets.Reality UUID" "$old_reality_uuid" "$new_reality_uuid"
+      assert_unchanged "secrets.Trojan password" "$old_trojan_pw" "$new_trojan_pw"
       ;;
     reality)
-      [[ "$new_reality_uuid" != "$old_reality_uuid" ]] && pass "${proto}: Reality UUID changed" || { fail "${proto}: Reality UUID unchanged"; ERRORS=$((ERRORS + 1)); }
-      [[ "$new_reality_pub" != "$old_reality_pub" ]] && pass "${proto}: Reality public key changed" || { fail "${proto}: Reality public key unchanged"; ERRORS=$((ERRORS + 1)); }
-      [[ "$new_reality_short" != "$old_reality_short" ]] && pass "${proto}: Reality shortId changed" || { fail "${proto}: Reality shortId unchanged"; ERRORS=$((ERRORS + 1)); }
-      [[ "$new_hy2_pw" == "$old_hy2_pw" ]] && pass "${proto}: HY2 password unchanged" || { fail "${proto}: HY2 password changed unexpectedly"; ERRORS=$((ERRORS + 1)); }
-      [[ "$new_tuic_uuid" == "$old_tuic_uuid" ]] && pass "${proto}: TUIC UUID unchanged" || { fail "${proto}: TUIC UUID changed unexpectedly"; ERRORS=$((ERRORS + 1)); }
-      [[ "$new_trojan_pw" == "$old_trojan_pw" ]] && pass "${proto}: Trojan password unchanged" || { fail "${proto}: Trojan password changed unexpectedly"; ERRORS=$((ERRORS + 1)); }
+      assert_changed "secrets.Reality UUID" "$old_reality_uuid" "$new_reality_uuid"
+      assert_changed "secrets.Reality public key" "$old_reality_pub" "$new_reality_pub"
+      assert_changed "secrets.Reality shortId" "$old_reality_short" "$new_reality_short"
+      assert_unchanged "secrets.HY2 password" "$old_hy2_pw" "$new_hy2_pw"
+      assert_unchanged "secrets.TUIC UUID" "$old_tuic_uuid" "$new_tuic_uuid"
+      assert_unchanged "secrets.Trojan password" "$old_trojan_pw" "$new_trojan_pw"
       ;;
     trojan)
-      [[ "$new_trojan_pw" != "$old_trojan_pw" ]] && pass "${proto}: Trojan password changed" || { fail "${proto}: Trojan password unchanged"; ERRORS=$((ERRORS + 1)); }
-      [[ "$new_hy2_pw" == "$old_hy2_pw" ]] && pass "${proto}: HY2 password unchanged" || { fail "${proto}: HY2 password changed unexpectedly"; ERRORS=$((ERRORS + 1)); }
-      [[ "$new_tuic_uuid" == "$old_tuic_uuid" ]] && pass "${proto}: TUIC UUID unchanged" || { fail "${proto}: TUIC UUID changed unexpectedly"; ERRORS=$((ERRORS + 1)); }
-      [[ "$new_reality_uuid" == "$old_reality_uuid" ]] && pass "${proto}: Reality UUID unchanged" || { fail "${proto}: Reality UUID changed unexpectedly"; ERRORS=$((ERRORS + 1)); }
+      assert_changed "secrets.Trojan password" "$old_trojan_pw" "$new_trojan_pw"
+      assert_unchanged "secrets.HY2 password" "$old_hy2_pw" "$new_hy2_pw"
+      assert_unchanged "secrets.TUIC UUID" "$old_tuic_uuid" "$new_tuic_uuid"
+      assert_unchanged "secrets.Reality UUID" "$old_reality_uuid" "$new_reality_uuid"
       ;;
   esac
 
-  # Verify profile has all four protocols
-  local profile_file="$tmp_dir/etc/nanobk/profile.current.json"
-  if [[ -f "$profile_file" ]]; then
+  # ── Verify profile changes ──
+  case "$proto" in
+    hy2)
+      assert_changed "profile.hy2.password" "$old_p_hy2_pw" "$new_p_hy2_pw"
+      assert_unchanged "profile.tuic.uuid" "$old_p_tuic_uuid" "$new_p_tuic_uuid"
+      assert_unchanged "profile.tuic.password" "$old_p_tuic_pw" "$new_p_tuic_pw"
+      assert_unchanged "profile.reality.uuid" "$old_p_reality_uuid" "$new_p_reality_uuid"
+      assert_unchanged "profile.reality.publicKey" "$old_p_reality_pub" "$new_p_reality_pub"
+      assert_unchanged "profile.reality.shortId" "$old_p_reality_short" "$new_p_reality_short"
+      assert_unchanged "profile.trojan.password" "$old_p_trojan_pw" "$new_p_trojan_pw"
+      ;;
+    tuic)
+      assert_changed "profile.tuic.uuid" "$old_p_tuic_uuid" "$new_p_tuic_uuid"
+      assert_changed "profile.tuic.password" "$old_p_tuic_pw" "$new_p_tuic_pw"
+      assert_unchanged "profile.hy2.password" "$old_p_hy2_pw" "$new_p_hy2_pw"
+      assert_unchanged "profile.reality.uuid" "$old_p_reality_uuid" "$new_p_reality_uuid"
+      assert_unchanged "profile.reality.publicKey" "$old_p_reality_pub" "$new_p_reality_pub"
+      assert_unchanged "profile.reality.shortId" "$old_p_reality_short" "$new_p_reality_short"
+      assert_unchanged "profile.trojan.password" "$old_p_trojan_pw" "$new_p_trojan_pw"
+      ;;
+    reality)
+      assert_changed "profile.reality.uuid" "$old_p_reality_uuid" "$new_p_reality_uuid"
+      assert_changed "profile.reality.publicKey" "$old_p_reality_pub" "$new_p_reality_pub"
+      assert_changed "profile.reality.shortId" "$old_p_reality_short" "$new_p_reality_short"
+      assert_unchanged "profile.hy2.password" "$old_p_hy2_pw" "$new_p_hy2_pw"
+      assert_unchanged "profile.tuic.uuid" "$old_p_tuic_uuid" "$new_p_tuic_uuid"
+      assert_unchanged "profile.tuic.password" "$old_p_tuic_pw" "$new_p_tuic_pw"
+      assert_unchanged "profile.trojan.password" "$old_p_trojan_pw" "$new_p_trojan_pw"
+      ;;
+    trojan)
+      assert_changed "profile.trojan.password" "$old_p_trojan_pw" "$new_p_trojan_pw"
+      assert_unchanged "profile.hy2.password" "$old_p_hy2_pw" "$new_p_hy2_pw"
+      assert_unchanged "profile.tuic.uuid" "$old_p_tuic_uuid" "$new_p_tuic_uuid"
+      assert_unchanged "profile.tuic.password" "$old_p_tuic_pw" "$new_p_tuic_pw"
+      assert_unchanged "profile.reality.uuid" "$old_p_reality_uuid" "$new_p_reality_uuid"
+      assert_unchanged "profile.reality.publicKey" "$old_p_reality_pub" "$new_p_reality_pub"
+      assert_unchanged "profile.reality.shortId" "$old_p_reality_short" "$new_p_reality_short"
+      ;;
+  esac
+
+  # ── Verify profile structure ──
+  if [[ -f "$new_profile" ]]; then
     pass "${proto}: profile exists"
-    if grep -q 'privateKey' "$profile_file" 2>/dev/null; then
+    if grep -q 'privateKey' "$new_profile" 2>/dev/null; then
       fail "${proto}: Reality private key in profile"
       ERRORS=$((ERRORS + 1))
     else
