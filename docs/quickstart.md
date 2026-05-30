@@ -21,6 +21,8 @@ bash <(curl -fsSL ...) -- --mode vps --dry-run
 
 The bootstrap script only clones/updates the repository and starts `install.sh`. It does not directly deploy services or modify Cloudflare.
 
+In `--dry-run` mode, the install.sh launch command shown is a preview — the repository has not been cloned yet. The actual flow is: clone → then launch install.sh.
+
 ## Manual Setup
 
 ```bash

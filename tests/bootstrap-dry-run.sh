@@ -84,6 +84,13 @@ else
   ERRORS=$((ERRORS + 1))
 fi
 
+if echo "$DRY_OUTPUT" | grep -q "仓库尚未实际 clone"; then
+  pass "--dry-run clarifies clone is preview only"
+else
+  fail "--dry-run missing clone preview clarification"
+  ERRORS=$((ERRORS + 1))
+fi
+
 # ── --dry-run with passthrough args ─────────────────────────────────────────
 
 echo ""

@@ -45,6 +45,7 @@ DRY_RUN=0
 YES=0
 INSTALL_DIR=""
 INSTALL_ARGS=()
+WOULD_CLONE=0
 
 # ── Help ────────────────────────────────────────────────────────────────────
 
@@ -91,11 +92,24 @@ parse_args() {
   done
 }
 
+# ── URL normalization ───────────────────────────────────────────────────────
+
+# Normalize a GitHub repo URL to a comparable form: "owner/repo" (lowercase).
+# Handles: https://github.com/X/Y.git, git@github.com:X/Y.git, trailing slashes.
+normalize_repo_url() {
+  local url="$1"
+  url="${url%.git}"
+  url="${url%/}"
+  url="${url#git@github.com:}"
+  url="${url#https://github.com/}"
+  url="${url#http://github.com/}"
+  printf '%s' "$url" | tr '[:upper:]' '[:lower:]'
+}
+
 # ── Resolve install directory ───────────────────────────────────────────────
 
 resolve_install_dir() {
   if [[ -n "$INSTALL_DIR" ]]; then
-    # User specified — expand ~
     INSTALL_DIR="${INSTALL_DIR/#\~/$HOME}"
     return
   fi
@@ -145,6 +159,7 @@ check_requirements() {
 handle_directory() {
   if [[ ! -d "$INSTALL_DIR" ]]; then
     # Case A: Directory does not exist — clone
+    WOULD_CLONE=1
     log "安装目录不存在，将 clone 仓库:"
     print_cmd git clone --branch "$BRANCH" "$REPO_URL" "$INSTALL_DIR"
 
@@ -168,30 +183,27 @@ handle_directory() {
 
   # Directory exists
   if [[ ! -d "$INSTALL_DIR/.git" ]]; then
-    # Case C: Directory exists but is not a git repo
     die "安装目录已存在，但不是 Git 仓库，不会覆盖。
   路径: ${INSTALL_DIR}
   请换一个 --install-dir，或手动移动该目录。"
   fi
 
-  # Case B or D: Is a git repo — check remote
+  # Is a git repo — check remote
   local remote_url
   remote_url=$(git -C "$INSTALL_DIR" remote get-url origin 2>/dev/null || echo "")
 
-  # Normalize URLs for comparison (strip .git suffix, handle https vs git@)
   local normalized_remote normalized_repo
-  normalized_remote=$(echo "$remote_url" | sed 's|\.git$||; s|git@github.com:|https://github.com/|')
-  normalized_repo=$(echo "$REPO_URL" | sed 's|\.git$||; s|git@github.com:|https://github.com/|')
+  normalized_remote=$(normalize_repo_url "$remote_url")
+  normalized_repo=$(normalize_repo_url "$REPO_URL")
 
   if [[ "$normalized_remote" != "$normalized_repo" ]]; then
-    # Case D: Different repo
     die "安装目录是其他 Git 仓库，不会覆盖。
   路径: ${INSTALL_DIR}
   Remote: ${remote_url}
   期望: ${REPO_URL}"
   fi
 
-  # Case B: Same repo — check for local changes
+  # Same repo — check for local changes
   if ! git -C "$INSTALL_DIR" diff --quiet 2>/dev/null || \
      ! git -C "$INSTALL_DIR" diff --cached --quiet 2>/dev/null; then
     die "检测到已有仓库存在本地修改，不会自动 pull。
@@ -232,8 +244,16 @@ launch_installer() {
 
   if [[ "$DRY_RUN" == "1" ]]; then
     local cmd=(bash "$installer_path" --repo-dir "$INSTALL_DIR")
-  [[ ${#INSTALL_ARGS[@]} -gt 0 ]] && cmd+=("${INSTALL_ARGS[@]}")
-    log "启动 NanoBK 交互式安装器:"
+    [[ ${#INSTALL_ARGS[@]} -gt 0 ]] && cmd+=("${INSTALL_ARGS[@]}")
+
+    if [[ "$WOULD_CLONE" == "1" ]]; then
+      echo ""
+      echo -e "  ${CYAN}[DRY-RUN]${NC} 仓库尚未实际 clone。"
+      echo -e "  ${CYAN}[DRY-RUN]${NC} 下面的命令表示 clone 成功后将启动的安装器："
+    else
+      log "启动 NanoBK 交互式安装器:"
+    fi
+
     print_cmd "${cmd[@]}"
     echo -e "  ${CYAN}[DRY-RUN]${NC} 跳过执行"
     return 0
