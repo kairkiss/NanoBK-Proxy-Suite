@@ -1,5 +1,22 @@
 # Changelog
 
+## v1.0.3 — Installed Rotate and Reality Rotation Hotfix
+
+### Fixed
+
+- Installed `/opt/nanobk/bin/rotate-keys.sh` can now locate helper libraries
+- Installer copies required helper libs into `/opt/nanobk/lib/`
+- `rotate all` and `rotate reality` use unified hardened Xray x25519 parser
+- Shared parser supports new Xray output format: `Password (PublicKey):`
+- Single `parse_xray_x25519_output()` used by both install and rotate
+
+### Verified
+
+- Ubuntu 24.04 clean install works
+- Installed healthcheck works
+- Source-tree and installed-layout rotate tests cover tuic, reality, and all
+- Production hotfix static tests cover 7 x25519 format variations
+
 ## v1.0.2 — Production Installer Hotfix
 
 ### Fixed

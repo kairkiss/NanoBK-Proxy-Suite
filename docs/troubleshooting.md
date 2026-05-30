@@ -51,6 +51,26 @@ xcode-select --install
 
 ---
 
+## rotate-keys.sh: "/opt/vps/lib/common.sh: No such file or directory"
+
+v1.0.2 的 installed layout bug：rotate-keys.sh 被复制到 `/opt/nanobk/bin/` 后仍尝试按源码目录找 lib。
+
+**Fix**: 升级到 v1.0.3+，然后重新运行 install-vps.sh --force 以复制 `/opt/nanobk/lib/`：
+
+```bash
+sudo bash installer/install-vps.sh --yes --force --domain YOUR_DOMAIN --cert-mode self-signed
+```
+
+---
+
+## rotate all / rotate reality: "Reality private key is empty"
+
+新版 Xray 输出格式可能是 `PrivateKey:` 和 `Password (PublicKey):`，旧 parser 不兼容。
+
+**Fix**: 升级到 v1.0.3+，统一 parser 已修复。
+
+---
+
 ## Installer: "Reality private key is empty"
 
 v1.0.0 的 x25519 解析器对新版 xray 输出格式兼容不好。升级到 v1.0.2+ 后重新运行安装器。

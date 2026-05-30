@@ -589,6 +589,8 @@ main() {
     ensure_dir "$(dirname "$REALITY_CONFIG")"
     ensure_dir "$(dirname "$TROJAN_CONFIG")"
     ensure_dir "$NANOBK_SYSTEMD_DIR"
+    ensure_dir "${NANOBK_INSTALL_DIR}/bin"
+    ensure_dir "${NANOBK_INSTALL_DIR}/lib"
 
     # Certificates
     validate_cert_inputs
@@ -621,6 +623,16 @@ main() {
         "$NANOBK_PROFILE_FILE" >/dev/null || die "Profile JSON validation failed"
       ok "Profile JSON validated"
     fi
+
+    # Copy management scripts and helper libraries (render-only layout)
+    cp "${REPO_DIR}/vps/lib/common.sh" "${NANOBK_INSTALL_DIR}/lib/common.sh"
+    cp "${REPO_DIR}/vps/lib/profile.sh" "${NANOBK_INSTALL_DIR}/lib/profile.sh"
+    cp "${REPO_DIR}/vps/lib/os.sh" "${NANOBK_INSTALL_DIR}/lib/os.sh"
+    cp "${REPO_DIR}/vps/lib/download.sh" "${NANOBK_INSTALL_DIR}/lib/download.sh"
+    cp "${REPO_DIR}/vps/scripts/healthcheck.sh" "${NANOBK_INSTALL_DIR}/bin/healthcheck.sh"
+    cp "${REPO_DIR}/vps/scripts/rotate-keys.sh" "${NANOBK_INSTALL_DIR}/bin/rotate-keys.sh"
+    chmod +x "${NANOBK_INSTALL_DIR}/bin/"*.sh
+    ok "Installed management scripts and libraries"
 
   else
     # ── Production / dry-run mode ──
@@ -692,7 +704,13 @@ main() {
     enable_and_start_services
     open_firewall
 
-    # Phase 11: Install management scripts
+    # Phase 11: Install management scripts and helper libraries
+    ensure_dir "${NANOBK_INSTALL_DIR}/lib"
+
+    run_cmd "Copy common.sh" cp "${REPO_DIR}/vps/lib/common.sh" "${NANOBK_INSTALL_DIR}/lib/common.sh"
+    run_cmd "Copy profile.sh" cp "${REPO_DIR}/vps/lib/profile.sh" "${NANOBK_INSTALL_DIR}/lib/profile.sh"
+    run_cmd "Copy os.sh" cp "${REPO_DIR}/vps/lib/os.sh" "${NANOBK_INSTALL_DIR}/lib/os.sh"
+    run_cmd "Copy download.sh" cp "${REPO_DIR}/vps/lib/download.sh" "${NANOBK_INSTALL_DIR}/lib/download.sh"
     run_cmd "Copy healthcheck.sh" cp "${REPO_DIR}/vps/scripts/healthcheck.sh" "${NANOBK_INSTALL_DIR}/bin/healthcheck.sh"
     run_cmd "Copy rotate-keys.sh" cp "${REPO_DIR}/vps/scripts/rotate-keys.sh" "${NANOBK_INSTALL_DIR}/bin/rotate-keys.sh"
     if [[ "$NANOBK_DRY_RUN" != "1" ]]; then

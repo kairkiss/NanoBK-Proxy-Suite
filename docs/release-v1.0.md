@@ -1,5 +1,14 @@
 # NanoBK Proxy Suite — Release Notes
 
+## v1.0.3 — Installed Rotate and Reality Rotation Hotfix
+
+v1.0.2 修复了生产安装，但暴露了安装后 rotate 的两个问题，v1.0.3 已修复：
+
+- `/opt/nanobk/bin/rotate-keys.sh` 找不到 lib → 安装器现在复制 lib 到 `/opt/nanobk/lib/`
+- `rotate all` / `rotate reality` Reality private key empty → 统一 x25519 parser 支持新版 Xray 输出
+
+如果用户已安装 v1.0.2，升级到 v1.0.3 后重新执行 install-vps.sh --force 以复制新 lib。
+
 ## v1.0.2 — Production Installer Hotfix
 
 v1.0.0 在真实 Ubuntu 24.04 VPS 上安装时发现以下问题，v1.0.2 已修复：

@@ -94,28 +94,37 @@ echo ""
 
 # ── Reality x25519 parser ──────────────────────────────────────────────────
 
-echo "--- Reality x25519 parser robustness ---"
+echo "--- Reality x25519 parser robustness (via shared parser) ---"
 echo ""
 
-# Test the awk parser directly
+# Source the shared parser
+NANOBK_DRY_RUN=1
+NANOBK_RENDER_ONLY=0
+source "$ROOT/vps/lib/common.sh" 2>/dev/null || true
+source "$ROOT/vps/lib/profile.sh" 2>/dev/null || true
+
 test_x25519_parse() {
   local input="$1"
   local expected_priv="$2"
   local expected_pub="$3"
   local label="$4"
 
-  local priv pub
-  priv=$(printf '%s\n' "$input" | awk -F': *' 'tolower($1) ~ /private/ {print $2; exit}' | tr -d '\r\n')
-  pub=$(printf '%s\n' "$input" | awk -F': *' 'tolower($1) ~ /public/ {print $2; exit}' | tr -d '\r\n')
+  REALITY_PRIVATE_KEY=""
+  REALITY_PUBLIC_KEY=""
 
-  if [[ "$priv" == "$expected_priv" ]] && [[ "$pub" == "$expected_pub" ]]; then
-    pass "x25519 parser: ${label}"
+  if parse_xray_x25519_output "$input" 2>/dev/null; then
+    if [[ "$REALITY_PRIVATE_KEY" == "$expected_priv" ]] && [[ "$REALITY_PUBLIC_KEY" == "$expected_pub" ]]; then
+      pass "x25519 parser: ${label}"
+    else
+      fail "x25519 parser: ${label}"
+      echo "    Expected priv: ${expected_priv}" >&2
+      echo "    Got priv:      ${REALITY_PRIVATE_KEY}" >&2
+      echo "    Expected pub:  ${expected_pub}" >&2
+      echo "    Got pub:       ${REALITY_PUBLIC_KEY}" >&2
+      ERRORS=$((ERRORS + 1))
+    fi
   else
-    fail "x25519 parser: ${label}"
-    echo "    Expected priv: ${expected_priv}" >&2
-    echo "    Got priv:      ${priv}" >&2
-    echo "    Expected pub:  ${expected_pub}" >&2
-    echo "    Got pub:       ${pub}" >&2
+    fail "x25519 parser: ${label} (parser failed)"
     ERRORS=$((ERRORS + 1))
   fi
 }
@@ -147,6 +156,28 @@ test_x25519_parse \
   Public Key : def456" \
   "abc123" "def456" \
   "mixed case with extra spaces"
+
+# New Xray format: Password (PublicKey)
+test_x25519_parse \
+  "PrivateKey: abc123
+Password (PublicKey): def456
+Hash32: hash123" \
+  "abc123" "def456" \
+  "new Xray format Password (PublicKey)"
+
+# Private-key / Public-key with dashes
+test_x25519_parse \
+  "Private-key: abc123
+Public-key: def456" \
+  "abc123" "def456" \
+  "Private-key / Public-key with dashes"
+
+# Uppercase
+test_x25519_parse \
+  "PRIVATE KEY: abc123
+PUBLIC KEY: def456" \
+  "abc123" "def456" \
+  "uppercase PRIVATE KEY / PUBLIC KEY"
 
 echo ""
 

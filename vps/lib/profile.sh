@@ -57,6 +57,46 @@ resolve_geo_label() {
   echo "$label"
 }
 
+# ── Xray x25519 output parser ──────────────────────────────────────────────
+
+# Unified parser for `xray x25519` output.
+# Sets globals: REALITY_PRIVATE_KEY, REALITY_PUBLIC_KEY
+# Supports formats:
+#   Private key: xxx    / Public key: yyy
+#   PrivateKey: xxx     / PublicKey: yyy
+#   private key: xxx    / public key: yyy
+#   PRIVATE KEY: xxx    / PUBLIC KEY: yyy
+#   Private-key: xxx    / Public-key: yyy
+#   Password (PublicKey): yyy   (new Xray format)
+# Fails fast if either key is empty.
+
+parse_xray_x25519_output() {
+  local keypair="$1"
+  local priv pub
+  priv=$(
+    printf '%s\n' "$keypair" |
+      awk -F': *' '{
+        k=tolower($1)
+        gsub(/[[:space:]_-]/, "", k)
+        if (k ~ /privatekey/ || k ~ /private/) { print $2; exit }
+      }' |
+      tr -d '\r\n'
+  )
+  pub=$(
+    printf '%s\n' "$keypair" |
+      awk -F': *' '{
+        k=tolower($1)
+        gsub(/[[:space:]_-]/, "", k)
+        if (k ~ /publickey/ || k ~ /public/) { print $2; exit }
+      }' |
+      tr -d '\r\n'
+  )
+  [[ -n "$priv" ]] || die "Reality private key is empty after parsing xray x25519 output"
+  [[ -n "$pub" ]] || die "Reality public key is empty after parsing xray x25519 output"
+  REALITY_PRIVATE_KEY="$priv"
+  REALITY_PUBLIC_KEY="$pub"
+}
+
 # ── Credential generation ──────────────────────────────────────────────────
 
 # Globals set by generate_all_credentials():
@@ -78,9 +118,7 @@ generate_all_credentials() {
   if command -v xray &>/dev/null; then
     local keypair
     keypair=$(xray x25519) || die "Failed to generate Reality keypair"
-    # Robust parser: handles "Private key:", "PrivateKey:", "private key:" etc.
-    REALITY_PRIVATE_KEY=$(printf '%s\n' "$keypair" | awk -F': *' 'tolower($1) ~ /private/ {print $2; exit}' | tr -d '\r\n')
-    REALITY_PUBLIC_KEY=$(printf '%s\n' "$keypair" | awk -F': *' 'tolower($1) ~ /public/ {print $2; exit}' | tr -d '\r\n')
+    parse_xray_x25519_output "$keypair"
   elif [[ "$NANOBK_DRY_RUN" == "1" ]] || [[ "$NANOBK_RENDER_ONLY" == "1" ]]; then
     warn "xray not available for keypair generation (using placeholder for test)"
     REALITY_PRIVATE_KEY="RENDER_ONLY_PLACEHOLDER_PRIVATE_KEY_NOT_FOR_PRODUCTION"

@@ -22,12 +22,30 @@ set -Eeuo pipefail
 # ── Resolve script directory ───────────────────────────────────────────────
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+INSTALL_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-# ── Source libraries ────────────────────────────────────────────────────────
+# ── Source libraries (installed layout or source layout) ────────────────────
 
-source "${REPO_DIR}/vps/lib/common.sh"
-source "${REPO_DIR}/vps/lib/profile.sh"
+if [[ -f "$INSTALL_ROOT/lib/common.sh" && -f "$INSTALL_ROOT/lib/profile.sh" ]]; then
+  # Installed layout: /opt/nanobk/bin/rotate-keys.sh → /opt/nanobk/lib/
+  NANOBK_LIB_DIR="$INSTALL_ROOT/lib"
+else
+  # Source layout: vps/scripts/rotate-keys.sh → vps/lib/
+  REPO_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+  NANOBK_LIB_DIR="$REPO_DIR/vps/lib"
+fi
+
+if [[ ! -f "$NANOBK_LIB_DIR/common.sh" ]] || [[ ! -f "$NANOBK_LIB_DIR/profile.sh" ]]; then
+  echo "[ERROR] NanoBK library files not found." >&2
+  echo "Expected installed layout: $INSTALL_ROOT/lib/common.sh" >&2
+  echo "Expected source layout:    ${REPO_DIR:-?}/vps/lib/common.sh" >&2
+  echo "" >&2
+  echo "If using installed layout, re-run: sudo bash installer/install-vps.sh --force" >&2
+  exit 1
+fi
+
+source "$NANOBK_LIB_DIR/common.sh"
+source "$NANOBK_LIB_DIR/profile.sh"
 
 # ── Cross-platform UUID ────────────────────────────────────────────────────
 
@@ -243,8 +261,14 @@ generate_reality_keypair() {
   if command -v xray &>/dev/null; then
     local keypair
     keypair=$(xray x25519) || die "Failed to generate Reality keypair"
-    NEW_REALITY_PRIVATE_KEY=$(echo "$keypair" | awk -F': ' '/Private key/ {print $2}' | tr -d '\r\n')
-    NEW_REALITY_PUBLIC_KEY=$(echo "$keypair" | awk -F': ' '/Public key/ {print $2}' | tr -d '\r\n')
+    # Use shared parser from profile.sh
+    local old_priv="${REALITY_PRIVATE_KEY:-}"
+    local old_pub="${REALITY_PUBLIC_KEY:-}"
+    parse_xray_x25519_output "$keypair"
+    NEW_REALITY_PRIVATE_KEY="$REALITY_PRIVATE_KEY"
+    NEW_REALITY_PUBLIC_KEY="$REALITY_PUBLIC_KEY"
+    REALITY_PRIVATE_KEY="$old_priv"
+    REALITY_PUBLIC_KEY="$old_pub"
   elif [[ "$NANOBK_DRY_RUN" == "1" ]]; then
     warn "xray not available (using placeholder for dry-run)"
     NEW_REALITY_PRIVATE_KEY="DRY_RUN_PLACEHOLDER_PRIVATE_KEY"
