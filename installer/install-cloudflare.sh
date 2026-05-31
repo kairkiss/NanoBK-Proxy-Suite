@@ -45,6 +45,7 @@ die()   { err "$*"; exit 1; }
 DRY_RUN=0
 NANOBK_YES=0
 FORCE=0
+PREFLIGHT=0
 
 # nanok
 WORKER_NAME="nanok"
@@ -121,10 +122,17 @@ clean_host() {
 
 show_help() {
   cat <<'EOF'
-NanoBK Proxy Suite — Cloudflare Deployment v0.4
+NanoBK Proxy Suite — Cloudflare Deployment v1.3.0
 
 Usage:
   bash installer/install-cloudflare.sh [OPTIONS]
+
+General:
+  --dry-run                  Print actions without modifying Cloudflare
+  --yes                      Non-interactive mode
+  --force                    Overwrite existing wrangler.toml in worker dirs
+  --preflight                Run pre-deployment checks only (no Cloudflare changes)
+  --help                     Show this help
 
 nanok options (primary subscription):
   --worker-name NAME         Worker name (default: nanok)
@@ -156,12 +164,6 @@ nanob options (optional aggregator):
   --edge-sub-path PATH       Edgetunnel sub path (default: /sub?target=clash)
   --edgetunnel-export-token TOKEN  Edgetunnel internal auth token (optional)
   --skip-nanob-verify        Skip nanob HTTP verification
-
-General:
-  --dry-run                  Print actions without modifying Cloudflare
-  --yes                      Non-interactive mode
-  --force                    Overwrite existing wrangler.toml in worker dirs
-  --help                     Show this help
 
 Examples:
   # nanok only
@@ -196,6 +198,7 @@ parse_args() {
       --dry-run)              DRY_RUN=1 ;;
       --yes)                  NANOBK_YES=1 ;;
       --force)                FORCE=1 ;;
+      --preflight)            PREFLIGHT=1 ;;
       --worker-name)          WORKER_NAME="$2"; shift ;;
       --worker-dir)           WORKER_DIR="$2"; shift ;;
       --profile)              PROFILE_PATH="$2"; shift ;;
@@ -298,12 +301,16 @@ check_wrangler() {
   if [[ -z "$WRANGLER" ]]; then
     die "Wrangler CLI not found. Install with:
   npm install -g wrangler
-  wrangler login"
+  wrangler login
+Or use npx: npx wrangler --version"
   fi
 
   log "Checking Wrangler authentication..."
   if ! $WRANGLER whoami &>/dev/null; then
-    die "Wrangler is not logged in. Run: wrangler login"
+    die "Wrangler is not logged in.
+Run: wrangler login
+If you are on a remote VPS, copy the login URL to your browser,
+finish authorization, then rerun this installer."
   fi
   ok "Wrangler authenticated"
 }
@@ -640,6 +647,13 @@ validate_profile_file() {
 
   [[ -f "$PROFILE_PATH" ]] || die "Profile file not found: ${PROFILE_PATH}"
 
+  # Check for private key leakage FIRST — this is a security gate
+  if grep -qi 'privateKey\|REALITY_PRIVATE_KEY\|private_key' "$PROFILE_PATH" 2>/dev/null; then
+    die "SECURITY: Profile contains private key data. This must NEVER be uploaded.
+  File: ${PROFILE_PATH}
+  Reality private key must only exist in VPS service configs."
+  fi
+
   if command -v jq &>/dev/null; then
     if ! jq -e 'has("hy2") and has("tuic") and has("reality") and has("trojan")' "$PROFILE_PATH" >/dev/null 2>&1; then
       die "Profile JSON missing required sections: ${PROFILE_PATH}"
@@ -942,8 +956,133 @@ print_next_steps() {
 
 # ── Main ────────────────────────────────────────────────────────────────────
 
+# ── Preflight check ─────────────────────────────────────────────────────────
+
+preflight_check() {
+  log "Running Cloudflare preflight checks..."
+
+  local issues=0
+
+  # Node.js
+  if command -v node &>/dev/null; then
+    ok "node: $(node --version)"
+  else
+    fail "node: not found"
+    issues=$((issues + 1))
+  fi
+
+  # npm/npx
+  if command -v npx &>/dev/null; then
+    ok "npx: available"
+  elif command -v npm &>/dev/null; then
+    ok "npm: available (npx not found)"
+  else
+    fail "npm/npx: not found"
+    issues=$((issues + 1))
+  fi
+
+  # Wrangler
+  local wrangler_found=0
+  if command -v wrangler &>/dev/null; then
+    ok "wrangler: $(wrangler --version 2>/dev/null | head -1)"
+    wrangler_found=1
+  elif command -v npx &>/dev/null; then
+    if npx wrangler --version &>/dev/null; then
+      ok "wrangler (via npx): $(npx wrangler --version 2>/dev/null | head -1)"
+      wrangler_found=1
+    fi
+  fi
+  if [[ "$wrangler_found" == "0" ]]; then
+    fail "wrangler: not found"
+    issues=$((issues + 1))
+  fi
+
+  # Wrangler login (skip in dry-run)
+  if [[ "$wrangler_found" == "1" ]] && [[ "$DRY_RUN" != "1" ]]; then
+    local wcmd="wrangler"
+    command -v wrangler &>/dev/null || wcmd="npx wrangler"
+    if $wcmd whoami &>/dev/null; then
+      ok "wrangler login: authenticated"
+    else
+      warn "wrangler login: not authenticated (run: wrangler login)"
+      issues=$((issues + 1))
+    fi
+  fi
+
+  # Worker source files
+  if [[ -f "${REPO_DIR}/workers/nanok/src/index.js" ]]; then
+    ok "nanok source: ${REPO_DIR}/workers/nanok/src/index.js"
+  else
+    fail "nanok source: not found"
+    issues=$((issues + 1))
+  fi
+
+  if [[ -f "${REPO_DIR}/workers/nanob/src/index.js" ]]; then
+    ok "nanob source: ${REPO_DIR}/workers/nanob/src/index.js"
+  else
+    warn "nanob source: not found (nanob deployment will be unavailable)"
+  fi
+
+  # Profile file
+  if [[ -f "$PROFILE_PATH" ]]; then
+    ok "profile: ${PROFILE_PATH}"
+
+    # Validate profile JSON
+    if command -v jq &>/dev/null; then
+      if jq -e 'has("hy2") and has("tuic") and has("reality") and has("trojan")' "$PROFILE_PATH" >/dev/null 2>&1; then
+        ok "profile JSON: valid (has hy2/tuic/reality/trojan)"
+      else
+        fail "profile JSON: missing required sections"
+        issues=$((issues + 1))
+      fi
+
+      # Check for private key leakage
+      if jq -e '.reality | has("privateKey")' "$PROFILE_PATH" >/dev/null 2>&1; then
+        fail "profile JSON: contains privateKey (SECURITY ISSUE)"
+        issues=$((issues + 1))
+      else
+        ok "profile JSON: no privateKey leakage"
+      fi
+    fi
+  else
+    warn "profile: ${PROFILE_PATH} not found (required for upload)"
+    issues=$((issues + 1))
+  fi
+
+  # Local env files
+  if [[ -f "$LOCAL_ENV_FILE" ]]; then
+    ok "cloudflare.local.env: exists"
+  else
+    info "cloudflare.local.env: not yet created (will be generated)"
+  fi
+
+  if [[ -f "$NANOB_LOCAL_ENV_FILE" ]]; then
+    ok "nanob.local.env: exists"
+  else
+    info "nanob.local.env: not yet created (will be generated if --deploy-nanob)"
+  fi
+
+  echo ""
+  if [[ "$issues" -eq 0 ]]; then
+    echo -e "  ${GREEN}Cloudflare Preflight: ALL CHECKS PASSED${NC}"
+  else
+    echo -e "  ${RED}Cloudflare Preflight: ${issues} issue(s) found${NC}"
+  fi
+  echo ""
+
+  return "$issues"
+}
+
+# ── Main ────────────────────────────────────────────────────────────────────
+
 main() {
   parse_args "$@"
+
+  # Preflight mode
+  if [[ "$PREFLIGHT" == "1" ]]; then
+    preflight_check
+    return $?
+  fi
 
   echo ""
   local mode_label=""

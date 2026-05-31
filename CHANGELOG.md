@@ -1,5 +1,29 @@
 # Changelog
 
+## v1.3.0 — Cloudflare Full Automation Validation
+
+### Added
+
+- `install-cloudflare.sh --preflight`: pre-deployment checks (wrangler, login, profile, sources)
+- Cloudflare real validation guide (`docs/cloudflare-real-validation.md`)
+- Profile validation rejects private key leakage before upload
+- Dry-run tests for nanok/nanob deployment planning
+- Profile validation tests for Cloudflare upload safety
+- Static nanob fallback tests
+- Clearer edgetunnel optional integration documentation
+
+### Improved
+
+- Better wrangler login diagnostics (remote VPS guidance)
+- Safer profile validation before upload (private key check)
+- More explicit nanob fallback behavior when edgetunnel is disabled
+
+### Security
+
+- Profile validation rejects `privateKey`, `REALITY_PRIVATE_KEY`, `private_key` in profile JSON
+- Worker tokens are fingerprinted in output
+- edgetunnel export token is never written to `wrangler.toml`
+
 ## v1.2.1 — Web Panel Security Polish
 
 ### Fixed
