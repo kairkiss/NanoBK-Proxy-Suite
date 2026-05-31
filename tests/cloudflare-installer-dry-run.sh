@@ -125,6 +125,37 @@ else
   pass "dry-run did not create wrangler.toml"
 fi
 
+# ── Test 6: --preflight does not require KV options ─────────────────────────
+
+echo ""
+echo "--- --preflight ---"
+
+# preflight should NOT fail with "KV namespace" error
+PREFLIGHT_OUTPUT=$(bash "$ROOT/installer/install-cloudflare.sh" --preflight 2>&1 || true)
+
+if echo "$PREFLIGHT_OUTPUT" | grep -qi "KV namespace\|create-kv\|kv-namespace-id"; then
+  fail "--preflight requires KV options (should not)"
+  ERRORS=$((ERRORS + 1))
+else
+  pass "--preflight does not require KV options"
+fi
+
+# preflight should NOT fail with "fail: command not found" or "info: command not found"
+if echo "$PREFLIGHT_OUTPUT" | grep -q "command not found"; then
+  fail "--preflight has undefined command error"
+  ERRORS=$((ERRORS + 1))
+else
+  pass "--preflight has no undefined command errors"
+fi
+
+# preflight should contain "Preflight" in output
+if echo "$PREFLIGHT_OUTPUT" | grep -qi "preflight"; then
+  pass "--preflight shows preflight summary"
+else
+  fail "--preflight missing preflight summary"
+  ERRORS=$((ERRORS + 1))
+fi
+
 # ── Cleanup ─────────────────────────────────────────────────────────────────
 
 rm -rf "$TMP"

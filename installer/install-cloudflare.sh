@@ -39,6 +39,8 @@ ok()    { echo -e "${GREEN}[OK]${NC}    $*"; }
 warn()  { echo -e "${YELLOW}[WARN]${NC}  $*"; }
 err()   { echo -e "${RED}[ERROR]${NC} $*" >&2; }
 die()   { err "$*"; exit 1; }
+info()  { echo -e "${CYAN}[INFO]${NC}  $*"; }
+fail()  { echo -e "${RED}[FAIL]${NC}  $*" >&2; }
 
 # ── Default configuration ──────────────────────────────────────────────────
 
@@ -46,6 +48,7 @@ DRY_RUN=0
 NANOBK_YES=0
 FORCE=0
 PREFLIGHT=0
+VALIDATE_PROFILE_ONLY=0
 
 # nanok
 WORKER_NAME="nanok"
@@ -132,6 +135,7 @@ General:
   --yes                      Non-interactive mode
   --force                    Overwrite existing wrangler.toml in worker dirs
   --preflight                Run pre-deployment checks only (no Cloudflare changes)
+  --validate-profile-only    Validate profile JSON only (no Cloudflare, no wrangler)
   --help                     Show this help
 
 nanok options (primary subscription):
@@ -199,6 +203,7 @@ parse_args() {
       --yes)                  NANOBK_YES=1 ;;
       --force)                FORCE=1 ;;
       --preflight)            PREFLIGHT=1 ;;
+      --validate-profile-only) VALIDATE_PROFILE_ONLY=1 ;;
       --worker-name)          WORKER_NAME="$2"; shift ;;
       --worker-dir)           WORKER_DIR="$2"; shift ;;
       --profile)              PROFILE_PATH="$2"; shift ;;
@@ -234,35 +239,38 @@ parse_args() {
     shift
   done
 
-  # Validate nanok KV config
-  if [[ -z "$KV_NAMESPACE_ID" ]] && [[ "$CREATE_KV" != "1" ]]; then
-    if [[ "$NANOBK_YES" == "1" ]]; then
-      die "Either --kv-namespace-id or --create-kv is required. Use --create-kv to auto-create."
-    else
-      echo ""
-      echo "  No KV namespace specified."
-      echo "  Use --kv-namespace-id ID to use an existing one."
-      echo "  Use --create-kv to auto-create a new one."
-      echo ""
-      confirm_or_die "Create a new KV namespace?" && CREATE_KV=1 || die "Aborted."
-    fi
-  fi
-
-  # Validate nanob config
-  if [[ "$DEPLOY_NANOB" == "1" ]]; then
-    if [[ -z "$NANOB_ROUTE_URL" ]]; then
-      die "--nanob-route-url is required when using --deploy-nanob"
-    fi
-    # nanob needs nanok origin
-    if [[ -z "$ROUTE_URL" ]] && [[ "$DRY_RUN" != "1" ]]; then
-      die "--route-url is required when deploying nanob (nanob needs nanok origin)"
-    fi
-    # Validate nanob Geo KV
-    if [[ -z "$NANOB_GEO_KV_NAMESPACE_ID" ]] && [[ "$CREATE_NANOB_GEO_KV" != "1" ]]; then
+  # Skip deployment validation for preflight and validate-profile-only
+  if [[ "$PREFLIGHT" != "1" ]] && [[ "$VALIDATE_PROFILE_ONLY" != "1" ]]; then
+    # Validate nanok KV config
+    if [[ -z "$KV_NAMESPACE_ID" ]] && [[ "$CREATE_KV" != "1" ]]; then
       if [[ "$NANOBK_YES" == "1" ]]; then
-        die "nanob Geo KV: use --nanob-geo-kv-namespace-id or --create-nanob-geo-kv"
+        die "Either --kv-namespace-id or --create-kv is required. Use --create-kv to auto-create."
       else
-        confirm_or_die "Create a new Geo KV namespace for nanob?" && CREATE_NANOB_GEO_KV=1 || die "Aborted."
+        echo ""
+        echo "  No KV namespace specified."
+        echo "  Use --kv-namespace-id ID to use an existing one."
+        echo "  Use --create-kv to auto-create a new one."
+        echo ""
+        confirm_or_die "Create a new KV namespace?" && CREATE_KV=1 || die "Aborted."
+      fi
+    fi
+
+    # Validate nanob config
+    if [[ "$DEPLOY_NANOB" == "1" ]]; then
+      if [[ -z "$NANOB_ROUTE_URL" ]]; then
+        die "--nanob-route-url is required when using --deploy-nanob"
+      fi
+      # nanob needs nanok origin
+      if [[ -z "$ROUTE_URL" ]] && [[ "$DRY_RUN" != "1" ]]; then
+        die "--route-url is required when deploying nanob (nanob needs nanok origin)"
+      fi
+      # Validate nanob Geo KV
+      if [[ -z "$NANOB_GEO_KV_NAMESPACE_ID" ]] && [[ "$CREATE_NANOB_GEO_KV" != "1" ]]; then
+        if [[ "$NANOBK_YES" == "1" ]]; then
+          die "nanob Geo KV: use --nanob-geo-kv-namespace-id or --create-nanob-geo-kv"
+        else
+          confirm_or_die "Create a new Geo KV namespace for nanob?" && CREATE_NANOB_GEO_KV=1 || die "Aborted."
+        fi
       fi
     fi
   fi
@@ -630,22 +638,23 @@ deploy_nanob() {
 # ── Validate profile ────────────────────────────────────────────────────────
 
 validate_profile_file() {
-  if [[ "$SKIP_PROFILE_UPLOAD" == "1" ]] || [[ -z "$ROUTE_URL" ]]; then
-    return 0
+  # In validate-profile-only mode, always validate (even without ROUTE_URL)
+  if [[ "$VALIDATE_PROFILE_ONLY" != "1" ]]; then
+    if [[ "$SKIP_PROFILE_UPLOAD" == "1" ]] || [[ -z "$ROUTE_URL" ]]; then
+      return 0
+    fi
   fi
 
   log "Validating profile file..."
 
-  if [[ "$DRY_RUN" == "1" ]]; then
-    if [[ -f "$PROFILE_PATH" ]]; then
-      echo -e "  ${CYAN}[DRY-RUN]${NC} Would validate ${PROFILE_PATH}"
-    else
+  # Check file existence (even in dry-run, we validate if file exists)
+  if [[ ! -f "$PROFILE_PATH" ]]; then
+    if [[ "$DRY_RUN" == "1" ]] && [[ "$VALIDATE_PROFILE_ONLY" != "1" ]]; then
       warn "Profile not found: ${PROFILE_PATH} (OK in dry-run)"
+      return 0
     fi
-    return 0
+    die "Profile file not found: ${PROFILE_PATH}"
   fi
-
-  [[ -f "$PROFILE_PATH" ]] || die "Profile file not found: ${PROFILE_PATH}"
 
   # Check for private key leakage FIRST — this is a security gate
   if grep -qi 'privateKey\|REALITY_PRIVATE_KEY\|private_key' "$PROFILE_PATH" 2>/dev/null; then
@@ -1081,6 +1090,12 @@ main() {
   # Preflight mode
   if [[ "$PREFLIGHT" == "1" ]]; then
     preflight_check
+    return $?
+  fi
+
+  # Validate-profile-only mode
+  if [[ "$VALIDATE_PROFILE_ONLY" == "1" ]]; then
+    validate_profile_file
     return $?
   fi
 

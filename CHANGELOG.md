@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.3.1 — Cloudflare Preflight Hotfix
+
+### Fixed
+
+- `--preflight` no longer requires KV deployment options
+- Preflight no longer calls undefined `fail` / `info` helpers
+- Dry-run validates existing profile files instead of skipping validation
+- Added `--validate-profile-only` for offline profile safety tests
+- Profile validation tests now assert installer exit codes
+
 ## v1.3.0 — Cloudflare Full Automation Validation
 
 ### Added
