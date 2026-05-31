@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — Unified Beginner Installer v1.6.3
+# NanoBK Proxy Suite — Unified Beginner Installer v1.6.4
 #
 # Interactive entry point for NanoBK Proxy Suite.
 # Guides users through VPS deployment, Cloudflare setup, Bot, Web Panel.
@@ -20,7 +20,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # ── Constants ───────────────────────────────────────────────────────────────
 
 REPO_URL="https://github.com/kairkiss/NanoBK-Proxy-Suite"
-VERSION="1.6.3"
+VERSION="1.6.4"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -1736,9 +1736,49 @@ run_doctor_mode() {
   run_cmd "运行环境诊断" bash "$REPO_DIR/installer/doctor.sh"
 }
 
+finalize_test_mode() {
+  if [[ "${TEST_FAILURES:-0}" -gt 0 ]]; then
+    echo ""
+    err "本地安全测试失败: ${TEST_FAILURES}"
+    echo "  失败项目："
+    for name in "${TEST_FAILED_NAMES[@]}"; do
+      echo "    - $name"
+    done
+    return 1
+  fi
+  ok "本地安全测试全部通过"
+  return 0
+}
+
+run_safe_test() {
+  local script="$1"
+  local label="$2"
+  if [[ -f "$script" ]]; then
+    run_one_test "$script" "$label" || true
+  else
+    warn "测试文件不存在: $script"
+    TEST_FAILURES=$((TEST_FAILURES + 1))
+    TEST_FAILED_NAMES+=("${label} (missing)")
+  fi
+}
+
 run_test_mode() {
+  # Reset failure state
+  TEST_FAILURES=0
+  TEST_FAILED_NAMES=()
+
   echo ""
   echo -e "${BOLD}── 本地安全测试 ──${NC}"
+
+  # Test override hook (for test harness only)
+  if [[ -n "${NANOBK_TEST_OVERRIDE_SCRIPT:-}" ]]; then
+    local override_label="${NANOBK_TEST_OVERRIDE_LABEL:-override test}"
+    warn "Using NANOBK_TEST_OVERRIDE_SCRIPT for test harness"
+    run_safe_test "$NANOBK_TEST_OVERRIDE_SCRIPT" "$override_label"
+    finalize_test_mode
+    return $?
+  fi
+
   echo ""
   echo "  1) Quick tests (核心 CLI + VPS render)"
   echo "  2) Installer tests (安装器 dry-run/config/resume)"
@@ -1749,18 +1789,6 @@ run_test_mode() {
 
   local choice
   prompt choice "请选择" "5"
-
-  run_safe_test() {
-    local script="$1"
-    local label="$2"
-    if [[ -f "$script" ]]; then
-      run_one_test "$script" "$label" || true
-    else
-      warn "测试文件不存在: $script"
-      TEST_FAILURES=$((TEST_FAILURES + 1))
-      TEST_FAILED_NAMES+=("${label} (missing)")
-    fi
-  }
 
   case "$choice" in
     1)
@@ -1816,18 +1844,8 @@ run_test_mode() {
     *) err "无效选择"; return 1 ;;
   esac
 
-  # Propagate test failures
-  if [[ "${TEST_FAILURES:-0}" -gt 0 ]]; then
-    echo ""
-    err "本地安全测试失败: ${TEST_FAILURES}"
-    echo "  失败项目："
-    for name in "${TEST_FAILED_NAMES[@]}"; do
-      echo "    - $name"
-    done
-    return 1
-  fi
-  ok "本地安全测试全部通过"
-  return 0
+  finalize_test_mode
+  return $?
 }
 
 run_commands_mode() {

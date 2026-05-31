@@ -45,6 +45,7 @@
 | v1.6.1 | Validation plan safety polish |
 | v1.6.2 | Unified installer recovery and noninteractive hotfix |
 | v1.6.3 | Unified installer dependency and test failure hotfix |
+| v1.6.4 | Test failure propagation verification hotfix |
 | v1.7 | 操作日志 |
 | v1.7 | 权限控制 |
 

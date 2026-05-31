@@ -1,5 +1,23 @@
 # Changelog
 
+## v1.6.4 — Test Failure Propagation Verification Hotfix
+
+### Fixed
+
+- Reset test failure state at the start of each test mode run
+- Added a test-only override hook (`NANOBK_TEST_OVERRIDE_SCRIPT`) for verifying child test failure propagation
+- Extracted `finalize_test_mode()` as reusable function
+- Strengthened `unified-test-failure-propagation.sh` with real installer-level failure and success cases
+
+### Safety
+
+- `--mode test --defaults` can now be tested to ensure child failures produce non-zero exit codes
+- The test override hook only affects test mode and does not change deployment behavior
+
+### Tests
+
+- Rewrote `tests/unified-test-failure-propagation.sh` with real installer-level dynamic tests
+
 ## v1.6.3 — Unified Installer Dependency and Test Failure Hotfix
 
 ### Fixed
