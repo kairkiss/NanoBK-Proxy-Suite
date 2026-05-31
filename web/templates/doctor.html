@@ -1,0 +1,18 @@
+{% extends "layout.html" %}
+{% block title %}Doctor — NanoBK{% endblock %}
+{% block content %}
+<h1>Doctor</h1>
+
+<div class="card">
+  <form method="POST" action="/doctor">
+    <button type="submit" class="button">Run Doctor</button>
+  </form>
+</div>
+
+{% if output is not none %}
+<div class="card">
+  <h3>Output</h3>
+  <pre>{{ output }}</pre>
+</div>
+{% endif %}
+{% endblock %}

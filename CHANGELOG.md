@@ -1,5 +1,32 @@
 # Changelog
 
+## v1.2.0 — Web Panel Foundation
+
+### Added
+
+- Local-only Flask Web Panel under `web/`
+- Token-based login (single shared token, no user system)
+- Dashboard with quick status overview
+- `/status` page with formatted display and raw JSON
+- `/api/status` JSON API endpoint
+- `/doctor` page with run button
+- `/rotate` page with protocol selection and confirmation flow
+- `/healthz` endpoint (no auth, for monitoring)
+- Dry-run mode for rotate testing
+- Safe nanobk CLI subprocess wrapper (no `shell=True`)
+- ANSI stripping, output redaction, and length limiting
+- `web/run.sh` with Python venv guidance
+- `web/systemd/nanobk-web-panel.service.example`
+- Web panel self-test and mock test script
+
+### Security
+
+- Web Panel binds to `127.0.0.1:8080` by default (not exposed to internet)
+- Web Panel never directly reads or writes NanoBK secrets/profile/config
+- Rotate actions require explicit confirmation (120s expiry)
+- Login token must be changed from default
+- `.env` is gitignored
+
 ## v1.1.2 — Bot Output Polish
 
 ### Fixed

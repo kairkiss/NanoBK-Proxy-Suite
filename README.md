@@ -2,7 +2,7 @@
 
 > VPS 四协议节点 + Cloudflare Clash/Mihomo 订阅 + 自动换密钥 + 可选 edgetunnel 聚合
 
-**v1.1.0** — CLI Core + Telegram Bot foundation。
+**v1.2.0** — CLI Core + Telegram Bot + Web Panel foundation。
 
 ## 最快开始
 
@@ -30,6 +30,7 @@ bash installer/install.sh
 | **全部/单协议换密钥** | `nanobk rotate all` / `nanobk rotate hy2` / `nanobk rotate reality` 等 |
 | **status JSON** | `nanobk --json status` — 为 Bot/Panel 准备的稳定输出 |
 | **Telegram Bot** | Owner-only 授权、状态查询、换密钥二次确认、dry-run 模式 |
+| **Web Panel** | 本地 Flask 面板、token 登录、状态/诊断/换密钥、默认 127.0.0.1 |
 
 ## 不包含在 v1.0
 

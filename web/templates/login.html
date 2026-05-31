@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login — NanoBK</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="login-container">
+    <h1>NanoBK Web Panel</h1>
+    <form method="POST" action="/login">
+      <label for="token">Access Token</label>
+      <input type="password" id="token" name="token" placeholder="Enter token" required autofocus>
+      <button type="submit">Login</button>
+      {% if error %}
+      <p class="error">{{ error }}</p>
+      {% endif %}
+    </form>
+  </div>
+</body>
+</html>

@@ -1,0 +1,67 @@
+{% extends "layout.html" %}
+{% block title %}Rotate — NanoBK{% endblock %}
+{% block content %}
+<h1>Rotate Keys</h1>
+
+{% if dry_run %}
+<div class="badge badge-warn">DRY-RUN MODE — rotate will show command but not execute</div>
+{% endif %}
+
+{% if error %}
+<div class="card error-card">
+  <p>{{ error }}</p>
+</div>
+{% endif %}
+
+{% if confirming and pending %}
+<div class="card confirm-card">
+  <h2>Confirm Rotation</h2>
+  <p>You are about to rotate <strong>{{ pending.protocol|upper }}</strong> credentials.</p>
+  <p>This will restart proxy services and update local profile.</p>
+  <p>Cloudflare sync depends on your local nanobk configuration.</p>
+  <div class="button-group">
+    <form method="POST" action="/rotate/confirm" style="display:inline">
+      <button type="submit" class="button button-danger">Confirm Rotate {{ pending.protocol|upper }}</button>
+    </form>
+    <form method="POST" action="/rotate/cancel" style="display:inline">
+      <button type="submit" class="button">Cancel</button>
+    </form>
+  </div>
+</div>
+{% elif pending %}
+<div class="card">
+  <p>Pending: {{ pending.protocol|upper }} (will expire in ~120s)</p>
+  <div class="button-group">
+    <form method="POST" action="/rotate/confirm" style="display:inline">
+      <button type="submit" class="button button-danger">Confirm</button>
+    </form>
+    <form method="POST" action="/rotate/cancel" style="display:inline">
+      <button type="submit" class="button">Cancel</button>
+    </form>
+  </div>
+</div>
+{% elif dry_run_result %}
+<div class="card">
+  <h3>Dry-Run Result</h3>
+  <pre>{{ dry_run_result }}</pre>
+</div>
+{% elif rotate_result %}
+<div class="card">
+  <h3>Rotation Result</h3>
+  <pre>{{ rotate_result }}</pre>
+</div>
+{% else %}
+<div class="card">
+  <h2>Select Protocol</h2>
+  <p>Choose which protocol to rotate. Confirmation required.</p>
+  <div class="button-group">
+    {% for proto in protocols %}
+    <form method="POST" action="/rotate/request" style="display:inline">
+      <input type="hidden" name="protocol" value="{{ proto }}">
+      <button type="submit" class="button button-danger">Rotate {{ proto|upper }}</button>
+    </form>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+{% endblock %}

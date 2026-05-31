@@ -1,0 +1,15 @@
+[Unit]
+Description=NanoBK Web Panel
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/NanoBK-Proxy-Suite/web
+ExecStart=/opt/NanoBK-Proxy-Suite/web/.venv/bin/python /opt/NanoBK-Proxy-Suite/web/app.py
+Restart=always
+RestartSec=5
+EnvironmentFile=/opt/NanoBK-Proxy-Suite/web/.env
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,44 @@
+{% extends "layout.html" %}
+{% block title %}Dashboard — NanoBK{% endblock %}
+{% block content %}
+<h1>NanoBK Dashboard</h1>
+
+{% if dry_run %}
+<div class="badge badge-warn">DRY-RUN MODE</div>
+{% endif %}
+
+{% if status %}
+<div class="card">
+  <h2>Status</h2>
+  <p><strong>OK:</strong> {{ status.ok }}</p>
+  <p><strong>Domain:</strong> {{ status.domain }}</p>
+  <p><strong>VPS IP:</strong> {{ status.vps_ip }}</p>
+  <p><strong>Geo:</strong> {{ status.geo }}</p>
+  <h3>Services</h3>
+  <ul>
+    {% for name, svc_status in status.services.items() %}
+    <li>{{ name|upper }}: {{ svc_status }}</li>
+    {% endfor %}
+  </ul>
+  {% if status.warnings %}
+  <h3>Warnings</h3>
+  <ul>
+    {% for w in status.warnings %}
+    <li>{{ w }}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</div>
+{% else %}
+<div class="card">
+  <p>Could not load status. <a href="/status">Try Status page</a>.</p>
+</div>
+{% endif %}
+
+<div class="card">
+  <h2>Quick Actions</h2>
+  <a href="/status" class="button">Full Status</a>
+  <a href="/doctor" class="button">Doctor</a>
+  <a href="/rotate" class="button button-danger">Rotate Keys</a>
+</div>
+{% endblock %}

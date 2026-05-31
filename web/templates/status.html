@@ -1,0 +1,55 @@
+{% extends "layout.html" %}
+{% block title %}Status — NanoBK{% endblock %}
+{% block content %}
+<h1>Status</h1>
+
+{% if status %}
+<div class="card">
+  <p><strong>OK:</strong> {{ status.ok }}</p>
+  <p><strong>Domain:</strong> {{ status.domain }}</p>
+  <p><strong>VPS IP:</strong> {{ status.vps_ip }}</p>
+  <p><strong>Geo:</strong> {{ status.geo }}</p>
+
+  <h3>Services</h3>
+  <ul>
+    {% for name, svc_status in status.services.items() %}
+    <li>{{ name|upper }}: {{ svc_status }}</li>
+    {% endfor %}
+  </ul>
+
+  <h3>Security</h3>
+  <ul>
+    <li>secrets mode: {{ status.security.secretsMode|default("unknown") }}</li>
+  </ul>
+
+  <h3>Cloudflare</h3>
+  <ul>
+    <li>nanok: {{ "configured" if status.cloudflare.nanok.envExists|default(false) else "missing" }}</li>
+    <li>nanob: {{ "configured" if status.cloudflare.nanob.envExists|default(false) else "missing" }}</li>
+  </ul>
+
+  {% if status.warnings %}
+  <h3>Warnings</h3>
+  <ul>
+    {% for w in status.warnings %}
+    <li>{{ w }}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</div>
+
+<details>
+  <summary>Raw JSON</summary>
+  <pre>{{ status.raw_json }}</pre>
+</details>
+{% elif raw_output %}
+<div class="card">
+  <h3>Output</h3>
+  <pre>{{ raw_output }}</pre>
+</div>
+{% else %}
+<div class="card">
+  <p>No status data available.</p>
+</div>
+{% endif %}
+{% endblock %}
