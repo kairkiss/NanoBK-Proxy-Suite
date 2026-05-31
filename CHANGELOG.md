@@ -1,5 +1,25 @@
 # Changelog
 
+## v1.5.2 — Dry-run Preflight Safety Hotfix
+
+### Fixed
+
+- Dry-run preflight no longer fails because real VPS ports are occupied
+- Dry-run port checks now report `assumed free (dry-run)`
+- Core port conflict re-check no longer recurses when `ss` is unavailable
+- VPS summary now says `installed / not healthchecked` unless service health was actually verified
+
+### Safety
+
+- `--mode full --dry-run --defaults` remains safe even on systems with occupied ports
+- Combo dry-run modes remain safe and do not write Bot/Web env files
+
+### Tests
+
+- Added `tests/unified-dry-run-preflight.sh`: dry-run not blocked by port occupation
+- Updated `tests/unified-beginner-flow.sh`: assumed free and honest summary checks
+- Updated `tests/unified-preflight-static.sh`: assumed free and ss unavailability assertions
+
 ## v1.5.1 — Unified Installer Safety and Fidelity Hotfix
 
 ### Fixed

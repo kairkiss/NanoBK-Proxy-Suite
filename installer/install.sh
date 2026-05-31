@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — Unified Beginner Installer v1.5.1
+# NanoBK Proxy Suite — Unified Beginner Installer v1.5.2
 #
 # Interactive entry point for NanoBK Proxy Suite.
 # Guides users through VPS deployment, Cloudflare setup, Bot, Web Panel.
@@ -20,7 +20,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # ── Constants ───────────────────────────────────────────────────────────────
 
 REPO_URL="https://github.com/kairkiss/NanoBK-Proxy-Suite"
-VERSION="1.5.1"
+VERSION="1.5.2"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -881,12 +881,15 @@ handle_core_port_conflict() {
       ;;
     2)
       # Re-check the port
+      if ! command -v ss &>/dev/null; then
+        warn "无法重新检测端口：ss 不可用。请安装 iproute2 或手动确认端口后重试。"
+        handle_core_port_conflict "$port" "$label"
+        return $?
+      fi
       local recheck_ok=0
-      if command -v ss &>/dev/null; then
-        if ! ss -ulnp 2>/dev/null | grep -q ":${port} " && ! ss -tlnp 2>/dev/null | grep -q ":${port} "; then
-          preflight_pass "${label} :${port}: now free"
-          recheck_ok=1
-        fi
+      if ! ss -ulnp 2>/dev/null | grep -q ":${port} " && ! ss -tlnp 2>/dev/null | grep -q ":${port} "; then
+        preflight_pass "${label} :${port}: now free"
+        recheck_ok=1
       fi
       if [[ "$recheck_ok" == "0" ]]; then
         preflight_fail "${label} :${port}: still occupied"
@@ -994,7 +997,13 @@ run_unified_preflight() {
   fi
 
   # Port checks (VPS protocols)
-  if [[ "$os_name" == "Linux" ]] || [[ "$DRY_RUN" == "1" ]]; then
+  if [[ "$DRY_RUN" == "1" ]]; then
+    echo ""
+    preflight_pass "HY2 :443 (udp): assumed free (dry-run)"
+    preflight_pass "TUIC :9443 (udp): assumed free (dry-run)"
+    preflight_pass "Reality :8443 (tcp): assumed free (dry-run)"
+    preflight_pass "Trojan :2443 (tcp): assumed free (dry-run)"
+  elif [[ "$os_name" == "Linux" ]]; then
     echo ""
     check_port_available 443 udp "HY2" || handle_core_port_conflict 443 "HY2" || true
     check_port_available 9443 udp "TUIC" || handle_core_port_conflict 9443 "TUIC" || true
@@ -1097,7 +1106,11 @@ run_unified_preflight() {
     echo ""
     log "Web Panel 工具检查:"
     local web_port="${NANOBK_WEB_PORT:-8080}"
-    check_port_available "$web_port" tcp "Web Panel" || true
+    if [[ "$DRY_RUN" == "1" ]]; then
+      preflight_pass "Web Panel :${web_port} (tcp): assumed free (dry-run)"
+    else
+      check_port_available "$web_port" tcp "Web Panel" || true
+    fi
     if command -v python3 &>/dev/null; then
       if python3 -c "import venv" &>/dev/null 2>&1; then
         preflight_pass "python3-venv: available"
@@ -1234,8 +1247,8 @@ print_summary() {
     fi
   elif [[ -f "/etc/nanobk/profile.current.json" ]]; then
     echo "    domain:  ${NANOBK_DOMAIN:-unknown}"
-    echo "    status:  installed"
-    echo "    note:    运行 nanobk status 查看服务状态"
+    echo "    status:  installed / not healthchecked"
+    echo "    note:    run nanobk status or healthcheck to verify services"
   elif [[ -n "${NANOBK_DOMAIN:-}" ]] && [[ "$NANOBK_DOMAIN" != "proxy.example.com" ]]; then
     echo "    domain:  ${NANOBK_DOMAIN}"
     echo "    cert:    ${NANOBK_CERT_MODE:-unknown}"

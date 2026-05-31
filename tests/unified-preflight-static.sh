@@ -69,6 +69,8 @@ check "no fake skip TUIC" "$(no_pattern "$INSTALLER" "跳过 TUIC\|跳过.*TUIC\
 check "no fake skip Reality" "$(no_pattern "$INSTALLER" "跳过 Reality\|跳过.*Reality\|skip Reality")"
 check "no fake skip Trojan" "$(no_pattern "$INSTALLER" "跳过 Trojan\|跳过.*Trojan\|skip Trojan")"
 check "no skip protocol text" "$(no_pattern "$INSTALLER" "跳过.*继续部署其他\|skip.*continue.*other")"
+check "has assumed free (dry-run)" "$(has_pattern "$INSTALLER" "assumed free.*dry-run\|assumed free")"
+check "has ss unavailability handling" "$(has_pattern "$INSTALLER" "ss.*不可用\|ss.*not available\|ss not found")"
 
 # ── Node.js and Wrangler ───────────────────────────────────────────────────
 echo ""

@@ -127,6 +127,10 @@ OUTPUT_FULL=$(bash "$INSTALLER" --mode full --dry-run --defaults --lang zh 2>&1)
 check "dry-run summary has planned or dry-run" "$(contains "$OUTPUT_FULL" "planned\|dry-run")"
 check "dry-run summary does NOT show installed" "$( [[ $(echo "$OUTPUT_FULL" | grep -c "status:  installed") -eq 0 ]] && echo 1 || echo 0 )"
 check "dry-run summary does NOT show verified" "$( [[ $(echo "$OUTPUT_FULL" | grep -c "status:  verified") -eq 0 ]] && echo 1 || echo 0 )"
+check "full dry-run has assumed free" "$(contains "$OUTPUT_FULL" "assumed free")"
+
+OUTPUT_CLI_DRY=$(bash "$INSTALLER" --mode cli-only --dry-run --defaults --lang zh 2>&1) || true
+check "cli-only dry-run has assumed free" "$(contains "$OUTPUT_CLI_DRY" "assumed free")"
 
 # ── Test 8: install.sh --help shows new modes ──────────────────────────────
 echo ""

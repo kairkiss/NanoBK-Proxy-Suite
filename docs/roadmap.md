@@ -40,6 +40,7 @@
 | v1.4.1-1.4.3 | Installer safety, CF sync consistency, status polish |
 | **v1.5.0** | ✅ Unified beginner installer practical flow (preflight, guided CF/Bot/Web, summary) |
 | v1.5.1 | Unified installer safety and fidelity hotfix |
+| v1.5.2 | Dry-run preflight safety hotfix |
 | v1.6 | 操作日志 |
 | v1.7 | 权限控制 |
 
