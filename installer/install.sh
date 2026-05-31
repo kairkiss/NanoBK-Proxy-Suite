@@ -20,7 +20,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # ── Constants ───────────────────────────────────────────────────────────────
 
 REPO_URL="https://github.com/kairkiss/NanoBK-Proxy-Suite"
-VERSION="1.4.1"
+VERSION="1.4.2"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -37,7 +37,9 @@ NC='\033[0m'
 DRY_RUN=0
 YES=0
 LANG_CODE=""
+LANG_EXPLICIT=0
 MODE=""
+MODE_EXPLICIT=0
 COMMAND_ONLY=0
 REPO_DIR_OVERRIDE=""
 SAVE_CONFIG=0
@@ -210,26 +212,32 @@ read_config_value() {
   local file="$1"
   local key="$2"
   [[ -f "$file" ]] || return 0
-  awk -v k="$key" '
-    /^[[:space:]]*#/ { next }
-    /^[[:space:]]*$/ { next }
-    {
-      line=$0
-      sub(/^[[:space:]]*/, "", line)
-      if (line !~ "^[A-Za-z_][A-Za-z0-9_]*=") next
-      idx = index(line, "=")
-      name = substr(line, 1, idx - 1)
-      gsub(/[[:space:]]/, "", name)
-      if (name != k) next
-      val = substr(line, idx + 1)
-      sub(/^[[:space:]]*/, "", val)
-      sub(/[[:space:]]*$/, "", val)
-      if (val ~ /^".*"$/) { sub(/^"/, "", val); sub(/"$/, "", val) }
-      else if (val ~ /^\x27.*\x27$/) { sub(/^\x27/, "", val); sub(/\x27$/, "", val) }
-      print val
-      exit
-    }
-  ' "$file"
+  local line
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    # Skip comments and empty lines
+    [[ "$line" =~ ^[[:space:]]*# ]] && continue
+    [[ -z "${line// /}" ]] && continue
+    # Strip leading whitespace
+    line="${line#"${line%%[![:space:]]*}"}"
+    # Must look like KEY=...
+    [[ "$line" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]] || continue
+    local name="${line%%=*}"
+    name="${name// /}"
+    [[ "$name" == "$key" ]] || continue
+    local val="${line#*=}"
+    # Strip surrounding whitespace
+    val="${val#"${val%%[![:space:]]*}"}"
+    val="${val%"${val##*[![:space:]]}"}"
+    # Strip surrounding quotes
+    if [[ "${val:0:1}" == '"' ]] && [[ "${val: -1}" == '"' ]] && [[ ${#val} -ge 2 ]]; then
+      val="${val:1:${#val}-2}"
+    elif [[ "${val:0:1}" == "'" ]] && [[ "${val: -1}" == "'" ]] && [[ ${#val} -ge 2 ]]; then
+      val="${val:1:${#val}-2}"
+    fi
+    printf '%s' "$val"
+    return 0
+  done < "$file"
+  return 0
 }
 
 valid_mode() {
@@ -247,15 +255,20 @@ load_config() {
 
   local v
 
-  v="$(read_config_value "$INSTALLER_CONFIG" NANOBK_LANG || true)"
-  [[ -n "$v" ]] && LANG_CODE="$v"
+  # Only load lang/mode from config if not explicitly set via CLI
+  if [[ "$LANG_EXPLICIT" != "1" ]]; then
+    v="$(read_config_value "$INSTALLER_CONFIG" NANOBK_LANG || true)"
+    [[ -n "$v" ]] && LANG_CODE="$v"
+  fi
 
-  v="$(read_config_value "$INSTALLER_CONFIG" NANOBK_MODE || true)"
-  if [[ -n "$v" ]]; then
-    if valid_mode "$v"; then
-      MODE="$v"
-    else
-      warn "Ignoring invalid mode from config: ${v}"
+  if [[ "$MODE_EXPLICIT" != "1" ]]; then
+    v="$(read_config_value "$INSTALLER_CONFIG" NANOBK_MODE || true)"
+    if [[ -n "$v" ]]; then
+      if valid_mode "$v"; then
+        MODE="$v"
+      else
+        warn "Ignoring invalid mode from config: ${v}"
+      fi
     fi
   fi
 
@@ -371,8 +384,8 @@ parse_args() {
     case "$1" in
       --dry-run)      DRY_RUN=1 ;;
       --yes)          YES=1 ;;
-      --lang)         LANG_CODE="$2"; shift ;;
-      --mode)         MODE="$2"; shift ;;
+      --lang)         LANG_CODE="$2"; LANG_EXPLICIT=1; shift ;;
+      --mode)         MODE="$2"; MODE_EXPLICIT=1; shift ;;
       --repo-dir)     REPO_DIR_OVERRIDE="$2"; shift ;;
       --save-config)  SAVE_CONFIG=1 ;;
       --config-file)  CONFIG_FILE="$2"; shift ;;
@@ -743,7 +756,7 @@ EOF
   echo "  启动 Web Panel:"
   echo "    cd $REPO_DIR/web && bash run.sh"
   echo ""
-  echo "  ${YELLOW}默认只监听 127.0.0.1，不裸露公网。${NC}"
+  echo -e "  ${YELLOW}默认只监听 127.0.0.1，不裸露公网。${NC}"
   echo "  远程访问请用 SSH tunnel:"
   echo "    ssh -L ${web_port}:127.0.0.1:${web_port} root@YOUR_VPS_IP"
   echo "    浏览器打开: http://127.0.0.1:${web_port}"
@@ -959,7 +972,7 @@ run_rotate_mode() {
   [[ "$DRY_RUN" == "1" ]] && cmd+=(--dry-run)
 
   echo ""
-  echo "  ${YELLOW}提示：此命令需要在 VPS 上以 root 运行。${NC}"
+  echo -e "  ${YELLOW}提示：此命令需要在 VPS 上以 root 运行。${NC}"
 
   run_cmd "一键换密钥" "${cmd[@]}"
 }

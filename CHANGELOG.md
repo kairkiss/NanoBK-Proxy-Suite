@@ -1,5 +1,25 @@
 # Changelog
 
+## v1.4.2 — Cloudflare Sync Consistency Hotfix
+
+### Fixed
+
+- Added retry/backoff for Cloudflare profile verification after rotate sync
+- Prevented stale `/admin/current` reads from causing immediate rotate rollback
+- Added best-effort Cloudflare rollback when local rollback occurs after successful upload
+- Added local/cloud `updatedAt` and SHA16 summary output for sync verification
+- Added retry/backoff for nanok profile upload after Worker deploy
+- Added retry/backoff for nanob subscription verification
+- Updated nanob local env verify status after successful verification
+- Fixed unified installer literal ANSI escape output (`echo` → `echo -e`)
+- Fixed `--resume` with explicit `--mode` precedence (explicit --mode wins)
+
+### Safety
+
+- Reduces risk of local/cloud profile split-brain
+- Cloudflare sync failures now include manual resync guidance
+- Existing secret/token redaction behavior preserved
+
 ## v1.4.1 — Unified Installer Safety and Orchestration Hotfix
 
 ### Fixed

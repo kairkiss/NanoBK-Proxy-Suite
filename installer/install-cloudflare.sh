@@ -803,6 +803,9 @@ validate_profile_file() {
 
 # ── Upload profile ──────────────────────────────────────────────────────────
 
+CF_UPLOAD_ATTEMPTS="${NANOBK_CF_UPLOAD_ATTEMPTS:-5}"
+CF_UPLOAD_SLEEP="${NANOBK_CF_UPLOAD_SLEEP:-3}"
+
 upload_profile() {
   if [[ "$SKIP_PROFILE_UPLOAD" == "1" ]] || [[ -z "$ROUTE_URL" ]]; then
     return 0
@@ -816,19 +819,27 @@ upload_profile() {
     return 0
   fi
 
-  local response
-  response=$(curl -fsS -X POST "$upload_url" \
-    -H "Authorization: Bearer ${ADMIN_TOKEN}" \
-    -H "Content-Type: application/json" \
-    --data-binary "@${PROFILE_PATH}" \
-    2>&1) || {
-    err "Profile upload failed:"
-    echo "$response" >&2
-    return 1
-  }
+  local attempt
+  for attempt in $(seq 1 "$CF_UPLOAD_ATTEMPTS"); do
+    local response
+    response=$(curl -fsS -X POST "$upload_url" \
+      -H "Authorization: Bearer ${ADMIN_TOKEN}" \
+      -H "Content-Type: application/json" \
+      --data-binary "@${PROFILE_PATH}" \
+      2>&1) && {
+      echo "$response"
+      ok "Profile uploaded successfully"
+      return 0
+    }
 
-  echo "$response"
-  ok "Profile uploaded successfully"
+    if [[ "$attempt" -lt "$CF_UPLOAD_ATTEMPTS" ]]; then
+      warn "Profile upload attempt ${attempt}/${CF_UPLOAD_ATTEMPTS} failed (Worker may still be propagating); retrying in ${CF_UPLOAD_SLEEP}s..."
+      sleep "$CF_UPLOAD_SLEEP"
+    fi
+  done
+
+  err "Profile upload failed after ${CF_UPLOAD_ATTEMPTS} attempts"
+  return 1
 }
 
 # ── Verify nanok ────────────────────────────────────────────────────────────
@@ -913,46 +924,65 @@ verify_nanob() {
   fi
 
   local sub_url="${NANOB_ROUTE_URL}${NANOB_PATH}?token=${NANOB_TOKEN}"
-  local sub_response
-  sub_response=$(curl -fsS "$sub_url" 2>&1) || {
-    err "nanob subscription check failed"
-    echo ""
-    echo "  If this is a Cloudflare Workers deployment, nanob should use"
-    echo "  Service Binding to call nanok (direct fetch may fail with error 1042)."
-    echo ""
-    echo "  Check workers/nanob/wrangler.toml contains:"
-    echo '    [[services]]'
-    echo '    binding = "NANOK_SERVICE"'
-    echo '    service = "'"${WORKER_NAME}"'"'
-    echo ""
-    return 1
-  }
+  local verify_attempt
 
-  # Check primary nodes are present
-  local yaml_ok=1
-  for marker in "proxies:" "type: hysteria2" "type: tuic" "type: vless" "type: trojan" "proxy-groups:" "rules:"; do
-    if ! echo "$sub_response" | grep -q "$marker"; then
-      err "nanob YAML missing: ${marker}"
-      yaml_ok=0
+  for verify_attempt in $(seq 1 "$CF_UPLOAD_ATTEMPTS"); do
+    local sub_response
+    sub_response=$(curl -fsS "$sub_url" 2>&1) || {
+      if [[ "$verify_attempt" -lt "$CF_UPLOAD_ATTEMPTS" ]]; then
+        warn "nanob verify attempt ${verify_attempt}/${CF_UPLOAD_ATTEMPTS} failed; retrying in ${CF_UPLOAD_SLEEP}s..."
+        sleep "$CF_UPLOAD_SLEEP"
+        continue
+      fi
+      err "nanob subscription check failed after ${CF_UPLOAD_ATTEMPTS} attempts"
+      echo ""
+      echo "  If this is a Cloudflare Workers deployment, nanob should use"
+      echo "  Service Binding to call nanok (direct fetch may fail with error 1042)."
+      echo ""
+      echo "  Check workers/nanob/wrangler.toml contains:"
+      echo '    [[services]]'
+      echo '    binding = "NANOK_SERVICE"'
+      echo '    service = "'"${WORKER_NAME}"'"'
+      echo ""
+      return 1
+    }
+
+    # Check primary nodes are present
+    local yaml_ok=1
+    for marker in "proxies:" "type: hysteria2" "type: tuic" "type: vless" "type: trojan" "proxy-groups:" "rules:"; do
+      if ! echo "$sub_response" | grep -q "$marker"; then
+        yaml_ok=0
+        break
+      fi
+    done
+
+    if [[ "$yaml_ok" == "0" ]]; then
+      if [[ "$verify_attempt" -lt "$CF_UPLOAD_ATTEMPTS" ]]; then
+        warn "nanob verify attempt ${verify_attempt}/${CF_UPLOAD_ATTEMPTS}: YAML incomplete; retrying in ${CF_UPLOAD_SLEEP}s..."
+        sleep "$CF_UPLOAD_SLEEP"
+        continue
+      fi
+      err "nanob YAML missing required sections after ${CF_UPLOAD_ATTEMPTS} attempts"
+      return 1
     fi
+
+    # Check control characters
+    if ! echo "$sub_response" | python3 -c "import sys; d=sys.stdin.buffer.read(); sys.exit(1 if any((b<32 and b not in (9,10,13)) or b==127 for b in d) else 0)" 2>/dev/null; then
+      if [[ "$verify_attempt" -lt "$CF_UPLOAD_ATTEMPTS" ]]; then
+        warn "nanob verify attempt ${verify_attempt}: YAML has control chars; retrying in ${CF_UPLOAD_SLEEP}s..."
+        sleep "$CF_UPLOAD_SLEEP"
+        continue
+      fi
+      err "nanob YAML contains invalid control characters"
+      return 1
+    fi
+
+    ok "nanob subscription verified (attempt ${verify_attempt})"
+    return 0
   done
 
-  if [[ "$yaml_ok" == "0" ]]; then
-    return 1
-  fi
-  ok "nanob subscription YAML: primary nodes present"
-
-  # Note: we do NOT check for edgetunnel nodes here — edgetunnel may fail
-  # and nanob correctly falls back to primary-only. That's expected behavior.
-
-  if echo "$sub_response" | python3 -c "import sys; d=sys.stdin.buffer.read(); sys.exit(1 if any((b<32 and b not in (9,10,13)) or b==127 for b in d) else 0)" 2>/dev/null; then
-    ok "nanob YAML: no invalid control characters"
-  else
-    err "nanob YAML contains invalid control characters"
-    return 1
-  fi
-
-  ok "nanob verification passed"
+  err "nanob verification failed after ${CF_UPLOAD_ATTEMPTS} attempts"
+  return 1
 }
 
 # ── Write local env files ───────────────────────────────────────────────────

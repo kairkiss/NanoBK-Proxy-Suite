@@ -23,6 +23,8 @@ All test scripts in `tests/` are designed to be safe for local development. None
 | `cloudflare-kv-parser.sh` | KV namespace ID parser (Wrangler 4 JSON, TOML, text) | No | No | No | ✅ | ✅ |
 | `unified-installer-dry-run.sh` | Unified installer dry-run (modes, safety, language) | No | No | No | ✅ | ✅ |
 | `unified-installer-config.sh` | Installer config save/resume (no sensitive tokens) | No | No | No | ✅ | ✅ |
+| `cloudflare-sync-retry-static.sh` | rotate Cloudflare verify retry/rollback logic | No | No | No | ✅ | ✅ |
+| `unified-installer-resume.sh` | --resume + explicit --mode precedence | No | No | No | ✅ | ✅ |
 
 ¹ Wrangler may download npm packages on first run.
 

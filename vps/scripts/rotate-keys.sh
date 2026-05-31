@@ -711,6 +711,28 @@ run_healthcheck() {
 
 # ── Cloudflare sync ─────────────────────────────────────────────────────────
 
+CF_VERIFY_ATTEMPTS="${NANOBK_CF_VERIFY_ATTEMPTS:-5}"
+CF_VERIFY_SLEEP="${NANOBK_CF_VERIFY_SLEEP:-3}"
+CF_PROFILE_UPDATED=0
+
+# Compute a sha256 prefix of a JSON file for comparison.
+json_sha16() {
+  local file="$1"
+  if command -v python3 &>/dev/null; then
+    python3 - "$file" <<'PY' 2>/dev/null || echo "unknown"
+import json, sys, hashlib
+with open(sys.argv[1], 'r', encoding='utf-8') as f:
+    obj = json.load(f)
+data = json.dumps(obj, sort_keys=True, separators=(',', ':')).encode()
+print(hashlib.sha256(data).hexdigest()[:16])
+PY
+  elif command -v sha256sum &>/dev/null; then
+    sha256sum "$file" 2>/dev/null | awk '{print substr($1,1,16)}'
+  else
+    shasum -a 256 "$file" 2>/dev/null | awk '{print substr($1,1,16)}'
+  fi
+}
+
 verify_cf_field() {
   local current="$1"
   local field="$2"
@@ -720,53 +742,18 @@ verify_cf_field() {
   local actual
   actual=$(echo "$current" | jq -r "$field // empty" 2>/dev/null)
   if [[ "$actual" != "$expected" ]]; then
-    err "Cloudflare ${label} mismatch"
     return 1
   fi
+  return 0
 }
 
-sync_cloudflare() {
-  if [[ "$SKIP_CLOUDFLARE" == "1" ]]; then
-    log "Skipping Cloudflare sync (--skip-cloudflare)"
-    return 0
-  fi
-
-  local profile_path="${NANOBK_CONFIG_DIR}/profile.current.json"
-
-  log "Uploading profile to Cloudflare..."
-
-  if [[ "$NANOBK_DRY_RUN" == "1" ]]; then
-    echo -e "  ${CYAN}[DRY-RUN]${NC} curl -X POST ${ADMIN_UPDATE_URL}"
-    echo -e "  ${CYAN}[DRY-RUN]${NC}   --data-binary @${profile_path}"
-    return 0
-  fi
-
-  local response
-  response=$(curl -fsS -X POST "$ADMIN_UPDATE_URL" \
-    -H "Authorization: Bearer ${ADMIN_TOKEN}" \
-    -H "Content-Type: application/json" \
-    --data-binary "@${profile_path}" \
-    2>&1) || {
-    err "Cloudflare profile upload failed:"
-    echo "$response" >&2
-    return 1
-  }
-
-  echo "$response"
-  ok "Profile uploaded to Cloudflare"
-
-  # Verify per-protocol
-  log "Verifying Cloudflare profile..."
-  local current
-  current=$(curl -fsS "$ADMIN_CURRENT_URL" \
-    -H "Authorization: Bearer ${ADMIN_TOKEN}" \
-    2>&1) || {
-    err "Cloudflare profile verification failed"
-    return 1
-  }
+# Verify Cloudflare profile matches expected values for the rotated protocol.
+# Returns 0 on match, 1 on mismatch. Does NOT print errors (caller decides).
+check_cf_verify() {
+  local current="$1"
 
   if ! command -v jq &>/dev/null; then
-    ok "Cloudflare profile uploaded (jq not available for deep verify)"
+    # Can't verify fields without jq
     return 0
   fi
 
@@ -801,7 +788,195 @@ sync_cloudflare() {
   if [[ "$verify_ok" == "0" ]]; then
     return 1
   fi
-  ok "Cloudflare profile verified (protocol=${ROTATE_PROTOCOL})"
+  return 0
+}
+
+# Build a summary of mismatched fields for logging.
+cf_mismatch_summary() {
+  local current="$1"
+  local mismatches=()
+
+  if ! command -v jq &>/dev/null; then
+    echo "(jq not available for field comparison)"
+    return
+  fi
+
+  case "$ROTATE_PROTOCOL" in
+    all)
+      verify_cf_field "$current" '.hy2.password' "$NEW_HY2_PASSWORD" "HY2" 2>/dev/null || mismatches+=("hy2.password")
+      verify_cf_field "$current" '.tuic.uuid' "$NEW_TUIC_UUID" "TUIC" 2>/dev/null || mismatches+=("tuic.uuid")
+      verify_cf_field "$current" '.tuic.password' "$NEW_TUIC_PASSWORD" "TUIC" 2>/dev/null || mismatches+=("tuic.password")
+      verify_cf_field "$current" '.reality.uuid' "$NEW_REALITY_UUID" "Reality" 2>/dev/null || mismatches+=("reality.uuid")
+      verify_cf_field "$current" '.reality.publicKey' "$NEW_REALITY_PUBLIC_KEY" "Reality" 2>/dev/null || mismatches+=("reality.publicKey")
+      verify_cf_field "$current" '.reality.shortId' "$NEW_REALITY_SHORT_ID" "Reality" 2>/dev/null || mismatches+=("reality.shortId")
+      verify_cf_field "$current" '.trojan.password' "$NEW_TROJAN_PASSWORD" "Trojan" 2>/dev/null || mismatches+=("trojan.password")
+      ;;
+    hy2)
+      verify_cf_field "$current" '.hy2.password' "$NEW_HY2_PASSWORD" "HY2" 2>/dev/null || mismatches+=("hy2.password")
+      ;;
+    tuic)
+      verify_cf_field "$current" '.tuic.uuid' "$NEW_TUIC_UUID" "TUIC" 2>/dev/null || mismatches+=("tuic.uuid")
+      verify_cf_field "$current" '.tuic.password' "$NEW_TUIC_PASSWORD" "TUIC" 2>/dev/null || mismatches+=("tuic.password")
+      ;;
+    reality)
+      verify_cf_field "$current" '.reality.uuid' "$NEW_REALITY_UUID" "Reality" 2>/dev/null || mismatches+=("reality.uuid")
+      verify_cf_field "$current" '.reality.publicKey' "$NEW_REALITY_PUBLIC_KEY" "Reality" 2>/dev/null || mismatches+=("reality.publicKey")
+      verify_cf_field "$current" '.reality.shortId' "$NEW_REALITY_SHORT_ID" "Reality" 2>/dev/null || mismatches+=("reality.shortId")
+      ;;
+    trojan)
+      verify_cf_field "$current" '.trojan.password' "$NEW_TROJAN_PASSWORD" "Trojan" 2>/dev/null || mismatches+=("trojan.password")
+      ;;
+  esac
+
+  if [[ ${#mismatches[@]} -eq 0 ]]; then
+    echo "(no mismatches)"
+  else
+    echo "${mismatches[*]}"
+  fi
+}
+
+# Try to restore old profile to Cloudflare (best-effort).
+restore_cloudflare_profile() {
+  local old_profile="$1"
+  if [[ ! -f "$old_profile" ]]; then
+    warn "No old profile to restore to Cloudflare"
+    return 1
+  fi
+
+  warn "Attempting Cloudflare rollback..."
+  local response
+  response=$(curl -fsS -X POST "$ADMIN_UPDATE_URL" \
+    -H "Authorization: Bearer ${ADMIN_TOKEN}" \
+    -H "Content-Type: application/json" \
+    --data-binary "@${old_profile}" \
+    2>&1) || {
+    err "Cloudflare rollback POST failed"
+    return 1
+  }
+
+  # Verify rollback
+  local attempt
+  for attempt in $(seq 1 "$CF_VERIFY_ATTEMPTS"); do
+    local current
+    current=$(curl -fsS "$ADMIN_CURRENT_URL" \
+      -H "Authorization: Bearer ${ADMIN_TOKEN}" \
+      2>&1) || {
+      sleep "$CF_VERIFY_SLEEP"
+      continue
+    }
+
+    local old_sha new_sha
+    old_sha=$(json_sha16 "$old_profile")
+    new_sha=$(echo "$current" | python3 -c "import json,sys,hashlib; d=json.loads(sys.stdin.read()); print(hashlib.sha256(json.dumps(d,sort_keys=True,separators=(',',':')).encode()).hexdigest()[:16])" 2>/dev/null || echo "unknown")
+
+    if [[ "$old_sha" == "$new_sha" ]]; then
+      ok "Cloudflare rollback profile verified (attempt ${attempt})"
+      return 0
+    fi
+
+    if [[ "$attempt" -lt "$CF_VERIFY_ATTEMPTS" ]]; then
+      warn "Cloudflare rollback verify attempt ${attempt}/${CF_VERIFY_ATTEMPTS} mismatch; retrying in ${CF_VERIFY_SLEEP}s..."
+      sleep "$CF_VERIFY_SLEEP"
+    fi
+  done
+
+  err "Cloudflare rollback verification failed after ${CF_VERIFY_ATTEMPTS} attempts"
+  return 1
+}
+
+sync_cloudflare() {
+  if [[ "$SKIP_CLOUDFLARE" == "1" ]]; then
+    log "Skipping Cloudflare sync (--skip-cloudflare)"
+    return 0
+  fi
+
+  local profile_path="${NANOBK_CONFIG_DIR}/profile.current.json"
+
+  log "Uploading profile to Cloudflare..."
+
+  if [[ "$NANOBK_DRY_RUN" == "1" ]]; then
+    echo -e "  ${CYAN}[DRY-RUN]${NC} curl -X POST ${ADMIN_UPDATE_URL}"
+    echo -e "  ${CYAN}[DRY-RUN]${NC}   --data-binary @${profile_path}"
+    return 0
+  fi
+
+  # Upload with retry
+  local upload_ok=0
+  local upload_attempt
+  for upload_attempt in $(seq 1 "$CF_VERIFY_ATTEMPTS"); do
+    local response
+    response=$(curl -fsS -X POST "$ADMIN_UPDATE_URL" \
+      -H "Authorization: Bearer ${ADMIN_TOKEN}" \
+      -H "Content-Type: application/json" \
+      --data-binary "@${profile_path}" \
+      2>&1) && {
+      echo "$response"
+      upload_ok=1
+      break
+    }
+
+    if [[ "$upload_attempt" -lt "$CF_VERIFY_ATTEMPTS" ]]; then
+      warn "Profile upload attempt ${upload_attempt}/${CF_VERIFY_ATTEMPTS} failed; retrying in ${CF_VERIFY_SLEEP}s..."
+      sleep "$CF_VERIFY_SLEEP"
+    fi
+  done
+
+  if [[ "$upload_ok" != "1" ]]; then
+    err "Cloudflare profile upload failed after ${CF_VERIFY_ATTEMPTS} attempts"
+    return 1
+  fi
+
+  CF_PROFILE_UPDATED=1
+  ok "Profile uploaded to Cloudflare"
+
+  # Verify with retry/backoff
+  log "Verifying Cloudflare profile (may retry on stale reads)..."
+
+  local local_sha
+  local_sha=$(json_sha16 "$profile_path")
+  local local_updated
+  local_updated=$(jq -r '.updatedAt // "unknown"' "$profile_path" 2>/dev/null || echo "unknown")
+
+  local verify_attempt
+  for verify_attempt in $(seq 1 "$CF_VERIFY_ATTEMPTS"); do
+    local current
+    current=$(curl -fsS "$ADMIN_CURRENT_URL" \
+      -H "Authorization: Bearer ${ADMIN_TOKEN}" \
+      2>&1) || {
+      warn "Cloudflare GET /admin/current failed (attempt ${verify_attempt})"
+      if [[ "$verify_attempt" -lt "$CF_VERIFY_ATTEMPTS" ]]; then
+        sleep "$CF_VERIFY_SLEEP"
+      fi
+      continue
+    }
+
+    # Output sha/atUpdatedAt comparison
+    local cloud_sha cloud_updated
+    cloud_sha=$(echo "$current" | python3 -c "import json,sys,hashlib; d=json.loads(sys.stdin.read()); print(hashlib.sha256(json.dumps(d,sort_keys=True,separators=(',',':')).encode()).hexdigest()[:16])" 2>/dev/null || echo "unknown")
+    cloud_updated=$(echo "$current" | jq -r '.updatedAt // "unknown"' 2>/dev/null || echo "unknown")
+
+    echo "  local updatedAt:  ${local_updated}"
+    echo "  cloud updatedAt:  ${cloud_updated}"
+    echo "  local sha16:      ${local_sha}"
+    echo "  cloud sha16:      ${cloud_sha}"
+
+    if check_cf_verify "$current"; then
+      ok "Cloudflare profile verified (attempt ${verify_attempt})"
+      return 0
+    fi
+
+    local mismatch_summary
+    mismatch_summary=$(cf_mismatch_summary "$current")
+    warn "Cloudflare verify attempt ${verify_attempt}/${CF_VERIFY_ATTEMPTS} mismatch: ${mismatch_summary}"
+    warn "Cloudflare may still be returning stale profile; retrying in ${CF_VERIFY_SLEEP}s..."
+
+    if [[ "$verify_attempt" -lt "$CF_VERIFY_ATTEMPTS" ]]; then
+      sleep "$CF_VERIFY_SLEEP"
+    fi
+  done
+
+  err "Cloudflare profile verification failed after ${CF_VERIFY_ATTEMPTS} attempts"
+  return 1
 }
 
 # ── Write secrets ───────────────────────────────────────────────────────────
@@ -993,6 +1168,26 @@ main() {
   # Phase 9: Cloudflare
   if ! sync_cloudflare; then
     err "Cloudflare sync failed"
+
+    # Best-effort Cloudflare rollback if we uploaded a new profile
+    if [[ "$CF_PROFILE_UPDATED" == "1" ]] && [[ -f "${BACKUP_DIR}/profile.current.json" ]]; then
+      if restore_cloudflare_profile "${BACKUP_DIR}/profile.current.json"; then
+        warn "Cloudflare rollback profile verified"
+      else
+        warn ""
+        warn "Local rollback completed, but Cloudflare rollback failed."
+        warn "Local and Cloudflare profiles may be inconsistent."
+        warn ""
+        warn "To manually resync, run:"
+        warn "  curl -fsS -X POST \"\$ADMIN_UPDATE_URL\" \\"
+        warn "    -H \"Authorization: Bearer \$ADMIN_TOKEN\" \\"
+        warn "    -H \"Content-Type: application/json\" \\"
+        warn "    --data-binary @${NANOBK_CONFIG_DIR}/profile.current.json"
+        warn ""
+        warn "Use ADMIN_TOKEN from your cf-admin-env file."
+      fi
+    fi
+
     rollback_local
     exit 1
   fi

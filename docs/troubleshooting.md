@@ -445,6 +445,45 @@ node -v  # Should show v22.x.x
 
 ---
 
+## Cloudflare TUIC UUID mismatch after rotate
+
+**Cause**: Cloudflare KV has eventual consistency. After `POST /admin/update`, an immediate `GET /admin/current` may return stale data, causing the rotate script to report a mismatch and rollback locally — creating a local/cloud split-brain.
+
+**Fix**: Upgrade to v1.4.2+ which adds retry/backoff for Cloudflare verification (5 attempts, 3s apart). The script now outputs `local sha16` / `cloud sha16` and `updatedAt` comparison for diagnosis.
+
+---
+
+## Cloudflare profile split-brain after rotate
+
+**Cause**: Rotate uploaded new profile to Cloudflare but then rolled back locally due to stale verify.
+
+**Fix**: v1.4.2+ adds best-effort Cloudflare rollback. If rollback fails, the script outputs a manual resync command:
+
+```bash
+curl -fsS -X POST "YOUR_ADMIN_UPDATE_URL" \
+  -H "Authorization: Bearer YOUR_ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  --data-binary @/etc/nanobk/profile.current.json
+```
+
+---
+
+## nanob subscription check failed but manual curl works
+
+**Cause**: Cloudflare Worker may still be propagating after deploy, or the subscription endpoint needs a moment to stabilize.
+
+**Fix**: v1.4.2+ adds retry/backoff (5 attempts, 3s apart) for nanob verification.
+
+---
+
+## profile upload 404 immediately after deploy
+
+**Cause**: Worker propagation delay. The Worker is deployed but the route isn't fully propagated yet.
+
+**Fix**: v1.4.2+ adds retry/backoff (5 attempts, 3s apart) for profile upload, with "Worker may still be propagating" message.
+
+---
+
 ## Wrangler reports "Unknown arguments: kv:namespace, create"
 
 **Cause**: Wrangler 4 changed the CLI syntax. Old: `wrangler kv:namespace create`. New: `wrangler kv namespace create`.
