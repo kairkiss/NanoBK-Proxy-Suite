@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — Main Installer v0.5.1
+# NanoBK Proxy Suite — Unified Beginner Installer v1.4.0
 #
 # Interactive entry point for NanoBK Proxy Suite.
-# Guides users through VPS deployment, Cloudflare setup, key rotation, and testing.
+# Guides users through VPS deployment, Cloudflare setup, Bot, Web Panel.
 #
 # Usage:
 #   bash installer/install.sh
+#   bash installer/install.sh --mode full
 #   bash installer/install.sh --mode doctor
-#   bash installer/install.sh --mode vps --dry-run
-#   bash installer/install.sh --mode commands
+#   bash installer/install.sh --mode commands --dry-run
 
 set -Eeuo pipefail
 
@@ -20,7 +20,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # ── Constants ───────────────────────────────────────────────────────────────
 
 REPO_URL="https://github.com/kairkiss/NanoBK-Proxy-Suite"
-VERSION="1.3.3"
+VERSION="1.4.0"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -36,15 +36,22 @@ NC='\033[0m'
 
 DRY_RUN=0
 YES=0
-LANG_CODE="zh"
+LANG_CODE=""
 MODE=""
 COMMAND_ONLY=0
 REPO_DIR_OVERRIDE=""
+SAVE_CONFIG=0
+RESUME=0
+DEFAULTS=0
+CONFIG_FILE=""
 
-# Environment state (set by detect_environment)
+# Environment state
 ENV_IS_LINUX=0
 ENV_HAS_SYSTEMD=0
 ENV_HAS_ROOT=0
+
+# Config file path (set after parse)
+INSTALLER_CONFIG=""
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -54,7 +61,6 @@ warn()  { echo -e "${YELLOW}[WARN]${NC}  $*"; }
 err()   { echo -e "${RED}[ERROR]${NC} $*" >&2; }
 die()   { err "$*"; exit 1; }
 
-# Safe command printing with proper quoting
 print_cmd() {
   local cmd=("$@")
   printf "  ${CYAN}\$${NC} "
@@ -62,7 +68,6 @@ print_cmd() {
   printf "\n"
 }
 
-# Safe command execution
 run_cmd() {
   local desc="$1"
   shift
@@ -94,7 +99,26 @@ run_cmd() {
   "${cmd[@]}"
 }
 
-# Prompt for input with default
+run_one_test() {
+  local script="$1"
+  local label="$2"
+  local cmd=(bash "$script")
+
+  log "运行: ${label}"
+  print_cmd "${cmd[@]}"
+
+  if [[ "$DRY_RUN" == "1" ]]; then
+    echo -e "  ${CYAN}[DRY-RUN]${NC} 跳过执行"
+    return 0
+  fi
+  if [[ "$COMMAND_ONLY" == "1" ]]; then
+    echo -e "  ${YELLOW}(仅生成命令，未执行)${NC}"
+    return 0
+  fi
+
+  "${cmd[@]}" || warn "测试失败: ${label}"
+}
+
 prompt() {
   local var_name="$1"
   local prompt_text="$2"
@@ -119,7 +143,6 @@ prompt() {
   fi
 }
 
-# Yes/No prompt
 confirm() {
   local prompt_text="$1"
   local default="${2:-n}"
@@ -142,34 +165,52 @@ confirm() {
   fi
 }
 
-# Run a single test script safely (no eval)
-run_one_test() {
-  local script="$1"
-  local label="$2"
-  local cmd=(bash "$script")
+# ── Config save/resume ──────────────────────────────────────────────────────
 
-  log "运行: ${label}"
-  print_cmd "${cmd[@]}"
-
-  if [[ "$DRY_RUN" == "1" ]]; then
-    echo -e "  ${CYAN}[DRY-RUN]${NC} 跳过执行"
-    return 0
+resolve_config_file() {
+  if [[ -n "$CONFIG_FILE" ]]; then
+    INSTALLER_CONFIG="$CONFIG_FILE"
+  elif [[ $EUID -eq 0 ]]; then
+    INSTALLER_CONFIG="/root/.nanobk/installer.env"
+  else
+    INSTALLER_CONFIG="${HOME}/.nanobk/installer.env"
   fi
-  if [[ "$COMMAND_ONLY" == "1" ]]; then
-    echo -e "  ${YELLOW}(仅生成命令，未执行)${NC}"
-    return 0
-  fi
-
-  "${cmd[@]}" || warn "测试失败: ${label}"
 }
 
-# Check if mode is destructive (requires real system/CF changes)
-is_destructive_mode() {
-  local mode="$1"
-  case "$mode" in
-    vps|cloudflare|nanob|rotate|full) return 0 ;;
-    *) return 1 ;;
-  esac
+save_config() {
+  [[ "$SAVE_CONFIG" == "1" ]] || return 0
+  [[ "$DRY_RUN" == "1" ]] && return 0
+
+  mkdir -p "$(dirname "$INSTALLER_CONFIG")"
+
+  cat > "$INSTALLER_CONFIG" <<EOF
+# NanoBK Installer Config — generated $(date -Iseconds 2>/dev/null || date '+%Y-%m-%dT%H:%M:%S')
+# This file contains non-sensitive installer preferences.
+# Sensitive tokens are stored in bot/.env, web/.env, .cloudflare.local.env etc.
+
+NANOBK_LANG="${LANG_CODE}"
+NANOBK_MODE="${MODE}"
+NANOBK_DOMAIN="${NANOBK_DOMAIN:-}"
+NANOBK_CERT_MODE="${NANOBK_CERT_MODE:-}"
+NANOBK_DEPLOY_CLOUDFLARE="${NANOBK_DEPLOY_CLOUDFLARE:-}"
+NANOBK_DEPLOY_NANOB="${NANOBK_DEPLOY_NANOB:-}"
+NANOBK_ENABLE_BOT="${NANOBK_ENABLE_BOT:-}"
+NANOBK_ENABLE_WEB="${NANOBK_ENABLE_WEB:-}"
+NANOBK_WEB_PORT="${NANOBK_WEB_PORT:-8080}"
+NANOBK_NANOK_URL="${NANOBK_NANOK_URL:-}"
+NANOBK_NANOB_URL="${NANOBK_NANOB_URL:-}"
+EOF
+  chmod 600 "$INSTALLER_CONFIG"
+  ok "配置已保存: ${INSTALLER_CONFIG}"
+}
+
+load_config() {
+  if [[ ! -f "$INSTALLER_CONFIG" ]]; then
+    return 0
+  fi
+  log "读取已有配置: ${INSTALLER_CONFIG}"
+  # shellcheck source=/dev/null
+  source "$INSTALLER_CONFIG" 2>/dev/null || true
 }
 
 # ── Environment detection ───────────────────────────────────────────────────
@@ -188,7 +229,6 @@ detect_environment() {
   command -v systemctl &>/dev/null && ENV_HAS_SYSTEMD=1
   [[ $EUID -eq 0 ]] && ENV_HAS_ROOT=1
 
-  # Check tools
   local tools_status=""
   for cmd in curl jq python3 openssl git node npm; do
     if command -v "$cmd" &>/dev/null; then
@@ -221,51 +261,84 @@ check_repo() {
   ok "仓库目录: ${REPO_DIR}"
 }
 
+# ── Language selection ───────────────────────────────────────────────────────
+
+select_language() {
+  if [[ -n "$LANG_CODE" ]]; then
+    return 0
+  fi
+
+  # Check saved config
+  if [[ -n "${NANOBK_LANG:-}" ]]; then
+    LANG_CODE="$NANOBK_LANG"
+    return 0
+  fi
+
+  echo ""
+  echo "  请选择语言 / Choose language:"
+  echo "    1) 简体中文"
+  echo "    2) English"
+  echo -en "${BOLD}  [1]:${NC} "
+  read -r lang_choice
+
+  case "${lang_choice:-1}" in
+    2) LANG_CODE="en" ;;
+    *) LANG_CODE="zh" ;;
+  esac
+}
+
 # ── Argument parsing ────────────────────────────────────────────────────────
 
 parse_args() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --dry-run)    DRY_RUN=1 ;;
-      --yes)        YES=1 ;;
-      --lang)       LANG_CODE="$2"; shift ;;
-      --mode)       MODE="$2"; shift ;;
-      --repo-dir)   REPO_DIR_OVERRIDE="$2"; shift ;;
-      --help|-h)    show_help; exit 0 ;;
-      *)            err "未知参数: $1"; show_help; exit 1 ;;
+      --dry-run)      DRY_RUN=1 ;;
+      --yes)          YES=1 ;;
+      --lang)         LANG_CODE="$2"; shift ;;
+      --mode)         MODE="$2"; shift ;;
+      --repo-dir)     REPO_DIR_OVERRIDE="$2"; shift ;;
+      --save-config)  SAVE_CONFIG=1 ;;
+      --config-file)  CONFIG_FILE="$2"; shift ;;
+      --resume)       RESUME=1 ;;
+      --defaults)     DEFAULTS=1 ;;
+      --help|-h)      show_help; exit 0 ;;
+      *)              err "Unknown option: $1"; show_help; exit 1 ;;
     esac
     shift
   done
 
   # Handle --repo-dir override
   if [[ -n "$REPO_DIR_OVERRIDE" ]]; then
-    if [[ ! -d "$REPO_DIR_OVERRIDE" ]]; then
-      die "指定的仓库目录不存在: ${REPO_DIR_OVERRIDE}"
-    fi
+    [[ -d "$REPO_DIR_OVERRIDE" ]] || die "指定的仓库目录不存在: ${REPO_DIR_OVERRIDE}"
     REPO_DIR="$(cd "$REPO_DIR_OVERRIDE" && pwd)"
   fi
 
-  # Handle --lang en (reserved)
-  if [[ "$LANG_CODE" == "en" ]]; then
-    warn "English UI is reserved and incomplete; falling back to Chinese for now."
-    LANG_CODE="zh"
+  # Resolve config file path
+  resolve_config_file
+
+  # --resume loads saved config
+  if [[ "$RESUME" == "1" ]]; then
+    load_config
+  fi
+
+  # --defaults sets defaults mode
+  if [[ "$DEFAULTS" == "1" ]]; then
+    YES=1
+    LANG_CODE="${LANG_CODE:-zh}"
   fi
 
   # Safety: --yes without --dry-run on destructive modes
   if [[ "$YES" == "1" ]] && [[ "$DRY_RUN" != "1" ]] && [[ -n "$MODE" ]]; then
-    if is_destructive_mode "$MODE"; then
-      err "为避免使用 example.com 默认值执行真实部署，install.sh 不支持 --yes 直接运行 ${MODE}。"
-      echo ""
-      echo "  请去掉 --yes 使用交互式输入，或使用具体子安装器并显式提供完整参数："
-      echo ""
-      echo "    bash installer/install-vps.sh --yes --domain your-domain.com ..."
-      echo "    bash installer/install-cloudflare.sh --yes --route-url https://your-worker ..."
-      echo ""
-      echo "  或使用 --dry-run 预览："
-      echo "    bash installer/install.sh --mode ${MODE} --yes --dry-run"
-      echo ""
-      exit 1
-    fi
+    case "$MODE" in
+      vps|cloudflare|nanob|rotate|full)
+        err "为避免使用默认值执行真实部署，install.sh 不支持 --yes 直接运行 ${MODE}。"
+        echo ""
+        echo "  请去掉 --yes 使用交互式输入，或使用 --dry-run 预览："
+        echo "    bash installer/install.sh --mode ${MODE} --dry-run"
+        echo ""
+        exit 1
+        ;;
+    esac
   fi
 }
 
@@ -278,17 +351,22 @@ NanoBK Proxy Suite — 交互式安装器 v${VERSION}
 
 选项:
   --dry-run          只打印命令，不执行
-  --yes              非交互模式（仅限 doctor/test/commands 模式）
-  --lang zh|en       语言（当前主要支持 zh，en 为预留）
+  --yes              非交互模式（仅限 doctor/test/commands）
+  --lang zh|en       语言
   --mode MODE        直接指定模式，跳过菜单
   --repo-dir PATH    指定仓库根目录
+  --save-config      保存安装配置到本地
+  --config-file PATH 指定配置文件路径
+  --resume           读取上次配置继续
+  --defaults         使用默认值（非交互）
   --help             显示帮助
 
 模式（--mode）:
+  full               完整安装（VPS + Cloudflare + Bot + Web）
   vps                部署 VPS 四协议节点
-  cloudflare         部署 Cloudflare nanok 主订阅
-  full               完整链路向导（VPS + Cloudflare）
-  nanob              部署 nanob 聚合器
+  cloudflare         部署 Cloudflare nanok/nanob
+  bot                配置 Telegram Bot
+  web                配置 Web Panel
   rotate             一键换密钥
   doctor             运行环境诊断
   test               运行本地安全测试
@@ -297,9 +375,8 @@ NanoBK Proxy Suite — 交互式安装器 v${VERSION}
 示例:
   bash installer/install.sh
   bash installer/install.sh --mode doctor
-  bash installer/install.sh --mode vps --dry-run
+  bash installer/install.sh --mode full --dry-run --defaults --lang zh
   bash installer/install.sh --mode commands
-  bash installer/install.sh --repo-dir /path/to/NanoBK-Proxy-Suite --mode doctor
 EOF
 }
 
@@ -312,25 +389,26 @@ collect_vps_args() {
 
   local domain cert_mode cert_file key_file reality_sname
 
-  prompt domain "请输入节点域名" "proxy.example.com"
-  prompt cert_mode "证书模式 (existing/self-signed)" "existing"
+  prompt domain "请输入节点域名" "${NANOBK_DOMAIN:-proxy.example.com}"
+  NANOBK_DOMAIN="$domain"
+
+  prompt cert_mode "证书模式 (existing/self-signed)" "${NANOBK_CERT_MODE:-self-signed}"
 
   if [[ "$cert_mode" == "existing" ]]; then
     prompt cert_file "证书 fullchain 路径" "/etc/letsencrypt/live/${domain}/fullchain.pem"
     prompt key_file "证书 privkey 路径" "/etc/letsencrypt/live/${domain}/privkey.pem"
   elif [[ "$cert_mode" == "self-signed" ]]; then
-    warn "自签证书只建议测试，有些客户端可能拒绝。生产建议使用真实证书。"
+    warn "自签证书只建议测试，有些客户端可能拒绝。"
     cert_file=""
     key_file=""
   else
     err "无效的证书模式: ${cert_mode}"
     return 1
   fi
+  NANOBK_CERT_MODE="$cert_mode"
 
   prompt reality_sname "Reality 伪装域名" "www.microsoft.com"
 
-  echo ""
-  log "将执行以下命令："
   echo ""
 
   local cmd=(bash "$REPO_DIR/installer/install-vps.sh" --yes
@@ -341,24 +419,21 @@ collect_vps_args() {
   [[ "$cert_mode" == "existing" ]] && cmd+=(--cert-file "$cert_file" --key-file "$key_file")
   [[ "$DRY_RUN" == "1" ]] && cmd+=(--dry-run)
 
-  print_cmd "${cmd[@]}"
-  echo ""
-  echo "  ${YELLOW}提示：此命令需要在 Linux VPS 上以 root 运行。${NC}"
-
   run_cmd "部署 VPS 四协议" "${cmd[@]}"
 }
 
-# ── Cloudflare nanok parameter collection ───────────────────────────────────
+# ── Cloudflare parameter collection ─────────────────────────────────────────
 
-collect_cloudflare_nanok_args() {
+collect_cloudflare_args() {
   echo ""
-  echo -e "${BOLD}── Cloudflare nanok 部署参数 ──${NC}"
+  echo -e "${BOLD}── Cloudflare 部署参数 ──${NC}"
   echo ""
 
-  local profile route_url kv_choice kv_id skip_upload skip_verify
+  local profile route_url kv_choice kv_id nanob_choice nanob_url geo_choice geo_id
 
   prompt profile "profile.current.json 路径" "/etc/nanobk/profile.current.json"
-  prompt route_url "nanok Worker URL" "https://nanok.example.workers.dev"
+  prompt route_url "nanok Worker URL" "${NANOBK_NANOK_URL:-https://nanok.example.workers.dev}"
+  NANOBK_NANOK_URL="$route_url"
 
   echo ""
   echo "  KV namespace 选择："
@@ -374,97 +449,349 @@ collect_cloudflare_nanok_args() {
     kv_args+=(--create-kv)
   fi
 
-  if confirm "跳过 profile 上传？" "n"; then
-    skip_upload=1
-  else
-    skip_upload=0
-  fi
+  NANOBK_DEPLOY_CLOUDFLARE="true"
 
-  if confirm "跳过验证？" "n"; then
-    skip_verify=1
-  else
-    skip_verify=0
-  fi
-
+  # nanob
   echo ""
-  log "将执行以下命令："
-  echo ""
+  if confirm "是否部署 nanob 聚合器？" "y"; then
+    NANOBK_DEPLOY_NANOB="true"
+    prompt nanob_url "nanob Worker URL" "${NANOBK_NANOB_URL:-https://nanob.example.workers.dev}"
+    NANOBK_NANOB_URL="$nanob_url"
 
-  local cmd=(bash "$REPO_DIR/installer/install-cloudflare.sh" --yes
-    "${kv_args[@]}"
-    --profile "$profile"
-    --route-url "$route_url")
+    echo ""
+    echo "  Geo KV namespace 选择："
+    echo "    1) 自动创建"
+    echo "    2) 使用已有 Geo KV ID"
+    prompt geo_choice "请选择" "1"
 
-  [[ "$skip_upload" == "1" ]] && cmd+=(--skip-profile-upload)
-  [[ "$skip_verify" == "1" ]] && cmd+=(--skip-verify)
-  [[ "$DRY_RUN" == "1" ]] && cmd+=(--dry-run)
+    local geo_args=()
+    if [[ "$geo_choice" == "2" ]]; then
+      prompt geo_id "Geo KV namespace ID"
+      geo_args+=(--nanob-geo-kv-namespace-id "$geo_id")
+    else
+      geo_args+=(--create-nanob-geo-kv)
+    fi
 
-  print_cmd "${cmd[@]}"
+    local nanok_cmd=(bash "$REPO_DIR/installer/install-cloudflare.sh" --yes
+      "${kv_args[@]}"
+      --profile "$profile"
+      --route-url "$route_url"
+      --deploy-nanob
+      --nanob-route-url "$nanob_url"
+      "${geo_args[@]}")
+    [[ "$DRY_RUN" == "1" ]] && nanok_cmd+=(--dry-run)
 
-  CF_CMD=("${cmd[@]}")
-  CF_ROUTE_URL="$route_url"
-  CF_PROFILE="$profile"
+    run_cmd "部署 nanok + nanob" "${nanok_cmd[@]}"
+  else
+    NANOBK_DEPLOY_NANOB="false"
+    local nanok_cmd=(bash "$REPO_DIR/installer/install-cloudflare.sh" --yes
+      "${kv_args[@]}"
+      --profile "$profile"
+      --route-url "$route_url")
+    [[ "$DRY_RUN" == "1" ]] && nanok_cmd+=(--dry-run)
+
+    run_cmd "部署 nanok" "${nanok_cmd[@]}"
+  fi
 }
 
-# ── Cloudflare nanob parameter collection ───────────────────────────────────
+# ── Bot configuration ───────────────────────────────────────────────────────
 
-collect_cloudflare_nanob_args() {
-  collect_cloudflare_nanok_args
-
+collect_bot_args() {
   echo ""
-  echo -e "${BOLD}── nanob 聚合器参数 ──${NC}"
+  echo -e "${BOLD}── Telegram Bot 配置 ──${NC}"
   echo ""
 
-  local nanob_url geo_choice geo_id edge_host edge_token
+  NANOBK_ENABLE_BOT="true"
 
-  prompt nanob_url "nanob Worker URL" "https://nanob.example.workers.dev"
+  local bot_token owner_id bot_dry_run
 
-  echo ""
-  echo "  Geo KV namespace 选择："
-  echo "    1) 自动创建"
-  echo "    2) 使用已有 Geo KV ID"
-  prompt geo_choice "请选择" "1"
+  prompt bot_token "Telegram Bot Token (从 @BotFather 获取)" ""
+  prompt owner_id "你的 Telegram 数字 User ID" ""
 
-  local geo_args=()
-  if [[ "$geo_choice" == "2" ]]; then
-    prompt geo_id "Geo KV namespace ID"
-    geo_args+=(--nanob-geo-kv-namespace-id "$geo_id")
-  else
-    geo_args+=(--create-nanob-geo-kv)
+  if [[ -z "$bot_token" ]] || [[ -z "$owner_id" ]]; then
+    warn "Bot Token 或 User ID 为空，Bot 将无法启动。"
+    warn "请稍后编辑 bot/.env 填写。"
   fi
 
-  local edge_args=()
-  if confirm "是否配置 edgetunnel backup？" "n"; then
-    prompt edge_host "edgetunnel host" "edge-subscription.example.com"
-    edge_args+=(--edge-host "$edge_host")
+  if confirm "首次启动使用 dry-run 模式？(推荐)" "y"; then
+    bot_dry_run="true"
+  else
+    bot_dry_run="false"
+  fi
 
-    if confirm "是否有 edgetunnel internal auth token？" "n"; then
-      prompt edge_token "edgetunnel export token"
-      edge_args+=(--edgetunnel-export-token "$edge_token")
+  local repo_dir_for_bot="$REPO_DIR"
+  if [[ "$DRY_RUN" != "1" ]]; then
+    mkdir -p "$REPO_DIR/bot"
+    cat > "$REPO_DIR/bot/.env" <<EOF
+TELEGRAM_BOT_TOKEN=${bot_token}
+OWNER_TELEGRAM_ID=${owner_id}
+NANOBK_CLI=${repo_dir_for_bot}/bin/nanobk
+NANOBK_REPO_DIR=${repo_dir_for_bot}
+NANOBK_BOT_DRY_RUN=${bot_dry_run}
+NANOBK_COMMAND_TIMEOUT=120
+NANOBK_ROTATE_TIMEOUT=300
+EOF
+    chmod 600 "$REPO_DIR/bot/.env"
+    ok "Bot 配置已保存: bot/.env"
+  else
+    echo -e "  ${CYAN}[DRY-RUN]${NC} Would write bot/.env"
+  fi
+
+  echo ""
+  echo "  测试 Bot 配置:"
+  print_cmd python3 "$REPO_DIR/bot/nanobk_bot.py" --self-test
+
+  if [[ "$DRY_RUN" != "1" ]] && [[ "$COMMAND_ONLY" != "1" ]]; then
+    if confirm "现在运行 Bot self-test？" "y"; then
+      python3 "$REPO_DIR/bot/nanobk_bot.py" --self-test || warn "Bot self-test 失败"
     fi
   fi
 
   echo ""
-  log "将执行以下命令："
+  echo "  启动 Bot:"
+  echo "    cd $REPO_DIR/bot && bash run.sh"
   echo ""
-
-  local cmd=("${CF_CMD[@]}")
-  cmd+=(--deploy-nanob
-    --nanob-route-url "$nanob_url"
-    "${geo_args[@]}"
-    "${edge_args[@]}")
-
-  print_cmd "${cmd[@]}"
-
-  CF_CMD=("${cmd[@]}")
-  CF_NANOB_URL="$nanob_url"
+  echo "  systemd 示例:"
+  echo "    bot/systemd/nanobk-telegram-bot.service.example"
 }
 
-# ── Rotate parameter collection ─────────────────────────────────────────────
+# ── Web Panel configuration ─────────────────────────────────────────────────
 
-collect_rotate_args() {
+collect_web_args() {
   echo ""
-  echo -e "${BOLD}── 一键换密钥参数 ──${NC}"
+  echo -e "${BOLD}── Web Panel 配置 ──${NC}"
+  echo ""
+
+  NANOBK_ENABLE_WEB="true"
+
+  local web_token web_secret web_host web_port web_dry_run
+
+  prompt web_token "Web 登录 Token (留空自动生成)" ""
+  prompt web_secret "Flask Secret Key (留空自动生成)" ""
+  prompt web_host "监听地址" "127.0.0.1"
+  prompt web_port "监听端口" "8080"
+  NANOBK_WEB_PORT="$web_port"
+
+  # Auto-generate if empty
+  if [[ -z "$web_token" ]]; then
+    web_token=$(openssl rand -base64 32 | tr -d '\n/+=' | head -c 32)
+    ok "自动生成 Web Token"
+  fi
+  if [[ -z "$web_secret" ]]; then
+    web_secret=$(openssl rand -base64 32 | tr -d '\n/+=' | head -c 32)
+    ok "自动生成 Flask Secret Key"
+  fi
+
+  if confirm "首次启动使用 dry-run 模式？(推荐)" "y"; then
+    web_dry_run="true"
+  else
+    web_dry_run="false"
+  fi
+
+  local repo_dir_for_web="$REPO_DIR"
+  if [[ "$DRY_RUN" != "1" ]]; then
+    mkdir -p "$REPO_DIR/web"
+    cat > "$REPO_DIR/web/.env" <<EOF
+NANOBK_WEB_TOKEN=${web_token}
+NANOBK_WEB_SECRET_KEY=${web_secret}
+NANOBK_WEB_HOST=${web_host}
+NANOBK_WEB_PORT=${web_port}
+NANOBK_CLI=${repo_dir_for_web}/bin/nanobk
+NANOBK_REPO_DIR=${repo_dir_for_web}
+NANOBK_WEB_DRY_RUN=${web_dry_run}
+NANOBK_COMMAND_TIMEOUT=120
+NANOBK_ROTATE_TIMEOUT=300
+EOF
+    chmod 600 "$REPO_DIR/web/.env"
+    ok "Web Panel 配置已保存: web/.env"
+  else
+    echo -e "  ${CYAN}[DRY-RUN]${NC} Would write web/.env"
+  fi
+
+  echo ""
+  echo "  测试 Web Panel 配置:"
+  print_cmd python3 "$REPO_DIR/web/app.py" --self-test
+
+  if [[ "$DRY_RUN" != "1" ]] && [[ "$COMMAND_ONLY" != "1" ]]; then
+    if confirm "现在运行 Web Panel self-test？" "y"; then
+      python3 "$REPO_DIR/web/app.py" --self-test || warn "Web Panel self-test 失败"
+    fi
+  fi
+
+  echo ""
+  echo "  启动 Web Panel:"
+  echo "    cd $REPO_DIR/web && bash run.sh"
+  echo ""
+  echo "  ${YELLOW}默认只监听 127.0.0.1，不裸露公网。${NC}"
+  echo "  远程访问请用 SSH tunnel:"
+  echo "    ssh -L ${web_port}:127.0.0.1:${web_port} root@YOUR_VPS_IP"
+  echo "    浏览器打开: http://127.0.0.1:${web_port}"
+  echo ""
+  echo "  systemd 示例:"
+  echo "    web/systemd/nanobk-web-panel.service.example"
+}
+
+# ── Full wizard ─────────────────────────────────────────────────────────────
+
+run_full_wizard() {
+  echo ""
+  echo -e "${BOLD}═══ 完整安装向导 ═══${NC}"
+  echo ""
+  echo "  将引导你完成以下步骤："
+  echo "    1. VPS 四协议部署"
+  echo "    2. Cloudflare nanok/nanob 订阅部署"
+  echo "    3. Telegram Bot 配置（可选）"
+  echo "    4. Web Panel 配置（可选）"
+  echo "    5. 最终摘要"
+  echo ""
+
+  # Phase 1: VPS
+  echo -e "${BOLD}── 阶段 1：VPS 部署 ──${NC}"
+  echo ""
+  if confirm "是否配置 VPS 部署？" "y"; then
+    collect_vps_args
+  else
+    echo "  跳过 VPS 部署。"
+  fi
+
+  # Phase 2: Cloudflare
+  echo ""
+  echo -e "${BOLD}── 阶段 2：Cloudflare 部署 ──${NC}"
+  echo ""
+  if confirm "是否配置 Cloudflare 部署？" "y"; then
+    collect_cloudflare_args
+  else
+    echo "  跳过 Cloudflare 部署。"
+  fi
+
+  # Phase 3: Bot
+  echo ""
+  echo -e "${BOLD}── 阶段 3：Telegram Bot（可选）${NC}"
+  echo ""
+  if confirm "是否配置 Telegram Bot？" "y"; then
+    collect_bot_args
+  else
+    NANOBK_ENABLE_BOT="false"
+    echo "  跳过 Telegram Bot。"
+  fi
+
+  # Phase 4: Web Panel
+  echo ""
+  echo -e "${BOLD}── 阶段 4：Web Panel（可选）${NC}"
+  echo ""
+  if confirm "是否配置 Web Panel？" "y"; then
+    collect_web_args
+  else
+    NANOBK_ENABLE_WEB="false"
+    echo "  跳过 Web Panel。"
+  fi
+
+  # Save config
+  save_config
+
+  # Phase 5: Summary
+  print_summary
+}
+
+# ── Summary ─────────────────────────────────────────────────────────────────
+
+print_summary() {
+  echo ""
+  echo "╔══════════════════════════════════════════════════════════╗"
+  echo "║           NanoBK Setup Summary                          ║"
+  echo "╚══════════════════════════════════════════════════════════╝"
+  echo ""
+
+  # VPS
+  echo "  VPS:"
+  if [[ -n "${NANOBK_DOMAIN:-}" ]] && [[ "$NANOBK_DOMAIN" != "proxy.example.com" ]]; then
+    echo "    domain: ${NANOBK_DOMAIN}"
+    echo "    cert:   ${NANOBK_CERT_MODE:-unknown}"
+  else
+    echo "    (未配置或使用示例域名)"
+  fi
+
+  # Cloudflare
+  echo ""
+  echo "  Cloudflare:"
+  if [[ "${NANOBK_DEPLOY_CLOUDFLARE:-}" == "true" ]]; then
+    echo "    nanok:  ${NANOBK_NANOK_URL:-<not set>}"
+    if [[ "${NANOBK_DEPLOY_NANOB:-}" == "true" ]]; then
+      echo "    nanob:  ${NANOBK_NANOB_URL:-<not set>}"
+    else
+      echo "    nanob:  not deployed"
+    fi
+  else
+    echo "    (未配置)"
+  fi
+
+  # Bot
+  echo ""
+  echo "  Telegram Bot:"
+  if [[ "${NANOBK_ENABLE_BOT:-}" == "true" ]]; then
+    echo "    configured: yes"
+    echo "    dry-run: ${NANOBK_BOT_DRY_RUN:-unknown}"
+  else
+    echo "    (未配置)"
+  fi
+
+  # Web
+  echo ""
+  echo "  Web Panel:"
+  if [[ "${NANOBK_ENABLE_WEB:-}" == "true" ]]; then
+    echo "    configured: yes"
+    echo "    url: http://${NANOBK_WEB_HOST:-127.0.0.1}:${NANOBK_WEB_PORT:-8080}"
+    echo "    remote access:"
+    echo "      ssh -L ${NANOBK_WEB_PORT:-8080}:127.0.0.1:${NANOBK_WEB_PORT:-8080} root@YOUR_VPS_IP"
+  else
+    echo "    (未配置)"
+  fi
+
+  # Useful commands
+  echo ""
+  echo "  常用命令:"
+  echo "    nanobk status"
+  echo "    nanobk doctor"
+  echo "    nanobk rotate tuic"
+  echo ""
+
+  if [[ -n "$INSTALLER_CONFIG" ]] && [[ -f "$INSTALLER_CONFIG" ]]; then
+    echo "  配置已保存: ${INSTALLER_CONFIG}"
+    echo "  使用 --resume 可以继续上次配置。"
+    echo ""
+  fi
+}
+
+# ── Mode handlers ───────────────────────────────────────────────────────────
+
+run_vps_mode() {
+  if [[ "$ENV_IS_LINUX" != "1" ]] && [[ "$DRY_RUN" != "1" ]] && [[ "$COMMAND_ONLY" != "1" ]]; then
+    warn "当前不是 Linux 系统，VPS 安装需要在 Linux VPS 上运行。"
+    if ! confirm "仍然继续（可能失败）？" "n"; then
+      return
+    fi
+  fi
+  collect_vps_args
+}
+
+run_cloudflare_mode() {
+  collect_cloudflare_args
+  save_config
+}
+
+run_bot_mode() {
+  collect_bot_args
+  save_config
+}
+
+run_web_mode() {
+  collect_web_args
+  save_config
+}
+
+run_rotate_mode() {
+  echo ""
+  echo -e "${BOLD}── 一键换密钥 ──${NC}"
   echo ""
 
   local config_dir cf_admin_env skip_cf skip_svc
@@ -484,10 +811,6 @@ collect_rotate_args() {
     skip_svc=0
   fi
 
-  echo ""
-  log "将执行以下命令："
-  echo ""
-
   local cmd=(sudo bash "$REPO_DIR/vps/scripts/rotate-keys.sh" --yes
     --config-dir "$config_dir"
     --cf-admin-env "$cf_admin_env")
@@ -496,106 +819,10 @@ collect_rotate_args() {
   [[ "$skip_svc" == "1" ]] && cmd+=(--skip-services)
   [[ "$DRY_RUN" == "1" ]] && cmd+=(--dry-run)
 
-  print_cmd "${cmd[@]}"
   echo ""
   echo "  ${YELLOW}提示：此命令需要在 VPS 上以 root 运行。${NC}"
 
   run_cmd "一键换密钥" "${cmd[@]}"
-}
-
-# ── Mode handlers ───────────────────────────────────────────────────────────
-
-run_vps_mode() {
-  if [[ "$ENV_IS_LINUX" != "1" ]] && [[ "$DRY_RUN" != "1" ]] && [[ "$COMMAND_ONLY" != "1" ]]; then
-    warn "当前不是 Linux 系统，VPS 安装需要在 Linux VPS 上运行。"
-    if ! confirm "仍然继续（可能失败）？" "n"; then
-      return
-    fi
-  fi
-  collect_vps_args
-}
-
-run_cloudflare_mode() {
-  collect_cloudflare_nanok_args
-}
-
-run_full_wizard() {
-  echo ""
-  echo -e "${BOLD}═══ 完整链路部署向导 ═══${NC}"
-  echo ""
-  echo "  完整链路包含以下步骤："
-  echo "    1. VPS 部署四协议节点"
-  echo "    2. Cloudflare 部署 nanok 主订阅"
-  echo "    3. （可选）部署 nanob 聚合器"
-  echo "    4. 导入订阅到客户端"
-  echo ""
-  echo "  ${YELLOW}每一步都可以单独执行，不会一次性全部自动跑。${NC}"
-  echo ""
-
-  # Phase 1: VPS
-  echo -e "${BOLD}── 阶段 1：VPS 部署 ──${NC}"
-  echo ""
-  echo "  此步骤需要在 Linux VPS 上运行。"
-  echo "  如果你当前不在 VPS 上，可以选择只生成命令。"
-  echo ""
-
-  if confirm "是否现在配置 VPS 部署参数？" "y"; then
-    collect_vps_args
-  else
-    echo ""
-    echo "  跳过 VPS 部署。你可以稍后运行："
-    echo "    bash installer/install.sh --mode vps"
-  fi
-
-  # Phase 2: Cloudflare
-  echo ""
-  echo -e "${BOLD}── 阶段 2：Cloudflare 部署 ──${NC}"
-  echo ""
-  echo "  此步骤可以在 Mac 或 Linux 上运行。"
-  echo "  需要先安装 wrangler 并登录：npm install -g wrangler && wrangler login"
-  echo ""
-
-  if confirm "是否现在配置 Cloudflare 部署参数？" "y"; then
-    collect_cloudflare_nanok_args
-  else
-    echo ""
-    echo "  跳过 Cloudflare 部署。你可以稍后运行："
-    echo "    bash installer/install.sh --mode cloudflare"
-  fi
-
-  # Phase 3: Client import
-  echo ""
-  echo -e "${BOLD}── 阶段 3：客户端导入 ──${NC}"
-  echo ""
-  echo "  部署完成后，将以下订阅 URL 导入 Clash/Mihomo："
-  echo ""
-  if [[ -n "${CF_NANOB_URL:-}" ]]; then
-    echo "    推荐（nanob 聚合）：${CF_NANOB_URL}/jb?token=<NANOB_TOKEN>"
-    echo "    直接（nanok 主订阅）：${CF_ROUTE_URL:-<nanok-url>}/jb?token=<SUB_TOKEN>"
-  elif [[ -n "${CF_ROUTE_URL:-}" ]]; then
-    echo "    ${CF_ROUTE_URL}/jb?token=<SUB_TOKEN>"
-  else
-    echo "    https://<your-worker-url>/jb?token=<your-token>"
-  fi
-
-  # Phase 4: Key rotation
-  echo ""
-  echo -e "${BOLD}── 阶段 4：换密钥 ──${NC}"
-  echo ""
-  echo "  以后需要换密钥时，运行："
-  echo "    bash installer/install.sh --mode rotate"
-  echo "  或直接："
-  echo "    sudo bash vps/scripts/rotate-keys.sh --yes"
-  echo ""
-  echo -e "${GREEN}  向导完成！${NC}"
-}
-
-run_nanob_mode() {
-  collect_cloudflare_nanob_args
-}
-
-run_rotate_mode() {
-  collect_rotate_args
 }
 
 run_doctor_mode() {
@@ -645,7 +872,18 @@ run_commands_mode() {
   echo "    --key-file /etc/letsencrypt/live/proxy.example.com/privkey.pem"
   echo ""
 
-  echo -e "${BOLD}── Cloudflare nanok ──${NC}"
+  echo -e "${BOLD}── Cloudflare preflight ──${NC}"
+  echo ""
+  echo "  bash installer/install-cloudflare.sh --preflight"
+  echo ""
+
+  echo -e "${BOLD}── Cloudflare profile validation ──${NC}"
+  echo ""
+  echo "  bash installer/install-cloudflare.sh --validate-profile-only \\"
+  echo "    --profile /etc/nanobk/profile.current.json"
+  echo ""
+
+  echo -e "${BOLD}── Cloudflare nanok deploy ──${NC}"
   echo ""
   echo "  bash installer/install-cloudflare.sh --yes \\"
   echo "    --create-kv \\"
@@ -653,7 +891,7 @@ run_commands_mode() {
   echo "    --route-url https://nanok.example.workers.dev"
   echo ""
 
-  echo -e "${BOLD}── Cloudflare nanok + nanob ──${NC}"
+  echo -e "${BOLD}── Cloudflare nanok + nanob deploy ──${NC}"
   echo ""
   echo "  bash installer/install-cloudflare.sh --yes \\"
   echo "    --create-kv --create-nanob-geo-kv \\"
@@ -671,10 +909,10 @@ run_commands_mode() {
   echo -e "${BOLD}── 诊断和测试 ──${NC}"
   echo ""
   echo "  bash installer/doctor.sh"
+  echo "  bash bin/nanobk status"
+  echo "  bash bin/nanobk --json status"
   echo "  bash tests/render-install-vps.sh"
   echo "  bash tests/rotate-render-only.sh"
-  echo "  bash tests/wrangler-nanok-dry-run.sh"
-  echo "  bash tests/wrangler-nanob-dry-run.sh"
   echo ""
 }
 
@@ -684,17 +922,18 @@ show_menu() {
   echo ""
   echo -e "${BOLD}NanoBK Proxy Suite${NC} v${VERSION}"
   echo ""
-  echo "  请选择要做什么："
+  echo "  请选择安装模式："
   echo ""
-  echo "    1) VPS 一键部署四协议节点"
-  echo "    2) Cloudflare 部署 nanok 主订阅"
-  echo "    3) Cloudflare 部署 nanok + nanob 聚合订阅"
-  echo "    4) 完整链路提示向导（VPS → Cloudflare → 导入客户端）"
-  echo "    5) 一键换密钥并同步订阅"
-  echo "    6) 运行环境诊断 doctor"
-  echo "    7) 运行本地安全测试"
-  echo "    8) 只生成命令，不执行"
-  echo "    9) 退出"
+  echo "    1) Full recommended — VPS + Cloudflare + Bot + Web Panel"
+  echo "    2) VPS only — 只部署四协议节点"
+  echo "    3) Cloudflare only — 只部署 nanok/nanob"
+  echo "    4) Bot only — 配置 Telegram Bot"
+  echo "    5) Web Panel only — 配置 Web Panel"
+  echo "    6) Commands only — 只输出命令，不执行"
+  echo "    7) Doctor / Status — 检查当前环境"
+  echo "    8) 运行本地安全测试"
+  echo "    9) 一键换密钥"
+  echo "    0) 退出"
   echo ""
 }
 
@@ -702,15 +941,16 @@ handle_menu_choice() {
   local choice="$1"
 
   case "$choice" in
-    1) run_vps_mode ;;
-    2) run_cloudflare_mode ;;
-    3) run_nanob_mode ;;
-    4) run_full_wizard ;;
-    5) run_rotate_mode ;;
-    6) run_doctor_mode ;;
-    7) run_test_mode ;;
-    8) run_commands_mode ;;
-    9) echo "  再见！"; exit 0 ;;
+    1) run_full_wizard ;;
+    2) run_vps_mode ;;
+    3) run_cloudflare_mode ;;
+    4) run_bot_mode ;;
+    5) run_web_mode ;;
+    6) run_commands_mode ;;
+    7) run_doctor_mode ;;
+    8) run_test_mode ;;
+    9) run_rotate_mode ;;
+    0) echo "  再见！"; exit 0 ;;
     *) err "无效选择: ${choice}"; return 1 ;;
   esac
 }
@@ -724,32 +964,35 @@ main() {
   echo "╔══════════════════════════════════════════════════════════╗"
   echo "║           NanoBK Proxy Suite Installer v${VERSION}          ║"
   echo "║                                                          ║"
-  echo "║  VPS 四协议 + Cloudflare 订阅 + 自动换密钥              ║"
+  echo "║  VPS 四协议 + Cloudflare 订阅 + Bot + Web Panel         ║"
   echo "╚══════════════════════════════════════════════════════════╝"
 
   check_repo
+  select_language
   detect_environment
 
   # If --mode specified, run directly
   if [[ -n "$MODE" ]]; then
     case "$MODE" in
+      full)        run_full_wizard ;;
       vps)         run_vps_mode ;;
       cloudflare)  run_cloudflare_mode ;;
-      full)        run_full_wizard ;;
-      nanob)       run_nanob_mode ;;
+      bot)         run_bot_mode ;;
+      web)         run_web_mode ;;
       rotate)      run_rotate_mode ;;
       doctor)      run_doctor_mode ;;
       test)        run_test_mode ;;
       commands)    run_commands_mode ;;
       *)           err "未知模式: ${MODE}"; show_help; exit 1 ;;
     esac
+    save_config
     return
   fi
 
   # Interactive menu
   while true; do
     show_menu
-    echo -en "${BOLD}  请输入选项 [1-9]:${NC} "
+    echo -en "${BOLD}  请输入选项 [0-9]:${NC} "
     read -r choice
     handle_menu_choice "$choice" || true
     echo ""

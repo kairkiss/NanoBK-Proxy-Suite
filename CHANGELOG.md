@@ -1,5 +1,28 @@
 # Changelog
 
+## v1.4.0 — Unified Beginner Installer Foundation
+
+### Added
+
+- Unified beginner-friendly installer flow in `installer/install.sh`
+- Language selection framework (Chinese default, English reserved)
+- Mode selection: full, vps, cloudflare, bot, web, rotate, doctor, test, commands
+- Cloudflare preflight/profile validation integration in unified flow
+- Bot `.env` generation flow with auto-generated secrets
+- Web Panel `.env` generation flow with auto-generated tokens
+- Commands-only and dry-run planning modes
+- Optional local installer config with `--save-config` and `--resume`
+- `--defaults` flag for non-interactive mode with safe defaults
+- `tests/unified-installer-dry-run.sh`: dry-run integration test
+- `tests/unified-installer-config.sh`: config save/resume test
+
+### Safety
+
+- Dry-run does not modify system files, bot/.env, web/.env, or installer config
+- Saved installer config excludes sensitive tokens
+- Bot/Web secrets written only to dedicated `.env` files with mode 600
+- `--yes` blocked for destructive modes without `--dry-run`
+
 ## v1.3.3 — Wrangler KV Parser Hotfix
 
 ### Fixed

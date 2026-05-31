@@ -21,6 +21,8 @@ All test scripts in `tests/` are designed to be safe for local development. None
 | `cloudflare-profile-validation.sh` | Profile JSON validation (private key rejection) | No | No | No | ✅ | ✅ |
 | `nanob-fallback-static.sh` | nanob fallback to primary when edgetunnel disabled | No | No | No | ✅ | ✅ |
 | `cloudflare-kv-parser.sh` | KV namespace ID parser (Wrangler 4 JSON, TOML, text) | No | No | No | ✅ | ✅ |
+| `unified-installer-dry-run.sh` | Unified installer dry-run (modes, safety, language) | No | No | No | ✅ | ✅ |
+| `unified-installer-config.sh` | Installer config save/resume (no sensitive tokens) | No | No | No | ✅ | ✅ |
 
 ¹ Wrangler may download npm packages on first run.
 
