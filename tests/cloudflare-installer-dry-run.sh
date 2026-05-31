@@ -125,6 +125,50 @@ else
   pass "dry-run did not create wrangler.toml"
 fi
 
+# ── Test 6: Wrangler 4 KV command format ────────────────────────────────────
+
+echo ""
+echo "--- Wrangler 4 KV format ---"
+
+# Source should NOT contain old "kv:namespace create" format
+if grep -q "kv:namespace create" "$ROOT/installer/install-cloudflare.sh" 2>/dev/null; then
+  fail "install-cloudflare.sh still uses old 'kv:namespace create' format"
+  ERRORS=$((ERRORS + 1))
+else
+  pass "install-cloudflare.sh uses 'kv namespace create' (Wrangler 4)"
+fi
+
+# dry-run output should contain new format (when --create-kv is used)
+DRY_KV_CREATE=$(bash "$ROOT/installer/install-cloudflare.sh" --dry-run --yes \
+  --profile "$TMP/profile.json" \
+  --create-kv \
+  --route-url https://nanok-test.example.workers.dev 2>&1 || true)
+if echo "$DRY_KV_CREATE" | grep -q "kv namespace create"; then
+  pass "dry-run with --create-kv shows 'kv namespace create'"
+else
+  fail "dry-run with --create-kv missing 'kv namespace create'"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# ── Test 7: nanob wrangler.toml includes Service Binding ────────────────────
+
+echo ""
+echo "--- Service Binding ---"
+
+if echo "$DRY_NANOB" | grep -q "NANOK_SERVICE"; then
+  pass "nanob wrangler.toml includes NANOK_SERVICE binding"
+else
+  fail "nanob wrangler.toml missing NANOK_SERVICE binding"
+  ERRORS=$((ERRORS + 1))
+fi
+
+if echo "$DRY_NANOB" | grep -q "services"; then
+  pass "nanob wrangler.toml includes [[services]] section"
+else
+  fail "nanob wrangler.toml missing [[services]] section"
+  ERRORS=$((ERRORS + 1))
+fi
+
 # ── Test 6: --preflight does not require KV options ─────────────────────────
 
 echo ""

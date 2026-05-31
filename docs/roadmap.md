@@ -33,6 +33,8 @@
 | **v1.2.0** | ✅ Web Panel foundation（Flask 面板、token 登录、rotate 确认） |
 | v1.2.1 | Web Panel security polish (CSRF, secret key validation, JSON redaction) |
 | **v1.3.0** | ✅ Cloudflare full automation validation (preflight, profile safety, nanob fallback) |
+| v1.3.1 | Cloudflare preflight hotfix (--preflight, --validate-profile-only) |
+| v1.3.2 | Wrangler 4 + nanob Service Binding hotfix |
 | v1.2 | Web Panel：可视化管理界面 |
 | v1.3 | 流量监控：每个节点的连接数 / 流量统计 |
 | v1.4 | 单协议换密钥审计、日志与权限增强 |

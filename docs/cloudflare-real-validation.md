@@ -5,10 +5,36 @@ Step-by-step guide for validating NanoBK's Cloudflare automation with a real Clo
 ## Prerequisites
 
 - Completed VPS install (`/etc/nanobk/profile.current.json` exists)
-- Node.js installed
+- Node.js >=22 installed (Wrangler 4.95+ requirement)
 - Wrangler CLI installed (`npm install -g wrangler` or use `npx wrangler`)
 - Cloudflare account with Workers enabled
 - Either a `workers.dev` subdomain or a custom domain on Cloudflare
+
+### Node.js Version
+
+Wrangler 4.95+ requires Node.js >=22. Ubuntu apt may install old Node v18.
+
+```bash
+# Install Node.js 22+
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+sudo apt install -y nodejs
+
+# Verify
+node -v     # Should show v22.x.x
+wrangler --version
+```
+
+### Wrangler 4 KV Syntax
+
+Wrangler 4 uses `kv namespace create` (not `kv:namespace create`):
+
+```bash
+# Old (Wrangler 3)
+wrangler kv:namespace create SUB_STORE
+
+# New (Wrangler 4)
+wrangler kv namespace create SUB_STORE
+```
 
 ## Step 1: Login to Cloudflare
 
@@ -76,6 +102,16 @@ bash installer/install-cloudflare.sh --yes \
   --create-nanob-geo-kv \
   --force
 ```
+
+**Important**: nanob uses a Cloudflare Service Binding to call nanok. The installer automatically adds this to `workers/nanob/wrangler.toml`:
+
+```toml
+[[services]]
+binding = "NANOK_SERVICE"
+service = "nanok"
+```
+
+Both nanob and nanok must be deployed under the **same Cloudflare account**. Direct Worker-to-Worker fetch via `workers.dev` URLs may fail with Cloudflare error 1042.
 
 **Without edgetunnel, nanob returns the nanok primary subscription.** This is expected and correct behavior.
 

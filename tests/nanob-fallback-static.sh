@@ -58,6 +58,30 @@ else
   ERRORS=$((ERRORS + 1))
 fi
 
+# Check for Service Binding (NANOK_SERVICE)
+if grep -q "NANOK_SERVICE" "$ROOT/workers/nanob/src/index.js" 2>/dev/null; then
+  pass "nanob has NANOK_SERVICE Service Binding"
+else
+  fail "nanob missing NANOK_SERVICE Service Binding"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# Check for fetchPrimarySubscription helper
+if grep -q "fetchPrimarySubscription" "$ROOT/workers/nanob/src/index.js" 2>/dev/null; then
+  pass "nanob has fetchPrimarySubscription helper"
+else
+  fail "nanob missing fetchPrimarySubscription helper"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# Check no debug routes
+if grep -q "__nanob_debug\|primaryPreview\|sha8(" "$ROOT/workers/nanob/src/index.js" 2>/dev/null; then
+  fail "nanob contains debug artifacts"
+  ERRORS=$((ERRORS + 1))
+else
+  pass "nanob has no debug artifacts"
+fi
+
 # ── Test 3: EDGE_HOST can be empty in wrangler example ──────────────────────
 
 echo ""

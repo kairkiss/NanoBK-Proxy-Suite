@@ -42,6 +42,12 @@ die()   { err "$*"; exit 1; }
 info()  { echo -e "${CYAN}[INFO]${NC}  $*"; }
 fail()  { echo -e "${RED}[FAIL]${NC}  $*" >&2; }
 
+# ── Helpers ─────────────────────────────────────────────────────────────────
+
+node_major_version() {
+  node -v 2>/dev/null | sed 's/^v//' | cut -d. -f1
+}
+
 # ── Default configuration ──────────────────────────────────────────────────
 
 DRY_RUN=0
@@ -294,6 +300,19 @@ check_wrangler() {
     return 0
   fi
 
+  # Check Node.js version (Wrangler 4.95+ requires Node >=22)
+  if command -v node &>/dev/null; then
+    local nmajor
+    nmajor=$(node_major_version)
+    if [[ "$nmajor" -lt 22 ]] 2>/dev/null; then
+      die "Node.js $(node --version) detected. Wrangler 4.95+ requires Node.js >=22.
+Install Node.js 22+:
+  curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+  sudo apt install -y nodejs
+Then verify: node -v"
+    fi
+  fi
+
   if command -v npx &>/dev/null; then
     if npx wrangler --version &>/dev/null; then
       WRANGLER="npx wrangler"
@@ -345,16 +364,16 @@ create_kv_namespace_generic() {
   log "Creating KV namespace '${binding}'..."
 
   if [[ "$DRY_RUN" == "1" ]]; then
-    echo -e "  ${CYAN}[DRY-RUN]${NC} ${WRANGLER} kv:namespace create ${binding}"
+    echo -e "  ${CYAN}[DRY-RUN]${NC} ${WRANGLER} kv namespace create ${binding}"
     eval "$id_var=\"DRY_RUN_KV_ID\""
     return 0
   fi
 
   local output
-  output=$($WRANGLER kv:namespace create "$binding" 2>&1) || {
+  output=$($WRANGLER kv namespace create "$binding" 2>&1) || {
     err "Failed to create KV namespace '${binding}':"
     echo "$output" >&2
-    die "Try manually: wrangler kv:namespace create ${binding}"
+    die "Try manually: wrangler kv namespace create ${binding}"
   }
 
   echo "$output"
@@ -496,6 +515,10 @@ compatibility_date = \"2024-01-01\"
 [[kv_namespaces]]
 binding = \"${NANOB_GEO_KV_BINDING}\"
 id = \"${NANOB_GEO_KV_NAMESPACE_ID}\"
+
+[[services]]
+binding = \"NANOK_SERVICE\"
+service = \"${WORKER_NAME}\"
 
 [vars]
 NANOK_ORIGIN = \"${nanok_origin}\"
@@ -793,6 +816,15 @@ verify_nanob() {
   local sub_response
   sub_response=$(curl -fsS "$sub_url" 2>&1) || {
     err "nanob subscription check failed"
+    echo ""
+    echo "  If this is a Cloudflare Workers deployment, nanob should use"
+    echo "  Service Binding to call nanok (direct fetch may fail with error 1042)."
+    echo ""
+    echo "  Check workers/nanob/wrangler.toml contains:"
+    echo '    [[services]]'
+    echo '    binding = "NANOK_SERVICE"'
+    echo '    service = "'"${WORKER_NAME}"'"'
+    echo ""
     return 1
   }
 
@@ -974,7 +1006,19 @@ preflight_check() {
 
   # Node.js
   if command -v node &>/dev/null; then
-    ok "node: $(node --version)"
+    local nver
+    nver=$(node --version)
+    local nmajor
+    nmajor=$(node_major_version)
+    if [[ "$nmajor" -ge 22 ]] 2>/dev/null; then
+      ok "node: ${nver} (>=22)"
+    else
+      fail "node: ${nver} (Wrangler 4.95+ requires Node.js >=22)"
+      echo "  Install Node.js 22+:"
+      echo "    curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -"
+      echo "    sudo apt install -y nodejs"
+      issues=$((issues + 1))
+    fi
   else
     fail "node: not found"
     issues=$((issues + 1))

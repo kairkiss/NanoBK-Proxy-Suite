@@ -178,6 +178,31 @@ async function mergeSubscriptions(primaryYaml, edgeYaml, env, ctx) {
 // Request handler
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Primary subscription fetcher (Service Binding aware)
+// ---------------------------------------------------------------------------
+
+async function fetchPrimarySubscription(cfg, env, headers) {
+  const primaryUrl = new URL(cfg.nanokSubPath, cfg.nanokOrigin || 'https://nanok.internal');
+  primaryUrl.searchParams.set('token', cfg.nanokSubToken);
+  const req = new Request(primaryUrl.toString(), {
+    method: 'GET',
+    headers,
+  });
+
+  // Prefer Cloudflare Service Binding for Worker-to-Worker calls
+  if (env.NANOK_SERVICE && typeof env.NANOK_SERVICE.fetch === 'function') {
+    return env.NANOK_SERVICE.fetch(req);
+  }
+
+  // Fallback to direct fetch (local dev, non-Cloudflare, etc.)
+  return fetch(req, { redirect: 'follow' });
+}
+
+// ---------------------------------------------------------------------------
+// Request handler
+// ---------------------------------------------------------------------------
+
 export default {
   async fetch(request, env, ctx) {
     const cfg = getConfig(env);
@@ -205,14 +230,11 @@ export default {
     }
 
     // --- Fetch primary subscription (always required) ---
-    const primaryUrl = new URL(cfg.nanokSubPath, cfg.nanokOrigin);
-    primaryUrl.searchParams.set('token', cfg.nanokSubToken);
-
     const requestHeaders = relayHeaders(request);
 
     let primaryResponse;
     try {
-      primaryResponse = await fetch(primaryUrl, { headers: requestHeaders, redirect: 'follow' });
+      primaryResponse = await fetchPrimarySubscription(cfg, env, requestHeaders);
     } catch (fetchError) {
       return errorResponse(502, 'primary fetch failed');
     }

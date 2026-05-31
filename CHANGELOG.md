@@ -1,5 +1,22 @@
 # Changelog
 
+## v1.3.2 — Cloudflare Wrangler 4 and nanob Service Binding Hotfix
+
+### Fixed
+
+- Updated KV namespace creation for Wrangler 4: `wrangler kv namespace create` (was `kv:namespace`)
+- Added Node.js >=22 preflight detection for current Wrangler versions
+- nanob now uses Cloudflare Service Binding (`NANOK_SERVICE`) to fetch nanok
+- nanob wrangler.toml generation now includes a service binding to nanok
+- Improved nanob verification diagnostics for primary subscription fetch failures
+
+### Verified
+
+- nanok deploy works with real Cloudflare
+- nanok subscription YAML validates
+- rotate + Cloudflare sync works
+- nanob Service Binding hotfix verified in real Cloudflare
+
 ## v1.3.1 — Cloudflare Preflight Hotfix
 
 ### Fixed

@@ -405,6 +405,54 @@ If nanob is not deployed at all, you need `--deploy-nanob` and `--nanob-route-ur
 
 ---
 
+## nanob returns "primary subscription returned error" or error code 1042
+
+**Cause**: nanob is trying to fetch nanok via direct HTTP to `workers.dev`, which Cloudflare blocks for Worker-to-Worker calls.
+
+**Fix**: nanob must use a Cloudflare Service Binding to call nanok. Re-run the installer (v1.3.2+) which automatically adds the binding:
+
+```bash
+bash installer/install-cloudflare.sh --yes \
+  --deploy-nanob --nanob-route-url https://YOUR-NANOB.workers.dev \
+  --route-url https://YOUR-NANOK.workers.dev \
+  --kv-namespace-id YOUR_KV_ID \
+  --nanob-geo-kv-namespace-id YOUR_GEO_KV_ID
+```
+
+The generated `workers/nanob/wrangler.toml` should contain:
+
+```toml
+[[services]]
+binding = "NANOK_SERVICE"
+service = "nanok"
+```
+
+Both nanob and nanok must be deployed under the **same Cloudflare account** for Service Binding to work.
+
+---
+
+## Wrangler reports "Node.js >=22.0.0 required"
+
+**Cause**: Wrangler 4.95+ requires Node.js >=22. Ubuntu apt may install Node v18.
+
+**Fix**:
+
+```bash
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+sudo apt install -y nodejs
+node -v  # Should show v22.x.x
+```
+
+---
+
+## Wrangler reports "Unknown arguments: kv:namespace, create"
+
+**Cause**: Wrangler 4 changed the CLI syntax. Old: `wrangler kv:namespace create`. New: `wrangler kv namespace create`.
+
+**Fix**: Update to v1.3.2+ which uses the new syntax automatically.
+
+---
+
 ## Doctor check
 
 Run the diagnostic script:
