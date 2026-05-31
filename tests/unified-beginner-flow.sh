@@ -103,11 +103,34 @@ OUTPUT_CW=$(bash "$INSTALLER" --mode cli-web --dry-run --defaults --lang zh 2>&1
 
 check "contains VPS" "$(contains "$OUTPUT_CW" "VPS")"
 check "contains Web" "$(contains "$OUTPUT_CW" "Web Panel\|web/.env")"
+check "contains Preflight" "$(contains "$OUTPUT_CW" "Preflight")"
 check "does NOT write web/.env" "$( [[ ! -f "$REPO_DIR/web/.env" ]] && echo 1 || echo 0 )"
 
-# ── Test 6: install.sh --help shows new modes ──────────────────────────────
+# ── Test 6: combo modes include Preflight ───────────────────────────────────
 echo ""
-echo "── Test 6: help shows new modes ──"
+echo "── Test 6: combo modes include Preflight ──"
+
+OUTPUT_CLI=$(bash "$INSTALLER" --mode cli-only --dry-run --defaults --lang zh 2>&1) || true
+check "cli-only includes Preflight" "$(contains "$OUTPUT_CLI" "Preflight")"
+
+OUTPUT_CB=$(bash "$INSTALLER" --mode cli-bot --dry-run --defaults --lang zh 2>&1) || true
+check "cli-bot includes Preflight" "$(contains "$OUTPUT_CB" "Preflight")"
+
+OUTPUT_CBW=$(bash "$INSTALLER" --mode cli-bot-web --dry-run --defaults --lang zh 2>&1) || true
+check "cli-bot-web includes Preflight" "$(contains "$OUTPUT_CBW" "Preflight")"
+
+# ── Test 7: summary uses honest states in dry-run ───────────────────────────
+echo ""
+echo "── Test 7: summary uses honest states ──"
+
+OUTPUT_FULL=$(bash "$INSTALLER" --mode full --dry-run --defaults --lang zh 2>&1) || true
+check "dry-run summary has planned or dry-run" "$(contains "$OUTPUT_FULL" "planned\|dry-run")"
+check "dry-run summary does NOT show installed" "$( [[ $(echo "$OUTPUT_FULL" | grep -c "status:  installed") -eq 0 ]] && echo 1 || echo 0 )"
+check "dry-run summary does NOT show verified" "$( [[ $(echo "$OUTPUT_FULL" | grep -c "status:  verified") -eq 0 ]] && echo 1 || echo 0 )"
+
+# ── Test 8: install.sh --help shows new modes ──────────────────────────────
+echo ""
+echo "── Test 8: help shows new modes ──"
 
 HELP=$(bash "$INSTALLER" --help 2>&1) || true
 

@@ -269,6 +269,8 @@ elif echo "$CLI_DRY_DEFAULT" | grep -q "已安装"; then
   pass "install-cli --dry-run (default target): already installed (OK)"
 elif echo "$CLI_DRY_DEFAULT" | grep -q "sudo\|root"; then
   pass "install-cli --dry-run (default target) shows sudo hint (OK)"
+elif echo "$CLI_DRY_DEFAULT" | grep -q "目标已存在\|使用 --force"; then
+  pass "install-cli --dry-run (default target): existing symlink conflict (OK)"
 else
   fail "install-cli --dry-run (default target) unexpected output"
   ERRORS=$((ERRORS + 1))

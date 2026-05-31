@@ -1,5 +1,30 @@
 # Changelog
 
+## v1.5.1 — Unified Installer Safety and Fidelity Hotfix
+
+### Fixed
+
+- Blocked `--defaults` from running real deployments in combo modes (cli-only, cli-bot, cli-web, cli-bot-web)
+- Removed misleading "skip protocol" behavior from core port conflict handling
+- Added unified preflight to CLI combo modes (cli-only, cli-bot, cli-web, cli-bot-web)
+- Made setup summary more honest about planned/configured/verified states
+- Updated installer test mode to run current safe test suites (20 tests)
+- Fixed stale installer header version (v1.4.0 → v1.5.1)
+- Fixed `nanobk-status-cloudflare.sh` regression (symlink conflict case)
+
+### Safety
+
+- Combo modes now require interactive confirmation for real deployment
+- Dry-run remains safe and does not write Bot/Web env files
+- Summary does not print full tokens or private keys
+- Core port conflict handler shows "re-check" instead of fake "skip protocol"
+
+### Tests
+
+- Added `tests/unified-installer-safety.sh`: --defaults safety block coverage
+- Updated `tests/unified-beginner-flow.sh`: combo preflight and honest summary checks
+- Updated `tests/unified-preflight-static.sh`: no fake skip protocol assertions
+
 ## v1.5.0 — Unified Beginner Installer Practical Flow
 
 ### Added

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — Unified Beginner Installer v1.4.0
+# NanoBK Proxy Suite — Unified Beginner Installer v1.5.1
 #
 # Interactive entry point for NanoBK Proxy Suite.
 # Guides users through VPS deployment, Cloudflare setup, Bot, Web Panel.
@@ -20,7 +20,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # ── Constants ───────────────────────────────────────────────────────────────
 
 REPO_URL="https://github.com/kairkiss/NanoBK-Proxy-Suite"
-VERSION="1.5.0"
+VERSION="1.5.1"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -420,7 +420,7 @@ parse_args() {
   # Safety: --yes without --dry-run on destructive modes
   if [[ "$YES" == "1" ]] && [[ "$DRY_RUN" != "1" ]] && [[ -n "$MODE" ]]; then
     case "$MODE" in
-      vps|cloudflare|nanob|rotate|full)
+      vps|cloudflare|nanob|rotate|full|cli-only|cli-bot|cli-web|cli-bot-web)
         err "为避免使用默认值执行真实部署，install.sh 不支持 --yes 直接运行 ${MODE}。"
         echo ""
         echo "  请去掉 --yes 使用交互式输入，或使用 --dry-run 预览："
@@ -861,7 +861,7 @@ handle_core_port_conflict() {
   echo -e "  ${YELLOW}端口 ${port} (${label}) 已被占用。${NC}"
   echo ""
   echo "    1) 显示占用进程详情"
-  echo "    2) 跳过，继续部署其他组件"
+  echo "    2) 我已处理，重新检测"
   echo "    3) 退出"
   echo ""
   local choice
@@ -880,8 +880,18 @@ handle_core_port_conflict() {
       handle_core_port_conflict "$port" "$label"
       ;;
     2)
-      warn "跳过 ${label}，继续部署。"
-      return 0
+      # Re-check the port
+      local recheck_ok=0
+      if command -v ss &>/dev/null; then
+        if ! ss -ulnp 2>/dev/null | grep -q ":${port} " && ! ss -tlnp 2>/dev/null | grep -q ":${port} "; then
+          preflight_pass "${label} :${port}: now free"
+          recheck_ok=1
+        fi
+      fi
+      if [[ "$recheck_ok" == "0" ]]; then
+        preflight_fail "${label} :${port}: still occupied"
+        handle_core_port_conflict "$port" "$label"
+      fi
       ;;
     3|*)
       die "端口冲突，已退出。请先释放端口 ${port} 后重试。"
@@ -1212,54 +1222,108 @@ print_summary() {
   echo -e "${BOLD}── NanoBK Setup Summary ──${NC}"
   echo ""
 
-  # VPS
+  # VPS — honest status
   echo "  VPS:"
-  if [[ -n "${NANOBK_DOMAIN:-}" ]] && [[ "$NANOBK_DOMAIN" != "proxy.example.com" ]]; then
+  if [[ "$DRY_RUN" == "1" ]]; then
+    if [[ -n "${NANOBK_DOMAIN:-}" ]] && [[ "$NANOBK_DOMAIN" != "proxy.example.com" ]]; then
+      echo "    domain:  ${NANOBK_DOMAIN}"
+      echo "    cert:    ${NANOBK_CERT_MODE:-unknown}"
+      echo "    status:  planned / dry-run"
+    else
+      echo "    status:  skipped (dry-run)"
+    fi
+  elif [[ -f "/etc/nanobk/profile.current.json" ]]; then
+    echo "    domain:  ${NANOBK_DOMAIN:-unknown}"
+    echo "    status:  installed"
+    echo "    note:    运行 nanobk status 查看服务状态"
+  elif [[ -n "${NANOBK_DOMAIN:-}" ]] && [[ "$NANOBK_DOMAIN" != "proxy.example.com" ]]; then
     echo "    domain:  ${NANOBK_DOMAIN}"
     echo "    cert:    ${NANOBK_CERT_MODE:-unknown}"
-    echo "    status:  configured"
+    echo "    status:  configured / not verified"
   else
-    echo "    status:  not configured"
+    echo "    status:  skipped"
   fi
 
-  # Cloudflare
+  # Cloudflare — honest status
   echo ""
   echo "  Cloudflare:"
-  if [[ "${NANOBK_DEPLOY_CLOUDFLARE:-}" == "true" ]]; then
-    echo "    nanok:   configured"
-    [[ -n "${NANOBK_NANOK_URL:-}" ]] && echo "    url:     ${NANOBK_NANOK_URL}"
-    if [[ "${NANOBK_DEPLOY_NANOB:-}" == "true" ]]; then
-      echo "    nanob:   configured"
-      [[ -n "${NANOBK_NANOB_URL:-}" ]] && echo "    url:     ${NANOBK_NANOB_URL}"
+  if [[ "$DRY_RUN" == "1" ]]; then
+    if [[ "${NANOBK_DEPLOY_CLOUDFLARE:-}" == "true" ]]; then
+      echo "    nanok:   planned / dry-run"
+      [[ -n "${NANOBK_NANOK_URL:-}" ]] && echo "    url:     ${NANOBK_NANOK_URL}"
+      if [[ "${NANOBK_DEPLOY_NANOB:-}" == "true" ]]; then
+        echo "    nanob:   planned / dry-run"
+        [[ -n "${NANOBK_NANOB_URL:-}" ]] && echo "    url:     ${NANOBK_NANOB_URL}"
+      fi
     else
-      echo "    nanob:   not deployed"
+      echo "    status:  skipped (dry-run)"
     fi
+  elif [[ -f "${REPO_DIR:-.}/.cloudflare.local.env" ]]; then
+    local cf_verify
+    cf_verify=$(read_env_value "${REPO_DIR:-.}/.cloudflare.local.env" "NANOBK_VERIFY_STATUS" 2>/dev/null || echo "")
+    if [[ "$cf_verify" == "verified" ]]; then
+      echo "    nanok:   verified"
+    else
+      echo "    nanok:   configured / ${cf_verify:-pending}"
+    fi
+    if [[ -f "${REPO_DIR:-.}/.nanob.local.env" ]]; then
+      local nanob_verify
+      nanob_verify=$(read_env_value "${REPO_DIR:-.}/.nanob.local.env" "NANOB_VERIFY_STATUS" 2>/dev/null || echo "")
+      if [[ "$nanob_verify" == "verified" ]]; then
+        echo "    nanob:   verified"
+      else
+        echo "    nanob:   configured / ${nanob_verify:-pending}"
+      fi
+    fi
+  elif [[ "${NANOBK_DEPLOY_CLOUDFLARE:-}" == "true" ]]; then
+    echo "    status:  configured / not verified"
   else
-    echo "    status:  not configured"
+    echo "    status:  skipped"
   fi
 
-  # Bot
+  # Bot — honest status
   echo ""
   echo "  Telegram Bot:"
-  if [[ "${NANOBK_ENABLE_BOT:-}" == "true" ]]; then
+  if [[ "$DRY_RUN" == "1" ]]; then
+    if [[ "${NANOBK_ENABLE_BOT:-}" == "true" ]]; then
+      echo "    status:  planned / dry-run"
+      echo "    dry-run: ${NANOBK_BOT_DRY_RUN:-true}"
+    else
+      echo "    status:  skipped (dry-run)"
+    fi
+  elif [[ -f "${REPO_DIR:-.}/bot/.env" ]]; then
+    echo "    status:  configured"
     echo "    env:     bot/.env"
     echo "    dry-run: ${NANOBK_BOT_DRY_RUN:-true}"
     echo "    start:   cd bot && bash run.sh"
+  elif [[ "${NANOBK_ENABLE_BOT:-}" == "true" ]]; then
+    echo "    status:  planned / env not created"
   else
-    echo "    status:  not configured"
+    echo "    status:  skipped"
   fi
 
-  # Web Panel
+  # Web Panel — honest status
   echo ""
   echo "  Web Panel:"
-  if [[ "${NANOBK_ENABLE_WEB:-}" == "true" ]]; then
+  if [[ "$DRY_RUN" == "1" ]]; then
+    if [[ "${NANOBK_ENABLE_WEB:-}" == "true" ]]; then
+      echo "    status:  planned / dry-run"
+      echo "    listen:  ${NANOBK_WEB_HOST:-127.0.0.1}:${NANOBK_WEB_PORT:-8080}"
+      echo "    dry-run: ${NANOBK_WEB_DRY_RUN:-true}"
+    else
+      echo "    status:  skipped (dry-run)"
+    fi
+  elif [[ -f "${REPO_DIR:-.}/web/.env" ]]; then
+    echo "    status:  configured"
     echo "    env:     web/.env"
     echo "    listen:  ${NANOBK_WEB_HOST:-127.0.0.1}:${NANOBK_WEB_PORT:-8080}"
     echo "    dry-run: ${NANOBK_WEB_DRY_RUN:-true}"
     echo "    start:   cd web && bash run.sh"
     echo "    access:  ssh -L ${NANOBK_WEB_PORT:-8080}:127.0.0.1:${NANOBK_WEB_PORT:-8080} root@YOUR_VPS_IP"
+  elif [[ "${NANOBK_ENABLE_WEB:-}" == "true" ]]; then
+    echo "    status:  planned / env not created"
   else
-    echo "    status:  not configured"
+    echo "    status:  skipped"
   fi
 
   # Next steps
@@ -1311,6 +1375,13 @@ run_cli_only_mode() {
   echo ""
   echo -e "${BOLD}═══ CLI Only — VPS 四协议 + nanobk CLI ═══${NC}"
   echo ""
+  NANOBK_DEPLOY_CLOUDFLARE="false"
+  NANOBK_ENABLE_BOT="false"
+  NANOBK_ENABLE_WEB="false"
+
+  # Preflight: VPS checks only
+  run_unified_preflight || true
+
   if [[ "$ENV_IS_LINUX" != "1" ]] && [[ "$DRY_RUN" != "1" ]] && [[ "$COMMAND_ONLY" != "1" ]]; then
     warn "当前不是 Linux 系统，VPS 安装需要在 Linux VPS 上运行。"
     if ! confirm "仍然继续（可能失败）？" "n"; then
@@ -1329,6 +1400,9 @@ run_cli_bot_mode() {
   NANOBK_ENABLE_BOT="true"
   NANOBK_DEPLOY_CLOUDFLARE="false"
   NANOBK_ENABLE_WEB="false"
+
+  # Preflight: VPS + Bot checks
+  run_unified_preflight || true
 
   if confirm "是否配置 VPS 部署？" "y"; then
     if ! collect_vps_args; then
@@ -1350,6 +1424,9 @@ run_cli_web_mode() {
   NANOBK_DEPLOY_CLOUDFLARE="false"
   NANOBK_ENABLE_BOT="false"
 
+  # Preflight: VPS + Web checks
+  run_unified_preflight || true
+
   if confirm "是否配置 VPS 部署？" "y"; then
     if ! collect_vps_args; then
       warn "VPS 部署阶段失败。"
@@ -1369,6 +1446,9 @@ run_cli_bot_web_mode() {
   NANOBK_ENABLE_BOT="true"
   NANOBK_ENABLE_WEB="true"
   NANOBK_DEPLOY_CLOUDFLARE="false"
+
+  # Preflight: VPS + Bot + Web checks
+  run_unified_preflight || true
 
   if confirm "是否配置 VPS 部署？" "y"; then
     if ! collect_vps_args; then
@@ -1428,26 +1508,74 @@ run_test_mode() {
   echo ""
   echo -e "${BOLD}── 本地安全测试 ──${NC}"
   echo ""
-  echo "  1) VPS render-only 测试"
-  echo "  2) rotate 离线测试"
-  echo "  3) nanok wrangler bundle 测试"
-  echo "  4) nanob wrangler bundle 测试"
-  echo "  5) 全部测试"
+  echo "  1) Quick tests (核心 CLI + VPS render)"
+  echo "  2) Installer tests (安装器 dry-run/config/resume)"
+  echo "  3) Cloudflare tests (KV parser/profile/validation)"
+  echo "  4) Bot/Web tests (mock self-tests)"
+  echo "  5) All safe tests (全部离线安全测试)"
   echo ""
 
   local choice
   prompt choice "请选择" "5"
 
+  run_safe_test() {
+    local script="$1"
+    local label="$2"
+    if [[ -f "$script" ]]; then
+      run_one_test "$script" "$label"
+    else
+      warn "测试文件不存在: $script"
+    fi
+  }
+
   case "$choice" in
-    1) run_one_test "$REPO_DIR/tests/render-install-vps.sh" "VPS render-only 测试" ;;
-    2) run_one_test "$REPO_DIR/tests/rotate-render-only.sh" "rotate 离线测试" ;;
-    3) run_one_test "$REPO_DIR/tests/wrangler-nanok-dry-run.sh" "nanok wrangler bundle 测试" ;;
-    4) run_one_test "$REPO_DIR/tests/wrangler-nanob-dry-run.sh" "nanob wrangler bundle 测试" ;;
+    1)
+      run_safe_test "$REPO_DIR/tests/nanobk-cli-dry-run.sh" "CLI dry-run"
+      run_safe_test "$REPO_DIR/tests/render-install-vps.sh" "VPS render-only"
+      run_safe_test "$REPO_DIR/tests/rotate-render-only.sh" "rotate offline"
+      run_safe_test "$REPO_DIR/tests/nanobk-status-cloudflare.sh" "status + security"
+      ;;
+    2)
+      run_safe_test "$REPO_DIR/tests/unified-beginner-flow.sh" "beginner flow"
+      run_safe_test "$REPO_DIR/tests/unified-preflight-static.sh" "preflight static"
+      run_safe_test "$REPO_DIR/tests/unified-installer-dry-run.sh" "installer dry-run"
+      run_safe_test "$REPO_DIR/tests/unified-installer-config.sh" "installer config"
+      run_safe_test "$REPO_DIR/tests/unified-installer-resume.sh" "installer resume"
+      ;;
+    3)
+      run_safe_test "$REPO_DIR/tests/cloudflare-kv-parser.sh" "KV parser"
+      run_safe_test "$REPO_DIR/tests/cloudflare-installer-dry-run.sh" "CF installer dry-run"
+      run_safe_test "$REPO_DIR/tests/cloudflare-profile-validation.sh" "profile validation"
+      run_safe_test "$REPO_DIR/tests/nanob-fallback-static.sh" "nanob fallback"
+      run_safe_test "$REPO_DIR/tests/nanob-status-env.sh" "nanob status env"
+      run_safe_test "$REPO_DIR/tests/rotate-cloudflare-stale-read-static.sh" "stale read"
+      run_safe_test "$REPO_DIR/tests/cloudflare-sync-retry-static.sh" "sync retry"
+      ;;
+    4)
+      run_safe_test "$REPO_DIR/tests/bot-cli-mock.sh" "bot mock"
+      run_safe_test "$REPO_DIR/tests/web-panel-mock.sh" "web panel mock"
+      ;;
     5)
-      run_one_test "$REPO_DIR/tests/render-install-vps.sh" "VPS render-only 测试"
-      run_one_test "$REPO_DIR/tests/rotate-render-only.sh" "rotate 离线测试"
-      run_one_test "$REPO_DIR/tests/wrangler-nanok-dry-run.sh" "nanok wrangler bundle 测试"
-      run_one_test "$REPO_DIR/tests/wrangler-nanob-dry-run.sh" "nanob wrangler bundle 测试"
+      run_safe_test "$REPO_DIR/tests/unified-beginner-flow.sh" "beginner flow"
+      run_safe_test "$REPO_DIR/tests/unified-preflight-static.sh" "preflight static"
+      run_safe_test "$REPO_DIR/tests/unified-installer-dry-run.sh" "installer dry-run"
+      run_safe_test "$REPO_DIR/tests/unified-installer-config.sh" "installer config"
+      run_safe_test "$REPO_DIR/tests/unified-installer-resume.sh" "installer resume"
+      run_safe_test "$REPO_DIR/tests/nanobk-cli-dry-run.sh" "CLI dry-run"
+      run_safe_test "$REPO_DIR/tests/nanobk-status-cloudflare.sh" "status + security"
+      run_safe_test "$REPO_DIR/tests/render-install-vps.sh" "VPS render-only"
+      run_safe_test "$REPO_DIR/tests/rotate-render-only.sh" "rotate offline"
+      run_safe_test "$REPO_DIR/tests/cloudflare-kv-parser.sh" "KV parser"
+      run_safe_test "$REPO_DIR/tests/cloudflare-installer-dry-run.sh" "CF installer dry-run"
+      run_safe_test "$REPO_DIR/tests/cloudflare-profile-validation.sh" "profile validation"
+      run_safe_test "$REPO_DIR/tests/nanob-fallback-static.sh" "nanob fallback"
+      run_safe_test "$REPO_DIR/tests/nanob-status-env.sh" "nanob status env"
+      run_safe_test "$REPO_DIR/tests/rotate-cloudflare-stale-read-static.sh" "stale read"
+      run_safe_test "$REPO_DIR/tests/cloudflare-sync-retry-static.sh" "sync retry"
+      run_safe_test "$REPO_DIR/tests/production-hotfix-static.sh" "production hotfix"
+      run_safe_test "$REPO_DIR/tests/installed-layout-rotate.sh" "installed layout"
+      run_safe_test "$REPO_DIR/tests/bot-cli-mock.sh" "bot mock"
+      run_safe_test "$REPO_DIR/tests/web-panel-mock.sh" "web panel mock"
       ;;
     *) err "无效选择"; return 1 ;;
   esac

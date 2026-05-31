@@ -62,6 +62,13 @@ check "has port 2443 check" "$(has_pattern "$INSTALLER" "2443")"
 check "has port 8080 check" "$(has_pattern "$INSTALLER" "8080")"
 check "has port detection function" "$(has_pattern "$INSTALLER" "check_port_available\|端口")"
 check "has port conflict handler" "$(has_pattern "$INSTALLER" "handle_core_port_conflict\|端口冲突\|occupied")"
+check "has re-check option" "$(has_pattern "$INSTALLER" "重新检测\|re-check")"
+check "has show process details option" "$(has_pattern "$INSTALLER" "显示占用进程详情\|显示.*占用")"
+check "no fake skip HY2" "$(no_pattern "$INSTALLER" "跳过 HY2\|跳过.*HY2\|skip HY2")"
+check "no fake skip TUIC" "$(no_pattern "$INSTALLER" "跳过 TUIC\|跳过.*TUIC\|skip TUIC")"
+check "no fake skip Reality" "$(no_pattern "$INSTALLER" "跳过 Reality\|跳过.*Reality\|skip Reality")"
+check "no fake skip Trojan" "$(no_pattern "$INSTALLER" "跳过 Trojan\|跳过.*Trojan\|skip Trojan")"
+check "no skip protocol text" "$(no_pattern "$INSTALLER" "跳过.*继续部署其他\|skip.*continue.*other")"
 
 # ── Node.js and Wrangler ───────────────────────────────────────────────────
 echo ""
