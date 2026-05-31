@@ -1,6 +1,6 @@
 # Quick Start
 
-**NanoBK Proxy Suite v1.0.0 — CLI Core Release**
+**NanoBK Proxy Suite v1.5.0 — Unified Beginner Installer**
 
 ## One-Line Bootstrap (Recommended)
 

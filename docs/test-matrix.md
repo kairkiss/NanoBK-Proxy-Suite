@@ -27,6 +27,8 @@ All test scripts in `tests/` are designed to be safe for local development. None
 | `unified-installer-resume.sh` | --resume + explicit --mode precedence | No | No | No | ✅ | ✅ |
 | `nanob-status-env.sh` | nanob verify status field consistency | No | No | No | ✅ | ✅ |
 | `rotate-cloudflare-stale-read-static.sh` | Cloudflare stale read retry logic (static) | No | No | No | ✅ | ✅ |
+| `unified-beginner-flow.sh` | Unified beginner flow dry-run + commands output | No | No | No | ✅ | ✅ |
+| `unified-preflight-static.sh` | Preflight content validation (ports, Node, wrangler, venv) | No | No | No | ✅ | ✅ |
 
 ¹ Wrangler may download npm packages on first run.
 

@@ -1,5 +1,39 @@
 # Changelog
 
+## v1.5.0 — Unified Beginner Installer Practical Flow
+
+### Added
+
+- Expanded unified beginner installer with 10 installation modes
+- New combo modes: `cli-only`, `cli-bot`, `cli-web`, `cli-bot-web`
+- Added unified preflight checks for OS, architecture, dependencies, ports, disk, and memory
+- Added port conflict detection for HY2 (443), TUIC (9443), Reality (8443), Trojan (2443), Web Panel (8080)
+- Added guided Cloudflare preparation with Node.js >=22 detection and Wrangler login guidance
+- Added guided Bot configuration with python3-venv check and owner ID validation
+- Added guided Web Panel configuration with 0.0.0.0 warning and SSH tunnel hint
+- Added comprehensive final summary with next-step commands
+- Added fuller `--dry-run` and `--mode commands` outputs covering all stages
+
+### Improved
+
+- Full Recommended mode now runs preflight before deployment
+- Bot configuration validates owner ID is numeric
+- Web Panel warns when listening on 0.0.0.0 and offers to switch to 127.0.0.1
+- Commands mode now outputs Bot/Web env templates with all required fields
+- Summary shows Bot/Web listen address, dry-run status, and start commands
+
+### Safety
+
+- Dry-run does not write Bot/Web env files
+- Saved installer config remains non-sensitive (no tokens/passwords)
+- Tokens and private keys are not printed in summaries
+- Bot `.env` and Web `.env` are always chmod 600
+
+### Tests
+
+- Added `tests/unified-beginner-flow.sh`: full dry-run flow coverage
+- Added `tests/unified-preflight-static.sh`: preflight content validation
+
 ## v1.4.3 — Status and Environment Polish
 
 ### Fixed

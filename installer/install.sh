@@ -20,7 +20,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # ── Constants ───────────────────────────────────────────────────────────────
 
 REPO_URL="https://github.com/kairkiss/NanoBK-Proxy-Suite"
-VERSION="1.4.3"
+VERSION="1.5.0"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -242,7 +242,7 @@ read_config_value() {
 
 valid_mode() {
   case "$1" in
-    full|vps|cloudflare|bot|web|commands|doctor|test|rotate|"") return 0 ;;
+    full|cli-only|cli-bot|cli-web|cli-bot-web|vps|cloudflare|bot|web|commands|doctor|test|rotate|"") return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -452,7 +452,11 @@ NanoBK Proxy Suite — 交互式安装器 v${VERSION}
   --help             显示帮助
 
 模式（--mode）:
-  full               完整安装（VPS + Cloudflare + Bot + Web）
+  full               Full Recommended — VPS + Cloudflare + Bot + Web
+  cli-only           只部署 VPS + nanobk CLI
+  cli-bot            VPS + Telegram Bot
+  cli-web            VPS + Web Panel
+  cli-bot-web        VPS + Telegram Bot + Web Panel
   vps                部署 VPS 四协议节点
   cloudflare         部署 Cloudflare nanok/nanob
   bot                配置 Telegram Bot
@@ -466,7 +470,8 @@ NanoBK Proxy Suite — 交互式安装器 v${VERSION}
   bash installer/install.sh
   bash installer/install.sh --mode doctor
   bash installer/install.sh --mode full --dry-run --defaults --lang zh
-  bash installer/install.sh --mode commands
+  bash installer/install.sh --mode cli-bot --dry-run --defaults
+  bash installer/install.sh --mode commands --defaults
 EOF
 }
 
@@ -523,7 +528,7 @@ collect_cloudflare_args() {
   echo -e "${BOLD}── Cloudflare 部署参数 ──${NC}"
   echo ""
 
-  local profile route_url kv_choice kv_id nanob_choice nanob_url geo_choice geo_id
+  local profile route_url kv_choice kv_id nanob_url geo_choice geo_id
 
   prompt profile "profile.current.json 路径" "/etc/nanobk/profile.current.json"
   prompt route_url "nanok Worker URL" "${NANOBK_NANOK_URL:-https://nanok.example.workers.dev}"
@@ -531,7 +536,7 @@ collect_cloudflare_args() {
 
   echo ""
   echo "  KV namespace 选择："
-  echo "    1) 自动创建 KV"
+  echo "    1) 自动创建 KV（推荐）"
   echo "    2) 使用已有 KV namespace ID"
   prompt kv_choice "请选择" "1"
 
@@ -549,24 +554,30 @@ collect_cloudflare_args() {
   run_cmd "Cloudflare preflight" bash "$REPO_DIR/installer/install-cloudflare.sh" --preflight || {
     err "Cloudflare preflight failed."
     err "请根据上方提示修复 Node.js / Wrangler / login / profile 后重试。"
+    err ""
+    err "常见修复："
+    err "  1. 安装 Node.js >= 22: curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -"
+    err "  2. 安装 wrangler: npm install -g wrangler"
+    err "  3. 登录 wrangler: wrangler login --browser=false"
     return 1
   }
 
   run_cmd "Validate profile" bash "$REPO_DIR/installer/install-cloudflare.sh" --validate-profile-only --profile "$profile" || {
     err "Profile validation failed."
+    err "请检查 profile 文件是否包含 hy2/tuic/reality/trojan 四个协议段。"
     return 1
   }
 
   # nanob
   echo ""
-  if confirm "是否部署 nanob 聚合器？" "y"; then
+  if confirm "是否部署 nanob 聚合器？（推荐）" "y"; then
     NANOBK_DEPLOY_NANOB="true"
     prompt nanob_url "nanob Worker URL" "${NANOBK_NANOB_URL:-https://nanob.example.workers.dev}"
     NANOBK_NANOB_URL="$nanob_url"
 
     echo ""
     echo "  Geo KV namespace 选择："
-    echo "    1) 自动创建"
+    echo "    1) 自动创建（推荐）"
     echo "    2) 使用已有 Geo KV ID"
     prompt geo_choice "请选择" "1"
 
@@ -609,6 +620,24 @@ collect_bot_args() {
 
   NANOBK_ENABLE_BOT="true"
 
+  # Check python3-venv
+  if command -v python3 &>/dev/null; then
+    if ! python3 -c "import venv" &>/dev/null 2>&1; then
+      warn "python3-venv 不可用。Bot 运行需要 venv 支持。"
+      echo ""
+      echo "  Ubuntu/Debian 安装："
+      echo "    sudo apt update && sudo apt install -y python3-venv"
+      echo "  如果仍失败："
+      echo "    sudo apt install -y python3.12-venv"
+      echo ""
+      if ! confirm "已安装或稍后安装，继续？" "y"; then
+        return 1
+      fi
+    fi
+  else
+    warn "python3 未找到。Bot 需要 python3 才能运行。"
+  fi
+
   local bot_token owner_id bot_dry_run
 
   prompt bot_token "Telegram Bot Token (从 @BotFather 获取)" ""
@@ -621,6 +650,10 @@ collect_bot_args() {
   fi
   if [[ -n "$owner_id" ]] && { [[ "$owner_id" == *$'\n'* ]] || [[ "$owner_id" == *$'\r'* ]]; }; then
     err "User ID 包含换行符，请检查输入。"
+    return 1
+  fi
+  if [[ -n "$owner_id" ]] && ! [[ "$owner_id" =~ ^[0-9]+$ ]]; then
+    err "User ID 必须是纯数字。"
     return 1
   fi
 
@@ -648,7 +681,7 @@ NANOBK_COMMAND_TIMEOUT=120
 NANOBK_ROTATE_TIMEOUT=300
 EOF
     chmod 600 "$REPO_DIR/bot/.env"
-    ok "Bot 配置已保存: bot/.env"
+    ok "Bot 配置已保存: bot/.env (mode 600)"
   else
     echo -e "  ${CYAN}[DRY-RUN]${NC} Would write bot/.env"
   fi
@@ -664,8 +697,15 @@ EOF
   fi
 
   echo ""
-  echo "  启动 Bot:"
-  echo "    cd $REPO_DIR/bot && bash run.sh"
+  if [[ "$DRY_RUN" != "1" ]] && [[ "$COMMAND_ONLY" != "1" ]]; then
+    if confirm "是否现在启动 Bot？" "n"; then
+      echo "  启动 Bot:"
+      echo "    cd $REPO_DIR/bot && bash run.sh"
+    fi
+  else
+    echo "  启动 Bot:"
+    echo "    cd $REPO_DIR/bot && bash run.sh"
+  fi
   echo ""
   echo "  systemd 示例:"
   echo "    bot/systemd/nanobk-telegram-bot.service.example"
@@ -701,10 +741,18 @@ collect_web_args() {
     return 1
   fi
   if [[ "$web_host" == "0.0.0.0" ]]; then
-    warn "你正在让 Web Panel 监听 0.0.0.0，可能暴露公网。推荐保持 127.0.0.1。"
+    echo ""
+    echo -e "  ${RED}⚠ 警告: 你正在让 Web Panel 监听 0.0.0.0，可能暴露公网。${NC}"
+    echo "  推荐保持 127.0.0.1，并通过 SSH tunnel 或 Cloudflare Tunnel 访问。"
+    echo ""
+    if ! confirm "确认使用 0.0.0.0？" "n"; then
+      web_host="127.0.0.1"
+      echo "  已切换回 127.0.0.1"
+    fi
   fi
 
   NANOBK_WEB_PORT="$web_port"
+  NANOBK_WEB_HOST="$web_host"
 
   # Auto-generate if empty
   if [[ -z "$web_token" ]]; then
@@ -737,7 +785,7 @@ NANOBK_COMMAND_TIMEOUT=120
 NANOBK_ROTATE_TIMEOUT=300
 EOF
     chmod 600 "$REPO_DIR/web/.env"
-    ok "Web Panel 配置已保存: web/.env"
+    ok "Web Panel 配置已保存: web/.env (mode 600)"
   else
     echo -e "  ${CYAN}[DRY-RUN]${NC} Would write web/.env"
   fi
@@ -753,9 +801,6 @@ EOF
   fi
 
   echo ""
-  echo "  启动 Web Panel:"
-  echo "    cd $REPO_DIR/web && bash run.sh"
-  echo ""
   echo -e "  ${YELLOW}默认只监听 127.0.0.1，不裸露公网。${NC}"
   echo "  远程访问请用 SSH tunnel:"
   echo "    ssh -L ${web_port}:127.0.0.1:${web_port} root@YOUR_VPS_IP"
@@ -765,21 +810,332 @@ EOF
   echo "    web/systemd/nanobk-web-panel.service.example"
 }
 
+# ── Unified preflight ──────────────────────────────────────────────────────
+
+PREFLIGHT_ERRORS=0
+PREFLIGHT_WARNINGS=0
+
+preflight_pass() { echo -e "  ${GREEN}✓${NC} $*"; }
+preflight_fail() { echo -e "  ${RED}✗${NC} $*"; PREFLIGHT_ERRORS=$((PREFLIGHT_ERRORS + 1)); }
+preflight_warn() { echo -e "  ${YELLOW}⚠${NC} $*"; PREFLIGHT_WARNINGS=$((PREFLIGHT_WARNINGS + 1)); }
+
+check_port_available() {
+  local port="$1"
+  local proto="$2"
+  local label="$3"
+
+  if [[ "$DRY_RUN" == "1" ]]; then
+    preflight_pass "${label} :${port} (${proto}): [DRY-RUN] assumed free"
+    return 0
+  fi
+
+  if [[ "$proto" == "udp" ]]; then
+    if command -v ss &>/dev/null; then
+      if ss -ulnp 2>/dev/null | grep -q ":${port} "; then
+        local proc
+        proc=$(ss -ulnp 2>/dev/null | grep ":${port} " | head -1 | sed 's/.*users:(("\([^"]*\)".*/\1/' || echo "unknown")
+        preflight_fail "${label} :${port} (${proto}): occupied by ${proc}"
+        return 1
+      fi
+    fi
+  else
+    if command -v ss &>/dev/null; then
+      if ss -tlnp 2>/dev/null | grep -q ":${port} "; then
+        local proc
+        proc=$(ss -tlnp 2>/dev/null | grep ":${port} " | head -1 | sed 's/.*users:(("\([^"]*\)".*/\1/' || echo "unknown")
+        preflight_fail "${label} :${port} (${proto}): occupied by ${proc}"
+        return 1
+      fi
+    fi
+  fi
+
+  preflight_pass "${label} :${port} (${proto}): free"
+  return 0
+}
+
+handle_core_port_conflict() {
+  local port="$1"
+  local label="$2"
+
+  echo ""
+  echo -e "  ${YELLOW}端口 ${port} (${label}) 已被占用。${NC}"
+  echo ""
+  echo "    1) 显示占用进程详情"
+  echo "    2) 跳过，继续部署其他组件"
+  echo "    3) 退出"
+  echo ""
+  local choice
+  prompt choice "请选择" "3"
+  case "$choice" in
+    1)
+      echo ""
+      if command -v ss &>/dev/null; then
+        ss -tlnp 2>/dev/null | grep ":${port} " || ss -ulnp 2>/dev/null | grep ":${port} " || echo "  无法获取详情"
+      elif command -v lsof &>/dev/null; then
+        lsof -i ":${port}" 2>/dev/null || echo "  无法获取详情"
+      else
+        echo "  ss/lsof 均不可用"
+      fi
+      echo ""
+      handle_core_port_conflict "$port" "$label"
+      ;;
+    2)
+      warn "跳过 ${label}，继续部署。"
+      return 0
+      ;;
+    3|*)
+      die "端口冲突，已退出。请先释放端口 ${port} 后重试。"
+      ;;
+  esac
+}
+
+run_unified_preflight() {
+  local check_cf="${NANOBK_DEPLOY_CLOUDFLARE:-false}"
+  local check_bot="${NANOBK_ENABLE_BOT:-false}"
+  local check_web="${NANOBK_ENABLE_WEB:-false}"
+
+  # Auto-detect from mode if flags not set
+  case "${MODE:-full}" in
+    full)
+      check_cf="true"; check_bot="true"; check_web="true" ;;
+    cli-bot)
+      check_bot="true" ;;
+    cli-web)
+      check_web="true" ;;
+    cli-bot-web)
+      check_bot="true"; check_web="true" ;;
+    cloudflare)
+      check_cf="true" ;;
+    bot)
+      check_bot="true" ;;
+    web)
+      check_web="true" ;;
+  esac
+
+  PREFLIGHT_ERRORS=0
+  PREFLIGHT_WARNINGS=0
+
+  echo ""
+  echo -e "${BOLD}── Preflight ──${NC}"
+  echo ""
+
+  # OS
+  local os_name
+  os_name="$(uname -s)"
+  local os_label
+  if [[ -f /etc/os-release ]]; then
+    os_label=$(grep '^PRETTY_NAME=' /etc/os-release 2>/dev/null | cut -d= -f2 | tr -d '"' || echo "$os_name")
+  else
+    os_label="$os_name"
+  fi
+  if [[ "$os_name" == "Linux" ]]; then
+    preflight_pass "OS: ${os_label}"
+  elif [[ "$os_name" == "Darwin" ]]; then
+    preflight_pass "OS: macOS (dry-run/render-only 适用)"
+  else
+    preflight_warn "OS: ${os_label} (可能不完全兼容)"
+  fi
+
+  # Arch
+  local arch
+  arch="$(uname -m)"
+  preflight_pass "Arch: ${arch}"
+
+  # systemd
+  if command -v systemctl &>/dev/null; then
+    preflight_pass "systemd: available"
+  elif [[ "$os_name" == "Darwin" ]]; then
+    preflight_pass "systemd: N/A (macOS)"
+  else
+    preflight_warn "systemd: not found (VPS 部署需要 systemd)"
+  fi
+
+  # Core tools
+  local missing_tools=()
+  for cmd in curl git python3 bash openssl; do
+    if command -v "$cmd" &>/dev/null; then
+      preflight_pass "${cmd}: $(command -v "$cmd")"
+    else
+      preflight_fail "${cmd}: not found"
+      missing_tools+=("$cmd")
+    fi
+  done
+
+  # Disk space (only on Linux with df available)
+  if command -v df &>/dev/null && [[ "$os_name" == "Linux" ]]; then
+    local avail_mb
+    avail_mb=$(df -BM / 2>/dev/null | awk 'NR==2 {gsub(/M/,"",$4); print $4}' || echo "")
+    if [[ -n "$avail_mb" ]] && [[ "$avail_mb" -gt 500 ]] 2>/dev/null; then
+      preflight_pass "Disk: ${avail_mb}MB available on /"
+    elif [[ -n "$avail_mb" ]]; then
+      preflight_warn "Disk: ${avail_mb}MB available on / (建议 >500MB)"
+    fi
+  fi
+
+  # Memory (only on Linux)
+  if command -v free &>/dev/null && [[ "$os_name" == "Linux" ]]; then
+    local mem_mb
+    mem_mb=$(free -m 2>/dev/null | awk '/^Mem:/ {print $2}' || echo "")
+    if [[ -n "$mem_mb" ]] && [[ "$mem_mb" -ge 512 ]] 2>/dev/null; then
+      preflight_pass "Memory: ${mem_mb}MB total"
+    elif [[ -n "$mem_mb" ]]; then
+      preflight_warn "Memory: ${mem_mb}MB total (建议 ≥512MB)"
+    fi
+  fi
+
+  # Port checks (VPS protocols)
+  if [[ "$os_name" == "Linux" ]] || [[ "$DRY_RUN" == "1" ]]; then
+    echo ""
+    check_port_available 443 udp "HY2" || handle_core_port_conflict 443 "HY2" || true
+    check_port_available 9443 udp "TUIC" || handle_core_port_conflict 9443 "TUIC" || true
+    check_port_available 8443 tcp "Reality" || handle_core_port_conflict 8443 "Reality" || true
+    check_port_available 2443 tcp "Trojan" || handle_core_port_conflict 2443 "Trojan" || true
+  fi
+
+  # Cloudflare checks
+  if [[ "$check_cf" == "true" ]]; then
+    echo ""
+    log "Cloudflare 工具检查:"
+
+    if command -v node &>/dev/null; then
+      local nmajor
+      nmajor=$(node -v 2>/dev/null | sed 's/^v//' | cut -d. -f1 || echo "0")
+      if [[ "$nmajor" -ge 22 ]] 2>/dev/null; then
+        preflight_pass "node: $(node -v) (>=22)"
+      else
+        preflight_fail "node: $(node -v) (需要 >=22)"
+        echo ""
+        echo "  Cloudflare 部署需要 Node.js >= 22。"
+        echo "  Ubuntu/Debian 推荐："
+        echo "    curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -"
+        echo "    sudo apt install -y nodejs"
+        echo ""
+      fi
+    else
+      preflight_fail "node: not found"
+      echo ""
+      echo "  Cloudflare 部署需要 Node.js >= 22。"
+      echo "  Ubuntu/Debian 推荐："
+      echo "    curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -"
+      echo "    sudo apt install -y nodejs"
+      echo ""
+    fi
+
+    if command -v npx &>/dev/null; then
+      preflight_pass "npx: available"
+    elif command -v npm &>/dev/null; then
+      preflight_pass "npm: available (npx not found)"
+    else
+      preflight_warn "npm/npx: not found"
+    fi
+
+    local wrangler_found=0
+    if command -v wrangler &>/dev/null; then
+      preflight_pass "wrangler: $(wrangler --version 2>/dev/null | head -1)"
+      wrangler_found=1
+    elif command -v npx &>/dev/null; then
+      if npx wrangler --version &>/dev/null 2>&1; then
+        preflight_pass "wrangler (via npx): $(npx wrangler --version 2>/dev/null | head -1)"
+        wrangler_found=1
+      fi
+    fi
+    if [[ "$wrangler_found" == "0" ]]; then
+      preflight_warn "wrangler: not found (npm install -g wrangler)"
+    fi
+
+    if [[ "$wrangler_found" == "1" ]] && [[ "$DRY_RUN" != "1" ]]; then
+      local wcmd="wrangler"
+      command -v wrangler &>/dev/null || wcmd="npx wrangler"
+      if $wcmd whoami &>/dev/null 2>&1; then
+        preflight_pass "wrangler login: authenticated"
+      else
+        preflight_warn "wrangler login: not authenticated"
+        echo ""
+        echo "  请执行："
+        echo "    wrangler login --browser=false"
+        echo "  如果通过 SSH 连接 VPS，可在本机建立隧道："
+        echo "    ssh -L 8976:127.0.0.1:8976 root@YOUR_VPS_IP"
+        echo ""
+      fi
+    fi
+  fi
+
+  # Bot checks
+  if [[ "$check_bot" == "true" ]]; then
+    echo ""
+    log "Bot 工具检查:"
+    if command -v python3 &>/dev/null; then
+      preflight_pass "python3: $(python3 --version 2>&1)"
+      if python3 -c "import venv" &>/dev/null 2>&1; then
+        preflight_pass "python3-venv: available"
+      else
+        preflight_warn "python3-venv: not available"
+        echo ""
+        echo "  Bot 运行需要 python3-venv。Ubuntu/Debian 安装："
+        echo "    sudo apt update && sudo apt install -y python3-venv"
+        echo "  如果仍失败："
+        echo "    sudo apt install -y python3.12-venv"
+        echo ""
+      fi
+    else
+      preflight_fail "python3: not found (Bot 需要 python3)"
+    fi
+  fi
+
+  # Web checks
+  if [[ "$check_web" == "true" ]]; then
+    echo ""
+    log "Web Panel 工具检查:"
+    local web_port="${NANOBK_WEB_PORT:-8080}"
+    check_port_available "$web_port" tcp "Web Panel" || true
+    if command -v python3 &>/dev/null; then
+      if python3 -c "import venv" &>/dev/null 2>&1; then
+        preflight_pass "python3-venv: available"
+      else
+        preflight_warn "python3-venv: not available (Web Panel 需要)"
+      fi
+    fi
+  fi
+
+  # Summary
+  echo ""
+  if [[ $PREFLIGHT_ERRORS -eq 0 ]] && [[ $PREFLIGHT_WARNINGS -eq 0 ]]; then
+    echo -e "  ${GREEN}Preflight: ALL CHECKS PASSED${NC}"
+  elif [[ $PREFLIGHT_ERRORS -eq 0 ]]; then
+    echo -e "  ${YELLOW}Preflight: ${PREFLIGHT_WARNINGS} warning(s), no errors.${NC}"
+  else
+    echo -e "  ${RED}Preflight: ${PREFLIGHT_ERRORS} error(s), ${PREFLIGHT_WARNINGS} warning(s).${NC}"
+  fi
+  echo ""
+
+  return $PREFLIGHT_ERRORS
+}
+
 # ── Full wizard ─────────────────────────────────────────────────────────────
 
 run_full_wizard() {
+  NANOBK_DEPLOY_CLOUDFLARE="true"
+  NANOBK_DEPLOY_NANOB="true"
+  NANOBK_ENABLE_BOT="true"
+  NANOBK_ENABLE_WEB="true"
+
   echo ""
-  echo -e "${BOLD}═══ 完整安装向导 ═══${NC}"
+  echo -e "${BOLD}═══ Full Recommended — VPS + Cloudflare + Bot + Web Panel ═══${NC}"
   echo ""
   echo "  将引导你完成以下步骤："
+  echo "    0. Preflight 环境预检"
   echo "    1. VPS 四协议部署"
   echo "    2. Cloudflare nanok/nanob 订阅部署"
-  echo "    3. Telegram Bot 配置（可选）"
-  echo "    4. Web Panel 配置（可选）"
+  echo "    3. Telegram Bot 配置"
+  echo "    4. Web Panel 配置"
   echo "    5. 最终摘要"
   echo ""
 
+  # Phase 0: Preflight
+  run_unified_preflight || true
+
   # Phase 1: VPS
+  echo ""
   echo -e "${BOLD}── 阶段 1：VPS 部署 ──${NC}"
   echo ""
   if confirm "是否配置 VPS 部署？" "y"; then
@@ -802,6 +1158,7 @@ run_full_wizard() {
   echo -e "${BOLD}── 阶段 2：Cloudflare 部署 ──${NC}"
   echo ""
   if confirm "是否配置 Cloudflare 部署？" "y"; then
+    NANOBK_DEPLOY_CLOUDFLARE="true"
     if ! collect_cloudflare_args; then
       warn "Cloudflare 部署阶段失败。"
       if [[ "$DRY_RUN" != "1" ]] && [[ "$COMMAND_ONLY" != "1" ]]; then
@@ -813,14 +1170,16 @@ run_full_wizard() {
       fi
     fi
   else
+    NANOBK_DEPLOY_CLOUDFLARE="false"
     echo "  跳过 Cloudflare 部署。"
   fi
 
   # Phase 3: Bot
   echo ""
-  echo -e "${BOLD}── 阶段 3：Telegram Bot（可选）${NC}"
+  echo -e "${BOLD}── 阶段 3：Telegram Bot ──${NC}"
   echo ""
   if confirm "是否配置 Telegram Bot？" "y"; then
+    NANOBK_ENABLE_BOT="true"
     collect_bot_args
   else
     NANOBK_ENABLE_BOT="false"
@@ -829,9 +1188,10 @@ run_full_wizard() {
 
   # Phase 4: Web Panel
   echo ""
-  echo -e "${BOLD}── 阶段 4：Web Panel（可选）${NC}"
+  echo -e "${BOLD}── 阶段 4：Web Panel ──${NC}"
   echo ""
   if confirm "是否配置 Web Panel？" "y"; then
+    NANOBK_ENABLE_WEB="true"
     collect_web_args
   else
     NANOBK_ENABLE_WEB="false"
@@ -849,61 +1209,65 @@ run_full_wizard() {
 
 print_summary() {
   echo ""
-  echo "╔══════════════════════════════════════════════════════════╗"
-  echo "║           NanoBK Setup Summary                          ║"
-  echo "╚══════════════════════════════════════════════════════════╝"
+  echo -e "${BOLD}── NanoBK Setup Summary ──${NC}"
   echo ""
 
   # VPS
   echo "  VPS:"
   if [[ -n "${NANOBK_DOMAIN:-}" ]] && [[ "$NANOBK_DOMAIN" != "proxy.example.com" ]]; then
-    echo "    domain: ${NANOBK_DOMAIN}"
-    echo "    cert:   ${NANOBK_CERT_MODE:-unknown}"
+    echo "    domain:  ${NANOBK_DOMAIN}"
+    echo "    cert:    ${NANOBK_CERT_MODE:-unknown}"
+    echo "    status:  configured"
   else
-    echo "    (未配置或使用示例域名)"
+    echo "    status:  not configured"
   fi
 
   # Cloudflare
   echo ""
   echo "  Cloudflare:"
   if [[ "${NANOBK_DEPLOY_CLOUDFLARE:-}" == "true" ]]; then
-    echo "    nanok:  ${NANOBK_NANOK_URL:-<not set>}"
+    echo "    nanok:   configured"
+    [[ -n "${NANOBK_NANOK_URL:-}" ]] && echo "    url:     ${NANOBK_NANOK_URL}"
     if [[ "${NANOBK_DEPLOY_NANOB:-}" == "true" ]]; then
-      echo "    nanob:  ${NANOBK_NANOB_URL:-<not set>}"
+      echo "    nanob:   configured"
+      [[ -n "${NANOBK_NANOB_URL:-}" ]] && echo "    url:     ${NANOBK_NANOB_URL}"
     else
-      echo "    nanob:  not deployed"
+      echo "    nanob:   not deployed"
     fi
   else
-    echo "    (未配置)"
+    echo "    status:  not configured"
   fi
 
   # Bot
   echo ""
   echo "  Telegram Bot:"
   if [[ "${NANOBK_ENABLE_BOT:-}" == "true" ]]; then
-    echo "    configured: yes"
-    echo "    dry-run: ${NANOBK_BOT_DRY_RUN:-unknown}"
+    echo "    env:     bot/.env"
+    echo "    dry-run: ${NANOBK_BOT_DRY_RUN:-true}"
+    echo "    start:   cd bot && bash run.sh"
   else
-    echo "    (未配置)"
+    echo "    status:  not configured"
   fi
 
-  # Web
+  # Web Panel
   echo ""
   echo "  Web Panel:"
   if [[ "${NANOBK_ENABLE_WEB:-}" == "true" ]]; then
-    echo "    configured: yes"
-    echo "    url: http://${NANOBK_WEB_HOST:-127.0.0.1}:${NANOBK_WEB_PORT:-8080}"
-    echo "    remote access:"
-    echo "      ssh -L ${NANOBK_WEB_PORT:-8080}:127.0.0.1:${NANOBK_WEB_PORT:-8080} root@YOUR_VPS_IP"
+    echo "    env:     web/.env"
+    echo "    listen:  ${NANOBK_WEB_HOST:-127.0.0.1}:${NANOBK_WEB_PORT:-8080}"
+    echo "    dry-run: ${NANOBK_WEB_DRY_RUN:-true}"
+    echo "    start:   cd web && bash run.sh"
+    echo "    access:  ssh -L ${NANOBK_WEB_PORT:-8080}:127.0.0.1:${NANOBK_WEB_PORT:-8080} root@YOUR_VPS_IP"
   else
-    echo "    (未配置)"
+    echo "    status:  not configured"
   fi
 
-  # Useful commands
+  # Next steps
   echo ""
   echo "  常用命令:"
   echo "    nanobk status"
   echo "    nanobk doctor"
+  echo "    nanobk cf verify"
   echo "    nanobk rotate tuic"
   echo ""
 
@@ -939,6 +1303,85 @@ run_bot_mode() {
 run_web_mode() {
   collect_web_args
   save_config
+}
+
+# ── Combo mode handlers ────────────────────────────────────────────────────
+
+run_cli_only_mode() {
+  echo ""
+  echo -e "${BOLD}═══ CLI Only — VPS 四协议 + nanobk CLI ═══${NC}"
+  echo ""
+  if [[ "$ENV_IS_LINUX" != "1" ]] && [[ "$DRY_RUN" != "1" ]] && [[ "$COMMAND_ONLY" != "1" ]]; then
+    warn "当前不是 Linux 系统，VPS 安装需要在 Linux VPS 上运行。"
+    if ! confirm "仍然继续（可能失败）？" "n"; then
+      return
+    fi
+  fi
+  collect_vps_args
+  save_config
+  print_summary
+}
+
+run_cli_bot_mode() {
+  echo ""
+  echo -e "${BOLD}═══ CLI + Bot — VPS + Telegram Bot ═══${NC}"
+  echo ""
+  NANOBK_ENABLE_BOT="true"
+  NANOBK_DEPLOY_CLOUDFLARE="false"
+  NANOBK_ENABLE_WEB="false"
+
+  if confirm "是否配置 VPS 部署？" "y"; then
+    if ! collect_vps_args; then
+      warn "VPS 部署阶段失败。"
+    fi
+  fi
+
+  echo ""
+  collect_bot_args
+  save_config
+  print_summary
+}
+
+run_cli_web_mode() {
+  echo ""
+  echo -e "${BOLD}═══ CLI + Web — VPS + Web Panel ═══${NC}"
+  echo ""
+  NANOBK_ENABLE_WEB="true"
+  NANOBK_DEPLOY_CLOUDFLARE="false"
+  NANOBK_ENABLE_BOT="false"
+
+  if confirm "是否配置 VPS 部署？" "y"; then
+    if ! collect_vps_args; then
+      warn "VPS 部署阶段失败。"
+    fi
+  fi
+
+  echo ""
+  collect_web_args
+  save_config
+  print_summary
+}
+
+run_cli_bot_web_mode() {
+  echo ""
+  echo -e "${BOLD}═══ CLI + Bot + Web — VPS + Telegram Bot + Web Panel ═══${NC}"
+  echo ""
+  NANOBK_ENABLE_BOT="true"
+  NANOBK_ENABLE_WEB="true"
+  NANOBK_DEPLOY_CLOUDFLARE="false"
+
+  if confirm "是否配置 VPS 部署？" "y"; then
+    if ! collect_vps_args; then
+      warn "VPS 部署阶段失败。"
+    fi
+  fi
+
+  echo ""
+  collect_bot_args
+  echo ""
+  collect_web_args
+  save_config
+  print_summary
 }
 
 run_rotate_mode() {
@@ -1024,6 +1467,11 @@ run_commands_mode() {
   echo "    --key-file /etc/letsencrypt/live/proxy.example.com/privkey.pem"
   echo ""
 
+  echo -e "${BOLD}── VPS healthcheck ──${NC}"
+  echo ""
+  echo "  sudo bash vps/scripts/healthcheck.sh --config-dir /etc/nanobk"
+  echo ""
+
   echo -e "${BOLD}── Cloudflare preflight ──${NC}"
   echo ""
   echo "  bash installer/install-cloudflare.sh --preflight"
@@ -1058,11 +1506,47 @@ run_commands_mode() {
   echo "  sudo bash vps/scripts/rotate-keys.sh --yes"
   echo ""
 
+  echo -e "${BOLD}── Bot 配置模板 ──${NC}"
+  echo ""
+  echo "  # bot/.env 内容："
+  echo "  TELEGRAM_BOT_TOKEN=YOUR_BOT_TOKEN"
+  echo "  OWNER_TELEGRAM_ID=YOUR_USER_ID"
+  echo "  NANOBK_CLI=$(pwd)/bin/nanobk"
+  echo "  NANOBK_REPO_DIR=$(pwd)"
+  echo "  NANOBK_BOT_DRY_RUN=true"
+  echo "  NANOBK_COMMAND_TIMEOUT=120"
+  echo "  NANOBK_ROTATE_TIMEOUT=300"
+  echo ""
+  echo "  # 启动："
+  echo "  cd bot && bash run.sh"
+  echo ""
+
+  echo -e "${BOLD}── Web Panel 配置模板 ──${NC}"
+  echo ""
+  echo "  # web/.env 内容："
+  echo "  NANOBK_WEB_TOKEN=YOUR_RANDOM_TOKEN"
+  echo "  NANOBK_WEB_SECRET_KEY=YOUR_RANDOM_SECRET"
+  echo "  NANOBK_WEB_HOST=127.0.0.1"
+  echo "  NANOBK_WEB_PORT=8080"
+  echo "  NANOBK_CLI=$(pwd)/bin/nanobk"
+  echo "  NANOBK_REPO_DIR=$(pwd)"
+  echo "  NANOBK_WEB_DRY_RUN=true"
+  echo "  NANOBK_COMMAND_TIMEOUT=120"
+  echo "  NANOBK_ROTATE_TIMEOUT=300"
+  echo ""
+  echo "  # 启动："
+  echo "  cd web && bash run.sh"
+  echo ""
+  echo "  # 访问："
+  echo "  ssh -L 8080:127.0.0.1:8080 root@YOUR_VPS_IP"
+  echo ""
+
   echo -e "${BOLD}── 诊断和测试 ──${NC}"
   echo ""
   echo "  bash installer/doctor.sh"
   echo "  bash bin/nanobk status"
   echo "  bash bin/nanobk --json status"
+  echo "  bash bin/nanobk cf verify"
   echo "  bash tests/render-install-vps.sh"
   echo "  bash tests/rotate-render-only.sh"
   echo ""
@@ -1076,15 +1560,16 @@ show_menu() {
   echo ""
   echo "  请选择安装模式："
   echo ""
-  echo "    1) Full recommended — VPS + Cloudflare + Bot + Web Panel"
-  echo "    2) VPS only — 只部署四协议节点"
-  echo "    3) Cloudflare only — 只部署 nanok/nanob"
-  echo "    4) Bot only — 配置 Telegram Bot"
-  echo "    5) Web Panel only — 配置 Web Panel"
-  echo "    6) Commands only — 只输出命令，不执行"
-  echo "    7) Doctor / Status — 检查当前环境"
-  echo "    8) 运行本地安全测试"
-  echo "    9) 一键换密钥"
+  echo "    1) Full Recommended — VPS + Cloudflare + Bot + Web Panel"
+  echo "    2) CLI only — 只部署 VPS + nanobk CLI"
+  echo "    3) CLI + Bot — VPS + Telegram Bot"
+  echo "    4) CLI + Web — VPS + Web Panel"
+  echo "    5) CLI + Bot + Web — VPS + Telegram Bot + Web Panel"
+  echo "    6) Cloudflare only — 只部署 nanok/nanob"
+  echo "    7) Bot only — 配置 Telegram Bot"
+  echo "    8) Web Panel only — 配置 Web Panel"
+  echo "    9) Doctor / Diagnose — 检查当前环境"
+  echo "   10) Commands only — 只输出命令，不执行"
   echo "    0) 退出"
   echo ""
 }
@@ -1093,17 +1578,18 @@ handle_menu_choice() {
   local choice="$1"
 
   case "$choice" in
-    1) run_full_wizard ;;
-    2) run_vps_mode ;;
-    3) run_cloudflare_mode ;;
-    4) run_bot_mode ;;
-    5) run_web_mode ;;
-    6) run_commands_mode ;;
-    7) run_doctor_mode ;;
-    8) run_test_mode ;;
-    9) run_rotate_mode ;;
-    0) echo "  再见！"; exit 0 ;;
-    *) err "无效选择: ${choice}"; return 1 ;;
+    1)  run_full_wizard ;;
+    2)  run_cli_only_mode ;;
+    3)  run_cli_bot_mode ;;
+    4)  run_cli_web_mode ;;
+    5)  run_cli_bot_web_mode ;;
+    6)  run_cloudflare_mode ;;
+    7)  run_bot_mode ;;
+    8)  run_web_mode ;;
+    9)  run_doctor_mode ;;
+    10) run_commands_mode ;;
+    0)  echo "  再见！"; exit 0 ;;
+    *)  err "无效选择: ${choice}"; return 1 ;;
   esac
 }
 
@@ -1126,16 +1612,20 @@ main() {
   # If --mode specified, run directly
   if [[ -n "$MODE" ]]; then
     case "$MODE" in
-      full)        run_full_wizard ;;
-      vps)         run_vps_mode ;;
-      cloudflare)  run_cloudflare_mode ;;
-      bot)         run_bot_mode ;;
-      web)         run_web_mode ;;
-      rotate)      run_rotate_mode ;;
-      doctor)      run_doctor_mode ;;
-      test)        run_test_mode ;;
-      commands)    run_commands_mode ;;
-      *)           err "未知模式: ${MODE}"; show_help; exit 1 ;;
+      full)          run_full_wizard ;;
+      cli-only)      run_cli_only_mode ;;
+      cli-bot)       run_cli_bot_mode ;;
+      cli-web)       run_cli_web_mode ;;
+      cli-bot-web)   run_cli_bot_web_mode ;;
+      vps)           run_vps_mode ;;
+      cloudflare)    run_cloudflare_mode ;;
+      bot)           run_bot_mode ;;
+      web)           run_web_mode ;;
+      rotate)        run_rotate_mode ;;
+      doctor)        run_doctor_mode ;;
+      test)          run_test_mode ;;
+      commands)      run_commands_mode ;;
+      *)             err "未知模式: ${MODE}"; show_help; exit 1 ;;
     esac
     save_config
     return
