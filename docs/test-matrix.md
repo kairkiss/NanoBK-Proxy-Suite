@@ -26,7 +26,7 @@ All test scripts in `tests/` are designed to be safe for local development. None
 | `cloudflare-sync-retry-static.sh` | rotate Cloudflare verify retry/rollback logic | No | No | No | ✅ | ✅ |
 | `unified-installer-resume.sh` | --resume + explicit --mode precedence | No | No | No | ✅ | ✅ |
 | `nanob-status-env.sh` | nanob verify status field consistency | No | No | No | ✅ | ✅ |
-| `rotate-cloudflare-stale-read-mock.sh` | Cloudflare stale read retry logic | No | No | No | ✅ | ✅ |
+| `rotate-cloudflare-stale-read-static.sh` | Cloudflare stale read retry logic (static) | No | No | No | ✅ | ✅ |
 
 ¹ Wrangler may download npm packages on first run.
 

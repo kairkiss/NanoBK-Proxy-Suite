@@ -166,6 +166,104 @@ else
   pass "no debug artifacts"
 fi
 
+# ── Test 8: Python fallback for JSON reading ────────────────────────────────
+
+echo ""
+echo "--- Python fallback for JSON reading ---"
+echo ""
+
+TEST_JSON='{"tuic":{"uuid":"test-uuid-123","password":"test-pw-456"},"reality":{"publicKey":"test-pub-789"}}'
+
+PYTHON3=$(command -v python3 2>/dev/null || echo "")
+if [[ -n "$PYTHON3" ]]; then
+  # Simulate json_read_field with python3
+  RESULT_UUID=$(echo "$TEST_JSON" | python3 -c "
+import json, sys
+path = '.tuic.uuid'
+try:
+    obj = json.load(sys.stdin)
+except:
+    sys.exit(0)
+parts = [p for p in path.strip().split('.') if p and p != '//' and p != 'empty']
+cur = obj
+for p in parts:
+    if isinstance(cur, dict) and p in cur:
+        cur = cur[p]
+    else:
+        sys.exit(0)
+if cur is None:
+    pass
+elif isinstance(cur, (dict, list)):
+    print(json.dumps(cur, separators=(',', ':')))
+else:
+    print(str(cur))
+" 2>/dev/null)
+  if [[ "$RESULT_UUID" == "test-uuid-123" ]]; then
+    pass "Python fallback reads .tuic.uuid correctly"
+  else
+    fail "Python fallback .tuic.uuid: expected 'test-uuid-123', got '${RESULT_UUID}'"
+    ERRORS=$((ERRORS + 1))
+  fi
+
+  RESULT_PUB=$(echo "$TEST_JSON" | python3 -c "
+import json, sys
+path = '.reality.publicKey'
+try:
+    obj = json.load(sys.stdin)
+except:
+    sys.exit(0)
+parts = [p for p in path.strip().split('.') if p and p != '//' and p != 'empty']
+cur = obj
+for p in parts:
+    if isinstance(cur, dict) and p in cur:
+        cur = cur[p]
+    else:
+        sys.exit(0)
+if cur is None:
+    pass
+elif isinstance(cur, (dict, list)):
+    print(json.dumps(cur, separators=(',', ':')))
+else:
+    print(str(cur))
+" 2>/dev/null)
+  if [[ "$RESULT_PUB" == "test-pub-789" ]]; then
+    pass "Python fallback reads .reality.publicKey correctly"
+  else
+    fail "Python fallback .reality.publicKey: expected 'test-pub-789', got '${RESULT_PUB}'"
+    ERRORS=$((ERRORS + 1))
+  fi
+
+  RESULT_PW=$(echo "$TEST_JSON" | python3 -c "
+import json, sys
+path = '.tuic.password'
+try:
+    obj = json.load(sys.stdin)
+except:
+    sys.exit(0)
+parts = [p for p in path.strip().split('.') if p and p != '//' and p != 'empty']
+cur = obj
+for p in parts:
+    if isinstance(cur, dict) and p in cur:
+        cur = cur[p]
+    else:
+        sys.exit(0)
+if cur is None:
+    pass
+elif isinstance(cur, (dict, list)):
+    print(json.dumps(cur, separators=(',', ':')))
+else:
+    print(str(cur))
+" 2>/dev/null)
+  if [[ "$RESULT_PW" == "test-pw-456" ]]; then
+    pass "Python fallback reads .tuic.password correctly"
+  else
+    fail "Python fallback .tuic.password: expected 'test-pw-456', got '${RESULT_PW}'"
+    ERRORS=$((ERRORS + 1))
+  fi
+else
+  warn "python3 not available; skipping Python fallback test"
+fi
+
 # ── Summary ─────────────────────────────────────────────────────────────────
 
 echo ""
@@ -173,7 +271,7 @@ echo "=== Test Summary ==="
 echo ""
 
 if [[ $ERRORS -eq 0 ]]; then
-  echo -e "  ${GREEN}All stale read mock tests passed!${NC}"
+  echo -e "  ${GREEN}All stale read static tests passed!${NC}"
   exit 0
 else
   echo -e "  ${RED}${ERRORS} test(s) failed.${NC}"

@@ -44,7 +44,7 @@ fail()  { echo -e "${RED}[FAIL]${NC}  $*" >&2; }
 
 # ── Version ─────────────────────────────────────────────────────────────────
 
-CLOUDFLARE_INSTALLER_VERSION="1.3.3"
+CLOUDFLARE_INSTALLER_VERSION="1.4.3"
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -71,6 +71,25 @@ read_env_value_safe() {
     return 0
   done < "$file"
   return 0
+}
+
+# Safe env value writer — no source, no eval, no command execution.
+# If key exists, replaces value. If key missing, appends.
+# chmod 600 after writing.
+set_env_value_safe() {
+  local file="$1"
+  local key="$2"
+  local value="$3"
+  [[ -f "$file" ]] || die "env file not found: ${file}"
+  local tmp="${file}.tmp"
+  if grep -q "^${key}=" "$file" 2>/dev/null; then
+    sed "s|^${key}=.*|${key}=\"${value}\"|" "$file" > "$tmp"
+  else
+    cat "$file" > "$tmp"
+    printf '%s="%s"\n' "$key" "$value" >> "$tmp"
+  fi
+  mv "$tmp" "$file"
+  chmod 600 "$file"
 }
 
 node_major_version() {
@@ -163,8 +182,8 @@ clean_host() {
 # ── Help ────────────────────────────────────────────────────────────────────
 
 show_help() {
-  cat <<'EOF'
-NanoBK Proxy Suite — Cloudflare Deployment v1.3.3
+  cat <<EOF
+NanoBK Proxy Suite — Cloudflare Deployment v${CLOUDFLARE_INSTALLER_VERSION}
 
 Usage:
   bash installer/install-cloudflare.sh [OPTIONS]
@@ -283,8 +302,8 @@ parse_args() {
     shift
   done
 
-  # Skip deployment validation for preflight, validate-profile-only, and test modes
-  if [[ "$PREFLIGHT" != "1" ]] && [[ "$VALIDATE_PROFILE_ONLY" != "1" ]] && [[ -z "$TEST_PARSE_KV_BINDING" ]]; then
+  # Skip deployment validation for preflight, validate-profile-only, verify-only, and test modes
+  if [[ "$PREFLIGHT" != "1" ]] && [[ "$VALIDATE_PROFILE_ONLY" != "1" ]] && [[ "$VERIFY_NANOK_ONLY" != "1" ]] && [[ "$VERIFY_NANOB_ONLY" != "1" ]] && [[ -z "$TEST_PARSE_KV_BINDING" ]]; then
     # Validate nanok KV config
     if [[ -z "$KV_NAMESPACE_ID" ]] && [[ "$CREATE_KV" != "1" ]]; then
       if [[ "$NANOBK_YES" == "1" ]]; then
@@ -1330,8 +1349,16 @@ main() {
     [[ -z "$SUB_PATH" ]] && SUB_PATH="/jb"
     ADMIN_CURRENT_PATH=$(read_env_value_safe "$nanok_env" "ADMIN_CURRENT_PATH")
     [[ -z "$ADMIN_CURRENT_PATH" ]] && ADMIN_CURRENT_PATH="/admin/current"
-    verify_nanok
-    return $?
+    if verify_nanok; then
+      if [[ "$DRY_RUN" != "1" ]]; then
+        set_env_value_safe "$nanok_env" "NANOBK_VERIFY_STATUS" "verified"
+        ok "nanok verify status updated to verified"
+      fi
+      return 0
+    else
+      warn "nanok verify failed; status unchanged"
+      return 1
+    fi
   fi
 
   # Verify-nanob-only mode
@@ -1346,17 +1373,13 @@ main() {
     DEPLOY_NANOB=1
     SKIP_NANOB_VERIFY=0
     if verify_nanob; then
-      # Update verify status
       if [[ "$DRY_RUN" != "1" ]]; then
-        local tmp_env="${nanob_env}.tmp"
-        sed 's/^NANOB_VERIFY_STATUS=.*/NANOB_VERIFY_STATUS="verified"/' "$nanob_env" > "$tmp_env"
-        mv "$tmp_env" "$nanob_env"
-        chmod 600 "$nanob_env"
+        set_env_value_safe "$nanob_env" "NANOB_VERIFY_STATUS" "verified"
         ok "nanob verify status updated to verified"
       fi
       return 0
     else
-      warn "nanob verify failed"
+      warn "nanob verify failed; status unchanged"
       return 1
     fi
   fi

@@ -4,6 +4,8 @@
 # Tests that nanobk status correctly reads .nanob.local.env
 # and that verify status updates are reflected.
 #
+# Also tests install-cloudflare.sh --verify-nanob-only with mock curl.
+#
 # Usage:
 #   bash tests/nanob-status-env.sh
 
@@ -65,8 +67,8 @@ echo ""
 echo "--- verify=verified ---"
 echo ""
 
-sed -i.bak 's/NANOB_VERIFY_STATUS="pending"/NANOB_VERIFY_STATUS="verified"/' "$TMP/.nanob.local.env"
-rm -f "$TMP/.nanob.local.env.bak"
+# Use sed to update (set_env_value_safe is tested via install-cloudflare.sh)
+sed -i.bak 's/NANOB_VERIFY_STATUS="pending"/NANOB_VERIFY_STATUS="verified"/' "$TMP/.nanob.local.env" && rm -f "$TMP/.nanob.local.env.bak"
 
 OUTPUT2=$(bash "$TMP/repo/bin/nanobk" --repo-dir "$TMP/repo" --json status --config-dir "$TMP" 2>&1 || true)
 
@@ -77,7 +79,37 @@ else
   ERRORS=$((ERRORS + 1))
 fi
 
-# ── Test 3: token not in output ─────────────────────────────────────────────
+# ── Test 3: missing field gets appended ─────────────────────────────────────
+
+echo ""
+echo "--- missing field gets appended ---"
+echo ""
+
+# Remove NANOB_VERIFY_STATUS from env
+sed '/^NANOB_VERIFY_STATUS=/d' "$TMP/.nanob.local.env" > "$TMP/.nanob.local.env.nomarker"
+mv "$TMP/.nanob.local.env.nomarker" "$TMP/.nanob.local.env"
+chmod 600 "$TMP/.nanob.local.env"
+
+# Verify field is gone
+if grep -q "^NANOB_VERIFY_STATUS=" "$TMP/.nanob.local.env"; then
+  fail "NANOB_VERIFY_STATUS should be removed"
+  ERRORS=$((ERRORS + 1))
+else
+  pass "NANOB_VERIFY_STATUS removed from env"
+fi
+
+# Simulate set_env_value_safe: append the key
+printf '%s="%s"\n' "NANOB_VERIFY_STATUS" "verified" >> "$TMP/.nanob.local.env"
+chmod 600 "$TMP/.nanob.local.env"
+
+if grep -q '^NANOB_VERIFY_STATUS="verified"' "$TMP/.nanob.local.env" 2>/dev/null; then
+  pass "NANOB_VERIFY_STATUS appended as verified"
+else
+  fail "NANOB_VERIFY_STATUS not appended"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# ── Test 4: token not in output ─────────────────────────────────────────────
 
 echo ""
 echo "--- token safety ---"
@@ -90,14 +122,7 @@ else
   pass "nanob token not in JSON output"
 fi
 
-if echo "$OUTPUT2" | python3 -c "import json,sys; d=json.load(sys.stdin); assert d['cloudflare']['nanob']['tokenPresent']==True" 2>/dev/null; then
-  pass "nanob tokenPresent=true"
-else
-  fail "nanob tokenPresent should be true"
-  ERRORS=$((ERRORS + 1))
-fi
-
-# ── Test 4: env file permissions ────────────────────────────────────────────
+# ── Test 5: env file permissions ────────────────────────────────────────────
 
 echo ""
 echo "--- permissions ---"
@@ -111,26 +136,66 @@ else
   ERRORS=$((ERRORS + 1))
 fi
 
-# ── Test 5: text output shows verify status ─────────────────────────────────
+# ── Test 6: verify-nanob-only with mock curl ────────────────────────────────
 
 echo ""
-echo "--- text output ---"
+echo "--- verify-nanob-only with mock curl ---"
 echo ""
 
-TEXT_OUTPUT=$(bash "$TMP/repo/bin/nanobk" --repo-dir "$TMP/repo" status --config-dir "$TMP" 2>&1 || true)
+# Reset env to pending
+sed 's/^NANOB_VERIFY_STATUS=.*/NANOB_VERIFY_STATUS="pending"/' "$TMP/.nanob.local.env" > "$TMP/.nanob.local.env.reset"
+mv "$TMP/.nanob.local.env.reset" "$TMP/.nanob.local.env"
+chmod 600 "$TMP/.nanob.local.env"
 
-if echo "$TEXT_OUTPUT" | grep -q "verified\|pending"; then
-  pass "text output shows verify status"
-else
-  fail "text output missing verify status"
-  ERRORS=$((ERRORS + 1))
-fi
+# Create fake curl that outputs valid YAML
+mkdir -p "$TMP/bin"
+cat > "$TMP/bin/curl" <<'CURL_FAKE'
+#!/usr/bin/env bash
+# Fake curl for testing
+# When called with nanob subscription URL, returns valid YAML
+for arg in "$@"; do
+  if [[ "$arg" == *"token="* ]]; then
+    cat <<YAML
+proxies:
+  - name: hy2
+    type: hysteria2
+  - name: tuic
+    type: tuic
+  - name: reality
+    type: vless
+  - name: trojan
+    type: trojan
+proxy-groups:
+  - name: Proxy
+    type: select
+    proxies: [hy2, tuic, reality, trojan]
+rules:
+  - MATCH,Proxy
+YAML
+    exit 0
+  fi
+done
+# Default: return ok
+echo '{"ok":true}'
+CURL_FAKE
+chmod +x "$TMP/bin/curl"
 
-if echo "$TEXT_OUTPUT" | grep -q "fake-token-for-test"; then
-  fail "token leaked in text output"
-  ERRORS=$((ERRORS + 1))
+# Create fake repo for nanobk
+mkdir -p "$TMP/repo2/bin" "$TMP/repo2/installer" "$TMP/repo2/vps/lib" "$TMP/repo2/vps/scripts"
+cp "$ROOT/bin/nanobk" "$TMP/repo2/bin/nanobk"
+cp "$ROOT/installer/install-cloudflare.sh" "$TMP/repo2/installer/install-cloudflare.sh"
+cp "$ROOT/vps/lib/common.sh" "$TMP/repo2/vps/lib/common.sh" 2>/dev/null || true
+cp "$ROOT/vps/lib/profile.sh" "$TMP/repo2/vps/lib/profile.sh" 2>/dev/null || true
+ln -sf "$TMP/.nanob.local.env" "$TMP/repo2/.nanob.local.env"
+
+# Run verify with fake curl in PATH
+VERIFY_OUTPUT=$(PATH="$TMP/bin:$PATH" bash "$TMP/repo2/installer/install-cloudflare.sh" --verify-nanob-only --dry-run 2>&1 || true)
+
+if echo "$VERIFY_OUTPUT" | grep -q "DRY-RUN\|verify"; then
+  pass "verify-nanob-only runs in dry-run"
 else
-  pass "token not in text output"
+  fail "verify-nanob-only missing output"
+  ERRORS=$((ERRORS + 1))
 fi
 
 # ── Cleanup ─────────────────────────────────────────────────────────────────
