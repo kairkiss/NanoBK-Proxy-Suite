@@ -34,6 +34,8 @@ All test scripts in `tests/` are designed to be safe for local development. None
 | `unified-validation-plan.sh` | Validate-plan mode output and safety | No | No | No | ✅ | ✅ |
 | `unified-noninteractive-mode.sh` | Commands/test noninteractive mode | No | No | No | ✅ | ✅ |
 | `unified-failure-recovery.sh` | Failure recovery and stage dependencies | No | No | No | ✅ | ✅ |
+| `unified-cloudflare-dependency.sh` | Cloudflare profile dependency guard | No | No | No | ✅ | ✅ |
+| `unified-test-failure-propagation.sh` | Test failure propagation | No | No | No | ✅ | ✅ |
 
 ¹ Wrangler may download npm packages on first run.
 

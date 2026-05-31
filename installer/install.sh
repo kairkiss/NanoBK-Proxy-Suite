@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — Unified Beginner Installer v1.6.2
+# NanoBK Proxy Suite — Unified Beginner Installer v1.6.3
 #
 # Interactive entry point for NanoBK Proxy Suite.
 # Guides users through VPS deployment, Cloudflare setup, Bot, Web Panel.
@@ -20,7 +20,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # ── Constants ───────────────────────────────────────────────────────────────
 
 REPO_URL="https://github.com/kairkiss/NanoBK-Proxy-Suite"
-VERSION="1.6.2"
+VERSION="1.6.3"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -101,6 +101,9 @@ run_cmd() {
   "${cmd[@]}"
 }
 
+TEST_FAILURES=0
+TEST_FAILED_NAMES=()
+
 run_one_test() {
   local script="$1"
   local label="$2"
@@ -118,7 +121,14 @@ run_one_test() {
     return 0
   fi
 
-  "${cmd[@]}" || warn "测试失败: ${label}"
+  if "${cmd[@]}"; then
+    return 0
+  else
+    warn "测试失败: ${label}"
+    TEST_FAILURES=$((TEST_FAILURES + 1))
+    TEST_FAILED_NAMES+=("${label}")
+    return 1
+  fi
 }
 
 prompt() {
@@ -1388,7 +1398,13 @@ print_summary() {
   # Cloudflare — honest status
   echo ""
   echo "  Cloudflare:"
-  if [[ "$DRY_RUN" == "1" ]]; then
+  if [[ "${CF_STAGE_STATUS:-}" == "skipped_dependency" ]]; then
+    echo "    status:  skipped / dependency missing"
+    echo "    reason:  /etc/nanobk/profile.current.json not found"
+    echo "    recover:"
+    echo "      finish VPS first, then run:"
+    echo "      bash installer/install.sh --mode cloudflare --lang zh"
+  elif [[ "$DRY_RUN" == "1" ]]; then
     if [[ "${NANOBK_DEPLOY_CLOUDFLARE:-}" == "true" ]]; then
       echo "    nanok:   planned / dry-run"
       [[ -n "${NANOBK_NANOK_URL:-}" ]] && echo "    url:     ${NANOBK_NANOK_URL}"
@@ -1544,7 +1560,33 @@ run_vps_mode() {
   collect_vps_args
 }
 
+require_default_profile_for_cloudflare() {
+  local profile="${NANOBK_DEFAULT_PROFILE_PATH:-/etc/nanobk/profile.current.json}"
+  if [[ ! -f "$profile" ]]; then
+    warn "Cloudflare 部署需要 ${profile}"
+    warn "这通常表示 VPS 四协议尚未安装完成。"
+    echo ""
+    echo "  请先运行："
+    echo "    bash installer/install.sh --mode vps --lang zh"
+    echo ""
+    echo "  或直接运行底层安装："
+    echo "    sudo bash installer/install-vps.sh --yes --domain YOUR_DOMAIN --cert-mode self-signed --open-firewall --force"
+    echo ""
+    echo "  完成后再运行："
+    echo "    bash installer/install.sh --mode cloudflare --lang zh"
+    echo ""
+    return 1
+  fi
+  return 0
+}
+
 run_cloudflare_mode() {
+  if ! require_default_profile_for_cloudflare; then
+    CF_STAGE_STATUS="skipped_dependency"
+    NANOBK_DEPLOY_CLOUDFLARE="false"
+    print_summary
+    return 1
+  fi
   collect_cloudflare_args
   save_config
 }
@@ -1712,9 +1754,11 @@ run_test_mode() {
     local script="$1"
     local label="$2"
     if [[ -f "$script" ]]; then
-      run_one_test "$script" "$label"
+      run_one_test "$script" "$label" || true
     else
       warn "测试文件不存在: $script"
+      TEST_FAILURES=$((TEST_FAILURES + 1))
+      TEST_FAILED_NAMES+=("${label} (missing)")
     fi
   }
 
@@ -1771,6 +1815,19 @@ run_test_mode() {
       ;;
     *) err "无效选择"; return 1 ;;
   esac
+
+  # Propagate test failures
+  if [[ "${TEST_FAILURES:-0}" -gt 0 ]]; then
+    echo ""
+    err "本地安全测试失败: ${TEST_FAILURES}"
+    echo "  失败项目："
+    for name in "${TEST_FAILED_NAMES[@]}"; do
+      echo "    - $name"
+    done
+    return 1
+  fi
+  ok "本地安全测试全部通过"
+  return 0
 }
 
 run_commands_mode() {

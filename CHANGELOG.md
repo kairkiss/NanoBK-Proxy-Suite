@@ -1,5 +1,24 @@
 # Changelog
 
+## v1.6.3 — Unified Installer Dependency and Test Failure Hotfix
+
+### Fixed
+
+- Cloudflare-only mode now stops early when `/etc/nanobk/profile.current.json` is missing
+- Cloudflare-only mode now shows beginner-friendly recovery commands instead of low-level profile validation errors
+- Test mode now propagates child test failures and exits non-zero when any safe test fails
+- Test mode now prints failed test names
+
+### Safety
+
+- Cloudflare deployment is no longer previewed as executable when the VPS profile dependency is missing
+- `--mode test --defaults` can no longer report success while child tests failed
+
+### Tests
+
+- Added `tests/unified-cloudflare-dependency.sh`: profile dependency guard coverage
+- Added `tests/unified-test-failure-propagation.sh`: test failure propagation checks
+
 ## v1.6.2 — Unified Installer Recovery and Noninteractive Hotfix
 
 ### Fixed
