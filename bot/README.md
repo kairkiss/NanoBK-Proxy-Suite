@@ -4,6 +4,24 @@ Control layer for NanoBK Proxy Suite via Telegram.
 
 **The bot only calls `nanobk` CLI** — it never directly reads or writes secrets, profiles, configs, or systemd services.
 
+## Prerequisites
+
+- Python 3.8+
+- Python venv support
+
+On Ubuntu/Debian:
+
+```bash
+sudo apt update
+sudo apt install -y python3-venv
+```
+
+If Ubuntu 24.04 reports `ensurepip is not available`:
+
+```bash
+sudo apt install -y python3.12-venv
+```
+
 ## Quick Start
 
 ```bash

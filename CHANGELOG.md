@@ -1,5 +1,18 @@
 # Changelog
 
+## v1.1.2 — Bot Output Polish
+
+### Fixed
+
+- `bot/run.sh` now detects missing Python venv support and prints Ubuntu/Debian install instructions
+- Bot output now strips ANSI color escape codes before sending messages to Telegram
+- `/doctor` output no longer shows raw `[0;34m` codes in Telegram
+
+### Tests
+
+- Added self-test coverage for `strip_ansi()` and `safe_output()` ANSI stripping
+- Added bot mock checks for `strip_ansi` function and venv guidance in `run.sh`
+
 ## v1.1.1 — Telegram Bot Safety Polish
 
 ### Fixed

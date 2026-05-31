@@ -88,6 +88,30 @@ else
   ERRORS=$((ERRORS + 1))
 fi
 
+# strip_ansi function exists
+if grep -q "def strip_ansi" "$ROOT/bot/nanobk_bot.py" 2>/dev/null; then
+  pass "strip_ansi function exists"
+else
+  fail "strip_ansi function missing"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# safe_output calls strip_ansi
+if grep -A8 "def safe_output" "$ROOT/bot/nanobk_bot.py" | grep -q "strip_ansi" 2>/dev/null; then
+  pass "safe_output calls strip_ansi"
+else
+  fail "safe_output does not call strip_ansi"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# bot/run.sh contains venv guidance
+if grep -q "python3-venv\|python.*venv" "$ROOT/bot/run.sh" 2>/dev/null; then
+  pass "bot/run.sh contains venv guidance"
+else
+  fail "bot/run.sh missing venv guidance"
+  ERRORS=$((ERRORS + 1))
+fi
+
 echo ""
 
 # ── Summary ─────────────────────────────────────────────────────────────────

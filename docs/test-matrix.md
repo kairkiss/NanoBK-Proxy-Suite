@@ -15,7 +15,7 @@ All test scripts in `tests/` are designed to be safe for local development. None
 | `nanobk-status-cloudflare.sh` | Status JSON + security test | No | No | No | ✅ | ✅ |
 | `production-hotfix-static.sh` | TUIC template + x25519 parser + download patterns | No | No | No | ✅ | ✅ |
 | `installed-layout-rotate.sh` | Installed layout rotate (tuic/reality/all) | No | No | No | ✅ | ✅ |
-| `bot-cli-mock.sh` | Bot self-test (no Telegram connection) | No | No | No | ✅ | ✅ |
+| `bot-cli-mock.sh` | Bot self-test (no Telegram connection) + ANSI stripping + venv guidance | No | No | No | ✅ | ✅ |
 
 ¹ Wrangler may download npm packages on first run.
 

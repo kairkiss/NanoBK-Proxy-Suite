@@ -106,6 +106,12 @@ def run_nanobk(config: BotConfig, args: list[str], timeout: int | None = None) -
 
 # ── Output safety ───────────────────────────────────────────────────────────
 
+_ANSI_RE = re.compile(r'\x1b\[[0-9;?]*[ -/]*[@-~]')
+
+def strip_ansi(text: str) -> str:
+    """Remove ANSI escape codes (color, cursor, etc.)."""
+    return _ANSI_RE.sub('', text)
+
 _REDACT_PATTERNS = [
     # Telegram bot token: 123456:ABC-DEF...
     (re.compile(r'\b\d{6,}:[A-Za-z0-9_-]{20,}\b'), '[BOT_TOKEN_REDACTED]'),
@@ -131,8 +137,10 @@ def limit_text(text: str, max_len: int = 3500) -> str:
     return text[:max_len] + "\n... [truncated]"
 
 def safe_output(text: str) -> str:
-    """Apply redaction and length limiting."""
-    return limit_text(redact_text(text))
+    """Strip ANSI, apply redaction, and limit length."""
+    text = strip_ansi(text)
+    text = redact_text(text)
+    return limit_text(text)
 
 # ── Status formatting ───────────────────────────────────────────────────────
 
@@ -302,6 +310,19 @@ def run_self_test() -> bool:
     test_pk = "PrivateKey: aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789"
     redacted_pk = redact_text(test_pk)
     check("redact_text hides PrivateKey", "aBcDeFgHiJkLmNoPq" not in redacted_pk)
+
+    # 12. strip_ansi removes color escapes
+    ansi = "\x1b[0;34mINFO\x1b[0m \x1b[0;32mOK\x1b[0m \x1b[1;33mWARN\x1b[0m"
+    clean = strip_ansi(ansi)
+    check("strip_ansi removes color escapes", "\x1b[" not in clean and "INFO" in clean and "OK" in clean and "WARN" in clean)
+
+    # 13. safe_output strips ANSI
+    safe = safe_output(ansi)
+    check("safe_output strips ANSI", "\x1b[" not in safe)
+
+    # 14. safe_output strips ANSI and redacts
+    safe_secret = safe_output("\x1b[0;32mpassword=SuperSecret123\x1b[0m")
+    check("safe_output strips ANSI and redacts", "SuperSecret123" not in safe_secret and "\x1b[" not in safe_secret)
 
     print(f"\n=== {passed} passed, {failed} failed ===")
     return failed == 0
