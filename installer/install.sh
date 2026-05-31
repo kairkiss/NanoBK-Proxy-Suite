@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — Unified Beginner Installer v1.6.0
+# NanoBK Proxy Suite — Unified Beginner Installer v1.6.1
 #
 # Interactive entry point for NanoBK Proxy Suite.
 # Guides users through VPS deployment, Cloudflare setup, Bot, Web Panel.
@@ -20,7 +20,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # ── Constants ───────────────────────────────────────────────────────────────
 
 REPO_URL="https://github.com/kairkiss/NanoBK-Proxy-Suite"
-VERSION="1.6.0"
+VERSION="1.6.1"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -1567,6 +1567,7 @@ run_test_mode() {
       run_safe_test "$REPO_DIR/tests/unified-installer-dry-run.sh" "installer dry-run"
       run_safe_test "$REPO_DIR/tests/unified-installer-config.sh" "installer config"
       run_safe_test "$REPO_DIR/tests/unified-installer-resume.sh" "installer resume"
+      run_safe_test "$REPO_DIR/tests/unified-validation-plan.sh" "validation plan"
       ;;
     3)
       run_safe_test "$REPO_DIR/tests/cloudflare-kv-parser.sh" "KV parser"
@@ -1602,6 +1603,7 @@ run_test_mode() {
       run_safe_test "$REPO_DIR/tests/installed-layout-rotate.sh" "installed layout"
       run_safe_test "$REPO_DIR/tests/bot-cli-mock.sh" "bot mock"
       run_safe_test "$REPO_DIR/tests/web-panel-mock.sh" "web panel mock"
+      run_safe_test "$REPO_DIR/tests/unified-validation-plan.sh" "validation plan"
       ;;
     *) err "无效选择"; return 1 ;;
   esac
@@ -1725,7 +1727,7 @@ Phase 0: Baseline
 -----------------
   - Clean Ubuntu 24.04 VPS (root access)
   - Domain pointed to VPS IP
-  - Cloudflare account with Workers paid plan
+  - Cloudflare account with Workers enabled; paid plan may be required
   - Telegram Bot Token from @BotFather
   - Your Telegram numeric User ID
 
@@ -1799,22 +1801,33 @@ Phase 6: nanob Subscription Verification
 
 Phase 7: Bot Env Verification
 ------------------------------
-  cat bot/.env
+  stat -c "%a %n" bot/.env
+  grep -q '^TELEGRAM_BOT_TOKEN=' bot/.env && echo "TELEGRAM_BOT_TOKEN: present"
+  grep -q '^OWNER_TELEGRAM_ID=' bot/.env && echo "OWNER_TELEGRAM_ID: present"
+  grep -q '^NANOBK_CLI=' bot/.env && echo "NANOBK_CLI: present"
+  python3 bot/nanobk_bot.py --self-test
 
   Verify:
-    - TELEGRAM_BOT_TOKEN set
-    - OWNER_TELEGRAM_ID set (numeric)
-    - NANOBK_CLI path correct
     - File mode 600
-    - python3 bot/nanobk_bot.py --self-test passes
+    - TELEGRAM_BOT_TOKEN: present
+    - OWNER_TELEGRAM_ID: present
+    - NANOBK_CLI: present
+    - Self-test passes
+
+  ⚠ Do NOT cat bot/.env — prints tokens to terminal/logs
 
 Phase 8: Web Panel Env Verification
 -------------------------------------
-  cat web/.env
+  stat -c "%a %n" web/.env
+  grep -q '^NANOBK_WEB_TOKEN=' web/.env && echo "NANOBK_WEB_TOKEN: present"
+  grep -q '^NANOBK_WEB_SECRET_KEY=' web/.env && echo "NANOBK_WEB_SECRET_KEY: present"
+  grep -q '^NANOBK_WEB_HOST=127.0.0.1' web/.env && echo "NANOBK_WEB_HOST: 127.0.0.1"
+  python3 web/app.py --self-test
 
   Verify:
-    - NANOBK_WEB_TOKEN set (not default)
-    - NANOBK_WEB_SECRET_KEY set (not default)
+    - File mode 600
+    - NANOBK_WEB_TOKEN: present
+    - NANOBK_WEB_SECRET_KEY: present
     - NANOBK_WEB_HOST=127.0.0.1
     - File mode 600
     - python3 web/app.py --self-test passes

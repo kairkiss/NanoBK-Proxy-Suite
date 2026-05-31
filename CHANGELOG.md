@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.6.1 — Validation Plan Safety Polish
+
+### Fixed
+
+- Added `unified-validation-plan.sh` to installer All safe tests
+- Removed unsafe `cat bot/.env` and `cat web/.env` validation instructions
+- Replaced raw env output with presence-only checks for tokens and secrets
+- Clarified Cloudflare Workers requirement wording
+
+### Safety
+
+- Validation docs now avoid printing Bot/Web tokens or secrets
+- Human testers are reminded not to paste `.env` contents into chat, logs, or issues
+
 ## v1.6.0 — Unified Installer Clean VPS Full Wizard Validation Prep
 
 ### Added

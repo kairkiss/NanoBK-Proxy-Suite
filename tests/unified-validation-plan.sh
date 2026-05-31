@@ -105,6 +105,34 @@ check "no 'real VPS passed'" "$(not_contains "$OUTPUT" "real VPS passed")"
 # Note: "不能代表真实 VPS 验收通过" is a negative disclaimer, not a false claim
 check "has negative disclaimer about dry-run" "$(contains "$OUTPUT" "不能代表.*验收通过\|cannot claim.*validation")"
 
+# ── Test 6: validation docs safety ──────────────────────────────────────────
+echo ""
+echo "── Test 6: validation docs safety ──"
+
+DOC="$REPO_DIR/docs/validation-v1.6-clean-vps.md"
+if [[ -f "$DOC" ]]; then
+  # Check that cat .env is not in executable code blocks (only in warnings)
+  DOC_CONTENT="$(cat "$DOC")"
+  # Count occurrences - warnings say "Do NOT execute" which is safe
+  CAT_BOT_COUNT=$(echo "$DOC_CONTENT" | grep -c "cat bot/.env" || true)
+  CAT_WEB_COUNT=$(echo "$DOC_CONTENT" | grep -c "cat web/.env" || true)
+  # Should only appear in warning lines (Do NOT execute), not in code examples
+  check "cat bot/.env only in warnings" "$([[ $CAT_BOT_COUNT -le 1 ]] && echo 1 || echo 0)"
+  check "cat web/.env only in warnings" "$([[ $CAT_WEB_COUNT -le 1 ]] && echo 1 || echo 0)"
+  check "docs has TELEGRAM_BOT_TOKEN: present" "$(contains "$(cat "$DOC")" "TELEGRAM_BOT_TOKEN.*present")"
+  check "docs has NANOBK_WEB_TOKEN: present" "$(contains "$(cat "$DOC")" "NANOBK_WEB_TOKEN.*present")"
+  check "docs has NANOBK_WEB_SECRET_KEY: present" "$(contains "$(cat "$DOC")" "NANOBK_WEB_SECRET_KEY.*present")"
+  check "docs has do-not-paste reminder" "$(contains "$(cat "$DOC")" "Do NOT paste\|不要.*paste\|不要.*粘贴")"
+else
+  check "validation doc exists" "0"
+fi
+
+# ── Test 7: validation-plan in installer test list ──────────────────────────
+echo ""
+echo "── Test 7: validation-plan in installer test list ──"
+
+check "validation-plan in installer" "$(grep -q 'unified-validation-plan.sh' "$INSTALLER" 2>/dev/null && echo 1 || echo 0)"
+
 # ── Summary ─────────────────────────────────────────────────────────────────
 echo ""
 echo "=== ${PASS} passed, ${FAIL} failed ==="

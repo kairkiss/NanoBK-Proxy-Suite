@@ -29,7 +29,7 @@ This document defines the acceptance test plan for the NanoBK unified beginner i
 
 - Clean Ubuntu 24.04 VPS with root access
 - Domain name pointed to VPS public IP
-- Cloudflare account with Workers paid plan
+- Cloudflare account with Workers enabled; paid plan may be required depending on usage and Cloudflare limits
 - Telegram Bot Token from @BotFather
 - Your Telegram numeric User ID
 
@@ -152,30 +152,52 @@ Verify output:
 ## 14. Phase 7: Bot Env Verification
 
 ```bash
-cat bot/.env
+# Check file permissions (should be 600)
+stat -c "%a %n" bot/.env
+
+# Check required fields exist (without printing values)
+grep -q '^TELEGRAM_BOT_TOKEN=' bot/.env && echo "TELEGRAM_BOT_TOKEN: present"
+grep -q '^OWNER_TELEGRAM_ID=' bot/.env && echo "OWNER_TELEGRAM_ID: present"
+grep -q '^NANOBK_CLI=' bot/.env && echo "NANOBK_CLI: present"
+
+# Run self-test
 python3 bot/nanobk_bot.py --self-test
 ```
 
 Verify:
-- TELEGRAM_BOT_TOKEN set
-- OWNER_TELEGRAM_ID set (numeric)
-- NANOBK_CLI path correct
 - File mode 600
+- TELEGRAM_BOT_TOKEN: present
+- OWNER_TELEGRAM_ID: present
+- NANOBK_CLI: present
 - Self-test passes
+
+⚠ Do NOT execute `cat bot/.env` — this prints tokens to terminal/logs.
+⚠ Do NOT paste `.env` contents into chat, logs, or issues.
 
 ## 15. Phase 8: Web Panel Env Verification
 
 ```bash
-cat web/.env
+# Check file permissions (should be 600)
+stat -c "%a %n" web/.env
+
+# Check required fields exist (without printing values)
+grep -q '^NANOBK_WEB_TOKEN=' web/.env && echo "NANOBK_WEB_TOKEN: present"
+grep -q '^NANOBK_WEB_SECRET_KEY=' web/.env && echo "NANOBK_WEB_SECRET_KEY: present"
+grep -q '^NANOBK_WEB_HOST=127.0.0.1' web/.env && echo "NANOBK_WEB_HOST: 127.0.0.1"
+
+# Run self-test
 python3 web/app.py --self-test
 ```
 
 Verify:
-- NANOBK_WEB_TOKEN set (not default)
-- NANOBK_WEB_SECRET_KEY set (not default)
-- NANOBK_WEB_HOST=127.0.0.1
 - File mode 600
+- NANOBK_WEB_TOKEN: present
+- NANOBK_WEB_SECRET_KEY: present
+- NANOBK_WEB_HOST: 127.0.0.1
 - Self-test passes
+
+⚠ Do NOT execute `cat web/.env` — this prints secrets to terminal/logs.
+⚠ Do NOT paste `.env` contents into chat, logs, or issues.
 
 ## 16. Phase 9: Rotate TUIC + Cloudflare Sync
 

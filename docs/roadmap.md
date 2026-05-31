@@ -42,6 +42,7 @@
 | v1.5.1 | Unified installer safety and fidelity hotfix |
 | v1.5.2 | Dry-run preflight safety hotfix |
 | **v1.6.0** | ✅ Clean VPS full wizard validation prep |
+| v1.6.1 | Validation plan safety polish |
 | v1.7 | 操作日志 |
 | v1.7 | 权限控制 |
 
