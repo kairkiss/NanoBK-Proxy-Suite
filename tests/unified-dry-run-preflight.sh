@@ -121,6 +121,11 @@ echo "── Test 6: Static checks ──"
 check "DRY_RUN branch exists for ports" "$(grep -q 'DRY_RUN.*==.*1.*assumed free\|assumed free.*dry-run' "$INSTALLER" 2>/dev/null && echo 1 || echo 0)"
 check "no handle_core_port_conflict in dry-run port path" "$(grep -B2 'assumed free' "$INSTALLER" | grep -q 'handle_core_port_conflict' && echo 0 || echo 1)"
 
+# ss unavailable branch must not recurse
+SS_BLOCK="$(grep -n -A8 -B2 'ss 不可用' "$INSTALLER" || true)"
+check "ss unavailable branch does not recurse" "$(echo "$SS_BLOCK" | grep -q 'handle_core_port_conflict' && echo 0 || echo 1)"
+check "ss unavailable branch has return 1" "$(echo "$SS_BLOCK" | grep -q 'return 1' && echo 1 || echo 0)"
+
 # ── Summary ─────────────────────────────────────────────────────────────────
 echo ""
 echo "=== ${PASS} passed, ${FAIL} failed ==="

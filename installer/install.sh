@@ -883,8 +883,7 @@ handle_core_port_conflict() {
       # Re-check the port
       if ! command -v ss &>/dev/null; then
         warn "无法重新检测端口：ss 不可用。请安装 iproute2 或手动确认端口后重试。"
-        handle_core_port_conflict "$port" "$label"
-        return $?
+        return 1
       fi
       local recheck_ok=0
       if ! ss -ulnp 2>/dev/null | grep -q ":${port} " && ! ss -tlnp 2>/dev/null | grep -q ":${port} "; then

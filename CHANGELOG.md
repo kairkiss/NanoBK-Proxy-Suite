@@ -7,6 +7,7 @@
 - Dry-run preflight no longer fails because real VPS ports are occupied
 - Dry-run port checks now report `assumed free (dry-run)`
 - Core port conflict re-check no longer recurses when `ss` is unavailable
+- Fixed a non-recursive fallback when `ss` is unavailable during port re-check
 - VPS summary now says `installed / not healthchecked` unless service health was actually verified
 
 ### Safety
