@@ -63,7 +63,9 @@ echo ""
 echo "--- --mode full --dry-run --defaults --lang zh ---"
 echo ""
 
-FULL_ZH=$(bash "$ROOT/installer/install.sh" --mode full --dry-run --defaults --lang zh 2>&1 || true)
+# full wizard with --defaults still prompts for Bot/Web tokens (no defaults).
+# Use --yes to auto-accept all prompts.
+FULL_ZH=$(bash "$ROOT/installer/install.sh" --mode full --dry-run --yes --lang zh 2>&1 || true)
 
 if echo "$FULL_ZH" | grep -q "DRY-RUN\|dry-run\|dry_run"; then
   pass "full --dry-run --lang zh shows dry-run"
@@ -79,18 +81,60 @@ else
   ERRORS=$((ERRORS + 1))
 fi
 
+if echo "$FULL_ZH" | grep -q "healthcheck\|nanobk status"; then
+  pass "full --dry-run includes healthcheck/status"
+else
+  fail "full --dry-run missing healthcheck/status"
+  ERRORS=$((ERRORS + 1))
+fi
+
+if echo "$FULL_ZH" | grep -q "preflight\|validate-profile-only"; then
+  pass "full --dry-run includes Cloudflare preflight/validation"
+else
+  fail "full --dry-run missing Cloudflare preflight/validation"
+  ERRORS=$((ERRORS + 1))
+fi
+
+if echo "$FULL_ZH" | grep -q "bot/.env\|Would write bot"; then
+  pass "full --dry-run mentions bot/.env"
+else
+  fail "full --dry-run missing bot/.env"
+  ERRORS=$((ERRORS + 1))
+fi
+
+if echo "$FULL_ZH" | grep -q "web/.env\|Would write web"; then
+  pass "full --dry-run mentions web/.env"
+else
+  fail "full --dry-run missing web/.env"
+  ERRORS=$((ERRORS + 1))
+fi
+
+if echo "$FULL_ZH" | grep -q "Setup Summary\|NanoBK Setup"; then
+  pass "full --dry-run includes summary"
+else
+  fail "full --dry-run missing summary"
+  ERRORS=$((ERRORS + 1))
+fi
+
 # ── Test 4: --mode full --dry-run --defaults --lang en ──────────────────────
 
 echo ""
 echo "--- --mode full --dry-run --defaults --lang en ---"
 echo ""
 
-FULL_EN=$(bash "$ROOT/installer/install.sh" --mode full --dry-run --defaults --lang en 2>&1 || true)
+FULL_EN=$(bash "$ROOT/installer/install.sh" --mode full --dry-run --yes --lang en 2>&1 || true)
 
 if echo "$FULL_EN" | grep -q "DRY-RUN\|dry-run"; then
   pass "full --dry-run --lang en shows dry-run"
 else
   fail "full --dry-run --lang en missing dry-run"
+  ERRORS=$((ERRORS + 1))
+fi
+
+if echo "$FULL_EN" | grep -q "English UI is partial"; then
+  pass "English UI partial warning shown"
+else
+  fail "English UI partial warning missing"
   ERRORS=$((ERRORS + 1))
 fi
 

@@ -20,7 +20,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # ── Constants ───────────────────────────────────────────────────────────────
 
 REPO_URL="https://github.com/kairkiss/NanoBK-Proxy-Suite"
-VERSION="1.4.0"
+VERSION="1.4.1"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -124,8 +124,8 @@ prompt() {
   local prompt_text="$2"
   local default="${3:-}"
 
-  if [[ "$YES" == "1" ]] && [[ -n "$default" ]]; then
-    eval "$var_name=\"\$default\""
+  if [[ "$YES" == "1" ]]; then
+    printf -v "$var_name" '%s' "${default:-}"
     return
   fi
 
@@ -137,9 +137,9 @@ prompt() {
   read -r input
 
   if [[ -z "$input" ]] && [[ -n "$default" ]]; then
-    eval "$var_name=\"\$default\""
+    printf -v "$var_name" '%s' "$default"
   else
-    eval "$var_name=\"\$input\""
+    printf -v "$var_name" '%s' "$input"
   fi
 }
 
@@ -204,13 +204,87 @@ EOF
   ok "配置已保存: ${INSTALLER_CONFIG}"
 }
 
+# Safe config value reader — no source, no eval, no command execution.
+# Only reads whitelisted keys from KEY=value format.
+read_config_value() {
+  local file="$1"
+  local key="$2"
+  [[ -f "$file" ]] || return 0
+  awk -v k="$key" '
+    /^[[:space:]]*#/ { next }
+    /^[[:space:]]*$/ { next }
+    {
+      line=$0
+      sub(/^[[:space:]]*/, "", line)
+      if (line !~ "^[A-Za-z_][A-Za-z0-9_]*=") next
+      idx = index(line, "=")
+      name = substr(line, 1, idx - 1)
+      gsub(/[[:space:]]/, "", name)
+      if (name != k) next
+      val = substr(line, idx + 1)
+      sub(/^[[:space:]]*/, "", val)
+      sub(/[[:space:]]*$/, "", val)
+      if (val ~ /^".*"$/) { sub(/^"/, "", val); sub(/"$/, "", val) }
+      else if (val ~ /^\x27.*\x27$/) { sub(/^\x27/, "", val); sub(/\x27$/, "", val) }
+      print val
+      exit
+    }
+  ' "$file"
+}
+
+valid_mode() {
+  case "$1" in
+    full|vps|cloudflare|bot|web|commands|doctor|test|rotate|"") return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 load_config() {
   if [[ ! -f "$INSTALLER_CONFIG" ]]; then
     return 0
   fi
   log "读取已有配置: ${INSTALLER_CONFIG}"
-  # shellcheck source=/dev/null
-  source "$INSTALLER_CONFIG" 2>/dev/null || true
+
+  local v
+
+  v="$(read_config_value "$INSTALLER_CONFIG" NANOBK_LANG || true)"
+  [[ -n "$v" ]] && LANG_CODE="$v"
+
+  v="$(read_config_value "$INSTALLER_CONFIG" NANOBK_MODE || true)"
+  if [[ -n "$v" ]]; then
+    if valid_mode "$v"; then
+      MODE="$v"
+    else
+      warn "Ignoring invalid mode from config: ${v}"
+    fi
+  fi
+
+  v="$(read_config_value "$INSTALLER_CONFIG" NANOBK_DOMAIN || true)"
+  [[ -n "$v" ]] && NANOBK_DOMAIN="$v"
+
+  v="$(read_config_value "$INSTALLER_CONFIG" NANOBK_CERT_MODE || true)"
+  [[ -n "$v" ]] && NANOBK_CERT_MODE="$v"
+
+  v="$(read_config_value "$INSTALLER_CONFIG" NANOBK_DEPLOY_CLOUDFLARE || true)"
+  [[ -n "$v" ]] && NANOBK_DEPLOY_CLOUDFLARE="$v"
+
+  v="$(read_config_value "$INSTALLER_CONFIG" NANOBK_DEPLOY_NANOB || true)"
+  [[ -n "$v" ]] && NANOBK_DEPLOY_NANOB="$v"
+
+  v="$(read_config_value "$INSTALLER_CONFIG" NANOBK_ENABLE_BOT || true)"
+  [[ -n "$v" ]] && NANOBK_ENABLE_BOT="$v"
+
+  v="$(read_config_value "$INSTALLER_CONFIG" NANOBK_ENABLE_WEB || true)"
+  [[ -n "$v" ]] && NANOBK_ENABLE_WEB="$v"
+
+  v="$(read_config_value "$INSTALLER_CONFIG" NANOBK_WEB_PORT || true)"
+  [[ -n "$v" ]] && NANOBK_WEB_PORT="$v"
+
+  v="$(read_config_value "$INSTALLER_CONFIG" NANOBK_NANOK_URL || true)"
+  [[ -n "$v" ]] && NANOBK_NANOK_URL="$v"
+
+  v="$(read_config_value "$INSTALLER_CONFIG" NANOBK_NANOB_URL || true)"
+  [[ -n "$v" ]] && NANOBK_NANOB_URL="$v"
 }
 
 # ── Environment detection ───────────────────────────────────────────────────
@@ -265,6 +339,9 @@ check_repo() {
 
 select_language() {
   if [[ -n "$LANG_CODE" ]]; then
+    if [[ "$LANG_CODE" == "en" ]]; then
+      warn "English UI is partial in v${VERSION}; some prompts are still Chinese."
+    fi
     return 0
   fi
 
@@ -282,7 +359,7 @@ select_language() {
   read -r lang_choice
 
   case "${lang_choice:-1}" in
-    2) LANG_CODE="en" ;;
+    2) LANG_CODE="en"; warn "English UI is partial in v${VERSION}; some prompts are still Chinese." ;;
     *) LANG_CODE="zh" ;;
   esac
 }
@@ -419,7 +496,11 @@ collect_vps_args() {
   [[ "$cert_mode" == "existing" ]] && cmd+=(--cert-file "$cert_file" --key-file "$key_file")
   [[ "$DRY_RUN" == "1" ]] && cmd+=(--dry-run)
 
-  run_cmd "部署 VPS 四协议" "${cmd[@]}"
+  run_cmd "部署 VPS 四协议" "${cmd[@]}" || return 1
+
+  # Post-deploy healthcheck and status
+  run_cmd "VPS healthcheck" sudo bash "${REPO_DIR}/vps/scripts/healthcheck.sh" --config-dir /etc/nanobk || true
+  run_cmd "NanoBK status" bash "${REPO_DIR}/bin/nanobk" status --config-dir /etc/nanobk || true
 }
 
 # ── Cloudflare parameter collection ─────────────────────────────────────────
@@ -450,6 +531,18 @@ collect_cloudflare_args() {
   fi
 
   NANOBK_DEPLOY_CLOUDFLARE="true"
+
+  # Preflight and profile validation before deployment
+  run_cmd "Cloudflare preflight" bash "$REPO_DIR/installer/install-cloudflare.sh" --preflight || {
+    err "Cloudflare preflight failed."
+    err "请根据上方提示修复 Node.js / Wrangler / login / profile 后重试。"
+    return 1
+  }
+
+  run_cmd "Validate profile" bash "$REPO_DIR/installer/install-cloudflare.sh" --validate-profile-only --profile "$profile" || {
+    err "Profile validation failed."
+    return 1
+  }
 
   # nanob
   echo ""
@@ -507,6 +600,16 @@ collect_bot_args() {
 
   prompt bot_token "Telegram Bot Token (从 @BotFather 获取)" ""
   prompt owner_id "你的 Telegram 数字 User ID" ""
+
+  # Validate inputs
+  if [[ -n "$bot_token" ]] && { [[ "$bot_token" == *$'\n'* ]] || [[ "$bot_token" == *$'\r'* ]]; }; then
+    err "Bot Token 包含换行符，请检查输入。"
+    return 1
+  fi
+  if [[ -n "$owner_id" ]] && { [[ "$owner_id" == *$'\n'* ]] || [[ "$owner_id" == *$'\r'* ]]; }; then
+    err "User ID 包含换行符，请检查输入。"
+    return 1
+  fi
 
   if [[ -z "$bot_token" ]] || [[ -z "$owner_id" ]]; then
     warn "Bot Token 或 User ID 为空，Bot 将无法启动。"
@@ -570,6 +673,24 @@ collect_web_args() {
   prompt web_secret "Flask Secret Key (留空自动生成)" ""
   prompt web_host "监听地址" "127.0.0.1"
   prompt web_port "监听端口" "8080"
+
+  # Validate inputs
+  if [[ -n "$web_token" ]] && { [[ "$web_token" == *$'\n'* ]] || [[ "$web_token" == *$'\r'* ]]; }; then
+    err "Web Token 包含换行符，请检查输入。"
+    return 1
+  fi
+  if [[ -n "$web_secret" ]] && { [[ "$web_secret" == *$'\n'* ]] || [[ "$web_secret" == *$'\r'* ]]; }; then
+    err "Flask Secret Key 包含换行符，请检查输入。"
+    return 1
+  fi
+  if ! [[ "$web_port" =~ ^[0-9]+$ ]]; then
+    err "端口必须是数字: ${web_port}"
+    return 1
+  fi
+  if [[ "$web_host" == "0.0.0.0" ]]; then
+    warn "你正在让 Web Panel 监听 0.0.0.0，可能暴露公网。推荐保持 127.0.0.1。"
+  fi
+
   NANOBK_WEB_PORT="$web_port"
 
   # Auto-generate if empty
@@ -649,7 +770,16 @@ run_full_wizard() {
   echo -e "${BOLD}── 阶段 1：VPS 部署 ──${NC}"
   echo ""
   if confirm "是否配置 VPS 部署？" "y"; then
-    collect_vps_args
+    if ! collect_vps_args; then
+      warn "VPS 部署阶段失败。"
+      if [[ "$DRY_RUN" != "1" ]] && [[ "$COMMAND_ONLY" != "1" ]]; then
+        if ! confirm "是否继续后续步骤？" "n"; then
+          save_config
+          print_summary
+          return 1
+        fi
+      fi
+    fi
   else
     echo "  跳过 VPS 部署。"
   fi
@@ -659,7 +789,16 @@ run_full_wizard() {
   echo -e "${BOLD}── 阶段 2：Cloudflare 部署 ──${NC}"
   echo ""
   if confirm "是否配置 Cloudflare 部署？" "y"; then
-    collect_cloudflare_args
+    if ! collect_cloudflare_args; then
+      warn "Cloudflare 部署阶段失败。"
+      if [[ "$DRY_RUN" != "1" ]] && [[ "$COMMAND_ONLY" != "1" ]]; then
+        if ! confirm "是否继续后续步骤？" "n"; then
+          save_config
+          print_summary
+          return 1
+        fi
+      fi
+    fi
   else
     echo "  跳过 Cloudflare 部署。"
   fi

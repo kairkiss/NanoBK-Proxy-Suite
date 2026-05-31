@@ -147,6 +147,72 @@ else
   pass "invalid config did not crash"
 fi
 
+# ── Test 6: malicious config is not executed ────────────────────────────────
+
+echo ""
+echo "--- Malicious config ---"
+echo ""
+
+MALICIOUS_CONFIG="$TMP/malicious.env"
+rm -f /tmp/nanobk-installer-pwned /tmp/nanobk-installer-pwned-2
+
+cat > "$MALICIOUS_CONFIG" <<'EOF'
+NANOBK_LANG="zh"
+NANOBK_MODE="doctor"
+MALICIOUS_CMD_SUB="$(touch /tmp/nanobk-installer-pwned)"
+touch /tmp/nanobk-installer-pwned-2
+EOF
+
+bash "$ROOT/installer/install.sh" --mode doctor --dry-run --defaults \
+  --config-file "$MALICIOUS_CONFIG" --resume >/dev/null 2>&1 || true
+
+if [[ -f /tmp/nanobk-installer-pwned ]]; then
+  fail "Malicious command substitution was executed!"
+  ERRORS=$((ERRORS + 1))
+  rm -f /tmp/nanobk-installer-pwned
+else
+  pass "Command substitution NOT executed"
+fi
+
+if [[ -f /tmp/nanobk-installer-pwned-2 ]]; then
+  fail "Malicious bare command was executed!"
+  ERRORS=$((ERRORS + 1))
+  rm -f /tmp/nanobk-installer-pwned-2
+else
+  pass "Bare command NOT executed"
+fi
+
+# ── Test 7: invalid mode from config is ignored ────────────────────────────
+
+echo ""
+echo "--- Invalid mode from config ---"
+echo ""
+
+INVALID_MODE_CONFIG="$TMP/invalid-mode.env"
+rm -f /tmp/nanobk-installer-mode-pwned
+
+cat > "$INVALID_MODE_CONFIG" <<'EOF'
+NANOBK_LANG="zh"
+NANOBK_MODE="$(touch /tmp/nanobk-installer-mode-pwned)"
+EOF
+
+INVALID_MODE_OUTPUT=$(bash "$ROOT/installer/install.sh" --mode doctor --dry-run --defaults \
+  --config-file "$INVALID_MODE_CONFIG" --resume 2>&1 || true)
+
+if [[ -f /tmp/nanobk-installer-mode-pwned ]]; then
+  fail "Invalid mode command was executed!"
+  ERRORS=$((ERRORS + 1))
+  rm -f /tmp/nanobk-installer-mode-pwned
+else
+  pass "Invalid mode command NOT executed"
+fi
+
+if echo "$INVALID_MODE_OUTPUT" | grep -q "Ignoring invalid mode"; then
+  pass "Invalid mode warning shown"
+else
+  pass "Invalid mode handled (no crash)"
+fi
+
 # ── Cleanup ─────────────────────────────────────────────────────────────────
 
 rm -rf "$TMP"

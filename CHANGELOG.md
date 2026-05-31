@@ -1,5 +1,25 @@
 # Changelog
 
+## v1.4.1 — Unified Installer Safety and Orchestration Hotfix
+
+### Fixed
+
+- Removed unsafe `source` loading for installer resume config
+- Replaced installer config loading with a whitelist parser (`read_config_value`)
+- Removed `eval` from installer prompt handling (`printf -v` instead)
+- Added Cloudflare preflight and profile validation before deployment in unified flow
+- Added VPS healthcheck and `nanobk status` after VPS deployment
+- Improved full wizard error handling between stages
+- Marked English UI as partial/reserved instead of complete
+
+### Safety
+
+- Malicious installer config files are not executed (no `source`, no `eval`)
+- Invalid mode from config is warned and ignored
+- Bot/Web env inputs validated for newlines and port format
+- Web host `0.0.0.0` triggers a warning
+- Dry-run still does not write `bot/.env`, `web/.env`, or installer config
+
 ## v1.4.0 — Unified Beginner Installer Foundation
 
 ### Added
