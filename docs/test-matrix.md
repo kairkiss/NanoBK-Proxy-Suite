@@ -31,6 +31,7 @@ All test scripts in `tests/` are designed to be safe for local development. None
 | `unified-preflight-static.sh` | Preflight content validation (ports, Node, wrangler, venv) | No | No | No | ✅ | ✅ |
 | `unified-installer-safety.sh` | --defaults safety block and dry-run env protection | No | No | No | ✅ | ✅ |
 | `unified-dry-run-preflight.sh` | Dry-run not blocked by real port occupation | No | No | No | ✅ | ✅ |
+| `unified-validation-plan.sh` | Validate-plan mode output and safety | No | No | No | ✅ | ✅ |
 
 ¹ Wrangler may download npm packages on first run.
 

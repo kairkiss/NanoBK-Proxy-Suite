@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — Unified Beginner Installer v1.5.2
+# NanoBK Proxy Suite — Unified Beginner Installer v1.6.0
 #
 # Interactive entry point for NanoBK Proxy Suite.
 # Guides users through VPS deployment, Cloudflare setup, Bot, Web Panel.
@@ -20,7 +20,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # ── Constants ───────────────────────────────────────────────────────────────
 
 REPO_URL="https://github.com/kairkiss/NanoBK-Proxy-Suite"
-VERSION="1.5.2"
+VERSION="1.6.0"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -242,7 +242,7 @@ read_config_value() {
 
 valid_mode() {
   case "$1" in
-    full|cli-only|cli-bot|cli-web|cli-bot-web|vps|cloudflare|bot|web|commands|doctor|test|rotate|"") return 0 ;;
+    full|cli-only|cli-bot|cli-web|cli-bot-web|vps|cloudflare|bot|web|commands|doctor|test|rotate|validate-plan|"") return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -465,6 +465,7 @@ NanoBK Proxy Suite — 交互式安装器 v${VERSION}
   doctor             运行环境诊断
   test               运行本地安全测试
   commands           只生成命令模板，不执行
+  validate-plan      输出 clean VPS full wizard 验收计划（不执行）
 
 示例:
   bash installer/install.sh
@@ -472,6 +473,7 @@ NanoBK Proxy Suite — 交互式安装器 v${VERSION}
   bash installer/install.sh --mode full --dry-run --defaults --lang zh
   bash installer/install.sh --mode cli-bot --dry-run --defaults
   bash installer/install.sh --mode commands --defaults
+  bash installer/install.sh --mode validate-plan
 EOF
 }
 
@@ -1352,6 +1354,18 @@ print_summary() {
     echo "  使用 --resume 可以继续上次配置。"
     echo ""
   fi
+
+  # Disclaimers
+  if [[ "$DRY_RUN" == "1" ]]; then
+    echo -e "  ${YELLOW}注意: 这是 dry-run 摘要，没有执行真实部署。${NC}"
+    echo -e "  ${YELLOW}Note: This is a dry-run summary. No real deployment was performed.${NC}"
+    echo ""
+  fi
+  if [[ "$COMMAND_ONLY" == "1" ]]; then
+    echo -e "  ${YELLOW}注意: commands-only 模式不会验证系统状态。${NC}"
+    echo -e "  ${YELLOW}Note: Commands-only mode does not validate the system.${NC}"
+    echo ""
+  fi
 }
 
 # ── Mode handlers ───────────────────────────────────────────────────────────
@@ -1597,6 +1611,9 @@ run_commands_mode() {
   echo ""
   echo -e "${BOLD}═══ 命令模板（可复制） ═══${NC}"
   echo ""
+  echo -e "  ${YELLOW}注意: commands-only 模式不会验证系统状态。${NC}"
+  echo -e "  ${YELLOW}Note: Commands-only mode does not validate the system.${NC}"
+  echo ""
 
   echo -e "${BOLD}── VPS 部署 ──${NC}"
   echo ""
@@ -1692,6 +1709,165 @@ run_commands_mode() {
   echo ""
 }
 
+# ── Validate plan ──────────────────────────────────────────────────────────
+
+run_validate_plan() {
+  cat <<'PLAN'
+NanoBK v1.6 Clean VPS Full Wizard Validation Plan
+===================================================
+
+⚠ 本计划需要由人工测试员在真实 VPS 上执行。
+⚠ dry-run 输出不能代表真实 VPS 验收通过。
+⚠ This plan must be executed by a human tester on a real VPS.
+⚠ The installer cannot claim real VPS validation from dry-run output.
+
+Phase 0: Baseline
+-----------------
+  - Clean Ubuntu 24.04 VPS (root access)
+  - Domain pointed to VPS IP
+  - Cloudflare account with Workers paid plan
+  - Telegram Bot Token from @BotFather
+  - Your Telegram numeric User ID
+
+Phase 1: Bootstrap
+------------------
+  bash <(curl -fsSL https://raw.githubusercontent.com/kairkiss/NanoBK-Proxy-Suite/main/installer/bootstrap.sh)
+
+  Verify:
+    - Repository cloned to /opt/NanoBK-Proxy-Suite or ~/NanoBK-Proxy-Suite
+    - install.sh launched automatically
+
+Phase 2: Full Recommended Wizard
+---------------------------------
+  bash installer/install.sh --mode full --lang zh
+
+  Steps:
+    1. Preflight checks pass (OS, tools, ports)
+    2. VPS domain/cert input
+    3. VPS deploy succeeds
+    4. Cloudflare preflight passes (Node>=22, wrangler login)
+    5. Profile validation passes
+    6. nanok KV created and Worker deployed
+    7. nanok profile uploaded and verified
+    8. nanob deployed and verified
+    9. Bot .env generated (chmod 600)
+   10. Web Panel .env generated (chmod 600)
+   11. Summary shows honest status
+
+Phase 3: VPS Verification
+--------------------------
+  sudo bash /opt/nanobk/bin/healthcheck.sh
+
+  Verify all pass:
+    - HY2 :443 (udp) active
+    - TUIC :9443 (udp) active
+    - Reality :8443 (tcp) active
+    - Trojan :2443 (tcp) active
+    - Profile JSON valid
+    - Secrets mode 600
+
+Phase 4: Cloudflare Verification
+---------------------------------
+  bash bin/nanobk cf verify
+
+  Or manually:
+  bash installer/install-cloudflare.sh --verify-nanok-only
+  bash installer/install-cloudflare.sh --verify-nanob-only
+
+  Verify:
+    - nanok subscription returns valid YAML
+    - nanob subscription returns valid YAML
+    - Both contain all four protocols
+
+Phase 5: nanok Subscription Verification
+-----------------------------------------
+  curl -fsS "https://YOUR_NANOK_URL/jb?token=YOUR_SUB_TOKEN"
+
+  Verify:
+    - Returns valid Clash/Mihomo YAML
+    - Contains: proxies, type: hysteria2, type: tuic, type: vless, type: trojan
+    - No invalid control characters
+
+Phase 6: nanob Subscription Verification
+-----------------------------------------
+  curl -fsS "https://YOUR_NANOB_URL/jb?token=YOUR_NANOB_TOKEN"
+
+  Verify:
+    - Returns valid YAML
+    - Contains all four protocol types
+    - If edgetunnel configured, backup nodes present
+
+Phase 7: Bot Env Verification
+------------------------------
+  cat bot/.env
+
+  Verify:
+    - TELEGRAM_BOT_TOKEN set
+    - OWNER_TELEGRAM_ID set (numeric)
+    - NANOBK_CLI path correct
+    - File mode 600
+    - python3 bot/nanobk_bot.py --self-test passes
+
+Phase 8: Web Panel Env Verification
+-------------------------------------
+  cat web/.env
+
+  Verify:
+    - NANOBK_WEB_TOKEN set (not default)
+    - NANOBK_WEB_SECRET_KEY set (not default)
+    - NANOBK_WEB_HOST=127.0.0.1
+    - File mode 600
+    - python3 web/app.py --self-test passes
+
+Phase 9: Rotate TUIC + Cloudflare Sync
+----------------------------------------
+  sudo bash /opt/nanobk/bin/rotate-keys.sh --yes --protocol tuic
+
+  Verify:
+    - New credentials generated
+    - Backup created
+    - Services restarted
+    - Healthcheck passes
+    - Cloudflare profile updated and verified
+    - New TUIC UUID/password in profile
+
+Phase 10: Final Status
+-----------------------
+  bash bin/nanobk status
+  bash bin/nanobk --json status | python3 -m json.tool
+
+  Verify:
+    - ok: true
+    - All four services active
+    - Cloudflare nanok verifyStatus: verified
+    - Cloudflare nanob verifyStatus: verified
+
+Pass Criteria
+-------------
+  - All 10 phases complete without errors
+  - All four proxy protocols active
+  - Cloudflare subscriptions verified
+  - Rotate with Cloudflare sync works
+  - Summary shows honest status throughout
+
+Fail Criteria
+-------------
+  - Any phase exits non-zero
+  - Any service not active
+  - Cloudflare verification fails
+  - Rotate fails or Cloudflare sync fails
+  - Summary shows misleading status
+
+Data to Report Back
+-------------------
+  - Which phases passed/failed
+  - Error messages from failures
+  - nanobk --json status output (redact tokens)
+  - healthcheck output
+  - Do NOT paste real tokens or subscription URLs
+PLAN
+}
+
 # ── Main menu ───────────────────────────────────────────────────────────────
 
 show_menu() {
@@ -1746,6 +1922,13 @@ main() {
   echo "╚══════════════════════════════════════════════════════════╝"
 
   check_repo
+
+  # validate-plan can run without full environment detection
+  if [[ "$MODE" == "validate-plan" ]]; then
+    run_validate_plan
+    return
+  fi
+
   select_language
   detect_environment
 
@@ -1765,6 +1948,7 @@ main() {
       doctor)        run_doctor_mode ;;
       test)          run_test_mode ;;
       commands)      run_commands_mode ;;
+      validate-plan) run_validate_plan ;;
       *)             err "未知模式: ${MODE}"; show_help; exit 1 ;;
     esac
     save_config

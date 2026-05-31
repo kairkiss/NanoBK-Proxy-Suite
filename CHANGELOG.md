@@ -1,5 +1,25 @@
 # Changelog
 
+## v1.6.0 — Unified Installer Clean VPS Full Wizard Validation Prep
+
+### Added
+
+- Added clean VPS full wizard validation plan output (`--mode validate-plan`)
+- Added `docs/validation-v1.6-clean-vps.md` with complete acceptance test plan
+- Added validation-plan offline test
+- Added clearer dry-run and commands-only summary boundaries
+
+### Safety
+
+- Dry-run summaries no longer imply real deployment
+- Commands-only mode explicitly states that it does not validate the system
+- Real VPS and Cloudflare validation must be performed by a human tester
+
+### Tests
+
+- Added `tests/unified-validation-plan.sh`: validate-plan mode coverage
+- Updated `tests/unified-beginner-flow.sh`: dry-run/commands boundary assertions
+
 ## v1.5.2 — Dry-run Preflight Safety Hotfix
 
 ### Fixed

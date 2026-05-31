@@ -41,7 +41,8 @@
 | **v1.5.0** | ✅ Unified beginner installer practical flow (preflight, guided CF/Bot/Web, summary) |
 | v1.5.1 | Unified installer safety and fidelity hotfix |
 | v1.5.2 | Dry-run preflight safety hotfix |
-| v1.6 | 操作日志 |
+| **v1.6.0** | ✅ Clean VPS full wizard validation prep |
+| v1.7 | 操作日志 |
 | v1.7 | 权限控制 |
 
 ### 1.x 架构原则

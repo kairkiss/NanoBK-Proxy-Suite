@@ -128,9 +128,16 @@ check "dry-run summary has planned or dry-run" "$(contains "$OUTPUT_FULL" "plann
 check "dry-run summary does NOT show installed" "$( [[ $(echo "$OUTPUT_FULL" | grep -c "status:  installed") -eq 0 ]] && echo 1 || echo 0 )"
 check "dry-run summary does NOT show verified" "$( [[ $(echo "$OUTPUT_FULL" | grep -c "status:  verified") -eq 0 ]] && echo 1 || echo 0 )"
 check "full dry-run has assumed free" "$(contains "$OUTPUT_FULL" "assumed free")"
+check "dry-run summary says no real deployment" "$(contains "$OUTPUT_FULL" "dry-run.*没有执行\|dry-run.*No real\|dry-run 摘要")"
+check "dry-run has no healthcheck passed" "$( [[ $(echo "$OUTPUT_FULL" | grep -c "healthcheck passed") -eq 0 ]] && echo 1 || echo 0 )"
+check "dry-run has no Cloudflare verified" "$( [[ $(echo "$OUTPUT_FULL" | grep -c "Cloudflare.*verified\|nanok.*verified") -eq 0 ]] && echo 1 || echo 0 )"
 
 OUTPUT_CLI_DRY=$(bash "$INSTALLER" --mode cli-only --dry-run --defaults --lang zh 2>&1) || true
 check "cli-only dry-run has assumed free" "$(contains "$OUTPUT_CLI_DRY" "assumed free")"
+
+# commands-only boundary
+OUTPUT_CMD=$(bash "$INSTALLER" --mode commands --defaults 2>&1) || true
+check "commands-only says does not validate" "$(contains "$OUTPUT_CMD" "不会验证\|does not validate")"
 
 # ── Test 8: install.sh --help shows new modes ──────────────────────────────
 echo ""
