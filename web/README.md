@@ -1,4 +1,4 @@
-# NanoBK Web Panel — v1.2.0
+# NanoBK Web Panel — v1.2.1
 
 Local-only Flask Web Panel for NanoBK Proxy Suite.
 
@@ -48,6 +48,7 @@ Edit `web/.env`:
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `NANOBK_WEB_TOKEN` | **Yes** | Login token (change from default!) |
+| `NANOBK_WEB_SECRET_KEY` | **Yes** | Flask session secret (change from default!) |
 | `NANOBK_WEB_HOST` | No | Bind address (default: `127.0.0.1`) |
 | `NANOBK_WEB_PORT` | No | Port (default: `8080`) |
 | `NANOBK_CLI` | No | Path to nanobk CLI |
@@ -66,6 +67,15 @@ Edit `web/.env`:
 | `/doctor` | Run environment diagnostics |
 | `/rotate` | Rotate keys with confirmation |
 | `/healthz` | Health check (no auth required) |
+
+## Security Features
+
+- **Secret key validation**: Default `NANOBK_WEB_SECRET_KEY` rejected at startup
+- **CSRF protection**: All POST forms include CSRF tokens
+- **Logout via POST**: No GET-based logout (prevents CSRF logout attacks)
+- **JSON redaction**: `/api/status` and raw JSON output redact sensitive keys
+- **ANSI stripping**: Terminal color codes removed before display
+- **No fallback secrets**: Flask won't start with insecure defaults
 
 ## Rotate Flow
 

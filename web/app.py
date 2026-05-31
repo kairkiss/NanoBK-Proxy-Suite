@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-NanoBK Web Panel — v1.2.0
+NanoBK Web Panel — v1.2.1
 
 Local-only Flask Web Panel for NanoBK Proxy Suite.
 Only calls nanobk CLI — never directly reads/writes secrets, profiles, or configs.
@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import secrets
 import subprocess
 import sys
 import time
@@ -65,6 +66,8 @@ class WebConfig:
         errors = []
         if not self.web_token or self.web_token == "change-me-long-random-token":
             errors.append("NANOBK_WEB_TOKEN must be set to a non-default value in web/.env")
+        if not self.secret_key or self.secret_key == "change-me-session-secret":
+            errors.append("NANOBK_WEB_SECRET_KEY must be set to a non-default value in web/.env")
         return errors
 
 # ── Command result ──────────────────────────────────────────────────────────
@@ -139,6 +142,26 @@ def redact_text(text: str) -> str:
             text = pattern.sub(replacement, text)
     return text
 
+# Sensitive JSON key substrings (lowercase, no underscores/dashes)
+_SENSITIVE_KEY_SUBSTRINGS = ("token", "password", "secret", "private", "privatekey")
+
+def redact_json(value):
+    """Recursively redact sensitive values from JSON-like data."""
+    if isinstance(value, dict):
+        out = {}
+        for k, v in value.items():
+            key_norm = str(k).lower().replace("_", "").replace("-", "")
+            if any(s in key_norm for s in _SENSITIVE_KEY_SUBSTRINGS):
+                out[k] = "[REDACTED]"
+            else:
+                out[k] = redact_json(v)
+        return out
+    if isinstance(value, list):
+        return [redact_json(v) for v in value]
+    if isinstance(value, str):
+        return redact_text(strip_ansi(value))
+    return value
+
 def limit_text(text: str, max_len: int = 12000) -> str:
     """Truncate text for web display."""
     if len(text) <= max_len:
@@ -155,16 +178,17 @@ def safe_output(text: str) -> str:
 
 def format_status(data: dict) -> dict:
     """Format nanobk --json status into a display-friendly dict."""
+    redacted = redact_json(data)
     return {
-        "ok": data.get("ok", False),
-        "domain": data.get("domain", "<not set>"),
-        "vps_ip": data.get("vpsIp", "<not set>"),
-        "geo": data.get("geo", "<not set>"),
-        "services": data.get("services", {}),
-        "security": data.get("security", {}),
-        "cloudflare": data.get("cloudflare", {}),
-        "warnings": data.get("warnings", []),
-        "raw_json": json.dumps(data, indent=2),
+        "ok": redacted.get("ok", False),
+        "domain": redacted.get("domain", "<not set>"),
+        "vps_ip": redacted.get("vpsIp", "<not set>"),
+        "geo": redacted.get("geo", "<not set>"),
+        "services": redacted.get("services", {}),
+        "security": redacted.get("security", {}),
+        "cloudflare": redacted.get("cloudflare", {}),
+        "warnings": redacted.get("warnings", []),
+        "raw_json": json.dumps(redacted, indent=2),
     }
 
 # ── Protocol validation ────────────────────────────────────────────────────
@@ -218,7 +242,7 @@ def run_self_test() -> bool:
         web_token="test-token-12345",
         nanobk_cli="/usr/bin/echo",
         dry_run=True,
-        secret_key="test-secret",
+        secret_key="test-secret-key-abc",
     )
 
     # 1. Command building
@@ -226,7 +250,6 @@ def run_self_test() -> bool:
     check("run_nanobk returns CommandResult", isinstance(cmd_result, CommandResult))
 
     # 2. No shell=True in subprocess
-    # (verified by static check, but confirm function exists)
     check("run_nanobk function exists", callable(run_nanobk))
 
     # 3. redact_text hides tokens
@@ -260,16 +283,26 @@ def run_self_test() -> bool:
     check("expired pending returns None", get_pending_rotate(test_session2) is None)
 
     # 9. Config validation rejects default token
-    bad_config = WebConfig(web_token="change-me-long-random-token")
+    bad_config = WebConfig(web_token="change-me-long-random-token", secret_key="test-key")
     errors = bad_config.validate()
     check("default token rejected", len(errors) > 0)
 
-    # 10. Config validation accepts good token
-    good_config = WebConfig(web_token="my-real-token-abc123")
-    errors2 = good_config.validate()
-    check("good token accepted", len(errors2) == 0)
+    # 10. Config validation rejects default secret key
+    bad_config2 = WebConfig(web_token="good-token", secret_key="change-me-session-secret")
+    errors2 = bad_config2.validate()
+    check("default secret key rejected", len(errors2) > 0)
 
-    # 11. Status formatting
+    # 11. Config validation rejects empty secret key
+    bad_config3 = WebConfig(web_token="good-token", secret_key="")
+    errors3 = bad_config3.validate()
+    check("empty secret key rejected", len(errors3) > 0)
+
+    # 12. Config validation accepts good config
+    good_config = WebConfig(web_token="my-real-token-abc123", secret_key="my-real-secret-xyz")
+    errors4 = good_config.validate()
+    check("good token + good secret accepted", len(errors4) == 0)
+
+    # 13. Status formatting
     test_status = {
         "ok": True, "domain": "test.example.com", "vpsIp": "1.2.3.4",
         "services": {"hy2": "active"}, "security": {}, "cloudflare": {},
@@ -279,9 +312,34 @@ def run_self_test() -> bool:
     check("format_status includes domain", formatted["domain"] == "test.example.com")
     check("format_status includes services", "hy2" in formatted["services"])
 
-    # 12. Healthz data does not expose token
+    # 14. Healthz data does not expose token
     healthz = {"ok": True}
     check("healthz does not expose token", "token" not in str(healthz).lower())
+
+    # 15. redact_json hides sensitive keys
+    test_json = {"token": "abc123", "nested": {"password": "secret"}, "safe": "ok"}
+    redacted_json = redact_json(test_json)
+    check("redact_json hides token key", redacted_json.get("token") == "[REDACTED]")
+    check("redact_json hides nested password", redacted_json.get("nested", {}).get("password") == "[REDACTED]")
+    check("redact_json preserves safe values", redacted_json.get("safe") == "ok")
+
+    # 16. redact_json handles lists
+    test_list = ["PrivateKey: abc", "safe text"]
+    redacted_list = redact_json(test_list)
+    check("redact_json redacts list items", "abc" not in str(redacted_list[0]))
+
+    # 17. format_status raw_json is redacted
+    test_status_secret = {
+        "ok": True, "domain": "test.com", "vpsIp": "1.2.3.4",
+        "services": {}, "security": {"token": "should_be_redacted"},
+        "cloudflare": {}, "warnings": []
+    }
+    formatted_secret = format_status(test_status_secret)
+    check("format_status raw_json redacted", "should_be_redacted" not in formatted_secret["raw_json"])
+
+    # 18. CSRF token generation
+    csrf_token = secrets.token_urlsafe(32)
+    check("CSRF token generation works", len(csrf_token) > 0)
 
     print(f"\n=== {passed} passed, {failed} failed ===")
     return failed == 0
@@ -290,10 +348,28 @@ def run_self_test() -> bool:
 
 def create_app(config: WebConfig):
     """Create and configure the Flask application."""
-    from flask import Flask, redirect, render_template, request, session, url_for, jsonify
+    from flask import Flask, abort, redirect, render_template, request, session, url_for, jsonify
 
     app = Flask(__name__, template_folder="templates", static_folder="static")
-    app.secret_key = config.secret_key or "dev-fallback-not-for-production"
+    app.secret_key = config.secret_key
+
+    # ── CSRF helpers ────────────────────────────────────────────────────
+
+    def get_csrf_token() -> str:
+        token = session.get("csrf_token")
+        if not token:
+            token = secrets.token_urlsafe(32)
+            session["csrf_token"] = token
+        return token
+
+    def validate_csrf() -> bool:
+        expected = session.get("csrf_token")
+        supplied = request.form.get("csrf_token", "")
+        return bool(expected and supplied and secrets.compare_digest(expected, supplied))
+
+    @app.context_processor
+    def inject_csrf_token():
+        return {"csrf_token": get_csrf_token()}
 
     def is_logged_in() -> bool:
         return session.get("authenticated") is True
@@ -321,13 +397,17 @@ def create_app(config: WebConfig):
             token = request.form.get("token", "")
             if token == config.web_token:
                 session["authenticated"] = True
+                session["csrf_token"] = secrets.token_urlsafe(32)
                 return redirect(url_for("dashboard"))
             error = "Invalid token."
 
         return render_template("login.html", error=error)
 
-    @app.route("/logout")
+    @app.route("/logout", methods=["POST"])
+    @require_login
     def logout():
+        if not validate_csrf():
+            abort(403, "CSRF validation failed.")
         session.clear()
         return redirect(url_for("login"))
 
@@ -336,7 +416,6 @@ def create_app(config: WebConfig):
     @app.route("/")
     @require_login
     def dashboard():
-        # Get quick status
         status_data = None
         result = run_nanobk(config, ["--json", "status"])
         if result.code == 0:
@@ -377,7 +456,7 @@ def create_app(config: WebConfig):
         if result.code == 0:
             try:
                 data = json.loads(result.stdout)
-                return jsonify(data)
+                return jsonify(redact_json(data))
             except json.JSONDecodeError:
                 return jsonify({"ok": False, "error": "Failed to parse status JSON"}), 500
         return jsonify({"ok": False, "error": safe_output(result.stderr or result.stdout)}), 500
@@ -389,6 +468,8 @@ def create_app(config: WebConfig):
     def doctor():
         output = None
         if request.method == "POST":
+            if not validate_csrf():
+                abort(403, "CSRF validation failed.")
             result = run_nanobk(config, ["doctor"], timeout=config.command_timeout)
             output = safe_output(result.stdout or result.stderr)
             if result.code != 0:
@@ -410,6 +491,9 @@ def create_app(config: WebConfig):
     @app.route("/rotate/request", methods=["POST"])
     @require_login
     def rotate_request():
+        if not validate_csrf():
+            abort(403, "CSRF validation failed.")
+
         protocol = request.form.get("protocol", "")
         if not validate_protocol(protocol):
             return render_template("rotate.html",
@@ -429,6 +513,9 @@ def create_app(config: WebConfig):
     @app.route("/rotate/confirm", methods=["POST"])
     @require_login
     def rotate_confirm():
+        if not validate_csrf():
+            abort(403, "CSRF validation failed.")
+
         pending = get_pending_rotate(session)
         if pending is None:
             return render_template("rotate.html",
@@ -463,6 +550,8 @@ def create_app(config: WebConfig):
     @app.route("/rotate/cancel", methods=["POST"])
     @require_login
     def rotate_cancel():
+        if not validate_csrf():
+            abort(403, "CSRF validation failed.")
         clear_pending_rotate(session)
         return redirect(url_for("rotate"))
 
@@ -484,9 +573,6 @@ def main():
         for e in errors:
             print(f"ERROR: {e}", file=sys.stderr)
         sys.exit(1)
-
-    if config.secret_key in ("", "change-me-session-secret"):
-        print("WARNING: NANOBK_WEB_SECRET_KEY is default. Change it in web/.env for production.", file=sys.stderr)
 
     print(f"Starting NanoBK Web Panel on {config.host}:{config.port}")
     print(f"  dry-run: {config.dry_run}")

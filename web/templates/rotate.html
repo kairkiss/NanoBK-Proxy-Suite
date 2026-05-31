@@ -21,9 +21,11 @@
   <p>Cloudflare sync depends on your local nanobk configuration.</p>
   <div class="button-group">
     <form method="POST" action="/rotate/confirm" style="display:inline">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <button type="submit" class="button button-danger">Confirm Rotate {{ pending.protocol|upper }}</button>
     </form>
     <form method="POST" action="/rotate/cancel" style="display:inline">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <button type="submit" class="button">Cancel</button>
     </form>
   </div>
@@ -33,9 +35,11 @@
   <p>Pending: {{ pending.protocol|upper }} (will expire in ~120s)</p>
   <div class="button-group">
     <form method="POST" action="/rotate/confirm" style="display:inline">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <button type="submit" class="button button-danger">Confirm</button>
     </form>
     <form method="POST" action="/rotate/cancel" style="display:inline">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <button type="submit" class="button">Cancel</button>
     </form>
   </div>
@@ -57,6 +61,7 @@
   <div class="button-group">
     {% for proto in protocols %}
     <form method="POST" action="/rotate/request" style="display:inline">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <input type="hidden" name="protocol" value="{{ proto }}">
       <button type="submit" class="button button-danger">Rotate {{ proto|upper }}</button>
     </form>

@@ -128,6 +128,55 @@ else
   ERRORS=$((ERRORS + 1))
 fi
 
+# redact_json function exists
+if grep -q "def redact_json" "$ROOT/web/app.py" 2>/dev/null; then
+  pass "redact_json function exists"
+else
+  fail "redact_json function missing"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# validate_csrf function exists
+if grep -q "def validate_csrf" "$ROOT/web/app.py" 2>/dev/null; then
+  pass "validate_csrf function exists"
+else
+  fail "validate_csrf function missing"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# CSRF tokens in templates
+csrf_count=$(grep -rl "csrf_token" "$ROOT/web/templates/"*.html 2>/dev/null | wc -l | tr -d ' ')
+if [[ "$csrf_count" -ge 3 ]]; then
+  pass "CSRF tokens in templates (${csrf_count} files)"
+else
+  fail "CSRF tokens missing from templates (only ${csrf_count} files)"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# No fallback static secret
+if grep -q "dev-fallback-not-for-production" "$ROOT/web/app.py" 2>/dev/null; then
+  fail "Fallback static secret found in app.py"
+  ERRORS=$((ERRORS + 1))
+else
+  pass "No fallback static secret in app.py"
+fi
+
+# Logout is POST (not GET link)
+if grep -q 'href="/logout"' "$ROOT/web/templates/layout.html" 2>/dev/null; then
+  fail "Logout is GET link (should be POST form)"
+  ERRORS=$((ERRORS + 1))
+else
+  pass "Logout uses POST form"
+fi
+
+# /api/status uses redact_json
+if grep -A12 "def api_status" "$ROOT/web/app.py" | grep -q "redact_json" 2>/dev/null; then
+  pass "/api/status uses redact_json"
+else
+  fail "/api/status missing redact_json"
+  ERRORS=$((ERRORS + 1))
+fi
+
 echo ""
 
 # ── Summary ─────────────────────────────────────────────────────────────────

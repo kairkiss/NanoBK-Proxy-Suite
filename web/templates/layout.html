@@ -12,7 +12,10 @@
     <a href="/status">Status</a>
     <a href="/doctor">Doctor</a>
     <a href="/rotate">Rotate</a>
-    <a href="/logout">Logout</a>
+    <form method="POST" action="/logout" style="display:inline">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit" class="nav-button">Logout</button>
+    </form>
   </nav>
   <main>
     {% block content %}{% endblock %}

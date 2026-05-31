@@ -5,6 +5,7 @@
 
 <div class="card">
   <form method="POST" action="/doctor">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <button type="submit" class="button">Run Doctor</button>
   </form>
 </div>

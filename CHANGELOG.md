@@ -1,5 +1,21 @@
 # Changelog
 
+## v1.2.1 — Web Panel Security Polish
+
+### Fixed
+
+- Web Panel now rejects default or empty `NANOBK_WEB_SECRET_KEY`
+- Removed Flask fallback static session secret
+- `/api/status` now returns redacted JSON on success
+- Status raw JSON is redacted before display
+- Added lightweight CSRF protection for authenticated POST actions
+- Logout now uses POST instead of GET
+
+### Tests
+
+- Added Web Panel self-test coverage for secret validation, JSON redaction, and CSRF
+- Expanded mock test checks for CSRF fields, redact_json, safe logout, and /api/status redaction
+
 ## v1.2.0 — Web Panel Foundation
 
 ### Added
