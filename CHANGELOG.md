@@ -7,6 +7,8 @@
 - Added timeout guards to `unified-noninteractive-mode.sh`
 - Added timeout guards to installer-level override tests in `unified-test-failure-propagation.sh`
 - Prevented noninteractive test scripts from hanging indefinitely if installer regressions reappear
+- Fixed render-only Xray Reality/Trojan config completeness in `rotate-render-only.sh` test
+- Added JSON field validation for Reality/Trojan configs after rotation
 
 ### Safety
 

@@ -36,6 +36,28 @@ check() {
   fi
 }
 
+# Assert a JSON field path is non-empty in a file
+assert_json_field_nonempty() {
+  local file="$1"
+  local expr="$2"
+  local label="$3"
+  python3 - "$file" "$expr" "$label" <<'PY'
+import json, sys
+path, expr, label = sys.argv[1:]
+d=json.load(open(path))
+cur=d
+for part in expr.split("."):
+    if part.endswith("]"):
+        name, idx = part[:-1].split("[")
+        cur = cur[name][int(idx)]
+    else:
+        cur = cur[part]
+if cur is None or cur == "" or cur == []:
+    print(f"missing/empty: {label}", file=sys.stderr)
+    sys.exit(1)
+PY
+}
+
 # ── Prerequisites ───────────────────────────────────────────────────────────
 
 echo ""
@@ -64,44 +86,54 @@ generate_test_configs() {
     --cert-mode self-signed
 
   # Create minimal valid service configs for rotation
-  cat > "$tmp/etc/nanobk/generated/hysteria/config.yaml" <<YAML
-listen: :443
-tls:
-  cert: /dev/null
-  key: /dev/null
-auth:
-  type: password
-  password: "old-password"
-YAML
-
-  cat > "$tmp/etc/nanobk/generated/proxy-stack/tuic-v5-9443/config.json" <<JSON
-{
-  "server": "[::]:9443",
-  "users": {"old-uuid": "old-password"}
-}
-JSON
-
+  # Reality config must be complete enough for xray -test validation
   cat > "$tmp/etc/nanobk/generated/proxy-stack/xray-reality-8443/config.json" <<JSON
 {
   "inbounds": [{
+    "listen": "0.0.0.0",
+    "port": 8443,
     "protocol": "vless",
-    "settings": {"clients": [{"id": "old-uuid"}]},
+    "settings": {
+      "clients": [{"id": "old-uuid", "flow": "xtls-rprx-vision"}],
+      "decryption": "none"
+    },
     "streamSettings": {
+      "network": "tcp",
+      "security": "reality",
       "realitySettings": {
+        "dest": "www.microsoft.com:443",
+        "serverNames": ["www.microsoft.com"],
         "privateKey": "old-private-key",
         "shortIds": ["old-short-id"]
       }
     }
-  }]
+  }],
+  "outbounds": [{"protocol": "freedom", "tag": "direct"}]
 }
 JSON
 
+  # Trojan config must be complete enough for xray -test validation
   cat > "$tmp/etc/nanobk/generated/proxy-stack/xray-trojan-2443/config.json" <<JSON
 {
   "inbounds": [{
+    "listen": "0.0.0.0",
+    "port": 2443,
     "protocol": "trojan",
-    "settings": {"clients": [{"password": "old-password"}]}
-  }]
+    "settings": {
+      "clients": [{"password": "old-password"}]
+    },
+    "streamSettings": {
+      "network": "tcp",
+      "security": "tls",
+      "tlsSettings": {
+        "certificates": [{
+          "certificateFile": "$tmp/etc/nanobk/certs/selfsigned.fullchain.pem",
+          "keyFile": "$tmp/etc/nanobk/certs/selfsigned.privkey.pem"
+        }]
+      }
+    }
+  }],
+  "outbounds": [{"protocol": "freedom", "tag": "direct"}]
 }
 JSON
 }
@@ -172,6 +204,29 @@ if grep -q 'privateKey' "$TMP/etc/nanobk/profile.current.json" 2>/dev/null; then
   ERRORS=$((ERRORS + 1))
 else
   pass "Reality private key NOT in profile"
+fi
+
+# Validate Reality config completeness after rotation
+REALITY_CFG="$TMP/etc/nanobk/generated/proxy-stack/xray-reality-8443/config.json"
+if [[ -f "$REALITY_CFG" ]]; then
+  assert_json_field_nonempty "$REALITY_CFG" "inbounds[0].listen" "Reality.listen" && pass "Reality config: listen" || { fail "Reality config: listen missing"; ERRORS=$((ERRORS + 1)); }
+  assert_json_field_nonempty "$REALITY_CFG" "inbounds[0].port" "Reality.port" && pass "Reality config: port" || { fail "Reality config: port missing"; ERRORS=$((ERRORS + 1)); }
+  assert_json_field_nonempty "$REALITY_CFG" "inbounds[0].streamSettings.network" "Reality.network" && pass "Reality config: network" || { fail "Reality config: network missing"; ERRORS=$((ERRORS + 1)); }
+  assert_json_field_nonempty "$REALITY_CFG" "inbounds[0].streamSettings.security" "Reality.security" && pass "Reality config: security" || { fail "Reality config: security missing"; ERRORS=$((ERRORS + 1)); }
+  assert_json_field_nonempty "$REALITY_CFG" "inbounds[0].streamSettings.realitySettings.dest" "Reality.dest" && pass "Reality config: dest" || { fail "Reality config: dest missing"; ERRORS=$((ERRORS + 1)); }
+  assert_json_field_nonempty "$REALITY_CFG" "inbounds[0].streamSettings.realitySettings.serverNames" "Reality.serverNames" && pass "Reality config: serverNames" || { fail "Reality config: serverNames missing"; ERRORS=$((ERRORS + 1)); }
+  assert_json_field_nonempty "$REALITY_CFG" "inbounds[0].streamSettings.realitySettings.privateKey" "Reality.privateKey" && pass "Reality config: privateKey" || { fail "Reality config: privateKey missing"; ERRORS=$((ERRORS + 1)); }
+  assert_json_field_nonempty "$REALITY_CFG" "inbounds[0].streamSettings.realitySettings.shortIds" "Reality.shortIds" && pass "Reality config: shortIds" || { fail "Reality config: shortIds missing"; ERRORS=$((ERRORS + 1)); }
+fi
+
+# Validate Trojan config completeness after rotation
+TROJAN_CFG="$TMP/etc/nanobk/generated/proxy-stack/xray-trojan-2443/config.json"
+if [[ -f "$TROJAN_CFG" ]]; then
+  assert_json_field_nonempty "$TROJAN_CFG" "inbounds[0].listen" "Trojan.listen" && pass "Trojan config: listen" || { fail "Trojan config: listen missing"; ERRORS=$((ERRORS + 1)); }
+  assert_json_field_nonempty "$TROJAN_CFG" "inbounds[0].port" "Trojan.port" && pass "Trojan config: port" || { fail "Trojan config: port missing"; ERRORS=$((ERRORS + 1)); }
+  assert_json_field_nonempty "$TROJAN_CFG" "inbounds[0].streamSettings.network" "Trojan.network" && pass "Trojan config: network" || { fail "Trojan config: network missing"; ERRORS=$((ERRORS + 1)); }
+  assert_json_field_nonempty "$TROJAN_CFG" "inbounds[0].streamSettings.security" "Trojan.security" && pass "Trojan config: security" || { fail "Trojan config: security missing"; ERRORS=$((ERRORS + 1)); }
+  assert_json_field_nonempty "$TROJAN_CFG" "inbounds[0].streamSettings.tlsSettings.certificates" "Trojan.certificates" && pass "Trojan config: certificates" || { fail "Trojan config: certificates missing"; ERRORS=$((ERRORS + 1)); }
 fi
 
 # Secrets permissions
