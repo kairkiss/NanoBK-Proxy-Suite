@@ -1,5 +1,22 @@
 # Changelog
 
+## v1.4.3 — Status and Environment Polish
+
+### Fixed
+
+- Fixed stale `nanob verify: pending` status after successful nanob verification
+- Unified nanob local env verify status fields between installer and `nanobk status`
+- Added `nanobk cf verify [nanok|nanob]` for re-verify / status refresh
+- Added `--verify-nanok-only` and `--verify-nanob-only` to install-cloudflare.sh
+- Added Python fallback for Cloudflare JSON field verification when `jq` is unavailable
+- Improved Cloudflare rollback log wording
+- Added safe env reader for install-cloudflare.sh verify-only mode
+
+### Tests
+
+- Added `tests/nanob-status-env.sh`: nanob verify status field test
+- Added `tests/rotate-cloudflare-stale-read-mock.sh`: stale read retry coverage
+
 ## v1.4.2 — Cloudflare Sync Consistency Hotfix
 
 ### Fixed

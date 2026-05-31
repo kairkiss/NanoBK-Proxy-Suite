@@ -18,7 +18,7 @@ set -Eeuo pipefail
 
 # ── Version ─────────────────────────────────────────────────────────────────
 
-NANOBK_VERSION="1.4.2"
+NANOBK_VERSION="1.4.3"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -201,6 +201,7 @@ NanoBK Proxy Suite — Unified CLI v${NANOBK_VERSION}
   install [args...]           启动交互式安装器
   install-cli                 安装 nanobk 到 /usr/local/bin
   cf deploy [args...]         部署 Cloudflare Workers
+  cf verify [nanok|nanob]     刷新 Cloudflare 订阅验证状态
   rotate <protocol> [args.]  换密钥: all|hy2|tuic|reality|trojan
   test [--all]                运行本地测试
   version                     显示版本
@@ -681,6 +682,34 @@ cmd_cf_deploy() {
   run_script "部署 Cloudflare Workers" "${cmd[@]}"
 }
 
+# ── cf verify ───────────────────────────────────────────────────────────────
+
+cmd_cf_verify() {
+  local subcmd="${1:-}"
+  shift 2>/dev/null || true
+
+  case "$subcmd" in
+    nanok)
+      local cmd=(bash "$REPO_DIR/installer/install-cloudflare.sh" --verify-nanok-only)
+      [[ "$DRY_RUN" == "1" ]] && cmd+=(--dry-run)
+      run_script "验证 nanok 订阅" "${cmd[@]}"
+      ;;
+    nanob)
+      local cmd=(bash "$REPO_DIR/installer/install-cloudflare.sh" --verify-nanob-only)
+      [[ "$DRY_RUN" == "1" ]] && cmd+=(--dry-run)
+      run_script "验证 nanob 订阅" "${cmd[@]}"
+      ;;
+    "")
+      # Verify both
+      cmd_cf_verify nanok
+      cmd_cf_verify nanob
+      ;;
+    *)
+      die "Usage: nanobk cf verify [nanok|nanob]"
+      ;;
+  esac
+}
+
 # ── rotate ──────────────────────────────────────────────────────────────────
 
 cmd_rotate() {
@@ -805,8 +834,9 @@ main() {
         cf_rest=("${cmd_rest[@]:1}")
       fi
       case "$cf_sub" in
-        deploy) cmd_cf_deploy ${cf_rest[@]+"${cf_rest[@]}"} ;;
-        *)      die "Usage: nanobk cf <deploy> [args...]" ;;
+        deploy)  cmd_cf_deploy ${cf_rest[@]+"${cf_rest[@]}"} ;;
+        verify)  cmd_cf_verify ${cf_rest[@]+"${cf_rest[@]}"} ;;
+        *)       die "Usage: nanobk cf <deploy|verify> [args...]" ;;
       esac
       ;;
     rotate)   cmd_rotate ${cmd_rest[@]+"${cmd_rest[@]}"} ;;

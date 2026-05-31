@@ -48,6 +48,31 @@ CLOUDFLARE_INSTALLER_VERSION="1.3.3"
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
 
+# Safe env value reader — no source, no eval, no command execution.
+read_env_value_safe() {
+  local file="$1"
+  local key="$2"
+  [[ -f "$file" ]] || return 0
+  local line
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ "$line" =~ ^[[:space:]]*# ]] && continue
+    [[ -z "${line// /}" ]] && continue
+    line="${line#"${line%%[![:space:]]*}"}"
+    [[ "$line" =~ ^${key}= ]] || continue
+    local val="${line#*=}"
+    val="${val#"${val%%[![:space:]]*}"}"
+    val="${val%"${val##*[![:space:]]}"}"
+    if [[ "${val:0:1}" == '"' ]] && [[ "${val: -1}" == '"' ]] && [[ ${#val} -ge 2 ]]; then
+      val="${val:1:${#val}-2}"
+    elif [[ "${val:0:1}" == "'" ]] && [[ "${val: -1}" == "'" ]] && [[ ${#val} -ge 2 ]]; then
+      val="${val:1:${#val}-2}"
+    fi
+    printf '%s' "$val"
+    return 0
+  done < "$file"
+  return 0
+}
+
 node_major_version() {
   node -v 2>/dev/null | sed 's/^v//' | cut -d. -f1
 }
@@ -59,6 +84,8 @@ NANOBK_YES=0
 FORCE=0
 PREFLIGHT=0
 VALIDATE_PROFILE_ONLY=0
+VERIFY_NANOK_ONLY=0
+VERIFY_NANOB_ONLY=0
 TEST_PARSE_KV_BINDING=""
 TEST_PARSE_KV_FILE=""
 
@@ -148,6 +175,8 @@ General:
   --force                    Overwrite existing wrangler.toml in worker dirs
   --preflight                Run pre-deployment checks only (no Cloudflare changes)
   --validate-profile-only    Validate profile JSON only (no Cloudflare, no wrangler)
+  --verify-nanok-only        Re-verify nanok subscription and update local status
+  --verify-nanob-only        Re-verify nanob subscription and update local status
   --help                     Show this help
 
 nanok options (primary subscription):
@@ -216,6 +245,8 @@ parse_args() {
       --force)                FORCE=1 ;;
       --preflight)            PREFLIGHT=1 ;;
       --validate-profile-only) VALIDATE_PROFILE_ONLY=1 ;;
+      --verify-nanok-only)    VERIFY_NANOK_ONLY=1 ;;
+      --verify-nanob-only)    VERIFY_NANOB_ONLY=1 ;;
       --test-parse-kv-id)     TEST_PARSE_KV_BINDING="$2"; TEST_PARSE_KV_FILE="$3"; shift 2 ;;
       --worker-name)          WORKER_NAME="$2"; shift ;;
       --worker-dir)           WORKER_DIR="$2"; shift ;;
@@ -1287,6 +1318,49 @@ main() {
     fi
   fi
 
+  # Verify-nanok-only mode
+  if [[ "$VERIFY_NANOK_ONLY" == "1" ]]; then
+    # Load nanok env
+    local nanok_env="${REPO_DIR}/.cloudflare.local.env"
+    [[ -f "$nanok_env" ]] || die "nanok env not found: ${nanok_env}"
+    ROUTE_URL=$(read_env_value_safe "$nanok_env" "NANOK_ROUTE_URL")
+    SUB_TOKEN=$(read_env_value_safe "$nanok_env" "SUB_TOKEN")
+    ADMIN_TOKEN=$(read_env_value_safe "$nanok_env" "ADMIN_TOKEN")
+    SUB_PATH=$(read_env_value_safe "$nanok_env" "SUB_PATH")
+    [[ -z "$SUB_PATH" ]] && SUB_PATH="/jb"
+    ADMIN_CURRENT_PATH=$(read_env_value_safe "$nanok_env" "ADMIN_CURRENT_PATH")
+    [[ -z "$ADMIN_CURRENT_PATH" ]] && ADMIN_CURRENT_PATH="/admin/current"
+    verify_nanok
+    return $?
+  fi
+
+  # Verify-nanob-only mode
+  if [[ "$VERIFY_NANOB_ONLY" == "1" ]]; then
+    local nanob_env="${REPO_DIR}/.nanob.local.env"
+    [[ -f "$nanob_env" ]] || die "nanob env not found: ${nanob_env}"
+    NANOB_ROUTE_URL=$(read_env_value_safe "$nanob_env" "NANOB_ROUTE_URL")
+    NANOB_TOKEN=$(read_env_value_safe "$nanob_env" "NANOB_TOKEN")
+    NANOB_PATH=$(read_env_value_safe "$nanob_env" "NANOB_PATH")
+    [[ -z "$NANOB_PATH" ]] && NANOB_PATH="/jb"
+    WORKER_NAME="nanok"  # for error messages
+    DEPLOY_NANOB=1
+    SKIP_NANOB_VERIFY=0
+    if verify_nanob; then
+      # Update verify status
+      if [[ "$DRY_RUN" != "1" ]]; then
+        local tmp_env="${nanob_env}.tmp"
+        sed 's/^NANOB_VERIFY_STATUS=.*/NANOB_VERIFY_STATUS="verified"/' "$nanob_env" > "$tmp_env"
+        mv "$tmp_env" "$nanob_env"
+        chmod 600 "$nanob_env"
+        ok "nanob verify status updated to verified"
+      fi
+      return 0
+    else
+      warn "nanob verify failed"
+      return 1
+    fi
+  fi
+
   echo ""
   local mode_label=""
   [[ "$DRY_RUN" == "1" ]] && mode_label=" — DRY-RUN"
@@ -1347,8 +1421,12 @@ main() {
   write_local_env "deployed" "uploaded" "pending"
 
   # Phase 11: Verify nanok
-  verify_nanok
-  write_local_env "deployed" "uploaded" "verified"
+  if verify_nanok; then
+    write_local_env "deployed" "uploaded" "verified"
+  else
+    warn "nanok verification failed; status remains pending"
+    write_local_env "deployed" "uploaded" "pending"
+  fi
 
   # Phase 12: Set nanob secrets + deploy
   set_nanob_secrets
@@ -1356,8 +1434,12 @@ main() {
   write_nanob_local_env "deployed" "pending"
 
   # Phase 13: Verify nanob
-  verify_nanob
-  write_nanob_local_env "deployed" "verified"
+  if verify_nanob; then
+    write_nanob_local_env "deployed" "verified"
+  else
+    warn "nanob verification failed; status remains pending"
+    write_nanob_local_env "deployed" "pending"
+  fi
 
   # Phase 14: Next steps
   print_next_steps

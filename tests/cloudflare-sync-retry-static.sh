@@ -79,7 +79,7 @@ else
   ERRORS=$((ERRORS + 1))
 fi
 
-if grep -q "Local rollback completed, but Cloudflare rollback failed" "$ROOT/vps/scripts/rotate-keys.sh" 2>/dev/null; then
+if grep -q "Cloudflare rollback failed. Local rollback will continue" "$ROOT/vps/scripts/rotate-keys.sh" 2>/dev/null; then
   pass "rotate: split-brain warning exists"
 else
   fail "rotate: split-brain warning missing"

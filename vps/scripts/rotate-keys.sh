@@ -733,6 +733,42 @@ PY
   fi
 }
 
+# Read a JSON field from stdin. Supports jq and python3 fallback.
+# Usage: echo '{"a":{"b":"c"}}' | json_read_field ".a.b"
+json_read_field() {
+  local field="$1"
+  if command -v jq &>/dev/null; then
+    jq -r "${field} // empty" 2>/dev/null
+    return
+  fi
+  if command -v python3 &>/dev/null; then
+    python3 - "$field" <<'PY' 2>/dev/null
+import json, sys
+path = sys.argv[1]
+try:
+    obj = json.load(sys.stdin)
+except:
+    sys.exit(0)
+parts = [p for p in path.strip().split(".") if p and p != "//" and p != "empty"]
+cur = obj
+for p in parts:
+    if isinstance(cur, dict) and p in cur:
+        cur = cur[p]
+    else:
+        sys.exit(0)
+if cur is None:
+    pass
+elif isinstance(cur, (dict, list)):
+    print(json.dumps(cur, separators=(",", ":")))
+else:
+    print(str(cur))
+PY
+    return
+  fi
+  # No parser available
+  return 1
+}
+
 verify_cf_field() {
   local current="$1"
   local field="$2"
@@ -740,7 +776,7 @@ verify_cf_field() {
   local label="$4"
 
   local actual
-  actual=$(echo "$current" | jq -r "$field // empty" 2>/dev/null)
+  actual=$(echo "$current" | json_read_field "$field")
   if [[ "$actual" != "$expected" ]]; then
     return 1
   fi
@@ -753,8 +789,10 @@ check_cf_verify() {
   local current="$1"
 
   if ! command -v jq &>/dev/null; then
-    # Can't verify fields without jq
-    return 0
+    if ! command -v python3 &>/dev/null; then
+      warn "Neither jq nor python3 available; skipping field verification"
+      return 0
+    fi
   fi
 
   local verify_ok=1
@@ -796,8 +834,8 @@ cf_mismatch_summary() {
   local current="$1"
   local mismatches=()
 
-  if ! command -v jq &>/dev/null; then
-    echo "(jq not available for field comparison)"
+  if ! command -v jq &>/dev/null && ! command -v python3 &>/dev/null; then
+    echo "(no JSON parser available for field comparison)"
     return
   fi
 
@@ -1172,23 +1210,25 @@ main() {
     # Best-effort Cloudflare rollback if we uploaded a new profile
     if [[ "$CF_PROFILE_UPDATED" == "1" ]] && [[ -f "${BACKUP_DIR}/profile.current.json" ]]; then
       if restore_cloudflare_profile "${BACKUP_DIR}/profile.current.json"; then
-        warn "Cloudflare rollback profile verified"
+        ok "Cloudflare rollback profile verified"
       else
-        warn ""
-        warn "Local rollback completed, but Cloudflare rollback failed."
-        warn "Local and Cloudflare profiles may be inconsistent."
-        warn ""
-        warn "To manually resync, run:"
-        warn "  curl -fsS -X POST \"\$ADMIN_UPDATE_URL\" \\"
-        warn "    -H \"Authorization: Bearer \$ADMIN_TOKEN\" \\"
-        warn "    -H \"Content-Type: application/json\" \\"
-        warn "    --data-binary @${NANOBK_CONFIG_DIR}/profile.current.json"
-        warn ""
-        warn "Use ADMIN_TOKEN from your cf-admin-env file."
+        warn "Cloudflare rollback failed. Local rollback will continue."
+        warn "Local and Cloudflare profiles may become inconsistent."
       fi
     fi
 
     rollback_local
+
+    if [[ "$CF_PROFILE_UPDATED" == "1" ]]; then
+      warn ""
+      warn "To manually resync Cloudflare, run:"
+      warn "  curl -fsS -X POST \"\$ADMIN_UPDATE_URL\" \\"
+      warn "    -H \"Authorization: Bearer \$ADMIN_TOKEN\" \\"
+      warn "    -H \"Content-Type: application/json\" \\"
+      warn "    --data-binary @${NANOBK_CONFIG_DIR}/profile.current.json"
+      warn ""
+      warn "Use ADMIN_TOKEN from your cf-admin-env file."
+    fi
     exit 1
   fi
 

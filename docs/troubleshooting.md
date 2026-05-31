@@ -484,6 +484,42 @@ curl -fsS -X POST "YOUR_ADMIN_UPDATE_URL" \
 
 ---
 
+## nanob verify shows pending but subscription works
+
+**Cause**: The `.nanob.local.env` file was written with `NANOB_VERIFY_STATUS="pending"` during deploy, but the verification step didn't update it to `verified` (e.g., verification was skipped or failed silently).
+
+**Fix**: Re-verify nanob:
+
+```bash
+nanobk cf verify nanob
+```
+
+Or manually:
+
+```bash
+bash installer/install-cloudflare.sh --verify-nanob-only
+```
+
+This reads the nanob env, checks the subscription, and updates the status to `verified` if successful.
+
+---
+
+## jq missing during rotate Cloudflare verification
+
+**Cause**: `jq` is not installed, so Cloudflare field verification is skipped (v1.4.2 behavior).
+
+**Fix**: v1.4.3+ adds Python fallback for JSON field reading. If neither `jq` nor `python3` is available, the script warns and conservatively fails. Install at least one:
+
+```bash
+# Debian/Ubuntu
+sudo apt-get install -y jq
+
+# RHEL/Rocky
+sudo dnf install -y jq
+```
+
+---
+
 ## Wrangler reports "Unknown arguments: kv:namespace, create"
 
 **Cause**: Wrangler 4 changed the CLI syntax. Old: `wrangler kv:namespace create`. New: `wrangler kv namespace create`.

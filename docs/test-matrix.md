@@ -25,6 +25,8 @@ All test scripts in `tests/` are designed to be safe for local development. None
 | `unified-installer-config.sh` | Installer config save/resume (no sensitive tokens) | No | No | No | ✅ | ✅ |
 | `cloudflare-sync-retry-static.sh` | rotate Cloudflare verify retry/rollback logic | No | No | No | ✅ | ✅ |
 | `unified-installer-resume.sh` | --resume + explicit --mode precedence | No | No | No | ✅ | ✅ |
+| `nanob-status-env.sh` | nanob verify status field consistency | No | No | No | ✅ | ✅ |
+| `rotate-cloudflare-stale-read-mock.sh` | Cloudflare stale read retry logic | No | No | No | ✅ | ✅ |
 
 ¹ Wrangler may download npm packages on first run.
 
