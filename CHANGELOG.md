@@ -8,6 +8,8 @@
 - Added timeout guards to installer-level override tests in `unified-test-failure-propagation.sh`
 - Prevented noninteractive test scripts from hanging indefinitely if installer regressions reappear
 - Fixed render-only Xray Reality/Trojan config completeness in `rotate-render-only.sh` test
+- Fixed per-protocol rotate-render-only fixtures so hy2/tuic/trojan rotations keep valid Reality/Trojan Xray configs
+- Added pre-rotate and post-rotate fixture validation for every per-protocol rotation test
 - Added JSON field validation for Reality/Trojan configs after rotation
 
 ### Safety
