@@ -453,6 +453,20 @@ node -v  # Should show v22.x.x
 
 ---
 
+## Could not parse KV namespace ID from Wrangler output
+
+**Cause**: Wrangler 4.95 outputs KV creation results as JSON with `kv_namespaces[].id`, which older parser versions couldn't read.
+
+**Fix**: Upgrade to v1.3.3+ which has a robust parser supporting JSON, TOML, and text formats.
+
+Or manually copy the id from Wrangler output and rerun:
+
+```bash
+bash installer/install-cloudflare.sh --kv-namespace-id YOUR_COPIED_ID ...
+```
+
+---
+
 ## Doctor check
 
 Run the diagnostic script:

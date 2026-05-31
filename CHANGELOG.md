@@ -1,5 +1,20 @@
 # Changelog
 
+## v1.3.3 — Wrangler KV Parser Hotfix
+
+### Fixed
+
+- Improved KV namespace id parser for Wrangler 4.95 JSON output (`kv_namespaces[].id`)
+- Added binding-aware parsing: picks correct namespace when multiple exist
+- Parser covers JSON, TOML-style, compact, text, and mixed outputs
+- Added `--test-parse-kv-id` for offline parser testing
+- Fixed Cloudflare installer help version display (now uses `CLOUDFLARE_INSTALLER_VERSION` variable)
+
+### Verified
+
+- v1.3.2 real Cloudflare chain passed with manual KV id workaround
+- v1.3.3 removes the manual KV id workaround requirement
+
 ## v1.3.2 — Cloudflare Wrangler 4 and nanob Service Binding Hotfix
 
 ### Fixed

@@ -42,6 +42,10 @@ die()   { err "$*"; exit 1; }
 info()  { echo -e "${CYAN}[INFO]${NC}  $*"; }
 fail()  { echo -e "${RED}[FAIL]${NC}  $*" >&2; }
 
+# ── Version ─────────────────────────────────────────────────────────────────
+
+CLOUDFLARE_INSTALLER_VERSION="1.3.3"
+
 # ── Helpers ─────────────────────────────────────────────────────────────────
 
 node_major_version() {
@@ -55,6 +59,8 @@ NANOBK_YES=0
 FORCE=0
 PREFLIGHT=0
 VALIDATE_PROFILE_ONLY=0
+TEST_PARSE_KV_BINDING=""
+TEST_PARSE_KV_FILE=""
 
 # nanok
 WORKER_NAME="nanok"
@@ -131,7 +137,7 @@ clean_host() {
 
 show_help() {
   cat <<'EOF'
-NanoBK Proxy Suite — Cloudflare Deployment v1.3.0
+NanoBK Proxy Suite — Cloudflare Deployment v1.3.3
 
 Usage:
   bash installer/install-cloudflare.sh [OPTIONS]
@@ -210,6 +216,7 @@ parse_args() {
       --force)                FORCE=1 ;;
       --preflight)            PREFLIGHT=1 ;;
       --validate-profile-only) VALIDATE_PROFILE_ONLY=1 ;;
+      --test-parse-kv-id)     TEST_PARSE_KV_BINDING="$2"; TEST_PARSE_KV_FILE="$3"; shift 2 ;;
       --worker-name)          WORKER_NAME="$2"; shift ;;
       --worker-dir)           WORKER_DIR="$2"; shift ;;
       --profile)              PROFILE_PATH="$2"; shift ;;
@@ -245,8 +252,8 @@ parse_args() {
     shift
   done
 
-  # Skip deployment validation for preflight and validate-profile-only
-  if [[ "$PREFLIGHT" != "1" ]] && [[ "$VALIDATE_PROFILE_ONLY" != "1" ]]; then
+  # Skip deployment validation for preflight, validate-profile-only, and test modes
+  if [[ "$PREFLIGHT" != "1" ]] && [[ "$VALIDATE_PROFILE_ONLY" != "1" ]] && [[ -z "$TEST_PARSE_KV_BINDING" ]]; then
     # Validate nanok KV config
     if [[ -z "$KV_NAMESPACE_ID" ]] && [[ "$CREATE_KV" != "1" ]]; then
       if [[ "$NANOBK_YES" == "1" ]]; then
@@ -342,6 +349,108 @@ finish authorization, then rerun this installer."
   ok "Wrangler authenticated"
 }
 
+# ── KV namespace ID parser ──────────────────────────────────────────────────
+
+# Parse KV namespace ID from Wrangler output.
+# Supports: Wrangler 4 JSON, TOML-style, compact, text, mixed output.
+# Args: output_text binding_name
+# Prints the parsed ID to stdout, or empty string on failure.
+parse_kv_namespace_id() {
+  local output="$1"
+  local binding="$2"
+  local parsed_id=""
+
+  # 1. jq: Wrangler 4 JSON with kv_namespaces array (binding-aware)
+  if command -v jq &>/dev/null; then
+    parsed_id="$(
+      printf '%s\n' "$output" |
+        jq -r --arg binding "$binding" '
+          if type == "object" then
+            (
+              .kv_namespaces[]? |
+              select((.binding // "") == $binding) |
+              .id
+            ) // .id // empty
+          else
+            empty
+          end
+        ' 2>/dev/null |
+        head -1
+    )" || true
+  fi
+
+  # 2. python3 fallback: JSON parse + regex fallback
+  if [[ -z "$parsed_id" ]] && command -v python3 &>/dev/null; then
+    parsed_id="$(
+      printf '%s\n' "$output" |
+        python3 - "$binding" <<'PY'
+import json, re, sys
+binding = sys.argv[1]
+text = sys.stdin.read()
+
+def valid_id(s):
+    return bool(re.fullmatch(r"[a-fA-F0-9]{16,64}", s or ""))
+
+def find_in_data(data):
+    if isinstance(data, dict):
+        for item in data.get("kv_namespaces", []) or []:
+            if isinstance(item, dict) and item.get("binding") == binding and valid_id(item.get("id")):
+                return item["id"]
+        if valid_id(data.get("id")):
+            return data["id"]
+    return None
+
+# Try direct JSON
+try:
+    result = find_in_data(json.loads(text))
+    if result:
+        print(result)
+        sys.exit(0)
+except Exception:
+    pass
+
+# Try extracting JSON object from mixed output
+m = re.search(r"\{.*\}", text, re.S)
+if m:
+    try:
+        result = find_in_data(json.loads(m.group(0)))
+        if result:
+            print(result)
+            sys.exit(0)
+    except Exception:
+        pass
+
+# Regex patterns (not binding-aware, last resort)
+patterns = [
+    r'"id"\s*:\s*"([a-fA-F0-9]{16,64})"',
+    r"id\s*=\s*\"([a-fA-F0-9]{16,64})\"",
+    r"id:\s*([a-fA-F0-9]{16,64})",
+]
+for pat in patterns:
+    mm = re.search(pat, text)
+    if mm:
+        print(mm.group(1))
+        sys.exit(0)
+
+sys.exit(1)
+PY
+    )" || true
+  fi
+
+  # 3. grep fallback (not binding-aware)
+  if [[ -z "$parsed_id" ]]; then
+    parsed_id=$(printf '%s\n' "$output" | grep -oE '"id"[[:space:]]*:[[:space:]]*"[a-fA-F0-9]{16,64}"' | head -1 | sed -E 's/.*"id"[[:space:]]*:[[:space:]]*"([a-fA-F0-9]{16,64})".*/\1/') || true
+  fi
+  if [[ -z "$parsed_id" ]]; then
+    parsed_id=$(printf '%s\n' "$output" | grep -oE 'id[[:space:]]*=[[:space:]]*"[a-fA-F0-9]{16,64}"' | head -1 | sed -E 's/.*id[[:space:]]*=[[:space:]]*"([a-fA-F0-9]{16,64})".*/\1/') || true
+  fi
+  if [[ -z "$parsed_id" ]]; then
+    parsed_id=$(printf '%s\n' "$output" | grep -oE 'id:[[:space:]]*[a-fA-F0-9]{16,64}' | head -1 | sed -E 's/.*id:[[:space:]]*([a-fA-F0-9]{16,64}).*/\1/') || true
+  fi
+
+  printf '%s' "$parsed_id"
+}
+
 # ── KV namespace (generic) ──────────────────────────────────────────────────
 
 # Args: binding_name create_flag_var namespace_id_var
@@ -378,22 +487,13 @@ create_kv_namespace_generic() {
 
   echo "$output"
 
-  # Parse ID
   local parsed_id
-  parsed_id=$(echo "$output" | grep -oP 'id\s*=\s*"\K[^"]+' | head -1) || true
-
-  if [[ -z "$parsed_id" ]] && command -v jq &>/dev/null; then
-    parsed_id=$(echo "$output" | jq -r '.id // empty' 2>/dev/null) || true
-  fi
-
-  if [[ -z "$parsed_id" ]]; then
-    parsed_id=$(echo "$output" | grep -oP 'id:\s*\K[a-f0-9]+' | head -1) || true
-  fi
+  parsed_id=$(parse_kv_namespace_id "$output" "$binding")
 
   if [[ -z "$parsed_id" ]]; then
     err "Could not parse KV namespace ID from Wrangler output:"
     echo "$output" >&2
-    die "Copy the ID manually and re-run with the appropriate --*-kv-namespace-id flag"
+    die "Copy the ID manually and re-run with --kv-namespace-id or --nanob-geo-kv-namespace-id"
   fi
 
   eval "$id_var=\"$parsed_id\""
@@ -1141,6 +1241,20 @@ main() {
   if [[ "$VALIDATE_PROFILE_ONLY" == "1" ]]; then
     validate_profile_file
     return $?
+  fi
+
+  # Test-parse-kv-id mode (for testing the parser)
+  if [[ -n "$TEST_PARSE_KV_BINDING" ]] && [[ -n "$TEST_PARSE_KV_FILE" ]]; then
+    local content
+    content=$(cat "$TEST_PARSE_KV_FILE" 2>/dev/null) || die "Cannot read: ${TEST_PARSE_KV_FILE}"
+    local result
+    result=$(parse_kv_namespace_id "$content" "$TEST_PARSE_KV_BINDING")
+    if [[ -n "$result" ]]; then
+      echo "$result"
+      return 0
+    else
+      return 1
+    fi
   fi
 
   echo ""
