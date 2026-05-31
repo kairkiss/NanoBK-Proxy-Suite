@@ -32,6 +32,8 @@ All test scripts in `tests/` are designed to be safe for local development. None
 | `unified-installer-safety.sh` | --defaults safety block and dry-run env protection | No | No | No | ✅ | ✅ |
 | `unified-dry-run-preflight.sh` | Dry-run not blocked by real port occupation | No | No | No | ✅ | ✅ |
 | `unified-validation-plan.sh` | Validate-plan mode output and safety | No | No | No | ✅ | ✅ |
+| `unified-noninteractive-mode.sh` | Commands/test noninteractive mode | No | No | No | ✅ | ✅ |
+| `unified-failure-recovery.sh` | Failure recovery and stage dependencies | No | No | No | ✅ | ✅ |
 
 ¹ Wrangler may download npm packages on first run.
 

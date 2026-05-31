@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — Unified Beginner Installer v1.6.1
+# NanoBK Proxy Suite — Unified Beginner Installer v1.6.2
 #
 # Interactive entry point for NanoBK Proxy Suite.
 # Guides users through VPS deployment, Cloudflare setup, Bot, Web Panel.
@@ -20,7 +20,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # ── Constants ───────────────────────────────────────────────────────────────
 
 REPO_URL="https://github.com/kairkiss/NanoBK-Proxy-Suite"
-VERSION="1.6.1"
+VERSION="1.6.2"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -489,19 +489,49 @@ collect_vps_args() {
   prompt domain "请输入节点域名" "${NANOBK_DOMAIN:-proxy.example.com}"
   NANOBK_DOMAIN="$domain"
 
-  prompt cert_mode "证书模式 (existing/self-signed)" "${NANOBK_CERT_MODE:-self-signed}"
+  # Cert-mode with validation and retry
+  local cert_attempts=0
+  while true; do
+    cert_attempts=$((cert_attempts + 1))
+    prompt cert_mode "证书模式 (existing/self-signed)" "${NANOBK_CERT_MODE:-self-signed}"
 
-  if [[ "$cert_mode" == "existing" ]]; then
-    prompt cert_file "证书 fullchain 路径" "/etc/letsencrypt/live/${domain}/fullchain.pem"
-    prompt key_file "证书 privkey 路径" "/etc/letsencrypt/live/${domain}/privkey.pem"
-  elif [[ "$cert_mode" == "self-signed" ]]; then
-    warn "自签证书只建议测试，有些客户端可能拒绝。"
-    cert_file=""
-    key_file=""
-  else
-    err "无效的证书模式: ${cert_mode}"
-    return 1
-  fi
+    case "$cert_mode" in
+      existing)
+        prompt cert_file "证书 fullchain 路径" "/etc/letsencrypt/live/${domain}/fullchain.pem"
+        prompt key_file "证书 privkey 路径" "/etc/letsencrypt/live/${domain}/privkey.pem"
+        break
+        ;;
+      self-signed)
+        warn "自签证书只建议测试，有些客户端可能拒绝。"
+        cert_file=""
+        key_file=""
+        break
+        ;;
+      self|self-|selfsigned|self_signed)
+        echo ""
+        echo -e "  ${YELLOW}你是不是想选择 self-signed？${NC}"
+        echo "    1) 使用 self-signed"
+        echo "    2) 重新输入"
+        echo "    3) 退出"
+        echo ""
+        local cert_fix_choice
+        prompt cert_fix_choice "请选择" "1"
+        case "$cert_fix_choice" in
+          1) cert_mode="self-signed"; warn "自签证书只建议测试，有些客户端可能拒绝。"; cert_file=""; key_file=""; break ;;
+          2) continue ;;
+          3|*) return 1 ;;
+        esac
+        ;;
+      *)
+        err "无效的证书模式: ${cert_mode}"
+        if [[ $cert_attempts -ge 3 ]]; then
+          err "已尝试 3 次，退出。"
+          return 1
+        fi
+        echo "  允许值: existing, self-signed"
+        ;;
+    esac
+  done
   NANOBK_CERT_MODE="$cert_mode"
 
   prompt reality_sname "Reality 伪装域名" "www.microsoft.com"
@@ -641,6 +671,15 @@ collect_bot_args() {
   fi
 
   local bot_token owner_id bot_dry_run
+
+  # Safety warning before token input
+  echo ""
+  echo -e "  ${YELLOW}安全提示：${NC}"
+  echo "    - Bot Token 是敏感凭证"
+  echo "    - 不要截图，不要粘贴到聊天、issue、日志"
+  echo "    - 不要执行 cat bot/.env"
+  echo "    - 如果 token 曾暴露，请去 BotFather revoke / regenerate"
+  echo ""
 
   prompt bot_token "Telegram Bot Token (从 @BotFather 获取)" ""
   prompt owner_id "你的 Telegram 数字 User ID" ""
@@ -788,6 +827,10 @@ NANOBK_ROTATE_TIMEOUT=300
 EOF
     chmod 600 "$REPO_DIR/web/.env"
     ok "Web Panel 配置已保存: web/.env (mode 600)"
+    echo ""
+    echo -e "  ${YELLOW}安全提示：${NC}"
+    echo "    - Web token/secret 已写入 web/.env，权限应为 600"
+    echo "    - 不要 cat web/.env，不要把内容贴到聊天或日志"
   else
     echo -e "  ${CYAN}[DRY-RUN]${NC} Would write web/.env"
   fi
@@ -1143,6 +1186,12 @@ run_full_wizard() {
   NANOBK_ENABLE_BOT="true"
   NANOBK_ENABLE_WEB="true"
 
+  # Stage status tracking
+  VPS_STAGE_STATUS="unknown"
+  CF_STAGE_STATUS="unknown"
+  BOT_STAGE_STATUS="unknown"
+  WEB_STAGE_STATUS="unknown"
+
   echo ""
   echo -e "${BOLD}═══ Full Recommended — VPS + Cloudflare + Bot + Web Panel ═══${NC}"
   echo ""
@@ -1163,10 +1212,20 @@ run_full_wizard() {
   echo -e "${BOLD}── 阶段 1：VPS 部署 ──${NC}"
   echo ""
   if confirm "是否配置 VPS 部署？" "y"; then
-    if ! collect_vps_args; then
-      warn "VPS 部署阶段失败。"
+    if collect_vps_args; then
+      VPS_STAGE_STATUS="installed"
+    else
+      VPS_STAGE_STATUS="failed"
+      warn "VPS 阶段失败。"
+      echo ""
+      echo "  恢复命令："
+      echo "    bash installer/install.sh --mode vps --lang zh"
+      echo ""
       if [[ "$DRY_RUN" != "1" ]] && [[ "$COMMAND_ONLY" != "1" ]]; then
-        if ! confirm "是否继续后续步骤？" "n"; then
+        echo "  VPS 失败后，Cloudflare 将被跳过（依赖 profile.current.json）。"
+        echo "  Bot/Web 可以配置，但仅为控制端，不代表节点可用。"
+        echo ""
+        if ! confirm "是否继续配置 Bot/Web（控制端）？" "n"; then
           save_config
           print_summary
           return 1
@@ -1174,39 +1233,89 @@ run_full_wizard() {
       fi
     fi
   else
+    VPS_STAGE_STATUS="skipped"
     echo "  跳过 VPS 部署。"
   fi
 
-  # Phase 2: Cloudflare
+  # Phase 2: Cloudflare — strict dependency on VPS profile
   echo ""
   echo -e "${BOLD}── 阶段 2：Cloudflare 部署 ──${NC}"
   echo ""
-  if confirm "是否配置 Cloudflare 部署？" "y"; then
-    NANOBK_DEPLOY_CLOUDFLARE="true"
-    if ! collect_cloudflare_args; then
-      warn "Cloudflare 部署阶段失败。"
-      if [[ "$DRY_RUN" != "1" ]] && [[ "$COMMAND_ONLY" != "1" ]]; then
-        if ! confirm "是否继续后续步骤？" "n"; then
-          save_config
-          print_summary
-          return 1
+
+  # Check if profile exists (skip in dry-run)
+  if [[ "$DRY_RUN" != "1" ]] && [[ ! -f "/etc/nanobk/profile.current.json" ]]; then
+    if [[ "$VPS_STAGE_STATUS" == "failed" ]]; then
+      CF_STAGE_STATUS="skipped_dependency"
+      warn "Cloudflare 部署需要 /etc/nanobk/profile.current.json"
+      warn "VPS 阶段失败，跳过 Cloudflare。"
+      echo ""
+      echo "  恢复命令："
+      echo "    bash installer/install.sh --mode vps --lang zh"
+      echo "    bash installer/install.sh --mode cloudflare --lang zh"
+      echo ""
+    elif [[ "$VPS_STAGE_STATUS" == "skipped" ]]; then
+      CF_STAGE_STATUS="skipped_dependency"
+      warn "Cloudflare 部署需要 /etc/nanobk/profile.current.json"
+      warn "VPS 阶段已跳过，跳过 Cloudflare。"
+      echo ""
+      echo "  恢复命令："
+      echo "    bash installer/install.sh --mode vps --lang zh"
+      echo "    bash installer/install.sh --mode cloudflare --lang zh"
+      echo ""
+    fi
+  fi
+
+  # Only proceed with Cloudflare if dependency check passed
+  if [[ "$CF_STAGE_STATUS" != "skipped_dependency" ]]; then
+    if confirm "是否配置 Cloudflare 部署？" "y"; then
+      NANOBK_DEPLOY_CLOUDFLARE="true"
+      if collect_cloudflare_args; then
+        CF_STAGE_STATUS="deployed"
+      else
+        CF_STAGE_STATUS="failed"
+        warn "Cloudflare 部署阶段失败。"
+        echo ""
+        echo "  恢复命令："
+        echo "    bash installer/install.sh --mode cloudflare --lang zh"
+        echo "    bash bin/nanobk cf verify"
+        echo ""
+        if [[ "$DRY_RUN" != "1" ]] && [[ "$COMMAND_ONLY" != "1" ]]; then
+          if ! confirm "是否继续后续步骤？" "n"; then
+            save_config
+            print_summary
+            return 1
+          fi
         fi
       fi
+    else
+      NANOBK_DEPLOY_CLOUDFLARE="false"
+      CF_STAGE_STATUS="skipped"
+      echo "  跳过 Cloudflare 部署。"
     fi
-  else
-    NANOBK_DEPLOY_CLOUDFLARE="false"
-    echo "  跳过 Cloudflare 部署。"
   fi
 
   # Phase 3: Bot
   echo ""
   echo -e "${BOLD}── 阶段 3：Telegram Bot ──${NC}"
   echo ""
+
+  # Control-plane-only warning if VPS/CF failed
+  if [[ "$VPS_STAGE_STATUS" == "failed" ]] || [[ "$CF_STAGE_STATUS" == "failed" ]] || [[ "$CF_STAGE_STATUS" == "skipped_dependency" ]]; then
+    echo -e "  ${YELLOW}注意：Bot 是控制端配置，不代表 VPS 节点或 Cloudflare 订阅已经可用。${NC}"
+    echo ""
+  fi
+
   if confirm "是否配置 Telegram Bot？" "y"; then
     NANOBK_ENABLE_BOT="true"
     collect_bot_args
+    if [[ "$VPS_STAGE_STATUS" == "failed" ]] || [[ "$CF_STAGE_STATUS" == "failed" ]] || [[ "$CF_STAGE_STATUS" == "skipped_dependency" ]]; then
+      BOT_STAGE_STATUS="control_only"
+    else
+      BOT_STAGE_STATUS="configured"
+    fi
   else
     NANOBK_ENABLE_BOT="false"
+    BOT_STAGE_STATUS="skipped"
     echo "  跳过 Telegram Bot。"
   fi
 
@@ -1214,11 +1323,24 @@ run_full_wizard() {
   echo ""
   echo -e "${BOLD}── 阶段 4：Web Panel ──${NC}"
   echo ""
+
+  # Control-plane-only warning if VPS/CF failed
+  if [[ "$VPS_STAGE_STATUS" == "failed" ]] || [[ "$CF_STAGE_STATUS" == "failed" ]] || [[ "$CF_STAGE_STATUS" == "skipped_dependency" ]]; then
+    echo -e "  ${YELLOW}注意：Web Panel 是控制端配置，不代表 VPS 节点或 Cloudflare 订阅已经可用。${NC}"
+    echo ""
+  fi
+
   if confirm "是否配置 Web Panel？" "y"; then
     NANOBK_ENABLE_WEB="true"
     collect_web_args
+    if [[ "$VPS_STAGE_STATUS" == "failed" ]] || [[ "$CF_STAGE_STATUS" == "failed" ]] || [[ "$CF_STAGE_STATUS" == "skipped_dependency" ]]; then
+      WEB_STAGE_STATUS="control_only"
+    else
+      WEB_STAGE_STATUS="configured"
+    fi
   else
     NANOBK_ENABLE_WEB="false"
+    WEB_STAGE_STATUS="skipped"
     echo "  跳过 Web Panel。"
   fi
 
@@ -1246,6 +1368,11 @@ print_summary() {
     else
       echo "    status:  skipped (dry-run)"
     fi
+  elif [[ "${VPS_STAGE_STATUS:-}" == "failed" ]]; then
+    echo "    status:  failed"
+    echo "    reason:  install-vps failed"
+    echo "    recover:"
+    echo "      bash installer/install.sh --mode vps --lang zh"
   elif [[ -f "/etc/nanobk/profile.current.json" ]]; then
     echo "    domain:  ${NANOBK_DOMAIN:-unknown}"
     echo "    status:  installed / not healthchecked"
@@ -1272,6 +1399,17 @@ print_summary() {
     else
       echo "    status:  skipped (dry-run)"
     fi
+  elif [[ "${CF_STAGE_STATUS:-}" == "skipped_dependency" ]]; then
+    echo "    status:  skipped / dependency missing"
+    echo "    reason:  /etc/nanobk/profile.current.json not found"
+    echo "    recover:"
+    echo "      finish VPS first, then run:"
+    echo "      bash installer/install.sh --mode cloudflare --lang zh"
+  elif [[ "${CF_STAGE_STATUS:-}" == "failed" ]]; then
+    echo "    status:  failed / needs retry"
+    echo "    recover:"
+    echo "      bash installer/install.sh --mode cloudflare --lang zh"
+    echo "      bash bin/nanobk cf verify"
   elif [[ -f "${REPO_DIR:-.}/.cloudflare.local.env" ]]; then
     local cf_verify
     cf_verify=$(read_env_value "${REPO_DIR:-.}/.cloudflare.local.env" "NANOBK_VERIFY_STATUS" 2>/dev/null || echo "")
@@ -1305,6 +1443,12 @@ print_summary() {
     else
       echo "    status:  skipped (dry-run)"
     fi
+  elif [[ "${BOT_STAGE_STATUS:-}" == "control_only" ]]; then
+    echo "    status:  configured / control plane only"
+    echo "    note:    VPS/Cloudflare are not verified yet"
+    echo "    env:     bot/.env"
+    echo "    dry-run: ${NANOBK_BOT_DRY_RUN:-true}"
+    echo "    start:   cd bot && bash run.sh"
   elif [[ -f "${REPO_DIR:-.}/bot/.env" ]]; then
     echo "    status:  configured"
     echo "    env:     bot/.env"
@@ -1327,6 +1471,13 @@ print_summary() {
     else
       echo "    status:  skipped (dry-run)"
     fi
+  elif [[ "${WEB_STAGE_STATUS:-}" == "control_only" ]]; then
+    echo "    status:  configured / control plane only"
+    echo "    note:    VPS/Cloudflare are not verified yet"
+    echo "    env:     web/.env"
+    echo "    listen:  ${NANOBK_WEB_HOST:-127.0.0.1}:${NANOBK_WEB_PORT:-8080}"
+    echo "    dry-run: ${NANOBK_WEB_DRY_RUN:-true}"
+    echo "    start:   cd web && bash run.sh"
   elif [[ -f "${REPO_DIR:-.}/web/.env" ]]; then
     echo "    status:  configured"
     echo "    env:     web/.env"
@@ -1340,7 +1491,7 @@ print_summary() {
     echo "    status:  skipped"
   fi
 
-  # Next steps
+  # Next steps and recovery
   echo ""
   echo "  常用命令:"
   echo "    nanobk status"
@@ -1348,6 +1499,19 @@ print_summary() {
   echo "    nanobk cf verify"
   echo "    nanobk rotate tuic"
   echo ""
+
+  # Recovery commands if any stage failed
+  if [[ "${VPS_STAGE_STATUS:-}" == "failed" ]] || [[ "${CF_STAGE_STATUS:-}" == "failed" ]] || [[ "${CF_STAGE_STATUS:-}" == "skipped_dependency" ]]; then
+    echo "  恢复命令:"
+    [[ "${VPS_STAGE_STATUS:-}" == "failed" ]] && echo "    bash installer/install.sh --mode vps --lang zh"
+    [[ "${CF_STAGE_STATUS:-}" == "failed" ]] && echo "    bash installer/install.sh --mode cloudflare --lang zh"
+    [[ "${CF_STAGE_STATUS:-}" == "skipped_dependency" ]] && echo "    bash installer/install.sh --mode vps --lang zh"
+    [[ "${CF_STAGE_STATUS:-}" == "skipped_dependency" ]] && echo "    bash installer/install.sh --mode cloudflare --lang zh"
+    echo "    sudo bash /opt/nanobk/bin/healthcheck.sh"
+    echo "    bash bin/nanobk status"
+    echo "    bash bin/nanobk cf verify"
+    echo ""
+  fi
 
   if [[ -n "$INSTALLER_CONFIG" ]] && [[ -f "$INSTALLER_CONFIG" ]]; then
     echo "  配置已保存: ${INSTALLER_CONFIG}"
@@ -1940,6 +2104,15 @@ main() {
   if [[ "$MODE" == "validate-plan" ]]; then
     run_validate_plan
     return
+  fi
+
+  # Non-interactive modes should not hang on language selection
+  if [[ -n "$MODE" ]] && [[ "$LANG_EXPLICIT" != "1" ]]; then
+    case "$MODE" in
+      commands|test|doctor)
+        LANG_CODE="${LANG_CODE:-zh}"
+        ;;
+    esac
   fi
 
   select_language

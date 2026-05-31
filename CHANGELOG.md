@@ -1,5 +1,28 @@
 # Changelog
 
+## v1.6.2 — Unified Installer Recovery and Noninteractive Hotfix
+
+### Fixed
+
+- Fixed `--mode commands --dry-run` hanging on language selection
+- Fixed `--mode test --defaults` hanging in noninteractive test flow
+- Added cert-mode input validation and recovery for common typos such as `self-`
+- Prevented Cloudflare stage from running when VPS profile is missing
+- Made full wizard stage dependencies stricter
+- Improved summary states for failed, skipped, dependency missing, and control-plane-only cases
+- Added stronger token safety warnings before Bot/Web credential handling
+
+### Safety
+
+- Full wizard no longer continues Cloudflare deployment after VPS failure by default
+- Bot/Web configuration after VPS failure is clearly marked as control-plane-only
+- Recovery commands are shown after failed stages
+
+### Tests
+
+- Added `tests/unified-noninteractive-mode.sh`: commands/test noninteractive coverage
+- Added `tests/unified-failure-recovery.sh`: failure recovery and stage dependency checks
+
 ## v1.6.1 — Validation Plan Safety Polish
 
 ### Fixed
