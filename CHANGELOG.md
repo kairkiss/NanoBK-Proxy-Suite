@@ -1,5 +1,18 @@
 # Changelog
 
+## v1.6.5 — Noninteractive Test Timeout Guard Hotfix
+
+### Fixed
+
+- Added timeout guards to `unified-noninteractive-mode.sh`
+- Added timeout guards to installer-level override tests in `unified-test-failure-propagation.sh`
+- Prevented noninteractive test scripts from hanging indefinitely if installer regressions reappear
+
+### Safety
+
+- Timeout fallback remains compatible with systems that do not provide the `timeout` command
+- This release only hardens offline tests and does not change deployment behavior
+
 ## v1.6.4 — Test Failure Propagation Verification Hotfix
 
 ### Fixed

@@ -3,6 +3,7 @@
 #
 # Verifies that test mode propagates child test failures.
 # Uses real installer-level tests with NANOBK_TEST_OVERRIDE_SCRIPT.
+# Uses timeout guards to prevent indefinite hangs.
 #
 # Usage:
 #   bash tests/unified-test-failure-propagation.sh
@@ -48,6 +49,17 @@ contains() {
   fi
 }
 
+# Timeout wrapper: uses `timeout` if available, otherwise runs directly
+run_with_timeout() {
+  local seconds="$1"
+  shift
+  if command -v timeout >/dev/null 2>&1; then
+    timeout "$seconds" "$@"
+  else
+    "$@"
+  fi
+}
+
 echo "=== Test Failure Propagation Test ==="
 echo ""
 
@@ -62,6 +74,7 @@ check "has NANOBK_TEST_OVERRIDE_LABEL hook" "$(has_pattern "$INSTALLER" "NANOBK_
 check "run_test_mode resets failure state" "$(has_pattern "$INSTALLER" "TEST_FAILURES=0")"
 check "has failure summary output" "$(has_pattern "$INSTALLER" "失败项目")"
 check "has return 1 on failure" "$(has_pattern "$INSTALLER" "return 1")"
+check "has timeout guard helper in this test" "$(grep -q 'run_with_timeout' "$0" && echo 1 || echo 0)"
 
 # ── Test 2: Dynamic failure test (real installer-level) ─────────────────────
 echo ""
@@ -76,16 +89,18 @@ EOF
 chmod +x "$TMP_FAIL"
 
 set +e
-OUTPUT_FAIL=$(NANOBK_TEST_OVERRIDE_SCRIPT="$TMP_FAIL" \
+OUTPUT_FAIL=$(
+  NANOBK_TEST_OVERRIDE_SCRIPT="$TMP_FAIL" \
   NANOBK_TEST_OVERRIDE_LABEL="mock failing child test" \
-  bash "$INSTALLER" --mode test --defaults 2>&1)
+  run_with_timeout 30 bash "$INSTALLER" --mode test --defaults 2>&1
+)
 EXIT_CODE_FAIL=$?
 set -e
 
 rm -f "$TMP_FAIL"
 
 check "exit code non-zero on failure" "$([[ $EXIT_CODE_FAIL -ne 0 ]] && echo 1 || echo 0)"
-check "exit code is not 124 (timeout)" "$([[ $EXIT_CODE_FAIL -ne 124 ]] && echo 1 || echo 0)"
+check "exit code not 124 (timeout)" "$([[ $EXIT_CODE_FAIL -ne 124 ]] && echo 1 || echo 0)"
 check "output contains failure message" "$(contains "$OUTPUT_FAIL" "本地安全测试失败\|failed")"
 check "output contains mock label" "$(contains "$OUTPUT_FAIL" "mock failing child test")"
 check "output contains 失败项目" "$(contains "$OUTPUT_FAIL" "失败项目")"
@@ -102,14 +117,17 @@ exit 0
 EOF
 chmod +x "$TMP_PASS"
 
-OUTPUT_PASS=$(NANOBK_TEST_OVERRIDE_SCRIPT="$TMP_PASS" \
+OUTPUT_PASS=$(
+  NANOBK_TEST_OVERRIDE_SCRIPT="$TMP_PASS" \
   NANOBK_TEST_OVERRIDE_LABEL="mock passing child test" \
-  bash "$INSTALLER" --mode test --defaults 2>&1)
+  run_with_timeout 30 bash "$INSTALLER" --mode test --defaults 2>&1
+)
 EXIT_CODE_PASS=$?
 
 rm -f "$TMP_PASS"
 
 check "exit code 0 on success" "$([[ $EXIT_CODE_PASS -eq 0 ]] && echo 1 || echo 0)"
+check "exit code not 124 (timeout)" "$([[ $EXIT_CODE_PASS -ne 124 ]] && echo 1 || echo 0)"
 check "output contains all passed" "$(contains "$OUTPUT_PASS" "全部通过\|all passed")"
 
 # ── Test 4: Missing script test (real installer-level) ──────────────────────
@@ -117,13 +135,16 @@ echo ""
 echo "── Test 4: Missing script test (real installer-level) ──"
 
 set +e
-OUTPUT_MISSING=$(NANOBK_TEST_OVERRIDE_SCRIPT="/tmp/does-not-exist-nanobk-$$" \
+OUTPUT_MISSING=$(
+  NANOBK_TEST_OVERRIDE_SCRIPT="/tmp/does-not-exist-nanobk-$$" \
   NANOBK_TEST_OVERRIDE_LABEL="missing child test" \
-  bash "$INSTALLER" --mode test --defaults 2>&1)
+  run_with_timeout 30 bash "$INSTALLER" --mode test --defaults 2>&1
+)
 EXIT_CODE_MISSING=$?
 set -e
 
 check "exit code non-zero for missing script" "$([[ $EXIT_CODE_MISSING -ne 0 ]] && echo 1 || echo 0)"
+check "exit code not 124 (timeout)" "$([[ $EXIT_CODE_MISSING -ne 124 ]] && echo 1 || echo 0)"
 check "output contains missing message" "$(contains "$OUTPUT_MISSING" "不存在\|missing")"
 check "output contains missing label" "$(contains "$OUTPUT_MISSING" "missing child test")"
 
