@@ -57,6 +57,18 @@ bash bin/nanobk status
 - Bot/Web failed but shows configured
 - Deploy command was printed but user skipped execution, yet Summary shows installed/deployed
 - dry-run or commands-only mode shows installed/deployed/verified states
+- Bot/Web shows ordinary configured when VPS is manual-pending, commands-only, dry-run, skipped, failed, or unknown
+- Bot/Web shows ordinary configured when Cloudflare is manual-pending, commands-only, dry-run, skipped, dependency-missing, failed, or unknown
+
+## Control Plane States
+
+Bot/Web are control-plane-only unless VPS is `installed` AND Cloudflare is `deployed` or `verified`.
+
+States that trigger control-plane-only:
+- VPS: failed, manual_pending, commands_only, dry_run, skipped, unknown
+- Cloudflare: failed, manual_pending, commands_only, dry_run, skipped, skipped_dependency, unknown
+
+`configured / control plane only` is not a clean VPS pass. Clean VPS pass requires healthcheck / status / cf verify results.
 
 ## Important: Command Execution States
 

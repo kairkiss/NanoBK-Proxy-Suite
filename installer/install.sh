@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — Unified Beginner Installer v1.7.3
+# NanoBK Proxy Suite — Unified Beginner Installer v1.7.4
 #
 # Interactive entry point for NanoBK Proxy Suite.
 # Guides users through VPS deployment, Cloudflare setup, Bot, Web Panel.
@@ -20,7 +20,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # ── Constants ───────────────────────────────────────────────────────────────
 
 REPO_URL="https://github.com/kairkiss/NanoBK-Proxy-Suite"
-VERSION="1.7.3"
+VERSION="1.7.4"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -111,6 +111,34 @@ run_cmd() {
     LAST_RUN_CMD_STATUS="failed"
     return 1
   fi
+}
+
+# ── Control plane dependency helpers ────────────────────────────────────────
+# Bot/Web are control-plane-only unless VPS and Cloudflare are both ready.
+# "ready" means actually installed/deployed, not just planned or skipped.
+
+vps_ready_for_control_plane() {
+  case "${VPS_STAGE_STATUS:-unknown}" in
+    installed) return 0 ;;
+    *)         return 1 ;;
+  esac
+}
+
+cf_ready_for_control_plane() {
+  case "${CF_STAGE_STATUS:-unknown}" in
+    deployed|verified) return 0 ;;
+    *)                 return 1 ;;
+  esac
+}
+
+control_plane_only_required() {
+  if ! vps_ready_for_control_plane; then
+    return 0
+  fi
+  if ! cf_ready_for_control_plane; then
+    return 0
+  fi
+  return 1
 }
 
 TEST_FAILURES=0
@@ -1629,8 +1657,8 @@ run_full_wizard() {
   echo -e "${BOLD}── 阶段 3：Telegram Bot ──${NC}"
   echo ""
 
-  # Control-plane-only warning if VPS/CF failed
-  if [[ "$VPS_STAGE_STATUS" == "failed" ]] || [[ "$CF_STAGE_STATUS" == "failed" ]] || [[ "$CF_STAGE_STATUS" == "skipped_dependency" ]]; then
+  # Control-plane-only warning if VPS/CF not ready
+  if control_plane_only_required; then
     echo -e "  ${YELLOW}注意：Bot 是控制端配置，不代表 VPS 节点或 Cloudflare 订阅已经可用。${NC}"
     echo ""
   fi
@@ -1638,7 +1666,7 @@ run_full_wizard() {
   if confirm "是否配置 Telegram Bot？" "y"; then
     NANOBK_ENABLE_BOT="true"
     if collect_bot_args; then
-      if [[ "$VPS_STAGE_STATUS" == "failed" ]] || [[ "$CF_STAGE_STATUS" == "failed" ]] || [[ "$CF_STAGE_STATUS" == "skipped_dependency" ]]; then
+      if control_plane_only_required; then
         BOT_STAGE_STATUS="control_only"
       else
         BOT_STAGE_STATUS="configured"
@@ -1667,8 +1695,8 @@ run_full_wizard() {
   echo -e "${BOLD}── 阶段 4：Web Panel ──${NC}"
   echo ""
 
-  # Control-plane-only warning if VPS/CF failed
-  if [[ "$VPS_STAGE_STATUS" == "failed" ]] || [[ "$CF_STAGE_STATUS" == "failed" ]] || [[ "$CF_STAGE_STATUS" == "skipped_dependency" ]]; then
+  # Control-plane-only warning if VPS/CF not ready
+  if control_plane_only_required; then
     echo -e "  ${YELLOW}注意：Web Panel 是控制端配置，不代表 VPS 节点或 Cloudflare 订阅已经可用。${NC}"
     echo ""
   fi
@@ -1676,7 +1704,7 @@ run_full_wizard() {
   if confirm "是否配置 Web Panel？" "y"; then
     NANOBK_ENABLE_WEB="true"
     if collect_web_args; then
-      if [[ "$VPS_STAGE_STATUS" == "failed" ]] || [[ "$CF_STAGE_STATUS" == "failed" ]] || [[ "$CF_STAGE_STATUS" == "skipped_dependency" ]]; then
+      if control_plane_only_required; then
         WEB_STAGE_STATUS="control_only"
       else
         WEB_STAGE_STATUS="configured"
@@ -1889,18 +1917,25 @@ print_summary() {
   if [[ "${BOT_STAGE_STATUS:-}" == "control_only" ]] || [[ "${WEB_STAGE_STATUS:-}" == "control_only" ]]; then
     echo ""
     echo "  Warnings:"
-    echo "    - Bot/Web are control plane only if VPS or Cloudflare failed."
+    echo "    - Bot/Web are control plane only."
+    echo "    - VPS status: ${VPS_STAGE_STATUS:-unknown}"
+    echo "    - Cloudflare status: ${CF_STAGE_STATUS:-unknown}"
+    echo "    - Control plane configuration does not mean nodes or subscriptions are usable."
     has_warnings=1
   fi
 
   # Next commands and recovery
   echo ""
-  if [[ "${VPS_STAGE_STATUS:-}" == "failed" ]] || [[ "${CF_STAGE_STATUS:-}" == "failed" ]] || [[ "${CF_STAGE_STATUS:-}" == "skipped_dependency" ]]; then
+  if control_plane_only_required; then
     echo "  恢复命令:"
-    [[ "${VPS_STAGE_STATUS:-}" == "failed" ]] && echo "    bash installer/install.sh --mode vps --lang zh"
-    [[ "${CF_STAGE_STATUS:-}" == "failed" ]] && echo "    bash installer/install.sh --mode cloudflare --lang zh"
-    [[ "${CF_STAGE_STATUS:-}" == "skipped_dependency" ]] && echo "    bash installer/install.sh --mode vps --lang zh"
-    [[ "${CF_STAGE_STATUS:-}" == "skipped_dependency" ]] && echo "    bash installer/install.sh --mode cloudflare --lang zh"
+    case "${VPS_STAGE_STATUS:-unknown}" in
+      installed) ;;
+      *) echo "    bash installer/install.sh --mode vps --lang zh" ;;
+    esac
+    case "${CF_STAGE_STATUS:-unknown}" in
+      deployed|verified) ;;
+      *) echo "    bash installer/install.sh --mode cloudflare --lang zh" ;;
+    esac
     echo "    sudo bash /opt/nanobk/bin/healthcheck.sh"
     echo "    bash bin/nanobk status"
     echo "    bash bin/nanobk cf verify"

@@ -181,6 +181,22 @@ check "has dry_run state in CF" "$(has_pattern "$INSTALLER" "CF_STAGE_STATUS.*dr
 check "skipped_user does not show installed" "$( [[ $(grep -c 'skipped_user.*installed\|installed.*skipped_user' "$INSTALLER") -eq 0 ]] && echo 1 || echo 0 )"
 check "manual_pending does not show deployed" "$( [[ $(grep -c 'manual_pending.*deployed\|deployed.*manual_pending' "$INSTALLER") -eq 0 ]] && echo 1 || echo 0 )"
 
+# ── Test K: Control plane propagation ───────────────────────────────────────
+echo ""
+echo "── Test K: Control plane propagation ──"
+
+check "has control_plane_only_required helper" "$(has_pattern "$INSTALLER" "control_plane_only_required")"
+check "has vps_ready_for_control_plane helper" "$(has_pattern "$INSTALLER" "vps_ready_for_control_plane")"
+check "has cf_ready_for_control_plane helper" "$(has_pattern "$INSTALLER" "cf_ready_for_control_plane")"
+check "helper covers unknown" "$( [[ $(grep -A5 'vps_ready_for_control_plane' "$INSTALLER" | grep -c 'unknown') -gt 0 ]] && echo 1 || echo 0 )"
+check "helper has wildcard for all other states" "$( [[ $(grep -A5 'vps_ready_for_control_plane' "$INSTALLER" | grep -c '\*') -gt 0 ]] && echo 1 || echo 0 )"
+check "helper only returns 0 for installed" "$( [[ $(grep -A5 'vps_ready_for_control_plane' "$INSTALLER" | grep -c 'installed.*return 0') -gt 0 ]] && echo 1 || echo 0 )"
+check "Bot uses helper for control_only" "$(has_pattern "$INSTALLER" "control_plane_only_required.*BOT\|BOT.*control_plane_only_required\|control_plane_only_required")"
+check "Web uses helper for control_only" "$(has_pattern "$INSTALLER" "control_plane_only_required.*WEB\|WEB.*control_plane_only_required\|control_plane_only_required")"
+check "Warnings show VPS status" "$(has_pattern "$INSTALLER" "VPS status.*VPS_STAGE_STATUS\|VPS_STAGE_STATUS.*VPS status")"
+check "Warnings show CF status" "$(has_pattern "$INSTALLER" "Cloudflare status.*CF_STAGE_STATUS\|CF_STAGE_STATUS.*Cloudflare status")"
+check "no old narrow control-only check" "$( [[ $(grep -c 'VPS_STAGE_STATUS.*failed.*CF_STAGE_STATUS.*failed.*skipped_dependency' "$INSTALLER") -eq 0 ]] && echo 1 || echo 0 )"
+
 # ── Summary ─────────────────────────────────────────────────────────────────
 echo ""
 echo "=== ${PASS} passed, ${FAIL} failed ==="

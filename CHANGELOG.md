@@ -1,5 +1,24 @@
 # Changelog
 
+## v1.7.4 — Full Wizard Control Plane State Propagation
+
+### Fixed
+
+- Bot/Web now show control-plane-only when VPS is manual-pending, commands-only, dry-run, skipped, failed, or unknown
+- Bot/Web now show control-plane-only when Cloudflare is manual-pending, commands-only, dry-run, skipped, dependency-missing, failed, or unknown
+- Full Wizard no longer reports Bot/Web as ordinary configured when lower layers were not actually deployed or verified
+
+### Improved
+
+- Added a shared `control_plane_only_required()` helper for consistent Bot/Web status decisions
+- Summary warnings now cover manual-pending and commands-only dependency states
+- Full Wizard behavior tests cover Bot/Web control-only propagation from pending lower-layer states
+
+### Safety
+
+- Control-plane configuration is never presented as proof that VPS nodes or Cloudflare subscriptions are usable
+- Local tests still do not claim real VPS or Cloudflare validation
+
 ## v1.7.3 — Full Wizard Command Execution State Hardening
 
 ### Fixed
