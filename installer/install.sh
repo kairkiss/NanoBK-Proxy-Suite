@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — Unified Beginner Installer v1.7.5
+# NanoBK Proxy Suite — Unified Beginner Installer v1.7.6
 #
 # Interactive entry point for NanoBK Proxy Suite.
 # Guides users through VPS deployment, Cloudflare setup, Bot, Web Panel.
@@ -20,7 +20,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # ── Constants ───────────────────────────────────────────────────────────────
 
 REPO_URL="https://github.com/kairkiss/NanoBK-Proxy-Suite"
-VERSION="1.7.5"
+VERSION="1.7.6"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -139,7 +139,7 @@ run_critical_step() {
 
   echo ""
   echo "    1) 现在执行（推荐）"
-  echo "    2) 返回修改参数"
+  echo "    2) 取消此阶段"
   echo "    3) 稍后手动执行"
   echo "    4) 退出"
   echo ""
@@ -157,8 +157,9 @@ run_critical_step() {
       fi
       ;;
     2)
-      LAST_RUN_CMD_STATUS="rerun_inputs"
-      return 3
+      LAST_RUN_CMD_STATUS="skipped_user"
+      echo -e "  ${YELLOW}已取消。${NC}"
+      return 2
       ;;
     3)
       LAST_RUN_CMD_STATUS="skipped_user"
@@ -659,7 +660,16 @@ collect_vps_args() {
       local domain_fix_choice
       prompt domain_fix_choice "请选择" "1"
       case "$domain_fix_choice" in
-        1) domain="$suggested" ;;
+        1)
+          domain="$suggested"
+          # Re-validate: corrected domain must also pass placeholder check
+          if [[ "$DRY_RUN" != "1" ]] && [[ "$COMMAND_ONLY" != "1" ]]; then
+            if is_placeholder_value "$domain"; then
+              echo -e "  ${YELLOW}真实部署不能使用示例域名。${NC}"
+              continue
+            fi
+          fi
+          ;;
         2) continue ;;
         3|*) return 1 ;;
       esac
@@ -685,7 +695,16 @@ collect_vps_args() {
       local domain_path_choice
       prompt domain_path_choice "请选择" "1"
       case "$domain_path_choice" in
-        1) domain="$suggested_path" ;;
+        1)
+          domain="$suggested_path"
+          # Re-validate: corrected domain must also pass placeholder check
+          if [[ "$DRY_RUN" != "1" ]] && [[ "$COMMAND_ONLY" != "1" ]]; then
+            if is_placeholder_value "$domain"; then
+              echo -e "  ${YELLOW}真实部署不能使用示例域名。${NC}"
+              continue
+            fi
+          fi
+          ;;
         2) continue ;;
         3|*) return 1 ;;
       esac
@@ -954,11 +973,31 @@ collect_cloudflare_args() {
     return 1
   }
 
+  # Check if preflight was skipped by user
+  if [[ "${LAST_RUN_CMD_STATUS:-}" == "skipped_user" ]]; then
+    CF_DEPLOY_STATUS="manual_pending"
+    warn "Cloudflare preflight was not executed."
+    echo "  恢复命令："
+    echo "    bash installer/install-cloudflare.sh --preflight"
+    echo "    bash installer/install.sh --mode cloudflare --lang zh"
+    return 2
+  fi
+
   run_critical_step "Validate profile" bash "$REPO_DIR/installer/install-cloudflare.sh" --validate-profile-only --profile "$profile" || {
     err "Profile validation failed."
     err "请检查 profile 文件是否包含 hy2/tuic/reality/trojan 四个协议段。"
     return 1
   }
+
+  # Check if profile validation was skipped by user
+  if [[ "${LAST_RUN_CMD_STATUS:-}" == "skipped_user" ]]; then
+    CF_DEPLOY_STATUS="manual_pending"
+    warn "Profile validation was not executed."
+    echo "  恢复命令："
+    echo "    bash installer/install-cloudflare.sh --validate-profile-only --profile /etc/nanobk/profile.current.json"
+    echo "    bash installer/install.sh --mode cloudflare --lang zh"
+    return 2
+  fi
 
   # nanob
   echo ""
@@ -1088,32 +1127,38 @@ collect_cloudflare_args() {
     fi
 
     if [[ -n "$adm_token" ]] && [[ -n "$adm_current" ]] && [[ -n "$adm_update" ]]; then
-      if [[ $EUID -eq 0 ]]; then
-        # Running as root, write directly
-        cat > "$admin_env" <<ENVEOF
+      # Write to temp file first (never put token in sudo command args)
+      local tmp_admin
+      tmp_admin=$(mktemp)
+      chmod 600 "$tmp_admin"
+      cat > "$tmp_admin" <<ENVEOF
 ADMIN_TOKEN="${adm_token}"
 ADMIN_CURRENT_URL="${adm_current}"
 ADMIN_UPDATE_URL="${adm_update}"
 ENVEOF
-        chmod 600 "$admin_env"
+
+      if [[ $EUID -eq 0 ]]; then
+        # Running as root, install directly
+        install -m 600 "$tmp_admin" "$admin_env"
+        rm -f "$tmp_admin"
         ok "Admin env written: ${admin_env} (mode 600)"
       else
-        # Not root, try sudo
+        # Not root, try sudo install (no token in argv)
         if command -v sudo &>/dev/null; then
-          sudo bash -c "cat > '$admin_env' <<ENVEOF
-ADMIN_TOKEN=\"${adm_token}\"
-ADMIN_CURRENT_URL=\"${adm_current}\"
-ADMIN_UPDATE_URL=\"${adm_update}\"
-ENVEOF
-chmod 600 '$admin_env'" 2>/dev/null && ok "Admin env written via sudo: ${admin_env}" || {
+          sudo install -m 600 "$tmp_admin" "$admin_env" 2>/dev/null && {
+            rm -f "$tmp_admin"
+            ok "Admin env written via sudo: ${admin_env} (mode 600)"
+          } || {
+            rm -f "$tmp_admin"
             warn "无法写入 ${admin_env}，需要 sudo 权限。"
             echo "  恢复命令："
-            echo "    sudo install -m 600 ${local_env} ${admin_env}"
+            echo "    bash bin/nanobk cf install-admin-env"
           }
         else
+          rm -f "$tmp_admin"
           warn "无法写入 ${admin_env}，需要 sudo 权限。"
           echo "  恢复命令："
-          echo "    sudo install -m 600 ${local_env} ${admin_env}"
+          echo "    bash bin/nanobk cf install-admin-env"
         fi
       fi
     else
@@ -2033,7 +2078,8 @@ print_summary() {
       fi
     fi
   elif [[ "${NANOBK_DEPLOY_CLOUDFLARE:-}" == "true" ]]; then
-    echo "    status:  configured / not verified"
+    echo "    status:  unknown / not configured"
+    echo "    note:    Cloudflare was requested but no deployment evidence found"
   else
     echo "    status:  skipped"
   fi

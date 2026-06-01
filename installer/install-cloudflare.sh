@@ -1166,8 +1166,8 @@ print_next_steps() {
   echo "  Next steps:"
   echo "    1. Import subscription URL into Clash/Mihomo."
   echo "       (URL is in ${LOCAL_ENV_FILE} — do not paste publicly)"
-  echo "    2. Admin env for rotate sync will be auto-generated."
-  echo "       If not, run: sudo install -m 600 ${LOCAL_ENV_FILE} /root/.nanok-cf-admin.env"
+  echo "    2. Install admin env for rotate sync:"
+  echo "       bash bin/nanobk cf install-admin-env"
   echo ""
 
   if [[ "$DEPLOY_NANOB" != "1" ]]; then

@@ -18,7 +18,7 @@ set -Eeuo pipefail
 
 # ── Version ─────────────────────────────────────────────────────────────────
 
-NANOBK_VERSION="1.7.5"
+NANOBK_VERSION="1.7.6"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -202,6 +202,7 @@ NanoBK Proxy Suite — Unified CLI v${NANOBK_VERSION}
   install-cli                 安装 nanobk 到 /usr/local/bin
   cf deploy [args...]         部署 Cloudflare Workers
   cf verify [nanok|nanob]     刷新 Cloudflare 订阅验证状态
+  cf install-admin-env        安装 rotate sync admin env 到 /root
   rotate <protocol> [args.]  换密钥: all|hy2|tuic|reality|trojan
   test [--all]                运行本地测试
   version                     显示版本
@@ -710,6 +711,53 @@ cmd_cf_verify() {
   esac
 }
 
+cmd_cf_install_admin_env() {
+  local local_env="${REPO_DIR}/.cloudflare.local.env"
+  local target="/root/.nanok-cf-admin.env"
+
+  if [[ ! -f "$local_env" ]]; then
+    die "Cloudflare local env not found: ${local_env}\nRun: bash installer/install-cloudflare.sh first"
+  fi
+
+  local adm_token adm_current adm_update
+  adm_token=$(read_env_value "$local_env" "ADMIN_TOKEN" 2>/dev/null || echo "")
+  adm_current=$(read_env_value "$local_env" "ADMIN_CURRENT_URL" 2>/dev/null || echo "")
+  adm_update=$(read_env_value "$local_env" "ADMIN_UPDATE_URL" 2>/dev/null || echo "")
+
+  if [[ -z "$adm_token" ]] || [[ -z "$adm_current" ]] || [[ -z "$adm_update" ]]; then
+    die "Cloudflare local env is missing required fields (ADMIN_TOKEN, ADMIN_CURRENT_URL, ADMIN_UPDATE_URL)"
+  fi
+
+  # Write to temp file (never put token in sudo argv)
+  local tmp_admin
+  tmp_admin=$(mktemp)
+  chmod 600 "$tmp_admin"
+  cat > "$tmp_admin" <<ENVEOF
+ADMIN_TOKEN="${adm_token}"
+ADMIN_CURRENT_URL="${adm_current}"
+ADMIN_UPDATE_URL="${adm_update}"
+ENVEOF
+
+  if [[ $EUID -eq 0 ]]; then
+    install -m 600 "$tmp_admin" "$target"
+    rm -f "$tmp_admin"
+    ok "Admin env installed: ${target} (mode 600)"
+  else
+    if command -v sudo &>/dev/null; then
+      sudo install -m 600 "$tmp_admin" "$target" 2>/dev/null && {
+        rm -f "$tmp_admin"
+        ok "Admin env installed via sudo: ${target} (mode 600)"
+      } || {
+        rm -f "$tmp_admin"
+        die "无法写入 ${target}，需要 sudo 权限。"
+      }
+    else
+      rm -f "$tmp_admin"
+      die "无法写入 ${target}，需要 sudo 权限。"
+    fi
+  fi
+}
+
 # ── rotate ──────────────────────────────────────────────────────────────────
 
 cmd_rotate() {
@@ -836,7 +884,8 @@ main() {
       case "$cf_sub" in
         deploy)  cmd_cf_deploy ${cf_rest[@]+"${cf_rest[@]}"} ;;
         verify)  cmd_cf_verify ${cf_rest[@]+"${cf_rest[@]}"} ;;
-        *)       die "Usage: nanobk cf <deploy|verify> [args...]" ;;
+        install-admin-env) cmd_cf_install_admin_env ;;
+        *)       die "Usage: nanobk cf <deploy|verify|install-admin-env> [args...]" ;;
       esac
       ;;
     rotate)   cmd_rotate ${cmd_rest[@]+"${cmd_rest[@]}"} ;;

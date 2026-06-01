@@ -13,6 +13,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 INSTALLER="$REPO_DIR/installer/install.sh"
 CF_INSTALLER="$REPO_DIR/installer/install-cloudflare.sh"
+NANOBK="$REPO_DIR/bin/nanobk"
 
 PASS=0
 FAIL=0
@@ -79,7 +80,7 @@ echo "── Test 2: Critical step menu ──"
 
 check "has run_critical_step helper" "$(has_pattern "$INSTALLER" "run_critical_step")"
 check "critical step default is execute" "$(has_pattern "$INSTALLER" "现在执行.*推荐\|推荐.*现在执行")"
-check "critical step has return option" "$(has_pattern "$INSTALLER" "返回修改参数")"
+check "critical step has cancel option" "$(has_pattern "$INSTALLER" "取消此阶段")"
 check "critical step has manual option" "$(has_pattern "$INSTALLER" "稍后手动执行")"
 check "critical step has exit option" "$(has_pattern "$INSTALLER" "退出")"
 check "VPS deploy uses critical step" "$(has_pattern "$INSTALLER" 'run_critical_step.*部署 VPS')"
@@ -101,7 +102,11 @@ echo "── Test 4: Admin env auto-write ──"
 
 check "has nanok-cf-admin.env path" "$(has_pattern "$INSTALLER" "nanok-cf-admin.env")"
 check "has chmod 600 for admin env" "$(has_pattern "$INSTALLER" "chmod 600.*admin_env\|admin_env.*600\|chmod 600")"
-check "has sudo fallback for admin env" "$(has_pattern "$INSTALLER" "sudo.*admin_env\|sudo bash.*admin\|sudo install")"
+check "has sudo install for admin env" "$(has_pattern "$INSTALLER" "sudo install.*600\|install.*600.*sudo")"
+check "has mktemp for secure write" "$(has_pattern "$INSTALLER" "mktemp")"
+check "no sudo bash -c with ADMIN_TOKEN" "$( [[ $(grep -c 'sudo bash -c.*ADMIN_TOKEN' "$INSTALLER") -eq 0 ]] && echo 1 || echo 0 )"
+check "has nanobk cf install-admin-env" "$(has_pattern "$NANOBK" "install-admin-env\|install_admin_env")"
+check "CF installer mentions install-admin-env" "$(has_pattern "$CF_INSTALLER" "install-admin-env\|install_admin_env")"
 check "CF installer has ADMIN_CURRENT_URL" "$(has_pattern "$CF_INSTALLER" "ADMIN_CURRENT_URL")"
 check "CF installer has ADMIN_UPDATE_URL" "$(has_pattern "$CF_INSTALLER" "ADMIN_UPDATE_URL")"
 
@@ -125,6 +130,29 @@ set -e
 check "dry-run exits 0" "$([[ $DRY_RC -eq 0 ]] && echo 1 || echo 0)"
 check "dry-run has preflight" "$(contains "$OUTPUT_DRY" "Preflight")"
 check "dry-run has planned/dry-run" "$(contains "$OUTPUT_DRY" "planned\|dry-run")"
+
+# ── Test 7: Critical step skipped_user stops Cloudflare ─────────────────────
+echo ""
+echo "── Test 7: Critical step skipped_user stops Cloudflare ──"
+
+check "preflight skipped_user returns 2" "$(has_pattern "$INSTALLER" 'Cloudflare preflight was not executed')"
+check "validate skipped_user returns 2" "$(has_pattern "$INSTALLER" 'Profile validation was not executed')"
+check "CF_DEPLOY_STATUS set to manual_pending on skip" "$(has_pattern "$INSTALLER" 'CF_DEPLOY_STATUS.*manual_pending')"
+
+# ── Test 8: Cloudflare Summary honesty ──────────────────────────────────────
+echo ""
+echo "── Test 8: Cloudflare Summary honesty ──"
+
+check "no configured/not verified from DEPLOY flag alone" "$( [[ $(grep -c 'NANOBK_DEPLOY_CLOUDFLARE.*true.*configured.*not verified\|DEPLOY_CLOUDFLARE.*configured.*not verified' "$INSTALLER") -eq 0 ]] && echo 1 || echo 0 )"
+check "unknown/not configured fallback exists" "$(has_pattern "$INSTALLER" "unknown.*not configured\|unknown / not configured")"
+check "CF_STAGE_STATUS checked before DEPLOY flag" "$( [[ $(grep -n 'CF_STAGE_STATUS' "$INSTALLER" | head -1 | cut -d: -f1) -lt $(grep -n 'NANOBK_DEPLOY_CLOUDFLARE.*true.*configured\|DEPLOY_CLOUDFLARE.*configured' "$INSTALLER" | head -1 | cut -d: -f1 2>/dev/null || echo 9999) ]] && echo 1 || echo 0 )"
+
+# ── Test 9: Critical step menu ──────────────────────────────────────────────
+echo ""
+echo "── Test 9: Critical step menu ──"
+
+check "menu option 2 is cancel, not return" "$(has_pattern "$INSTALLER" "取消此阶段\|cancel.*stage")"
+check "no misleading return to edit" "$( [[ $(grep -c '返回修改参数' "$INSTALLER") -eq 0 ]] && echo 1 || echo 0 )"
 
 # ── Summary ─────────────────────────────────────────────────────────────────
 echo ""

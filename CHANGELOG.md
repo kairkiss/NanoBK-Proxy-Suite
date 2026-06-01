@@ -1,5 +1,28 @@
 # Changelog
 
+## v1.7.6 — Full Wizard Critical State and Admin Env Hardening
+
+### Fixed
+
+- Re-validates corrected domain input so placeholder domains cannot bypass real-mode checks
+- Cloudflare preflight/profile validation skipped by the user now stops the Cloudflare stage as manual-pending
+- Critical-step menu no longer offers misleading "return to edit parameters" option
+- Summary no longer falls back to configured/not verified when Cloudflare was requested but never actually prepared/deployed
+- Admin env installation now avoids putting tokens in sudo command-line arguments
+- Direct Cloudflare installer runs now provide a safe admin env installation path for rotate sync
+
+### Improved
+
+- Added safer admin env installation flow using a temporary file and sudo install -m 600
+- Added `nanobk cf install-admin-env` to install /root/.nanok-cf-admin.env from .cloudflare.local.env without printing tokens
+- Cloudflare installer next steps now mention install-admin-env command
+
+### Safety
+
+- Tokens are not printed or embedded in process command arguments
+- Skipped critical Cloudflare steps are manual-pending, not configured or deployed
+- Local/offline tests still do not claim real VPS or Cloudflare validation
+
 ## v1.7.5 — Real VPS Full Wizard UX Hardening
 
 ### Fixed
