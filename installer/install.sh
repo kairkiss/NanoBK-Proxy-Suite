@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — Unified Beginner Installer v1.7.6
+# NanoBK Proxy Suite — Unified Beginner Installer v1.7.7
 #
 # Interactive entry point for NanoBK Proxy Suite.
 # Guides users through VPS deployment, Cloudflare setup, Bot, Web Panel.
@@ -20,7 +20,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # ── Constants ───────────────────────────────────────────────────────────────
 
 REPO_URL="https://github.com/kairkiss/NanoBK-Proxy-Suite"
-VERSION="1.7.6"
+VERSION="1.7.7"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -173,6 +173,51 @@ run_critical_step() {
   esac
 }
 
+# ── Domain validation ──────────────────────────────────────────────────────
+
+is_valid_domain_name() {
+  local domain="$1"
+
+  # Must not be empty
+  [[ -z "$domain" ]] && return 1
+
+  # Must not be too short or too long
+  [[ ${#domain} -lt 3 ]] && return 1
+  [[ ${#domain} -gt 253 ]] && return 1
+
+  # Must contain at least one dot
+  [[ "$domain" != *.* ]] && return 1
+
+  # Must not start or end with dot
+  [[ "$domain" == .* ]] && return 1
+  [[ "$domain" == *. ]] && return 1
+
+  # Must not have consecutive dots
+  [[ "$domain" == *..* ]] && return 1
+
+  # Must only contain valid chars: a-z A-Z 0-9 . -
+  if [[ "$domain" =~ [^a-zA-Z0-9.\-] ]]; then
+    return 1
+  fi
+
+  # Must not be all numeric
+  if [[ "$domain" =~ ^[0-9.]+$ ]]; then
+    return 1
+  fi
+
+  # Each label must be 1-63 chars, not start/end with hyphen
+  local IFS='.'
+  local labels=($domain)
+  for label in "${labels[@]}"; do
+    [[ ${#label} -lt 1 ]] && return 1
+    [[ ${#label} -gt 63 ]] && return 1
+    [[ "$label" == -* ]] && return 1
+    [[ "$label" == *- ]] && return 1
+  done
+
+  return 0
+}
+
 # ── Control plane dependency helpers ────────────────────────────────────────
 # Bot/Web are control-plane-only unless VPS and Cloudflare are both ready.
 # "ready" means actually installed/deployed, not just planned or skipped.
@@ -226,6 +271,160 @@ is_placeholder_worker_url() {
   url="${url%%/*}"
   url="${url%%\?*}"
   is_placeholder_value "$url"
+}
+
+# ── Wizard state / resume helpers ───────────────────────────────────────────
+
+WIZARD_STATE_FILE=""
+
+wizard_state_path() {
+  if [[ -n "$WIZARD_STATE_FILE" ]]; then
+    echo "$WIZARD_STATE_FILE"
+    return
+  fi
+  # Try /opt repo first, then local repo
+  if [[ -w "/opt/NanoBK-Proxy-Suite" ]]; then
+    WIZARD_STATE_FILE="/opt/NanoBK-Proxy-Suite/.nanobk-wizard-state.json"
+  else
+    WIZARD_STATE_FILE="${REPO_DIR:-.}/.nanobk-wizard-state.json"
+  fi
+  echo "$WIZARD_STATE_FILE"
+}
+
+wizard_state_write() {
+  local phase="$1"
+  local state_file
+  state_file=$(wizard_state_path)
+
+  # Only save non-sensitive state
+  cat > "$state_file" <<STATEEOF
+{
+  "version": "${VERSION}",
+  "current_phase": "${phase}",
+  "vps_status": "${VPS_STAGE_STATUS:-unknown}",
+  "cf_status": "${CF_STAGE_STATUS:-unknown}",
+  "bot_status": "${BOT_STAGE_STATUS:-unknown}",
+  "web_status": "${WEB_STAGE_STATUS:-unknown}",
+  "domain": "${NANOBK_DOMAIN:-}",
+  "cert_mode": "${NANOBK_CERT_MODE:-}",
+  "reality_servername": "${NANOBK_REALITY_SERVERNAME:-}",
+  "nanok_url": "${NANOBK_NANOK_URL:-}",
+  "nanob_url": "${NANOBK_NANOB_URL:-}",
+  "nanob_enabled": "${NANOBK_DEPLOY_NANOB:-false}",
+  "timestamp": "$(date -Iseconds 2>/dev/null || date '+%Y-%m-%dT%H:%M:%S')"
+}
+STATEEOF
+}
+
+wizard_state_print() {
+  local state_file
+  state_file=$(wizard_state_path)
+
+  if [[ ! -f "$state_file" ]]; then
+    echo "  没有找到之前的安装状态。"
+    return 1
+  fi
+
+  echo "  检测到已有 NanoBK 状态："
+  echo ""
+
+  # Read values safely
+  local phase vps cf bot web domain
+  phase=$(python3 -c "import json; d=json.load(open('$state_file')); print(d.get('current_phase','unknown'))" 2>/dev/null || echo "unknown")
+  vps=$(python3 -c "import json; d=json.load(open('$state_file')); print(d.get('vps_status','unknown'))" 2>/dev/null || echo "unknown")
+  cf=$(python3 -c "import json; d=json.load(open('$state_file')); print(d.get('cf_status','unknown'))" 2>/dev/null || echo "unknown")
+  bot=$(python3 -c "import json; d=json.load(open('$state_file')); print(d.get('bot_status','unknown'))" 2>/dev/null || echo "unknown")
+  web=$(python3 -c "import json; d=json.load(open('$state_file')); print(d.get('web_status','unknown'))" 2>/dev/null || echo "unknown")
+  domain=$(python3 -c "import json; d=json.load(open('$state_file')); print(d.get('domain',''))" 2>/dev/null || echo "")
+
+  echo "    上次阶段: ${phase}"
+  echo "    VPS: ${vps}"
+  echo "    Cloudflare: ${cf}"
+  echo "    Bot: ${bot}"
+  echo "    Web: ${web}"
+  [[ -n "$domain" ]] && echo "    域名: ${domain}"
+  echo ""
+}
+
+wizard_state_detect_existing() {
+  # Check actual system state
+  local vps_ok=0 cf_ok=0 bot_ok=0 web_ok=0
+
+  # VPS check
+  if [[ -f "/etc/nanobk/profile.current.json" ]]; then
+    vps_ok=1
+  fi
+
+  # Cloudflare check
+  if [[ -f "${REPO_DIR:-.}/.cloudflare.local.env" ]]; then
+    local cf_verify
+    cf_verify=$(read_env_value "${REPO_DIR:-.}/.cloudflare.local.env" "NANOBK_VERIFY_STATUS" 2>/dev/null || echo "")
+    if [[ "$cf_verify" == "verified" ]]; then
+      cf_ok=1
+    fi
+  fi
+
+  # Bot check
+  if [[ -f "${REPO_DIR:-.}/bot/.env" ]]; then
+    bot_ok=1
+  fi
+
+  # Web check
+  if [[ -f "${REPO_DIR:-.}/web/.env" ]]; then
+    web_ok=1
+  fi
+
+  # If nothing found, no existing state
+  if [[ $vps_ok -eq 0 ]] && [[ $cf_ok -eq 0 ]] && [[ $bot_ok -eq 0 ]] && [[ $web_ok -eq 0 ]]; then
+    return 1
+  fi
+
+  return 0
+}
+
+# ── Existing Cloudflare KV recovery ────────────────────────────────────────
+
+check_existing_kv() {
+  local binding="$1"
+  local wrangler_cmd="$2"
+
+  if [[ "$DRY_RUN" == "1" ]] || [[ "$COMMAND_ONLY" == "1" ]]; then
+    return 1  # Assume not existing in dry-run
+  fi
+
+  if ! command -v $wrangler_cmd &>/dev/null; then
+    return 1
+  fi
+
+  local output
+  output=$($wrangler_cmd kv namespace list 2>/dev/null) || return 1
+
+  if echo "$output" | grep -qi "\"title\".*\"${binding}\""; then
+    return 0  # Found
+  fi
+  return 1  # Not found
+}
+
+# ── Output control character check ─────────────────────────────────────────
+
+check_output_clean() {
+  local text="$1"
+  # Check for NUL and dangerous control chars (allow tab, newline, CR, ANSI escapes)
+  if echo "$text" | python3 -c "
+import sys
+text = sys.stdin.buffer.read()
+for b in text:
+    if b == 0:  # NUL
+        sys.exit(1)
+    if b < 32 and b not in (9, 10, 13):  # tab, LF, CR allowed
+        sys.exit(1)
+    if b == 127:  # DEL
+        sys.exit(1)
+sys.exit(0)
+" 2>/dev/null; then
+    return 0  # Clean
+  fi
+  return 1  # Has bad chars
 }
 
 TEST_FAILURES=0
@@ -302,6 +501,48 @@ confirm() {
   else
     [[ "$reply" =~ ^[Yy]$ ]] && return 0 || return 1
   fi
+}
+
+# Strict numbered menu — loops until valid input or exit
+# Usage: prompt_menu_choice VAR "请选择" "1" "4"
+#   VAR: variable name to store result
+#   prompt_text: display text
+#   default: default choice (empty = no default)
+#   max: maximum valid choice number
+prompt_menu_choice() {
+  local var_name="$1"
+  local prompt_text="$2"
+  local default="$3"
+  local max="$4"
+
+  if [[ "$YES" == "1" ]] && [[ -n "$default" ]]; then
+    printf -v "$var_name" '%s' "$default"
+    return 0
+  fi
+
+  while true; do
+    if [[ -n "$default" ]]; then
+      echo -en "${BOLD}${prompt_text}${NC} [${default}]: "
+    else
+      echo -en "${BOLD}${prompt_text}${NC}: "
+    fi
+    read -r input
+
+    # Use default if empty
+    if [[ -z "$input" ]] && [[ -n "$default" ]]; then
+      printf -v "$var_name" '%s' "$default"
+      return 0
+    fi
+
+    # Validate: must be a number in range
+    if [[ "$input" =~ ^[0-9]+$ ]] && [[ "$input" -ge 1 ]] && [[ "$input" -le "$max" ]]; then
+      printf -v "$var_name" '%s' "$input"
+      return 0
+    fi
+
+    echo -e "  ${RED}无效输入：${input}${NC}"
+    echo "  请输入 1 到 ${max} 之间的数字。"
+  done
 }
 
 # ── Config save/resume ──────────────────────────────────────────────────────
@@ -641,6 +882,15 @@ collect_vps_args() {
         echo ""
         continue
       fi
+    fi
+
+    # Validate domain format
+    if ! is_valid_domain_name "$domain"; then
+      err "这不像有效域名。域名通常长这样：proxy.yourdomain.com"
+      err "  - 至少包含一个点"
+      err "  - 只能包含字母、数字、点、横线"
+      err "  - 不能是纯数字"
+      continue
     fi
 
     # Check for protocol prefix
@@ -1743,6 +1993,51 @@ run_full_wizard() {
   echo "    - 不会泄露 token/password 到屏幕或日志"
   echo ""
 
+  # Check for existing installation state
+  if wizard_state_detect_existing 2>/dev/null; then
+    echo ""
+    wizard_state_print
+    echo "    1) 从推荐阶段继续"
+    echo "    2) 从 VPS 重新配置"
+    echo "    3) 从 Cloudflare 继续"
+    echo "    4) 只配置 Bot/Web"
+    echo "    5) 查看恢复命令"
+    echo "    6) 退出"
+    echo ""
+    local resume_choice
+    prompt_menu_choice resume_choice "请选择" "1" "6"
+    case "$resume_choice" in
+      1) ;;  # Continue with recommended flow
+      2) ;;  # Continue with VPS
+      3)
+        # Skip to Cloudflare
+        VPS_STAGE_STATUS="installed"
+        CF_STAGE_STATUS="unknown"
+        ;;
+      4)
+        # Skip to Bot/Web
+        VPS_STAGE_STATUS="installed"
+        CF_STAGE_STATUS="deployed"
+        ;;
+      5)
+        echo ""
+        echo "  恢复命令："
+        echo "    bash installer/install.sh --mode vps --lang zh"
+        echo "    bash installer/install.sh --mode cloudflare --lang zh"
+        echo "    bash installer/install.sh --mode bot --lang zh"
+        echo "    bash installer/install.sh --mode web --lang zh"
+        echo "    sudo bash /opt/nanobk/bin/healthcheck.sh"
+        echo "    bash bin/nanobk status"
+        echo "    bash bin/nanobk cf verify"
+        echo ""
+        return 0
+        ;;
+      6)
+        return 0
+        ;;
+    esac
+  fi
+
   # Phase 0: Preflight
   run_unified_preflight || true
 
@@ -1807,6 +2102,9 @@ run_full_wizard() {
     VPS_STAGE_STATUS="skipped"
     echo "  跳过 VPS 部署。"
   fi
+
+  # Write wizard state
+  [[ "$DRY_RUN" != "1" ]] && wizard_state_write "vps_done" 2>/dev/null || true
 
   # Phase 2: Cloudflare — strict dependency on VPS profile
   echo ""
@@ -1893,6 +2191,9 @@ run_full_wizard() {
     fi
   fi
 
+  # Write wizard state
+  [[ "$DRY_RUN" != "1" ]] && wizard_state_write "cloudflare_done" 2>/dev/null || true
+
   # Phase 3: Bot
   echo ""
   echo -e "${BOLD}── 阶段 3：Telegram Bot ──${NC}"
@@ -1971,6 +2272,9 @@ run_full_wizard() {
 
   # Save config
   save_config
+
+  # Write final wizard state
+  [[ "$DRY_RUN" != "1" ]] && wizard_state_write "completed" 2>/dev/null || true
 
   # Phase 5: Summary
   print_summary

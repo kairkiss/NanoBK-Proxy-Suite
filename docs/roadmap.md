@@ -54,6 +54,7 @@
 | v1.7.4 | Full wizard control plane state propagation |
 | v1.7.5 | Real VPS full wizard UX hardening |
 | v1.7.6 | Full wizard critical state and admin env hardening |
+| v1.7.7 | Full wizard review, resume, and existing resource recovery |
 | v1.8 | 操作日志 |
 | v1.7 | 权限控制 |
 

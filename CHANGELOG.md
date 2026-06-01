@@ -1,5 +1,34 @@
 # Changelog
 
+## v1.7.7 — Full Wizard Review, Resume, and Existing Resource Recovery
+
+### Added
+
+- Full Wizard resume state file for interrupted sessions
+- Stage review tables for VPS, Cloudflare, Bot, and Web configuration
+- Strict numbered menus for critical choices
+- Existing Cloudflare KV recovery and reuse prompts
+- Worker URL recommendation from detected Cloudflare Workers subdomain
+- Output control-character checks for installer/status/cloudflare output
+- Stronger domain validation for real deployment mode
+
+### Fixed
+
+- Invalid menu inputs such as random letters no longer continue as yes
+- Users can review and modify stage inputs before execution
+- Interrupted Full Wizard runs can resume from the next logical stage
+- Existing SUB_STORE and NANOB_GEO_CACHE no longer cause dead-end failures
+- Worker URLs no longer require beginners to type the full URL manually
+- Full Wizard no longer accepts invalid domains such as pure numbers or no-dot strings
+- Bot/Web are included in final Full Wizard validation state
+
+### Safety
+
+- Resume state avoids storing raw secrets
+- Tokens and subscription URLs remain hidden by default
+- Local/offline tests still do not claim real VPS or Cloudflare validation
+- Real clean VPS validation remains a user-executed step
+
 ## v1.7.6 — Full Wizard Critical State and Admin Env Hardening
 
 ### Fixed
