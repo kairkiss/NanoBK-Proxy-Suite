@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — Unified Beginner Installer v1.7.1
+# NanoBK Proxy Suite — Unified Beginner Installer v1.7.2
 #
 # Interactive entry point for NanoBK Proxy Suite.
 # Guides users through VPS deployment, Cloudflare setup, Bot, Web Panel.
@@ -20,7 +20,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # ── Constants ───────────────────────────────────────────────────────────────
 
 REPO_URL="https://github.com/kairkiss/NanoBK-Proxy-Suite"
-VERSION="1.7.1"
+VERSION="1.7.2"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -559,76 +559,112 @@ collect_vps_args() {
   NANOBK_DOMAIN="$domain"
 
   # Cert-mode with numbered menu for beginners
-  echo ""
-  echo "  请选择证书模式："
-  echo "    1) self-signed — 测试/自用，最快开始（推荐）"
-  echo "    2) existing — 我已有证书 fullchain.pem / privkey.pem"
-  echo "    3) letsencrypt — 暂不推荐，后续版本完善"
-  echo ""
+  # IMPORTANT: retry/reselect paths use continue (loop back), not return 0.
+  # return 0 means VPS deploy command completed successfully.
+  # return 1 means user cancelled or deploy failed.
+  while true; do
+    echo ""
+    echo "  请选择证书模式："
+    echo "    1) self-signed — 测试/自用，最快开始（推荐）"
+    echo "    2) existing — 我已有证书 fullchain.pem / privkey.pem"
+    echo "    3) letsencrypt — 暂不推荐，后续版本完善"
+    echo ""
 
-  local cert_choice
-  prompt cert_choice "请选择" "1"
+    local cert_choice
+    prompt cert_choice "请选择" "1"
 
-  case "$cert_choice" in
-    1|self-signed|self)
-      cert_mode="self-signed"
-      warn "自签证书只建议测试，有些客户端可能需要开启 skip-cert-verify。"
-      cert_file=""
-      key_file=""
-      ;;
-    2|existing)
-      cert_mode="existing"
-      prompt cert_file "证书 fullchain 路径" "/etc/letsencrypt/live/${domain}/fullchain.pem"
-      prompt key_file "证书 privkey 路径" "/etc/letsencrypt/live/${domain}/privkey.pem"
-      ;;
-    3|letsencrypt)
-      echo ""
-      echo -e "  ${YELLOW}v1.7.1 暂不推荐自动配置 Let's Encrypt。${NC}"
-      echo "  请手动申请证书后选择 existing 模式，或先用 self-signed 测试。"
-      echo ""
-      echo "    1) 改用 self-signed"
-      echo "    2) 改用 existing"
-      echo "    3) 返回重新选择"
-      echo "    4) 退出"
-      echo ""
-      local le_choice
-      prompt le_choice "请选择" "1"
-      case "$le_choice" in
-        1) cert_mode="self-signed"; warn "自签证书只建议测试。"; cert_file=""; key_file=""; ;;
-        2)
-          cert_mode="existing"
-          prompt cert_file "证书 fullchain 路径" "/etc/letsencrypt/live/${domain}/fullchain.pem"
-          prompt key_file "证书 privkey 路径" "/etc/letsencrypt/live/${domain}/privkey.pem"
-          ;;
-        3) return 0 ;;  # Return to re-enter collect_vps_args
-        4|*) return 1 ;;
-      esac
-      ;;
-    *)
-      # Handle common typos
-      case "$cert_choice" in
-        self-|selfsigned|self_signed)
-          echo ""
-          echo -e "  ${YELLOW}你是不是想选择 self-signed？${NC}"
-          echo "    1) 使用 self-signed"
-          echo "    2) 重新选择"
-          echo "    3) 退出"
-          echo ""
-          local cert_fix_choice
-          prompt cert_fix_choice "请选择" "1"
-          case "$cert_fix_choice" in
-            1) cert_mode="self-signed"; warn "自签证书只建议测试。"; cert_file=""; key_file=""; ;;
-            2) return 0 ;;
-            3|*) return 1 ;;
-          esac
-          ;;
-        *)
-          err "无效选择: ${cert_choice}"
-          return 1
-          ;;
-      esac
-      ;;
-  esac
+    case "$cert_choice" in
+      1|self-signed|self)
+        cert_mode="self-signed"
+        warn "自签证书只建议测试，有些客户端可能需要开启 skip-cert-verify。"
+        cert_file=""
+        key_file=""
+        break
+        ;;
+      2|existing)
+        cert_mode="existing"
+        prompt cert_file "证书 fullchain 路径" "/etc/letsencrypt/live/${domain}/fullchain.pem"
+        prompt key_file "证书 privkey 路径" "/etc/letsencrypt/live/${domain}/privkey.pem"
+        break
+        ;;
+      3|letsencrypt)
+        echo ""
+        echo -e "  ${YELLOW}暂不推荐自动配置 Let's Encrypt。${NC}"
+        echo "  请手动申请证书后选择 existing 模式，或先用 self-signed 测试。"
+        echo ""
+        echo "    1) 改用 self-signed"
+        echo "    2) 改用 existing"
+        echo "    3) 返回重新选择"
+        echo "    4) 退出"
+        echo ""
+        local le_choice
+        prompt le_choice "请选择" "1"
+        case "$le_choice" in
+          1)
+            cert_mode="self-signed"
+            warn "自签证书只建议测试。"
+            cert_file=""
+            key_file=""
+            break
+            ;;
+          2)
+            cert_mode="existing"
+            prompt cert_file "证书 fullchain 路径" "/etc/letsencrypt/live/${domain}/fullchain.pem"
+            prompt key_file "证书 privkey 路径" "/etc/letsencrypt/live/${domain}/privkey.pem"
+            break
+            ;;
+          3)
+            continue  # Re-enter cert-mode selection
+            ;;
+          4|*)
+            return 1
+            ;;
+        esac
+        ;;
+      *)
+        # Handle common typos
+        case "$cert_choice" in
+          self-|selfsigned|self_signed)
+            echo ""
+            echo -e "  ${YELLOW}你是不是想选择 self-signed？${NC}"
+            echo "    1) 使用 self-signed"
+            echo "    2) 重新选择"
+            echo "    3) 退出"
+            echo ""
+            local cert_fix_choice
+            prompt cert_fix_choice "请选择" "1"
+            case "$cert_fix_choice" in
+              1)
+                cert_mode="self-signed"
+                warn "自签证书只建议测试。"
+                cert_file=""
+                key_file=""
+                break
+                ;;
+              2)
+                continue  # Re-enter cert-mode selection
+                ;;
+              3|*)
+                return 1
+                ;;
+            esac
+            ;;
+          *)
+            err "无效选择: ${cert_choice}"
+            echo "    1) 重新选择"
+            echo "    2) 退出"
+            echo ""
+            local invalid_cert_choice
+            prompt invalid_cert_choice "请选择" "1"
+            case "$invalid_cert_choice" in
+              1) continue ;;
+              2|*) return 1 ;;
+            esac
+            ;;
+        esac
+        ;;
+    esac
+  done
   NANOBK_CERT_MODE="$cert_mode"
 
   prompt reality_sname "Reality 伪装域名" "www.microsoft.com"

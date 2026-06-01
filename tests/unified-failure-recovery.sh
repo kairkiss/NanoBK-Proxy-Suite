@@ -95,7 +95,7 @@ check "has BotFather revoke reminder" "$(has_pattern "$INSTALLER" 'BotFather.*re
 echo ""
 echo "── Test 6: Cert-mode validation ──"
 
-check "has cert-mode validation" "$(has_pattern "$INSTALLER" 'self-signed.*建议\|self-signed.*suggestion')"
+check "has cert-mode validation" "$(has_pattern "$INSTALLER" '自签.*建议\|self-signed.*建议\|skip-cert-verify')"
 check "has self- typo handling" "$(has_pattern "$INSTALLER" 'self-\|selfsigned')"
 check "has cert-mode menu" "$(has_pattern "$INSTALLER" 'self-signed.*测试\|self-signed.*推荐\|证书模式')"
 

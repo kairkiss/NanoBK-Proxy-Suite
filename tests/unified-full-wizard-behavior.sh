@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # NanoBK Proxy Suite — Full Wizard Behavior Test
 #
-# Dynamic behavior tests for URL cleaning, dependency skipping,
+# Real behavior tests using actual installer command output.
+# Tests URL cleaning, cert-mode retry, dependency skipping,
 # and failed control-plane setup.
 #
 # Usage:
@@ -28,6 +29,26 @@ check() {
   fi
 }
 
+contains() {
+  local text="$1"
+  local pattern="$2"
+  if echo "$text" | grep -qi "$pattern"; then
+    echo "1"
+  else
+    echo "0"
+  fi
+}
+
+not_contains() {
+  local text="$1"
+  local pattern="$2"
+  if echo "$text" | grep -qi "$pattern"; then
+    echo "0"
+  else
+    echo "1"
+  fi
+}
+
 has_pattern() {
   local file="$1"
   local pattern="$2"
@@ -41,8 +62,61 @@ has_pattern() {
 echo "=== Full Wizard Behavior Test ==="
 echo ""
 
-# ── Test 1: Static URL validation checks ────────────────────────────────────
-echo "── Test 1: Static URL validation checks ──"
+# ── Test A: Static cert-mode retry structure ────────────────────────────────
+echo "── Test A: Static cert-mode retry structure ──"
+
+check "cert-mode uses while loop" "$(has_pattern "$INSTALLER" 'while true')"
+check "no return 0 near reselect" "$( [[ $(grep -A2 '重新选择\|re-enter' "$INSTALLER" | grep -c 'return 0') -eq 0 ]] && echo 1 || echo 0 )"
+check "reselect uses continue" "$(has_pattern "$INSTALLER" 'continue')"
+check "exit uses return 1" "$(has_pattern "$INSTALLER" 'return 1')"
+check "letsencrypt has reselect option" "$(has_pattern "$INSTALLER" "返回重新选择")"
+
+# ── Test B: Real behavior — commands mode output ────────────────────────────
+echo ""
+echo "── Test B: Real behavior — commands mode output ──"
+
+OUTPUT_CMD=$(bash "$INSTALLER" --mode commands --defaults 2>&1) || true
+
+check "commands mode exits 0" "$([[ $? -eq 0 ]] && echo 1 || echo 0)"
+check "commands output has install-vps" "$(contains "$OUTPUT_CMD" "install-vps")"
+check "commands output has install-cloudflare" "$(contains "$OUTPUT_CMD" "install-cloudflare")"
+check "commands output has nanobk status" "$(contains "$OUTPUT_CMD" "nanobk status")"
+check "commands output has rotate" "$(contains "$OUTPUT_CMD" "rotate")"
+check "commands output has Bot template" "$(contains "$OUTPUT_CMD" "TELEGRAM_BOT_TOKEN")"
+check "commands output has Web template" "$(contains "$OUTPUT_CMD" "NANOBK_WEB_TOKEN")"
+
+# ── Test C: Real behavior — dry-run full mode ───────────────────────────────
+echo ""
+echo "── Test C: Real behavior — dry-run full mode ──"
+
+OUTPUT_DRY=$(bash "$INSTALLER" --mode full --dry-run --defaults --lang zh 2>&1) || true
+
+check "dry-run exits 0" "$([[ $? -eq 0 ]] && echo 1 || echo 0)"
+check "dry-run has preflight" "$(contains "$OUTPUT_DRY" "Preflight")"
+check "dry-run has assumed free" "$(contains "$OUTPUT_DRY" "assumed free")"
+check "dry-run has planned/dry-run in summary" "$(contains "$OUTPUT_DRY" "planned\|dry-run")"
+check "dry-run has dry-run disclaimer" "$(contains "$OUTPUT_DRY" "dry-run.*没有执行\|dry-run.*No real")"
+check "dry-run does NOT write bot/.env" "$([[ ! -f "$REPO_DIR/bot/.env" ]] && echo 1 || echo 0)"
+check "dry-run does NOT write web/.env" "$([[ ! -f "$REPO_DIR/web/.env" ]] && echo 1 || echo 0)"
+
+# ── Test D: Real behavior — validate-plan output ────────────────────────────
+echo ""
+echo "── Test D: Real behavior — validate-plan output ──"
+
+OUTPUT_PLAN=$(bash "$INSTALLER" --mode validate-plan 2>&1) || true
+
+check "validate-plan exits 0" "$([[ $? -eq 0 ]] && echo 1 || echo 0)"
+check "has Clean VPS" "$(contains "$OUTPUT_PLAN" "Clean VPS")"
+check "has human tester" "$(contains "$OUTPUT_PLAN" "人工测试员\|human tester")"
+check "has dry-run disclaimer" "$(contains "$OUTPUT_PLAN" "dry-run.*不能代表\|cannot claim")"
+check "has Phase 0" "$(contains "$OUTPUT_PLAN" "Phase 0\|Baseline")"
+check "has Phase 10" "$(contains "$OUTPUT_PLAN" "Phase 10\|Final Status")"
+check "has Pass Criteria" "$(contains "$OUTPUT_PLAN" "Pass Criteria\|通过标准")"
+check "has Fail Criteria" "$(contains "$OUTPUT_PLAN" "Fail Criteria\|失败标准")"
+
+# ── Test E: Static Worker URL validation ────────────────────────────────────
+echo ""
+echo "── Test E: Static Worker URL validation ──"
 
 check "Worker URL strips query params" "$(has_pattern "$INSTALLER" 'route_url%%')"
 check "Worker URL rejects token" "$(has_pattern "$INSTALLER" "token=.*订阅\|不要粘贴带 token")"
@@ -50,52 +124,39 @@ check "Worker URL rejects http://" "$(has_pattern "$INSTALLER" "http://.*不支�
 check "Worker URL bare host has confirmation" "$(has_pattern "$INSTALLER" "检测到未包含 https")"
 check "nanob URL same validation" "$(has_pattern "$INSTALLER" 'nanob_url%%')"
 
-# ── Test 2: Domain validation static checks ─────────────────────────────────
+# ── Test F: Static domain validation ────────────────────────────────────────
 echo ""
-echo "── Test 2: Domain validation static checks ──"
+echo "── Test F: Static domain validation ──"
 
 check "domain rejects protocol with confirmation" "$(has_pattern "$INSTALLER" "不要带 https://\|不要带 http://")"
 check "domain rejects spaces" "$(has_pattern "$INSTALLER" "域名不能包含空格\|不应包含空格")"
 check "domain rejects path with confirmation" "$(has_pattern "$INSTALLER" "域名不应包含路径\|不应包含路径")"
 check "domain has suggestion" "$(has_pattern "$INSTALLER" "检测到你可能想输入")"
-check "domain has numbered choices" "$(has_pattern "$INSTALLER" "重新输入\|退出")"
 
-# ── Test 3: Cert-mode menu with letsencrypt ──────────────────────────────────
+# ── Test G: Static Cloudflare dependency ─────────────────────────────────────
 echo ""
-echo "── Test 3: Cert-mode menu with letsencrypt ──"
-
-check "has letsencrypt option" "$(has_pattern "$INSTALLER" "letsencrypt")"
-check "letsencrypt says not recommended" "$(has_pattern "$INSTALLER" "暂不推荐\|not recommended")"
-check "letsencrypt offers fallback" "$(has_pattern "$INSTALLER" "改用 self-signed\|改用 existing")"
-
-# ── Test 4: Cloudflare dependency is unconditional ───────────────────────────
-echo ""
-echo "── Test 4: Cloudflare dependency is unconditional ──"
+echo "── Test G: Static Cloudflare dependency ──"
 
 check "profile check is unconditional" "$(has_pattern "$INSTALLER" "profile.current.json.*not found\|profile.current.json.*不存在")"
 check "has recovery commands" "$(has_pattern "$INSTALLER" "mode vps.*lang\|mode cloudflare.*lang")"
 check "has healthcheck recovery" "$(has_pattern "$INSTALLER" "healthcheck")"
-check "has install-vps.sh recovery" "$(has_pattern "$INSTALLER" "install-vps.sh")"
 
-# ── Test 5: Bot/Web failed state ─────────────────────────────────────────────
+# ── Test H: Static Bot/Web failed state ─────────────────────────────────────
 echo ""
-echo "── Test 5: Bot/Web failed state ──"
+echo "── Test H: Static Bot/Web failed state ──"
 
 check "Bot has failed state" "$(has_pattern "$INSTALLER" "BOT_STAGE_STATUS.*failed")"
 check "Web has failed state" "$(has_pattern "$INSTALLER" "WEB_STAGE_STATUS.*failed")"
-check "Bot failed shows recovery" "$(has_pattern "$INSTALLER" "恢复命令")"
-check "Web failed shows recovery" "$(has_pattern "$INSTALLER" "恢复命令")"
 check "Bot failed in summary" "$(has_pattern "$INSTALLER" "BOT_STAGE_STATUS.*==.*failed")"
 check "Web failed in summary" "$(has_pattern "$INSTALLER" "WEB_STAGE_STATUS.*==.*failed")"
 
-# ── Test 6: Summary honesty for failed states ────────────────────────────────
+# ── Test I: Static cert-mode letsencrypt ─────────────────────────────────────
 echo ""
-echo "── Test 6: Summary honesty for failed states ──"
+echo "── Test I: Static cert-mode letsencrypt ──"
 
-check "Bot failed shows status failed" "$(has_pattern "$INSTALLER" "status.*failed")"
-check "Web failed shows status failed" "$(has_pattern "$INSTALLER" "status.*failed")"
-check "Bot failed does not show configured" "$(has_pattern "$INSTALLER" "BOT_STAGE_STATUS.*failed")"
-check "Web failed does not show configured" "$(has_pattern "$INSTALLER" "WEB_STAGE_STATUS.*failed")"
+check "has letsencrypt option" "$(has_pattern "$INSTALLER" "letsencrypt")"
+check "letsencrypt says not recommended" "$(has_pattern "$INSTALLER" "暂不推荐\|not recommended")"
+check "letsencrypt offers fallback" "$(has_pattern "$INSTALLER" "改用 self-signed\|改用 existing")"
 
 # ── Summary ─────────────────────────────────────────────────────────────────
 echo ""

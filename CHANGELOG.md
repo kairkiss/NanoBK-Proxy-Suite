@@ -1,5 +1,25 @@
 # Changelog
 
+## v1.7.2 — Full Wizard Retry Flow Hardening
+
+### Fixed
+
+- Fixed cert-mode retry flow so "重新选择 / 返回重新选择" no longer returns success before VPS deployment
+- `collect_vps_args` now returns success only after the VPS deploy command has actually completed successfully
+- Full Wizard no longer marks VPS as installed when the user merely chooses to reselect cert mode
+- Corrected v1.7.1 changelog/test documentation drift
+
+### Improved
+
+- Cert-mode selection now uses an internal retry loop instead of returning early to the caller
+- Full Wizard behavior tests now include real command-output checks instead of only static grep
+- Added v1.7 Full Wizard validation document for manual clean VPS verification
+
+### Safety
+
+- Retry/cancel paths now preserve honest Summary states
+- Local tests still do not claim real VPS or Cloudflare validation
+
 ## v1.7.1 — Full Wizard Behavior Hardening
 
 ### Fixed
@@ -24,9 +44,8 @@
 
 ### Tests
 
-- Added `tests/unified-full-wizard-behavior.sh`: dynamic behavior test for URL validation and dependency handling
+- Added `tests/unified-full-wizard-behavior.sh`: behavior test for URL validation and dependency handling
 - Updated `tests/unified-full-wizard-productization.sh`: cert-mode letsencrypt and Bot/Web failed state assertions
-- Updated `tests/unified-summary-honesty.sh`: Bot/Web failed state honesty
 - Added v1.7 tests to installer All safe tests
 
 ## v1.7.0 — Clean Full Wizard Productization
