@@ -55,6 +55,20 @@ bash bin/nanobk status
 - profile contains private key
 - Cloudflare profile missing but shows configured
 - Bot/Web failed but shows configured
+- Deploy command was printed but user skipped execution, yet Summary shows installed/deployed
+- dry-run or commands-only mode shows installed/deployed/verified states
+
+## Important: Command Execution States
+
+If the installer only prints a deploy command but the user chooses not to execute it, this is **not** a successful deployment. The Summary will show:
+- `manual command not executed` — not an error, but not a pass
+- `manual / pending` — user needs to run the command manually
+
+dry-run and commands-only modes will show:
+- `planned / dry-run` — no real deployment
+- `commands only / not executed` — commands printed but not run
+
+These states are **not** valid for clean VPS pass criteria.
 
 ## Data to Report Back
 

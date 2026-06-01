@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — Unified Beginner Installer v1.7.2
+# NanoBK Proxy Suite — Unified Beginner Installer v1.7.3
 #
 # Interactive entry point for NanoBK Proxy Suite.
 # Guides users through VPS deployment, Cloudflare setup, Bot, Web Panel.
@@ -20,7 +20,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # ── Constants ───────────────────────────────────────────────────────────────
 
 REPO_URL="https://github.com/kairkiss/NanoBK-Proxy-Suite"
-VERSION="1.7.2"
+VERSION="1.7.3"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -70,21 +70,26 @@ print_cmd() {
   printf "\n"
 }
 
+LAST_RUN_CMD_STATUS="unknown"
+
 run_cmd() {
   local desc="$1"
   shift
   local cmd=("$@")
+  LAST_RUN_CMD_STATUS="unknown"
 
   echo ""
   log "$desc"
   print_cmd "${cmd[@]}"
 
   if [[ "$COMMAND_ONLY" == "1" ]]; then
+    LAST_RUN_CMD_STATUS="commands_only"
     echo -e "  ${YELLOW}(仅生成命令，未执行)${NC}"
     return 0
   fi
 
   if [[ "$DRY_RUN" == "1" ]]; then
+    LAST_RUN_CMD_STATUS="dry_run"
     echo -e "  ${CYAN}[DRY-RUN]${NC} 跳过执行"
     return 0
   fi
@@ -93,12 +98,19 @@ run_cmd() {
     echo -en "${YELLOW}  是否现在执行？[y/N]${NC} "
     read -r reply
     if [[ ! "$reply" =~ ^[Yy]$ ]]; then
+      LAST_RUN_CMD_STATUS="skipped_user"
       echo -e "  ${YELLOW}已跳过。你可以手动复制上面的命令执行。${NC}"
       return 0
     fi
   fi
 
-  "${cmd[@]}"
+  if "${cmd[@]}"; then
+    LAST_RUN_CMD_STATUS="executed"
+    return 0
+  else
+    LAST_RUN_CMD_STATUS="failed"
+    return 1
+  fi
 }
 
 TEST_FAILURES=0
@@ -679,11 +691,18 @@ collect_vps_args() {
   [[ "$cert_mode" == "existing" ]] && cmd+=(--cert-file "$cert_file" --key-file "$key_file")
   [[ "$DRY_RUN" == "1" ]] && cmd+=(--dry-run)
 
+  # IMPORTANT: run_cmd sets LAST_RUN_CMD_STATUS
+  # executed = real deploy ran and succeeded
+  # dry_run / commands_only = preview only, not real deploy
+  # skipped_user = user chose not to execute, not a deploy
+  # failed = command ran but failed
   run_cmd "部署 VPS 四协议" "${cmd[@]}" || return 1
 
-  # Post-deploy healthcheck and status
-  run_cmd "VPS healthcheck" sudo bash "${REPO_DIR}/vps/scripts/healthcheck.sh" --config-dir /etc/nanobk || true
-  run_cmd "NanoBK status" bash "${REPO_DIR}/bin/nanobk" status --config-dir /etc/nanobk || true
+  # Post-deploy healthcheck and status (only meaningful if actually deployed)
+  if [[ "$LAST_RUN_CMD_STATUS" == "executed" ]]; then
+    run_cmd "VPS healthcheck" sudo bash "${REPO_DIR}/vps/scripts/healthcheck.sh" --config-dir /etc/nanobk || true
+    run_cmd "NanoBK status" bash "${REPO_DIR}/bin/nanobk" status --config-dir /etc/nanobk || true
+  fi
 }
 
 # ── Cloudflare parameter collection ─────────────────────────────────────────
@@ -876,6 +895,16 @@ collect_cloudflare_args() {
 
     run_cmd "部署 nanok" "${nanok_cmd[@]}"
   fi
+
+  # Set CF deploy status based on run_cmd outcome
+  case "${LAST_RUN_CMD_STATUS:-unknown}" in
+    executed)    CF_DEPLOY_STATUS="deployed" ;;
+    dry_run)     CF_DEPLOY_STATUS="dry_run" ;;
+    commands_only) CF_DEPLOY_STATUS="commands_only" ;;
+    skipped_user) CF_DEPLOY_STATUS="manual_pending" ;;
+    failed)      CF_DEPLOY_STATUS="failed" ;;
+    *)           CF_DEPLOY_STATUS="unknown" ;;
+  esac
 }
 
 # ── Bot configuration ───────────────────────────────────────────────────────
@@ -1453,18 +1482,49 @@ run_full_wizard() {
   echo -e "${BOLD}── 阶段 1：VPS 部署 ──${NC}"
   echo ""
   if confirm "是否配置 VPS 部署？" "y"; then
-    if collect_vps_args; then
-      VPS_STAGE_STATUS="installed"
-    else
-      VPS_STAGE_STATUS="failed"
-      SUMMARY_HAS_FAILURES=1
-      warn "VPS 阶段失败。"
-      echo ""
-      echo "  恢复命令："
-      echo "    bash installer/install.sh --mode vps --lang zh"
-      echo ""
+    local vps_rc=0
+    collect_vps_args || vps_rc=$?
+    case "$vps_rc" in
+      0)
+        # Check what actually happened
+        case "${LAST_RUN_CMD_STATUS:-unknown}" in
+          executed)
+            VPS_STAGE_STATUS="installed"
+            ;;
+          dry_run)
+            VPS_STAGE_STATUS="dry_run"
+            ;;
+          commands_only)
+            VPS_STAGE_STATUS="commands_only"
+            ;;
+          skipped_user)
+            VPS_STAGE_STATUS="manual_pending"
+            SUMMARY_HAS_FAILURES=1
+            warn "VPS 部署命令已跳过，未实际执行。"
+            echo ""
+            echo "  你可以手动执行："
+            echo "    bash installer/install.sh --mode vps --lang zh"
+            echo ""
+            ;;
+          *)
+            VPS_STAGE_STATUS="installed"
+            ;;
+        esac
+        ;;
+      *)
+        VPS_STAGE_STATUS="failed"
+        SUMMARY_HAS_FAILURES=1
+        warn "VPS 阶段失败。"
+        echo ""
+        echo "  恢复命令："
+        echo "    bash installer/install.sh --mode vps --lang zh"
+        echo ""
+        ;;
+    esac
+
+    if [[ "$VPS_STAGE_STATUS" == "failed" ]] || [[ "$VPS_STAGE_STATUS" == "manual_pending" ]]; then
       if [[ "$DRY_RUN" != "1" ]] && [[ "$COMMAND_ONLY" != "1" ]]; then
-        echo "  VPS 失败后，Cloudflare 将被跳过（依赖 profile.current.json）。"
+        echo "  VPS 未完成，Cloudflare 将被跳过（依赖 profile.current.json）。"
         echo "  Bot/Web 可以配置，但仅为控制端，不代表节点可用。"
         echo ""
         if ! confirm "是否继续配置 Bot/Web（控制端）？" "n"; then
@@ -1506,17 +1566,49 @@ run_full_wizard() {
   if [[ "$CF_STAGE_STATUS" != "skipped_dependency" ]]; then
     if confirm "是否配置 Cloudflare 部署？" "y"; then
       NANOBK_DEPLOY_CLOUDFLARE="true"
-      if collect_cloudflare_args; then
-        CF_STAGE_STATUS="deployed"
-      else
-        CF_STAGE_STATUS="failed"
-        SUMMARY_HAS_FAILURES=1
-        warn "Cloudflare 部署阶段失败。"
-        echo ""
-        echo "  恢复命令："
-        echo "    bash installer/install.sh --mode cloudflare --lang zh"
-        echo "    bash bin/nanobk cf verify"
-        echo ""
+      CF_DEPLOY_STATUS="unknown"
+      local cf_rc=0
+      collect_cloudflare_args || cf_rc=$?
+      case "$cf_rc" in
+        0)
+          # Check what actually happened
+          case "${CF_DEPLOY_STATUS:-unknown}" in
+            executed)      CF_STAGE_STATUS="deployed" ;;
+            dry_run)       CF_STAGE_STATUS="dry_run" ;;
+            commands_only) CF_STAGE_STATUS="commands_only" ;;
+            skipped_user)
+              CF_STAGE_STATUS="manual_pending"
+              SUMMARY_HAS_FAILURES=1
+              warn "Cloudflare 部署命令已跳过，未实际执行。"
+              echo ""
+              echo "  你可以手动执行："
+              echo "    bash installer/install.sh --mode cloudflare --lang zh"
+              echo "    bash bin/nanobk cf verify"
+              echo ""
+              ;;
+            failed)
+              CF_STAGE_STATUS="failed"
+              SUMMARY_HAS_FAILURES=1
+              warn "Cloudflare 部署失败。"
+              ;;
+            *)
+              CF_STAGE_STATUS="deployed"
+              ;;
+          esac
+          ;;
+        *)
+          CF_STAGE_STATUS="failed"
+          SUMMARY_HAS_FAILURES=1
+          warn "Cloudflare 部署阶段失败。"
+          echo ""
+          echo "  恢复命令："
+          echo "    bash installer/install.sh --mode cloudflare --lang zh"
+          echo "    bash bin/nanobk cf verify"
+          echo ""
+          ;;
+      esac
+
+      if [[ "$CF_STAGE_STATUS" == "failed" ]] || [[ "$CF_STAGE_STATUS" == "manual_pending" ]]; then
         if [[ "$DRY_RUN" != "1" ]] && [[ "$COMMAND_ONLY" != "1" ]]; then
           if ! confirm "是否继续后续步骤？" "n"; then
             save_config
@@ -1626,7 +1718,25 @@ print_summary() {
 
   # VPS — honest status
   echo "  VPS:"
-  if [[ "$DRY_RUN" == "1" ]]; then
+  if [[ "${VPS_STAGE_STATUS:-}" == "dry_run" ]]; then
+    echo "    domain:  ${NANOBK_DOMAIN:-unknown}"
+    echo "    cert:    ${NANOBK_CERT_MODE:-unknown}"
+    echo "    status:  planned / dry-run"
+  elif [[ "${VPS_STAGE_STATUS:-}" == "commands_only" ]]; then
+    echo "    domain:  ${NANOBK_DOMAIN:-unknown}"
+    echo "    status:  commands only / not executed"
+  elif [[ "${VPS_STAGE_STATUS:-}" == "manual_pending" ]]; then
+    echo "    domain:  ${NANOBK_DOMAIN:-unknown}"
+    echo "    status:  manual command not executed"
+    echo "    note:    deploy command was printed but not run"
+    echo "    next:"
+    echo "      bash installer/install.sh --mode vps --lang zh"
+  elif [[ "${VPS_STAGE_STATUS:-}" == "failed" ]]; then
+    echo "    status:  failed"
+    echo "    reason:  install-vps failed"
+    echo "    recover:"
+    echo "      bash installer/install.sh --mode vps --lang zh"
+  elif [[ "$DRY_RUN" == "1" ]]; then
     if [[ -n "${NANOBK_DOMAIN:-}" ]] && [[ "$NANOBK_DOMAIN" != "proxy.example.com" ]]; then
       echo "    domain:  ${NANOBK_DOMAIN}"
       echo "    cert:    ${NANOBK_CERT_MODE:-unknown}"
@@ -1634,11 +1744,6 @@ print_summary() {
     else
       echo "    status:  skipped (dry-run)"
     fi
-  elif [[ "${VPS_STAGE_STATUS:-}" == "failed" ]]; then
-    echo "    status:  failed"
-    echo "    reason:  install-vps failed"
-    echo "    recover:"
-    echo "      bash installer/install.sh --mode vps --lang zh"
   elif [[ -f "/etc/nanobk/profile.current.json" ]]; then
     echo "    domain:  ${NANOBK_DOMAIN:-unknown}"
     echo "    status:  installed / not healthchecked"
@@ -1660,6 +1765,21 @@ print_summary() {
     echo "    recover:"
     echo "      finish VPS first, then run:"
     echo "      bash installer/install.sh --mode cloudflare --lang zh"
+  elif [[ "${CF_STAGE_STATUS:-}" == "dry_run" ]]; then
+    echo "    status:  planned / dry-run"
+  elif [[ "${CF_STAGE_STATUS:-}" == "commands_only" ]]; then
+    echo "    status:  commands only / not executed"
+  elif [[ "${CF_STAGE_STATUS:-}" == "manual_pending" ]]; then
+    echo "    status:  manual command not executed"
+    echo "    note:    deploy command was printed but not run"
+    echo "    next:"
+    echo "      bash installer/install.sh --mode cloudflare --lang zh"
+    echo "      bash bin/nanobk cf verify"
+  elif [[ "${CF_STAGE_STATUS:-}" == "failed" ]]; then
+    echo "    status:  failed / needs retry"
+    echo "    recover:"
+    echo "      bash installer/install.sh --mode cloudflare --lang zh"
+    echo "      bash bin/nanobk cf verify"
   elif [[ "$DRY_RUN" == "1" ]]; then
     if [[ "${NANOBK_DEPLOY_CLOUDFLARE:-}" == "true" ]]; then
       echo "    nanok:   planned / dry-run"
@@ -1671,17 +1791,6 @@ print_summary() {
     else
       echo "    status:  skipped (dry-run)"
     fi
-  elif [[ "${CF_STAGE_STATUS:-}" == "skipped_dependency" ]]; then
-    echo "    status:  skipped / dependency missing"
-    echo "    reason:  /etc/nanobk/profile.current.json not found"
-    echo "    recover:"
-    echo "      finish VPS first, then run:"
-    echo "      bash installer/install.sh --mode cloudflare --lang zh"
-  elif [[ "${CF_STAGE_STATUS:-}" == "failed" ]]; then
-    echo "    status:  failed / needs retry"
-    echo "    recover:"
-    echo "      bash installer/install.sh --mode cloudflare --lang zh"
-    echo "      bash bin/nanobk cf verify"
   elif [[ -f "${REPO_DIR:-.}/.cloudflare.local.env" ]]; then
     local cf_verify
     cf_verify=$(read_env_value "${REPO_DIR:-.}/.cloudflare.local.env" "NANOBK_VERIFY_STATUS" 2>/dev/null || echo "")

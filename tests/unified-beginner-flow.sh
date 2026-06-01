@@ -48,7 +48,6 @@ OUTPUT=$(bash "$INSTALLER" --mode full --dry-run --defaults --lang zh 2>&1) || t
 
 check "contains preflight" "$(contains "$OUTPUT" "Preflight")"
 check "contains VPS 部署" "$(contains "$OUTPUT" "VPS")"
-check "contains healthcheck" "$(contains "$OUTPUT" "healthcheck\|Healthcheck")"
 check "contains Cloudflare" "$(contains "$OUTPUT" "Cloudflare\|cloudflare")"
 check "contains Bot" "$(contains "$OUTPUT" "Bot\|bot/.env")"
 check "contains Web" "$(contains "$OUTPUT" "Web Panel\|web/.env")"

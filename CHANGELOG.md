@@ -1,5 +1,25 @@
 # Changelog
 
+## v1.7.3 — Full Wizard Command Execution State Hardening
+
+### Fixed
+
+- Critical deploy commands no longer report success when the user chooses not to execute them
+- Full Wizard no longer marks VPS as installed when the VPS deploy command was only printed or skipped
+- Full Wizard no longer marks Cloudflare as deployed when the Cloudflare deploy command was only printed or skipped
+- Behavior tests now check command exit status correctly instead of masking failures with `|| true`
+
+### Improved
+
+- Added explicit command execution outcomes for executed, skipped, dry-run, commands-only, and failed states
+- Summary now distinguishes installed/deployed from manual command not executed
+- Full Wizard behavior tests cover skipped command execution paths
+
+### Safety
+
+- Non-executed commands are reported as manual/pending, not as verified deployment
+- Local tests still do not claim real VPS or Cloudflare validation
+
 ## v1.7.2 — Full Wizard Retry Flow Hardening
 
 ### Fixed

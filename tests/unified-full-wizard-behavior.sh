@@ -75,9 +75,12 @@ check "letsencrypt has reselect option" "$(has_pattern "$INSTALLER" "返回重�
 echo ""
 echo "── Test B: Real behavior — commands mode output ──"
 
-OUTPUT_CMD=$(bash "$INSTALLER" --mode commands --defaults 2>&1) || true
+set +e
+OUTPUT_CMD=$(bash "$INSTALLER" --mode commands --defaults 2>&1)
+CMD_RC=$?
+set -e
 
-check "commands mode exits 0" "$([[ $? -eq 0 ]] && echo 1 || echo 0)"
+check "commands mode exits 0" "$([[ $CMD_RC -eq 0 ]] && echo 1 || echo 0)"
 check "commands output has install-vps" "$(contains "$OUTPUT_CMD" "install-vps")"
 check "commands output has install-cloudflare" "$(contains "$OUTPUT_CMD" "install-cloudflare")"
 check "commands output has nanobk status" "$(contains "$OUTPUT_CMD" "nanobk status")"
@@ -89,9 +92,12 @@ check "commands output has Web template" "$(contains "$OUTPUT_CMD" "NANOBK_WEB_T
 echo ""
 echo "── Test C: Real behavior — dry-run full mode ──"
 
-OUTPUT_DRY=$(bash "$INSTALLER" --mode full --dry-run --defaults --lang zh 2>&1) || true
+set +e
+OUTPUT_DRY=$(bash "$INSTALLER" --mode full --dry-run --defaults --lang zh 2>&1)
+DRY_RC=$?
+set -e
 
-check "dry-run exits 0" "$([[ $? -eq 0 ]] && echo 1 || echo 0)"
+check "dry-run exits 0" "$([[ $DRY_RC -eq 0 ]] && echo 1 || echo 0)"
 check "dry-run has preflight" "$(contains "$OUTPUT_DRY" "Preflight")"
 check "dry-run has assumed free" "$(contains "$OUTPUT_DRY" "assumed free")"
 check "dry-run has planned/dry-run in summary" "$(contains "$OUTPUT_DRY" "planned\|dry-run")"
@@ -103,9 +109,12 @@ check "dry-run does NOT write web/.env" "$([[ ! -f "$REPO_DIR/web/.env" ]] && ec
 echo ""
 echo "── Test D: Real behavior — validate-plan output ──"
 
-OUTPUT_PLAN=$(bash "$INSTALLER" --mode validate-plan 2>&1) || true
+set +e
+OUTPUT_PLAN=$(bash "$INSTALLER" --mode validate-plan 2>&1)
+PLAN_RC=$?
+set -e
 
-check "validate-plan exits 0" "$([[ $? -eq 0 ]] && echo 1 || echo 0)"
+check "validate-plan exits 0" "$([[ $PLAN_RC -eq 0 ]] && echo 1 || echo 0)"
 check "has Clean VPS" "$(contains "$OUTPUT_PLAN" "Clean VPS")"
 check "has human tester" "$(contains "$OUTPUT_PLAN" "人工测试员\|human tester")"
 check "has dry-run disclaimer" "$(contains "$OUTPUT_PLAN" "dry-run.*不能代表\|cannot claim")"
@@ -157,6 +166,20 @@ echo "── Test I: Static cert-mode letsencrypt ──"
 check "has letsencrypt option" "$(has_pattern "$INSTALLER" "letsencrypt")"
 check "letsencrypt says not recommended" "$(has_pattern "$INSTALLER" "暂不推荐\|not recommended")"
 check "letsencrypt offers fallback" "$(has_pattern "$INSTALLER" "改用 self-signed\|改用 existing")"
+
+# ── Test J: Static skipped execution states ─────────────────────────────────
+echo ""
+echo "── Test J: Static skipped execution states ──"
+
+check "has LAST_RUN_CMD_STATUS" "$(has_pattern "$INSTALLER" "LAST_RUN_CMD_STATUS")"
+check "has skipped_user state" "$(has_pattern "$INSTALLER" "skipped_user")"
+check "has manual_pending state" "$(has_pattern "$INSTALLER" "manual_pending")"
+check "has manual command not executed" "$(has_pattern "$INSTALLER" "manual command not executed\|manual.*pending")"
+check "has commands_only state" "$(has_pattern "$INSTALLER" "commands_only")"
+check "has dry_run state in VPS" "$(has_pattern "$INSTALLER" "VPS_STAGE_STATUS.*dry_run")"
+check "has dry_run state in CF" "$(has_pattern "$INSTALLER" "CF_STAGE_STATUS.*dry_run\|CF_DEPLOY_STATUS.*dry_run")"
+check "skipped_user does not show installed" "$( [[ $(grep -c 'skipped_user.*installed\|installed.*skipped_user' "$INSTALLER") -eq 0 ]] && echo 1 || echo 0 )"
+check "manual_pending does not show deployed" "$( [[ $(grep -c 'manual_pending.*deployed\|deployed.*manual_pending' "$INSTALLER") -eq 0 ]] && echo 1 || echo 0 )"
 
 # ── Summary ─────────────────────────────────────────────────────────────────
 echo ""
