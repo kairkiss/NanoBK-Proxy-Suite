@@ -47,7 +47,8 @@
 | v1.6.3 | Unified installer dependency and test failure hotfix |
 | v1.6.4 | Test failure propagation verification hotfix |
 | v1.6.5 | Noninteractive test timeout guard hotfix |
-| v1.7 | 操作日志 |
+| **v1.7.0** | ✅ Clean full wizard productization |
+| v1.8 | 操作日志 |
 | v1.7 | 权限控制 |
 
 ### 1.x 架构原则

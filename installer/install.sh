@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — Unified Beginner Installer v1.6.5
+# NanoBK Proxy Suite — Unified Beginner Installer v1.7.0
 #
 # Interactive entry point for NanoBK Proxy Suite.
 # Guides users through VPS deployment, Cloudflare setup, Bot, Web Panel.
@@ -20,7 +20,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # ── Constants ───────────────────────────────────────────────────────────────
 
 REPO_URL="https://github.com/kairkiss/NanoBK-Proxy-Suite"
-VERSION="1.6.5"
+VERSION="1.7.0"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -496,52 +496,71 @@ collect_vps_args() {
 
   local domain cert_mode cert_file key_file reality_sname
 
-  prompt domain "请输入节点域名" "${NANOBK_DOMAIN:-proxy.example.com}"
+  # Domain with basic validation
+  while true; do
+    prompt domain "请输入节点域名" "${NANOBK_DOMAIN:-proxy.example.com}"
+    # Strip protocol prefix if user accidentally includes it
+    domain="${domain#http://}"
+    domain="${domain#https://}"
+    domain="${domain%%/*}"
+    domain="${domain%% *}"
+    if [[ -z "$domain" ]]; then
+      err "域名不能为空。"
+      continue
+    fi
+    if [[ "$domain" == *" "* ]] || [[ "$domain" == *"/"* ]]; then
+      err "域名不应包含空格或路径。请只输入域名，例如 proxy.example.com"
+      continue
+    fi
+    break
+  done
   NANOBK_DOMAIN="$domain"
 
-  # Cert-mode with validation and retry
-  local cert_attempts=0
-  while true; do
-    cert_attempts=$((cert_attempts + 1))
-    prompt cert_mode "证书模式 (existing/self-signed)" "${NANOBK_CERT_MODE:-self-signed}"
+  # Cert-mode with numbered menu for beginners
+  echo ""
+  echo "  请选择证书模式："
+  echo "    1) self-signed — 测试/自用，最快开始（推荐）"
+  echo "    2) existing — 我已有证书 fullchain.pem / privkey.pem"
+  echo ""
 
-    case "$cert_mode" in
-      existing)
-        prompt cert_file "证书 fullchain 路径" "/etc/letsencrypt/live/${domain}/fullchain.pem"
-        prompt key_file "证书 privkey 路径" "/etc/letsencrypt/live/${domain}/privkey.pem"
-        break
-        ;;
-      self-signed)
-        warn "自签证书只建议测试，有些客户端可能拒绝。"
-        cert_file=""
-        key_file=""
-        break
-        ;;
-      self|self-|selfsigned|self_signed)
-        echo ""
-        echo -e "  ${YELLOW}你是不是想选择 self-signed？${NC}"
-        echo "    1) 使用 self-signed"
-        echo "    2) 重新输入"
-        echo "    3) 退出"
-        echo ""
-        local cert_fix_choice
-        prompt cert_fix_choice "请选择" "1"
-        case "$cert_fix_choice" in
-          1) cert_mode="self-signed"; warn "自签证书只建议测试，有些客户端可能拒绝。"; cert_file=""; key_file=""; break ;;
-          2) continue ;;
-          3|*) return 1 ;;
-        esac
-        ;;
-      *)
-        err "无效的证书模式: ${cert_mode}"
-        if [[ $cert_attempts -ge 3 ]]; then
-          err "已尝试 3 次，退出。"
+  local cert_choice
+  prompt cert_choice "请选择" "1"
+
+  case "$cert_choice" in
+    1|self-signed|self)
+      cert_mode="self-signed"
+      warn "自签证书只建议测试，有些客户端可能需要开启 skip-cert-verify。"
+      cert_file=""
+      key_file=""
+      ;;
+    2|existing)
+      cert_mode="existing"
+      prompt cert_file "证书 fullchain 路径" "/etc/letsencrypt/live/${domain}/fullchain.pem"
+      prompt key_file "证书 privkey 路径" "/etc/letsencrypt/live/${domain}/privkey.pem"
+      ;;
+    *)
+      # Handle common typos
+      case "$cert_choice" in
+        self-|selfsigned|self_signed)
+          echo ""
+          echo -e "  ${YELLOW}你是不是想选择 self-signed？${NC}"
+          echo "    1) 使用 self-signed"
+          echo "    2) 重新选择"
+          echo ""
+          local cert_fix_choice
+          prompt cert_fix_choice "请选择" "1"
+          case "$cert_fix_choice" in
+            1) cert_mode="self-signed"; warn "自签证书只建议测试。"; cert_file=""; key_file=""; ;;
+            *) return 1 ;;
+          esac
+          ;;
+        *)
+          err "无效选择: ${cert_choice}"
           return 1
-        fi
-        echo "  允许值: existing, self-signed"
-        ;;
-    esac
-  done
+          ;;
+      esac
+      ;;
+  esac
   NANOBK_CERT_MODE="$cert_mode"
 
   prompt reality_sname "Reality 伪装域名" "www.microsoft.com"
@@ -573,7 +592,26 @@ collect_cloudflare_args() {
   local profile route_url kv_choice kv_id nanob_url geo_choice geo_id
 
   prompt profile "profile.current.json 路径" "/etc/nanobk/profile.current.json"
-  prompt route_url "nanok Worker URL" "${NANOBK_NANOK_URL:-https://nanok.example.workers.dev}"
+
+  # Cloudflare URL validation
+  while true; do
+    prompt route_url "nanok Worker URL (例如 https://nanok.xxx.workers.dev)" "${NANOBK_NANOK_URL:-https://nanok.example.workers.dev}"
+    # Strip trailing slash and query params
+    route_url="${route_url%%\?*}"
+    route_url="${route_url%%/*}"
+    route_url="${route_url%/}"
+    # Re-add https:// if missing
+    if [[ "$route_url" != https://* ]] && [[ "$route_url" != http://* ]]; then
+      route_url="https://${route_url}"
+    fi
+    if [[ "$route_url" == *"token="* ]] || [[ "$route_url" == *"/jb"* ]]; then
+      echo ""
+      echo -e "  ${YELLOW}提示：这里需要 Worker 根地址，例如 https://nanok.xxx.workers.dev${NC}"
+      echo "  不要粘贴带 token 的订阅链接。"
+      continue
+    fi
+    break
+  done
   NANOBK_NANOK_URL="$route_url"
 
   echo ""
@@ -614,7 +652,19 @@ collect_cloudflare_args() {
   echo ""
   if confirm "是否部署 nanob 聚合器？（推荐）" "y"; then
     NANOBK_DEPLOY_NANOB="true"
-    prompt nanob_url "nanob Worker URL" "${NANOBK_NANOB_URL:-https://nanob.example.workers.dev}"
+    while true; do
+      prompt nanob_url "nanob Worker URL (例如 https://nanob.xxx.workers.dev)" "${NANOBK_NANOB_URL:-https://nanob.example.workers.dev}"
+      nanob_url="${nanob_url%%\?*}"
+      nanob_url="${nanob_url%/}"
+      if [[ "$nanob_url" != https://* ]] && [[ "$nanob_url" != http://* ]]; then
+        nanob_url="https://${nanob_url}"
+      fi
+      if [[ "$nanob_url" == *"token="* ]] || [[ "$nanob_url" == *"/jb"* ]]; then
+        echo -e "  ${YELLOW}提示：这里需要 Worker 根地址，不要粘贴带 token 的订阅链接。${NC}"
+        continue
+      fi
+      break
+    done
     NANOBK_NANOB_URL="$nanob_url"
 
     echo ""
@@ -1201,6 +1251,7 @@ run_full_wizard() {
   CF_STAGE_STATUS="unknown"
   BOT_STAGE_STATUS="unknown"
   WEB_STAGE_STATUS="unknown"
+  SUMMARY_HAS_FAILURES=0
 
   echo ""
   echo -e "${BOLD}═══ Full Recommended — VPS + Cloudflare + Bot + Web Panel ═══${NC}"
@@ -1212,6 +1263,11 @@ run_full_wizard() {
   echo "    3. Telegram Bot 配置"
   echo "    4. Web Panel 配置"
   echo "    5. 最终摘要"
+  echo ""
+  echo -e "  ${YELLOW}安全提示：${NC}"
+  echo "    - 一错不崩，每一步失败都有恢复命令"
+  echo "    - Bot/Web 是控制端配置，不等于节点可用"
+  echo "    - 不会泄露 token/password 到屏幕或日志"
   echo ""
 
   # Phase 0: Preflight
@@ -1226,6 +1282,7 @@ run_full_wizard() {
       VPS_STAGE_STATUS="installed"
     else
       VPS_STAGE_STATUS="failed"
+      SUMMARY_HAS_FAILURES=1
       warn "VPS 阶段失败。"
       echo ""
       echo "  恢复命令："
@@ -1283,6 +1340,7 @@ run_full_wizard() {
         CF_STAGE_STATUS="deployed"
       else
         CF_STAGE_STATUS="failed"
+        SUMMARY_HAS_FAILURES=1
         warn "Cloudflare 部署阶段失败。"
         echo ""
         echo "  恢复命令："
@@ -1365,7 +1423,9 @@ run_full_wizard() {
 
 print_summary() {
   echo ""
-  echo -e "${BOLD}── NanoBK Setup Summary ──${NC}"
+  echo -e "${BOLD}────────────────────────────${NC}"
+  echo -e "${BOLD}  NanoBK Setup Summary${NC}"
+  echo -e "${BOLD}────────────────────────────${NC}"
   echo ""
 
   # VPS — honest status
@@ -1507,16 +1567,17 @@ print_summary() {
     echo "    status:  skipped"
   fi
 
-  # Next steps and recovery
-  echo ""
-  echo "  常用命令:"
-  echo "    nanobk status"
-  echo "    nanobk doctor"
-  echo "    nanobk cf verify"
-  echo "    nanobk rotate tuic"
-  echo ""
+  # Warnings
+  local has_warnings=0
+  if [[ "${BOT_STAGE_STATUS:-}" == "control_only" ]] || [[ "${WEB_STAGE_STATUS:-}" == "control_only" ]]; then
+    echo ""
+    echo "  Warnings:"
+    echo "    - Bot/Web are control plane only if VPS or Cloudflare failed."
+    has_warnings=1
+  fi
 
-  # Recovery commands if any stage failed
+  # Next commands and recovery
+  echo ""
   if [[ "${VPS_STAGE_STATUS:-}" == "failed" ]] || [[ "${CF_STAGE_STATUS:-}" == "failed" ]] || [[ "${CF_STAGE_STATUS:-}" == "skipped_dependency" ]]; then
     echo "  恢复命令:"
     [[ "${VPS_STAGE_STATUS:-}" == "failed" ]] && echo "    bash installer/install.sh --mode vps --lang zh"
@@ -1526,8 +1587,13 @@ print_summary() {
     echo "    sudo bash /opt/nanobk/bin/healthcheck.sh"
     echo "    bash bin/nanobk status"
     echo "    bash bin/nanobk cf verify"
-    echo ""
+  else
+    echo "  Next commands:"
+    echo "    nanobk status"
+    echo "    nanobk cf verify"
+    echo "    sudo bash /opt/nanobk/bin/rotate-keys.sh --yes --protocol tuic"
   fi
+  echo ""
 
   if [[ -n "$INSTALLER_CONFIG" ]] && [[ -f "$INSTALLER_CONFIG" ]]; then
     echo "  配置已保存: ${INSTALLER_CONFIG}"
@@ -1542,8 +1608,8 @@ print_summary() {
     echo ""
   fi
   if [[ "$COMMAND_ONLY" == "1" ]]; then
-    echo -e "  ${YELLOW}注意: commands-only 模式不会验证系统状态。${NC}"
-    echo -e "  ${YELLOW}Note: Commands-only mode does not validate the system.${NC}"
+    echo -e "  ${YELLOW}注意: commands-only 模式只输出命令，不代表当前系统已经可用。${NC}"
+    echo -e "  ${YELLOW}Note: Commands-only mode only outputs commands, not system validation.${NC}"
     echo ""
   fi
 }

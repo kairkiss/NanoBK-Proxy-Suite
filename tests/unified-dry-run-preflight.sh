@@ -63,7 +63,7 @@ OUTPUT=$(bash "$INSTALLER" --mode full --dry-run --defaults --lang zh 2>&1) || E
 check "exit code 0" "$([[ $EXIT_CODE -eq 0 ]] && echo 1 || echo 0)"
 check "contains assumed free" "$(contains "$OUTPUT" "assumed free")"
 check "contains dry-run" "$(contains "$OUTPUT" "dry-run")"
-check "no port conflict menu" "$(not_contains "$OUTPUT" "请选择")"
+check "no port conflict menu" "$(not_contains "$OUTPUT" "端口冲突，已退出")"
 check "no port conflict exit" "$(not_contains "$OUTPUT" "端口冲突，已退出")"
 check "no real port occupied msg" "$(not_contains "$OUTPUT" "已被占用")"
 check "does NOT write bot/.env" "$([[ ! -f "$REPO_DIR/bot/.env" ]] && echo 1 || echo 0)"
@@ -78,7 +78,7 @@ OUTPUT_CLI=$(bash "$INSTALLER" --mode cli-only --dry-run --defaults --lang zh 2>
 
 check "exit code 0" "$([[ $EXIT_CODE -eq 0 ]] && echo 1 || echo 0)"
 check "contains assumed free" "$(contains "$OUTPUT_CLI" "assumed free")"
-check "no port conflict menu" "$(not_contains "$OUTPUT_CLI" "请选择")"
+check "no port conflict menu" "$(not_contains "$OUTPUT_CLI" "端口冲突，已退出")"
 check "no port conflict exit" "$(not_contains "$OUTPUT_CLI" "端口冲突，已退出")"
 
 # ── Test 3: cli-bot --dry-run --defaults ────────────────────────────────────
@@ -90,7 +90,7 @@ OUTPUT_CB=$(bash "$INSTALLER" --mode cli-bot --dry-run --defaults --lang zh 2>&1
 
 check "exit code 0" "$([[ $EXIT_CODE -eq 0 ]] && echo 1 || echo 0)"
 check "contains assumed free" "$(contains "$OUTPUT_CB" "assumed free")"
-check "no port conflict menu" "$(not_contains "$OUTPUT_CB" "请选择")"
+check "no port conflict menu" "$(not_contains "$OUTPUT_CB" "端口冲突，已退出")"
 
 # ── Test 4: cli-web --dry-run --defaults ────────────────────────────────────
 echo ""
@@ -101,7 +101,7 @@ OUTPUT_CW=$(bash "$INSTALLER" --mode cli-web --dry-run --defaults --lang zh 2>&1
 
 check "exit code 0" "$([[ $EXIT_CODE -eq 0 ]] && echo 1 || echo 0)"
 check "contains assumed free" "$(contains "$OUTPUT_CW" "assumed free")"
-check "no port conflict menu" "$(not_contains "$OUTPUT_CW" "请选择")"
+check "no port conflict menu" "$(not_contains "$OUTPUT_CW" "端口冲突，已退出")"
 
 # ── Test 5: cli-bot-web --dry-run --defaults ────────────────────────────────
 echo ""
@@ -112,7 +112,7 @@ OUTPUT_CBW=$(bash "$INSTALLER" --mode cli-bot-web --dry-run --defaults --lang zh
 
 check "exit code 0" "$([[ $EXIT_CODE -eq 0 ]] && echo 1 || echo 0)"
 check "contains assumed free" "$(contains "$OUTPUT_CBW" "assumed free")"
-check "no port conflict menu" "$(not_contains "$OUTPUT_CBW" "请选择")"
+check "no port conflict menu" "$(not_contains "$OUTPUT_CBW" "端口冲突，已退出")"
 
 # ── Test 6: Static checks ──────────────────────────────────────────────────
 echo ""

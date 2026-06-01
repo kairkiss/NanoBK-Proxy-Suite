@@ -2,7 +2,7 @@
 
 > VPS 四协议节点 + Cloudflare Clash/Mihomo 订阅 + 自动换密钥 + 可选 edgetunnel 聚合
 
-**v1.6.5** — CLI Core + Telegram Bot + Web Panel + Unified Beginner Installer。
+**v1.7.0** — CLI Core + Telegram Bot + Web Panel + Unified Beginner Installer。
 
 ## 最快开始
 

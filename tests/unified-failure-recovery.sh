@@ -97,7 +97,7 @@ echo "── Test 6: Cert-mode validation ──"
 
 check "has cert-mode validation" "$(has_pattern "$INSTALLER" 'self-signed.*建议\|self-signed.*suggestion')"
 check "has self- typo handling" "$(has_pattern "$INSTALLER" 'self-\|selfsigned')"
-check "has cert retry logic" "$(has_pattern "$INSTALLER" 'cert_attempts\|证书.*重试')"
+check "has cert-mode menu" "$(has_pattern "$INSTALLER" 'self-signed.*测试\|self-signed.*推荐\|证书模式')"
 
 # ── Summary ─────────────────────────────────────────────────────────────────
 echo ""

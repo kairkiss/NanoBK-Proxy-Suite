@@ -13,8 +13,14 @@
 set -Eeuo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-TMP="${TMPDIR:-/tmp}/nanobk-rotate-test"
-TMP_FAIL="${TMPDIR:-/tmp}/nanobk-rotate-fail-test"
+TMP=$(mktemp -d "${TMPDIR:-/tmp}/nanobk-rotate-test-XXXXXX")
+TMP_FAIL=$(mktemp -d "${TMPDIR:-/tmp}/nanobk-rotate-fail-XXXXXX")
+
+# Cleanup on exit
+cleanup() {
+  rm -rf "$TMP" "$TMP_FAIL" 2>/dev/null || true
+}
+trap cleanup EXIT
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -558,7 +564,7 @@ print(d if d else '')
 
 run_single_protocol_test() {
   local proto="$1"
-  local tmp_dir="${TMPDIR:-/tmp}/nanobk-rotate-${proto}-test"
+  local tmp_dir=$(mktemp -d "${TMPDIR:-/tmp}/nanobk-rotate-${proto}-XXXXXX")
 
   echo "--- Testing protocol: ${proto} ---"
   echo ""

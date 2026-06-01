@@ -1,5 +1,36 @@
 # Changelog
 
+## v1.7.0 — Clean Full Wizard Productization
+
+### Added
+
+- More productized Full Wizard stage flow with honest stage states
+- Beginner-friendly recovery commands for failed VPS, Cloudflare, Bot, and Web stages
+- Stronger input guidance for cert mode, domain, Worker URLs, and tokens
+- Summary output that distinguishes verified, failed, skipped, dry-run, and control-plane-only states
+- Cert-mode numbered menu for beginners (self-signed recommended)
+- Domain validation (strips protocol, rejects empty/spaces)
+- Cloudflare URL validation (strips query params, rejects token URLs)
+
+### Fixed
+
+- Full Wizard no longer misleads users after dependency failures
+- Cloudflare stage is skipped when VPS profile dependency is missing
+- Bot/Web setup clearly states when it is only a control-plane configuration
+- rotate-render-only tests now use isolated temp directories to avoid concurrent test pollution
+
+### Safety
+
+- Token entry warnings are shown before collecting secrets
+- Summary output avoids printing raw tokens
+- Offline tests avoid shared fixed temp directories
+
+### Tests
+
+- Added `tests/unified-full-wizard-productization.sh`: input validation and stage dependency coverage
+- Added `tests/unified-summary-honesty.sh`: summary honesty verification
+- Added `tests/rotate-render-only-tempdir.sh`: temp dir isolation verification
+
 ## v1.6.5 — Noninteractive Test Timeout Guard Hotfix
 
 ### Fixed

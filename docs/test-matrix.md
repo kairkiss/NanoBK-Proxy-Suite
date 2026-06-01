@@ -36,6 +36,9 @@ All test scripts in `tests/` are designed to be safe for local development. None
 | `unified-failure-recovery.sh` | Failure recovery and stage dependencies | No | No | No | ✅ | ✅ |
 | `unified-cloudflare-dependency.sh` | Cloudflare profile dependency guard | No | No | No | ✅ | ✅ |
 | `unified-test-failure-propagation.sh` | Test failure propagation | No | No | No | ✅ | ✅ |
+| `unified-full-wizard-productization.sh` | Full wizard input validation and stage deps | No | No | No | ✅ | ✅ |
+| `unified-summary-honesty.sh` | Summary honesty verification | No | No | No | ✅ | ✅ |
+| `rotate-render-only-tempdir.sh` | Temp dir isolation verification | No | No | No | ✅ | ✅ |
 
 ¹ Wrangler may download npm packages on first run.
 
