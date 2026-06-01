@@ -1,5 +1,25 @@
 # Changelog
 
+## v1.7.10 — Full Wizard Flow Wiring Cleanup
+
+### Fixed
+
+- Wired VPS, Cloudflare, Bot, and Web review loops into the actual Full Wizard flow
+- Removed old one-shot review tables from collect_vps_args, collect_cloudflare_args, collect_bot_args, and collect_web_args
+- Editing a review field now returns to the same review table before execution
+- Existing Cloudflare KV detection is now used before automatic KV creation
+- Worker URL recommendation is now used before asking for full Worker URLs
+- Mock deploy/preflight/validate paths now run through the real Full Wizard flow
+- Interactive mock tests now run the Full Wizard input stream instead of only grepping source code
+- Bot/Web internal dry-run, self-test, launch, and 0.0.0.0 confirmations no longer use loose confirm
+
+### Safety
+
+- Mock tests do not connect to VPS or Cloudflare
+- Mock tests do not write to /etc or /root
+- Review tables and mock output do not print raw tokens or secrets
+- v1.7.10 does not claim real VPS or Cloudflare validation
+
 ## v1.7.9 — Full Wizard Real Interaction Mock Hardening
 
 ### Fixed

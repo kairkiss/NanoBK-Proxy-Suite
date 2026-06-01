@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — Unified Beginner Installer v1.7.9
+# NanoBK Proxy Suite — Unified Beginner Installer v1.7.10
 #
 # Interactive entry point for NanoBK Proxy Suite.
 # Guides users through VPS deployment, Cloudflare setup, Bot, Web Panel.
@@ -20,7 +20,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # ── Constants ───────────────────────────────────────────────────────────────
 
 REPO_URL="https://github.com/kairkiss/NanoBK-Proxy-Suite"
-VERSION="1.7.9"
+VERSION="1.7.10"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -1159,42 +1159,19 @@ collect_vps_args() {
 
   prompt reality_sname "Reality 伪装域名" "www.microsoft.com"
 
-  # VPS Review Table
-  echo ""
-  echo -e "${BOLD}VPS 配置确认${NC}"
-  echo ""
-  echo "  1. 节点域名：${domain}"
-  echo "  2. 证书模式：${cert_mode}"
-  echo "  3. Reality 伪装域名：${reality_sname}"
-  echo ""
-  echo "    1) 确认并执行 VPS 部署"
-  echo "    2) 修改节点域名"
-  echo "    3) 修改证书模式"
-  echo "    4) 修改 Reality 伪装域名"
-  echo "    5) 返回上一级"
-  echo "    6) 退出"
-  echo ""
-  local vps_review_choice
-  prompt_menu_choice vps_review_choice "请选择" "1" "6"
-  case "$vps_review_choice" in
-    1) ;;  # Continue to deploy
-    2) prompt domain "请输入节点域名" "$domain"; NANOBK_DOMAIN="$domain" ;;
-    3) # Re-select cert mode
-       echo "  请选择证书模式："
-       echo "    1) self-signed（推荐）"
-       echo "    2) existing"
-       local cert_re_choice
-       prompt_menu_choice cert_re_choice "请选择" "1" "2"
-       case "$cert_re_choice" in
-         1) cert_mode="self-signed"; cert_file=""; key_file="" ;;
-         2) cert_mode="existing"; prompt cert_file "证书路径" "${cert_file:-}"; prompt key_file "密钥路径" "${key_file:-}" ;;
-       esac
-       NANOBK_CERT_MODE="$cert_mode"
-       ;;
-    4) prompt reality_sname "Reality 伪装域名" "$reality_sname" ;;
-    5) return 0 ;;  # Return to caller
-    6|*) return 1 ;;
+  # VPS Review Loop — loops until user confirms, returns, or exits
+  local vps_review_rc=0
+  vps_review_loop "$domain" "$cert_mode" "$reality_sname" || vps_review_rc=$?
+  case "$vps_review_rc" in
+    0) ;;  # Confirmed, continue to deploy
+    2) return 2 ;;  # Return to caller
+    *) return 1 ;;  # Exit
   esac
+
+  # Read final values from global vars set by review loop
+  domain="$NANOBK_DOMAIN"
+  cert_mode="$NANOBK_CERT_MODE"
+  reality_sname="${NANOBK_REALITY_SERVERNAME:-$reality_sname}"
 
   echo ""
 
@@ -1206,17 +1183,21 @@ collect_vps_args() {
   [[ "$cert_mode" == "existing" ]] && cmd+=(--cert-file "$cert_file" --key-file "$key_file")
   [[ "$DRY_RUN" == "1" ]] && cmd+=(--dry-run)
 
-  # IMPORTANT: run_cmd sets LAST_RUN_CMD_STATUS
-  # executed = real deploy ran and succeeded
-  # dry_run / commands_only = preview only, not real deploy
-  # skipped_user = user chose not to execute, not a deploy
-  # failed = command ran but failed
-  run_critical_step "部署 VPS 四协议" "${cmd[@]}" || return 1
+  # VPS deploy: mock or real
+  if [[ "${NANOBK_TEST_MOCK:-}" == "1" ]]; then
+    mock_deploy_vps
+  else
+    run_critical_step "部署 VPS 四协议" "${cmd[@]}" || return 1
+  fi
 
   # Post-deploy healthcheck and status (only meaningful if actually deployed)
   if [[ "$LAST_RUN_CMD_STATUS" == "executed" ]]; then
-    run_cmd "VPS healthcheck" sudo bash "${REPO_DIR}/vps/scripts/healthcheck.sh" --config-dir /etc/nanobk || true
-    run_cmd "NanoBK status" bash "${REPO_DIR}/bin/nanobk" status --config-dir /etc/nanobk || true
+    if [[ "${NANOBK_TEST_MOCK:-}" == "1" ]]; then
+      mock_healthcheck
+    else
+      run_cmd "VPS healthcheck" sudo bash "${REPO_DIR}/vps/scripts/healthcheck.sh" --config-dir /etc/nanobk || true
+      run_cmd "NanoBK status" bash "${REPO_DIR}/bin/nanobk" status --config-dir /etc/nanobk || true
+    fi
   fi
 }
 
@@ -1301,121 +1282,119 @@ collect_cloudflare_args() {
   done
   NANOBK_NANOK_URL="$route_url"
 
-  echo ""
-  echo "  KV namespace 选择："
-  echo "    1) 自动创建 KV（推荐）"
-  echo "    2) 使用已有 KV namespace ID"
-  prompt kv_choice "请选择" "1"
-
+  # KV detection: check for existing SUB_STORE
   local kv_args=()
-  if [[ "$kv_choice" == "2" ]]; then
-    prompt kv_id "KV namespace ID"
-    kv_args+=(--kv-namespace-id "$kv_id")
-  else
-    kv_args+=(--create-kv)
+  local kv_mode="自动创建"
+  local existing_sub_store_id=""
+  if [[ "$DRY_RUN" != "1" ]] && [[ "$COMMAND_ONLY" != "1" ]]; then
+    existing_sub_store_id=$(find_existing_kv_id "SUB_STORE" 2>/dev/null || echo "")
+  elif [[ "${NANOBK_TEST_MOCK_EXISTING_KV:-}" == "1" ]]; then
+    existing_sub_store_id=$(mock_find_existing_kv "SUB_STORE" 2>/dev/null || echo "")
   fi
 
-  # Cloudflare Review Table
-  echo ""
-  echo -e "${BOLD}Cloudflare 配置确认${NC}"
-  echo ""
-  echo "  1. 节点配置文件：${profile}"
-  echo "  2. nanok 地址：${route_url}"
-  echo "  3. KV：$([ "$kv_choice" == "2" ] && echo "使用已有 ID: ${kv_id}" || echo "自动创建")"
-  echo "  4. nanob：$([ "${NANOBK_DEPLOY_NANOB:-true}" == "true" ] && echo "启用" || echo "不启用")"
-  [[ -n "${NANOBK_NANOB_URL:-}" ]] && echo "  5. nanob 地址：${NANOBK_NANOB_URL}"
-  echo ""
-  echo "    1) 确认并部署 Cloudflare"
-  echo "    2) 修改 Worker 地址"
-  echo "    3) 修改 KV 设置"
-  echo "    4) 修改 nanob 设置"
-  echo "    5) 返回上一级"
-  echo "    6) 退出"
-  echo ""
-  local cf_review_choice
-  prompt_menu_choice cf_review_choice "请选择" "1" "6"
-  case "$cf_review_choice" in
-    1) ;;  # Continue to deploy
-    2) prompt route_url "nanok Worker URL" "$route_url"; NANOBK_NANOK_URL="$route_url" ;;
-    3) echo "  KV namespace 选择："
-       echo "    1) 自动创建 KV（推荐）"
-       echo "    2) 使用已有 KV namespace ID"
-       prompt kv_choice "请选择" "$kv_choice"
-       if [[ "$kv_choice" == "2" ]]; then
-         prompt kv_id "KV namespace ID"
-         kv_args=(--kv-namespace-id "$kv_id")
-       else
-         kv_args=(--create-kv)
-       fi
-       ;;
-    4) if confirm "是否部署 nanob 聚合器？" "y"; then
-         NANOBK_DEPLOY_NANOB="true"
-       else
-         NANOBK_DEPLOY_NANOB="false"
-       fi
-       ;;
-    5) return 0 ;;
-    6|*) return 1 ;;
+  if [[ -n "$existing_sub_store_id" ]]; then
+    echo ""
+    echo -e "  ${YELLOW}检测到你的 Cloudflare 账号里已经有 SUB_STORE${NC}"
+    echo "  id: ${existing_sub_store_id}"
+    echo ""
+    echo "    1) 复用现有 SUB_STORE"
+    echo "    2) 创建新的 KV 名称"
+    echo "    3) 使用已有 KV namespace ID"
+    echo "    4) 返回修改"
+    echo "    5) 退出"
+    echo ""
+    local kv_reuse_choice
+    prompt_menu_choice kv_reuse_choice "请选择" "1" "5"
+    case "$kv_reuse_choice" in
+      1) kv_args=(--kv-namespace-id "$existing_sub_store_id"); kv_mode="复用现有 SUB_STORE" ;;
+      2) kv_args=(--create-kv); kv_mode="自动创建" ;;
+      3) prompt kv_id "KV namespace ID"; kv_args=(--kv-namespace-id "$kv_id"); kv_mode="使用已有 ID" ;;
+      4) return 2 ;;
+      5|*) return 1 ;;
+    esac
+  else
+    echo ""
+    echo "  KV namespace 选择："
+    echo "    1) 自动创建 KV（推荐）"
+    echo "    2) 使用已有 KV namespace ID"
+    local kv_choice
+    prompt_menu_choice kv_choice "请选择" "1" "2"
+    if [[ "$kv_choice" == "2" ]]; then
+      prompt kv_id "KV namespace ID"
+      kv_args=(--kv-namespace-id "$kv_id")
+      kv_mode="使用已有 ID"
+    else
+      kv_args=(--create-kv)
+      kv_mode="自动创建"
+    fi
+  fi
+
+  # Cloudflare Review Loop
+  local cf_review_rc=0
+  cloudflare_review_loop "$profile" "$route_url" "${NANOBK_NANOB_URL:-}" "$kv_mode" || cf_review_rc=$?
+  case "$cf_review_rc" in
+    0) ;;  # Confirmed
+    2) return 2 ;;  # Return to caller
+    *) return 1 ;;  # Exit
   esac
+
+  # Read final values from global vars set by review loop
+  route_url="$NANOBK_NANOK_URL"
+  nanob_url="$NANOBK_NANOB_URL"
 
   NANOBK_DEPLOY_CLOUDFLARE="true"
 
-  # Preflight and profile validation before deployment
-  run_critical_step "Cloudflare preflight" bash "$REPO_DIR/installer/install-cloudflare.sh" --preflight || {
-    err "Cloudflare preflight failed."
-    err ""
-    err "常见修复："
-    err "  1. 安装 Node.js >= 22:"
-    err "     curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -"
-    err "     sudo apt install -y nodejs"
-    err "  2. 安装 wrangler: npm install -g wrangler"
-    err ""
-    # Headless Wrangler OAuth guidance
-    if [[ -z "${DISPLAY:-}" ]] || ! command -v xdg-open &>/dev/null; then
-      err "  检测到这是无图形界面的 VPS，Wrangler OAuth 需要本地浏览器授权："
+  # Preflight: mock or real
+  if [[ "${NANOBK_TEST_MOCK:-}" == "1" ]]; then
+    mock_preflight
+  else
+    run_critical_step "Cloudflare preflight" bash "$REPO_DIR/installer/install-cloudflare.sh" --preflight || {
+      err "Cloudflare preflight failed."
       err ""
-      err "    1. 在本地电脑执行 SSH 隧道："
-      err "       ssh -L 8976:127.0.0.1:8976 root@YOUR_VPS_IP"
-      err "    2. 在 VPS 上执行："
-      err "       wrangler login --browser=false"
-      err "    3. 复制授权 URL 到本地浏览器打开"
-      err "    4. 授权完成后验证：wrangler whoami"
+      err "常见修复："
+      err "  1. 安装 Node.js >= 22:"
+      err "     curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -"
+      err "     sudo apt install -y nodejs"
+      err "  2. 安装 wrangler: npm install -g wrangler"
       err ""
-    else
-      err "  3. 登录 wrangler: wrangler login --browser=false"
-    fi
-    return 1
-  }
+      if [[ -z "${DISPLAY:-}" ]] || ! command -v xdg-open &>/dev/null; then
+        err "  检测到这是无图形界面的 VPS，Wrangler OAuth 需要本地浏览器授权："
+        err "    1. 本地电脑: ssh -L 8976:127.0.0.1:8976 root@YOUR_VPS_IP"
+        err "    2. VPS 上: wrangler login --browser=false"
+        err "    3. 复制授权 URL 到本地浏览器打开"
+        err "    4. 验证: wrangler whoami"
+      else
+        err "  3. 登录 wrangler: wrangler login --browser=false"
+      fi
+      return 1
+    }
 
-  # Check if preflight was skipped by user
-  if [[ "${LAST_RUN_CMD_STATUS:-}" == "skipped_user" ]]; then
-    CF_DEPLOY_STATUS="manual_pending"
-    warn "Cloudflare preflight was not executed."
-    echo "  恢复命令："
-    echo "    bash installer/install-cloudflare.sh --preflight"
-    echo "    bash installer/install.sh --mode cloudflare --lang zh"
-    return 2
+    if [[ "${LAST_RUN_CMD_STATUS:-}" == "skipped_user" ]]; then
+      CF_DEPLOY_STATUS="manual_pending"
+      warn "Cloudflare preflight was not executed."
+      return 2
+    fi
   fi
 
-  run_critical_step "Validate profile" bash "$REPO_DIR/installer/install-cloudflare.sh" --validate-profile-only --profile "$profile" || {
-    err "Profile validation failed."
-    err "请检查 profile 文件是否包含 hy2/tuic/reality/trojan 四个协议段。"
-    return 1
-  }
+  # Profile validation: mock or real
+  if [[ "${NANOBK_TEST_MOCK:-}" == "1" ]]; then
+    mock_validate_profile
+  else
+    run_critical_step "Validate profile" bash "$REPO_DIR/installer/install-cloudflare.sh" --validate-profile-only --profile "$profile" || {
+      err "Profile validation failed."
+      return 1
+    }
 
-  # Check if profile validation was skipped by user
-  if [[ "${LAST_RUN_CMD_STATUS:-}" == "skipped_user" ]]; then
-    CF_DEPLOY_STATUS="manual_pending"
-    warn "Profile validation was not executed."
-    echo "  恢复命令："
-    echo "    bash installer/install-cloudflare.sh --validate-profile-only --profile /etc/nanobk/profile.current.json"
-    echo "    bash installer/install.sh --mode cloudflare --lang zh"
-    return 2
+    if [[ "${LAST_RUN_CMD_STATUS:-}" == "skipped_user" ]]; then
+      CF_DEPLOY_STATUS="manual_pending"
+      warn "Profile validation was not executed."
+      return 2
+    fi
   fi
 
   # nanob
   echo ""
-  if confirm "是否部署 nanob 聚合器？（推荐）" "y"; then
+  if ask_yes_no_menu "是否部署 nanob 聚合器？（推荐）" "y"; then
     NANOBK_DEPLOY_NANOB="true"
     while true; do
       prompt nanob_url "nanob Worker URL (例如 https://nanob.xxx.workers.dev)" "${NANOBK_NANOB_URL:-https://nanob.example.workers.dev}"
@@ -1497,7 +1476,11 @@ collect_cloudflare_args() {
       "${geo_args[@]}")
     [[ "$DRY_RUN" == "1" ]] && nanok_cmd+=(--dry-run)
 
-    run_critical_step "部署 nanok + nanob" "${nanok_cmd[@]}"
+    if [[ "${NANOBK_TEST_MOCK:-}" == "1" ]]; then
+      mock_deploy_cloudflare
+    else
+      run_critical_step "部署 nanok + nanob" "${nanok_cmd[@]}"
+    fi
   else
     NANOBK_DEPLOY_NANOB="false"
     local nanok_cmd=(bash "$REPO_DIR/installer/install-cloudflare.sh" --yes
@@ -1506,7 +1489,11 @@ collect_cloudflare_args() {
       --route-url "$route_url")
     [[ "$DRY_RUN" == "1" ]] && nanok_cmd+=(--dry-run)
 
-    run_critical_step "部署 nanok" "${nanok_cmd[@]}"
+    if [[ "${NANOBK_TEST_MOCK:-}" == "1" ]]; then
+      mock_deploy_cloudflare
+    else
+      run_critical_step "部署 nanok" "${nanok_cmd[@]}"
+    fi
   fi
 
   # Set CF deploy status based on run_cmd outcome
@@ -1601,7 +1588,7 @@ collect_bot_args() {
       echo "  如果仍失败："
       echo "    sudo apt install -y python3.12-venv"
       echo ""
-      if ! confirm "已安装或稍后安装，继续？" "y"; then
+      if ! ask_yes_no_menu "已安装或稍后安装，继续？" "y"; then
         return 1
       fi
     fi
@@ -1650,27 +1637,19 @@ collect_bot_args() {
   echo "  2. Owner ID：${owner_id:-未填写}"
   echo "  3. Dry-run：待选择"
   echo ""
-  echo "    1) 确认并继续"
-  echo "    2) 修改 Bot Token"
-  echo "    3) 修改 Owner ID"
-  echo "    4) 返回上一级"
-  echo "    5) 退出"
-  echo ""
-  local bot_review_choice
-  prompt_menu_choice bot_review_choice "请选择" "1" "5"
-  case "$bot_review_choice" in
-    1) ;;  # Continue
-    2) prompt bot_token "Telegram Bot Token" "$bot_token" ;;
-    3) prompt owner_id "Telegram User ID" "$owner_id" ;;
-    4) return 0 ;;
-    5|*) return 1 ;;
+  # Bot Review Loop
+  local bot_review_rc=0
+  bot_review_loop "$bot_token" "$owner_id" "${bot_dry_run:-true}" || bot_review_rc=$?
+  case "$bot_review_rc" in
+    0) ;;  # Confirmed
+    2) return 2 ;;  # Return to caller
+    *) return 1 ;;  # Exit
   esac
 
-  if confirm "首次启动使用 dry-run 模式？(推荐)" "y"; then
-    bot_dry_run="true"
-  else
-    bot_dry_run="false"
-  fi
+  # Read final values from global vars set by review loop
+  bot_token="$NANOBK_BOT_TOKEN"
+  owner_id="$NANOBK_BOT_OWNER_ID"
+  bot_dry_run="$NANOBK_BOT_DRY_RUN"
 
   local repo_dir_for_bot="$REPO_DIR"
   if [[ "$DRY_RUN" != "1" ]]; then
@@ -1695,14 +1674,14 @@ EOF
   print_cmd python3 "$REPO_DIR/bot/nanobk_bot.py" --self-test
 
   if [[ "$DRY_RUN" != "1" ]] && [[ "$COMMAND_ONLY" != "1" ]]; then
-    if confirm "现在运行 Bot self-test？" "y"; then
+    if ask_yes_no_menu "现在运行 Bot self-test？" "y"; then
       python3 "$REPO_DIR/bot/nanobk_bot.py" --self-test || warn "Bot self-test 失败"
     fi
   fi
 
   echo ""
   if [[ "$DRY_RUN" != "1" ]] && [[ "$COMMAND_ONLY" != "1" ]]; then
-    if confirm "是否现在启动 Bot？" "n"; then
+    if ask_yes_no_menu "是否现在启动 Bot？" "n"; then
       echo "  启动 Bot:"
       echo "    cd $REPO_DIR/bot && bash run.sh"
     fi
@@ -1749,10 +1728,15 @@ collect_web_args() {
     echo -e "  ${RED}⚠ 警告: 你正在让 Web Panel 监听 0.0.0.0，可能暴露公网。${NC}"
     echo "  推荐保持 127.0.0.1，并通过 SSH tunnel 或 Cloudflare Tunnel 访问。"
     echo ""
-    if ! confirm "确认使用 0.0.0.0？" "n"; then
-      web_host="127.0.0.1"
-      echo "  已切换回 127.0.0.1"
-    fi
+    echo "    1) 切换回 127.0.0.1（推荐）"
+    echo "    2) 确认使用 0.0.0.0"
+    echo ""
+    local host_choice
+    prompt_menu_choice host_choice "请选择" "1" "2"
+    case "$host_choice" in
+      1) web_host="127.0.0.1"; echo "  已切换回 127.0.0.1" ;;
+      2) ;;
+    esac
   fi
 
   NANOBK_WEB_PORT="$web_port"
@@ -1768,37 +1752,31 @@ collect_web_args() {
     ok "自动生成 Flask Secret Key"
   fi
 
-  # Web Review Table
-  echo ""
-  echo -e "${BOLD}Web Panel 配置确认${NC}"
-  echo ""
-  echo "  1. Listen host：${web_host}"
-  echo "  2. Listen port：${web_port}"
-  echo "  3. Token：$([ -n "$web_token" ] && echo "已生成" || echo "待生成")"
-  echo "  4. Secret：$([ -n "$web_secret" ] && echo "已生成" || echo "待生成")"
-  echo ""
-  echo "    1) 确认并继续"
-  echo "    2) 修改 host"
-  echo "    3) 修改 port"
-  echo "    4) 重新生成 token/secret"
-  echo "    5) 返回上一级"
-  echo "    6) 退出"
-  echo ""
-  local web_review_choice
-  prompt_menu_choice web_review_choice "请选择" "1" "6"
-  case "$web_review_choice" in
-    1) ;;  # Continue
-    2) prompt web_host "监听地址" "$web_host"; NANOBK_WEB_HOST="$web_host" ;;
-    3) prompt web_port "监听端口" "$web_port"; NANOBK_WEB_PORT="$web_port" ;;
-    4) web_token=$(openssl rand -base64 32 | tr -d '\n/+=' | head -c 32)
-       web_secret=$(openssl rand -base64 32 | tr -d '\n/+=' | head -c 32)
-       ok "已重新生成 token/secret"
-       ;;
-    5) return 0 ;;
-    6|*) return 1 ;;
+  # Web Review Loop
+  local web_review_rc=0
+  web_review_loop "$web_host" "$web_port" "${web_dry_run:-true}" || web_review_rc=$?
+  case "$web_review_rc" in
+    0) ;;  # Confirmed
+    2) return 2 ;;  # Return to caller
+    *) return 1 ;;  # Exit
   esac
 
-  if confirm "首次启动使用 dry-run 模式？(推荐)" "y"; then
+  # Read final values from global vars set by review loop
+  web_host="$NANOBK_WEB_HOST"
+  web_port="$NANOBK_WEB_PORT"
+  web_dry_run="$NANOBK_WEB_DRY_RUN"
+
+  # Auto-generate token/secret after review confirmation
+  if [[ -z "$web_token" ]]; then
+    web_token=$(openssl rand -base64 32 | tr -d '\n/+=' | head -c 32)
+    ok "自动生成 Web Token"
+  fi
+  if [[ -z "$web_secret" ]]; then
+    web_secret=$(openssl rand -base64 32 | tr -d '\n/+=' | head -c 32)
+    ok "自动生成 Flask Secret Key"
+  fi
+
+  if ask_yes_no_menu "首次启动使用 dry-run 模式？(推荐)" "y"; then
     web_dry_run="true"
   else
     web_dry_run="false"
@@ -1833,7 +1811,7 @@ EOF
   print_cmd python3 "$REPO_DIR/web/app.py" --self-test
 
   if [[ "$DRY_RUN" != "1" ]] && [[ "$COMMAND_ONLY" != "1" ]]; then
-    if confirm "现在运行 Web Panel self-test？" "y"; then
+    if ask_yes_no_menu "现在运行 Web Panel self-test？" "y"; then
       python3 "$REPO_DIR/web/app.py" --self-test || warn "Web Panel self-test 失败"
     fi
   fi
@@ -2677,7 +2655,7 @@ run_full_wizard() {
 
       if [[ "$CF_STAGE_STATUS" == "failed" ]] || [[ "$CF_STAGE_STATUS" == "manual_pending" ]]; then
         if [[ "$DRY_RUN" != "1" ]] && [[ "$COMMAND_ONLY" != "1" ]]; then
-          if ! confirm "是否继续后续步骤？" "n"; then
+          if ! ask_yes_no_menu "是否继续后续步骤？" "n"; then
             save_config
             print_summary
             return 1
