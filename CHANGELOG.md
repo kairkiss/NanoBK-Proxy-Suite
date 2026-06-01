@@ -1,5 +1,21 @@
 # Changelog
 
+## v1.7.12 — Full Wizard Real Stdin Mock Validation
+
+### Fixed
+
+- Full Wizard interactive mock now uses a real stdin input stream instead of --defaults
+- Dynamic mock now verifies invalid menu input, review editing, Bot/Web redaction, and Summary output from real installer output
+- Test matrix now documents the dynamic interactive mock test
+- v1.7 validation docs now clarify that stdin mock passing is required before any further real VPS test
+
+### Safety
+
+- Mock tests do not connect to a real VPS or Cloudflare
+- Mock tests do not write to /etc or /root
+- Mock output does not print raw tokens or secrets
+- v1.7.12 does not claim real VPS or Cloudflare validation
+
 ## v1.7.11 — Full Wizard Dynamic Mock and Cloudflare UX Completion
 
 ### Fixed

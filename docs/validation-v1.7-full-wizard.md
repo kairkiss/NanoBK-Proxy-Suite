@@ -5,6 +5,8 @@
 - Real clean VPS Full Wizard validation must be executed by a human tester
 - Claude Code / local tests cannot claim real VPS / Cloudflare validation passed
 - dry-run does not prove real deployment works
+- v1.7.12 dynamic stdin mock passing is required before any further real VPS test
+- 1.7 Full Wizard not completed before entering 1.8
 - Do not paste tokens into chat, logs, or issues
 - Do not `cat bot/.env` or `cat web/.env`
 - Subscription URLs need to be redacted before sharing

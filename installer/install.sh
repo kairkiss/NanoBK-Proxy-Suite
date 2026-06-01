@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — Unified Beginner Installer v1.7.11
+# NanoBK Proxy Suite — Unified Beginner Installer v1.7.12
 #
 # Interactive entry point for NanoBK Proxy Suite.
 # Guides users through VPS deployment, Cloudflare setup, Bot, Web Panel.
@@ -20,7 +20,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # ── Constants ───────────────────────────────────────────────────────────────
 
 REPO_URL="https://github.com/kairkiss/NanoBK-Proxy-Suite"
-VERSION="1.7.11"
+VERSION="1.7.12"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -284,8 +284,10 @@ wizard_state_path() {
     echo "$WIZARD_STATE_FILE"
     return
   fi
-  # Try /opt repo first, then local repo
-  if [[ -w "/opt/NanoBK-Proxy-Suite" ]]; then
+  # In mock mode, write to tmpdir
+  if [[ "${NANOBK_TEST_MOCK:-}" == "1" ]] && [[ -n "${NANOBK_TEST_TMPDIR:-}" ]]; then
+    WIZARD_STATE_FILE="${NANOBK_TEST_TMPDIR}/.nanobk-wizard-state.json"
+  elif [[ -w "/opt/NanoBK-Proxy-Suite" ]]; then
     WIZARD_STATE_FILE="/opt/NanoBK-Proxy-Suite/.nanobk-wizard-state.json"
   else
     WIZARD_STATE_FILE="${REPO_DIR:-.}/.nanobk-wizard-state.json"
@@ -1735,9 +1737,14 @@ collect_bot_args() {
   bot_dry_run="$NANOBK_BOT_DRY_RUN"
 
   local repo_dir_for_bot="$REPO_DIR"
+  local bot_env_dir="$REPO_DIR/bot"
+  # In mock mode, write to tmpdir
+  if [[ "${NANOBK_TEST_MOCK:-}" == "1" ]] && [[ -n "${NANOBK_TEST_TMPDIR:-}" ]]; then
+    bot_env_dir="${NANOBK_TEST_TMPDIR}/bot"
+  fi
   if [[ "$DRY_RUN" != "1" ]]; then
-    mkdir -p "$REPO_DIR/bot"
-    cat > "$REPO_DIR/bot/.env" <<EOF
+    mkdir -p "$bot_env_dir"
+    cat > "$bot_env_dir/.env" <<EOF
 TELEGRAM_BOT_TOKEN=${bot_token}
 OWNER_TELEGRAM_ID=${owner_id}
 NANOBK_CLI=${repo_dir_for_bot}/bin/nanobk
@@ -1746,7 +1753,7 @@ NANOBK_BOT_DRY_RUN=${bot_dry_run}
 NANOBK_COMMAND_TIMEOUT=120
 NANOBK_ROTATE_TIMEOUT=300
 EOF
-    chmod 600 "$REPO_DIR/bot/.env"
+    chmod 600 "$bot_env_dir/.env"
     ok "Bot 配置已保存: bot/.env (mode 600)"
   else
     echo -e "  ${CYAN}[DRY-RUN]${NC} Would write bot/.env"
@@ -1866,9 +1873,14 @@ collect_web_args() {
   fi
 
   local repo_dir_for_web="$REPO_DIR"
+  local web_env_dir="$REPO_DIR/web"
+  # In mock mode, write to tmpdir
+  if [[ "${NANOBK_TEST_MOCK:-}" == "1" ]] && [[ -n "${NANOBK_TEST_TMPDIR:-}" ]]; then
+    web_env_dir="${NANOBK_TEST_TMPDIR}/web"
+  fi
   if [[ "$DRY_RUN" != "1" ]]; then
-    mkdir -p "$REPO_DIR/web"
-    cat > "$REPO_DIR/web/.env" <<EOF
+    mkdir -p "$web_env_dir"
+    cat > "$web_env_dir/.env" <<EOF
 NANOBK_WEB_TOKEN=${web_token}
 NANOBK_WEB_SECRET_KEY=${web_secret}
 NANOBK_WEB_HOST=${web_host}
@@ -1879,7 +1891,7 @@ NANOBK_WEB_DRY_RUN=${web_dry_run}
 NANOBK_COMMAND_TIMEOUT=120
 NANOBK_ROTATE_TIMEOUT=300
 EOF
-    chmod 600 "$REPO_DIR/web/.env"
+    chmod 600 "$web_env_dir/.env"
     ok "Web Panel 配置已保存: web/.env (mode 600)"
     echo ""
     echo -e "  ${YELLOW}安全提示：${NC}"
@@ -3089,6 +3101,16 @@ run_vps_mode() {
 
 require_default_profile_for_cloudflare() {
   local profile="${NANOBK_DEFAULT_PROFILE_PATH:-/etc/nanobk/profile.current.json}"
+  # In mock mode, create a mock profile in tmpdir
+  if [[ "${NANOBK_TEST_MOCK:-}" == "1" ]] && [[ -n "${NANOBK_TEST_TMPDIR:-}" ]]; then
+    local mock_profile="${NANOBK_TEST_TMPDIR}/etc/nanobk/profile.current.json"
+    mkdir -p "$(dirname "$mock_profile")"
+    if [[ ! -f "$mock_profile" ]]; then
+      echo '{"hy2":{},"tuic":{},"reality":{},"trojan":{}}' > "$mock_profile"
+      mock_log "Created mock profile: ${mock_profile}"
+    fi
+    return 0
+  fi
   if [[ ! -f "$profile" ]]; then
     warn "Cloudflare 部署需要 ${profile}"
     warn "这通常表示 VPS 四协议尚未安装完成。"
