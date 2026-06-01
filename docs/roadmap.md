@@ -52,6 +52,7 @@
 | v1.7.2 | Full wizard retry flow hardening |
 | v1.7.3 | Full wizard command execution state hardening |
 | v1.7.4 | Full wizard control plane state propagation |
+| v1.7.5 | Real VPS full wizard UX hardening |
 | v1.8 | 操作日志 |
 | v1.7 | 权限控制 |
 

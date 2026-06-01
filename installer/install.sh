@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — Unified Beginner Installer v1.7.4
+# NanoBK Proxy Suite — Unified Beginner Installer v1.7.5
 #
 # Interactive entry point for NanoBK Proxy Suite.
 # Guides users through VPS deployment, Cloudflare setup, Bot, Web Panel.
@@ -20,7 +20,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # ── Constants ───────────────────────────────────────────────────────────────
 
 REPO_URL="https://github.com/kairkiss/NanoBK-Proxy-Suite"
-VERSION="1.7.4"
+VERSION="1.7.5"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -113,6 +113,65 @@ run_cmd() {
   fi
 }
 
+# Critical step helper — menu with default=execute (not skip)
+# Returns: 0=executed/success, 1=failed/abort, 2=skipped_user(manual_pending)
+run_critical_step() {
+  local desc="$1"
+  shift
+  local cmd=("$@")
+  LAST_RUN_CMD_STATUS="unknown"
+
+  echo ""
+  log "即将执行关键步骤：${desc}"
+  print_cmd "${cmd[@]}"
+
+  if [[ "$COMMAND_ONLY" == "1" ]]; then
+    LAST_RUN_CMD_STATUS="commands_only"
+    echo -e "  ${YELLOW}(仅生成命令，未执行)${NC}"
+    return 0
+  fi
+
+  if [[ "$DRY_RUN" == "1" ]]; then
+    LAST_RUN_CMD_STATUS="dry_run"
+    echo -e "  ${CYAN}[DRY-RUN]${NC} 跳过执行"
+    return 0
+  fi
+
+  echo ""
+  echo "    1) 现在执行（推荐）"
+  echo "    2) 返回修改参数"
+  echo "    3) 稍后手动执行"
+  echo "    4) 退出"
+  echo ""
+  local crit_choice
+  prompt crit_choice "请选择" "1"
+
+  case "$crit_choice" in
+    1)
+      if "${cmd[@]}"; then
+        LAST_RUN_CMD_STATUS="executed"
+        return 0
+      else
+        LAST_RUN_CMD_STATUS="failed"
+        return 1
+      fi
+      ;;
+    2)
+      LAST_RUN_CMD_STATUS="rerun_inputs"
+      return 3
+      ;;
+    3)
+      LAST_RUN_CMD_STATUS="skipped_user"
+      echo -e "  ${YELLOW}已跳过。你可以手动执行上面的命令。${NC}"
+      return 0
+      ;;
+    4|*)
+      LAST_RUN_CMD_STATUS="skipped_user"
+      return 2
+      ;;
+  esac
+}
+
 # ── Control plane dependency helpers ────────────────────────────────────────
 # Bot/Web are control-plane-only unless VPS and Cloudflare are both ready.
 # "ready" means actually installed/deployed, not just planned or skipped.
@@ -139,6 +198,33 @@ control_plane_only_required() {
     return 0
   fi
   return 1
+}
+
+# ── Placeholder / example value detection ──────────────────────────────────
+
+is_placeholder_value() {
+  local val="${1,,}"  # lowercase
+  case "$val" in
+    example.com|example.org|example.net|proxy.example.com|\
+    your_domain|your_vps_ip|replace_me|change_me|placeholder|localhost)
+      return 0 ;;
+    *.example.com|*.example.org|*.example.net|*.example.workers.dev)
+      return 0 ;;
+    "")
+      return 0 ;;
+    *)
+      return 1 ;;
+  esac
+}
+
+is_placeholder_worker_url() {
+  local url="${1,,}"
+  # Strip protocol
+  url="${url#https://}"
+  url="${url#http://}"
+  url="${url%%/*}"
+  url="${url%%\?*}"
+  is_placeholder_value "$url"
 }
 
 TEST_FAILURES=0
@@ -545,6 +631,17 @@ collect_vps_args() {
       continue
     fi
 
+    # Reject placeholder/example domains in real deployment mode
+    if [[ "$DRY_RUN" != "1" ]] && [[ "$COMMAND_ONLY" != "1" ]]; then
+      if is_placeholder_value "$domain"; then
+        echo ""
+        echo -e "  ${YELLOW}真实部署不能使用示例域名。${NC}"
+        echo "  请输入你自己的域名，例如 proxy.yourdomain.com"
+        echo ""
+        continue
+      fi
+    fi
+
     # Check for protocol prefix
     if [[ "$domain" == https://* ]] || [[ "$domain" == http://* ]]; then
       local suggested="${domain#http://}"
@@ -724,7 +821,7 @@ collect_vps_args() {
   # dry_run / commands_only = preview only, not real deploy
   # skipped_user = user chose not to execute, not a deploy
   # failed = command ran but failed
-  run_cmd "部署 VPS 四协议" "${cmd[@]}" || return 1
+  run_critical_step "部署 VPS 四协议" "${cmd[@]}" || return 1
 
   # Post-deploy healthcheck and status (only meaningful if actually deployed)
   if [[ "$LAST_RUN_CMD_STATUS" == "executed" ]]; then
@@ -755,6 +852,18 @@ collect_cloudflare_args() {
       echo "  不要粘贴带 token 的订阅链接。"
       echo ""
       continue
+    fi
+
+    # Reject placeholder/example URLs in real deployment mode
+    if [[ "$DRY_RUN" != "1" ]] && [[ "$COMMAND_ONLY" != "1" ]]; then
+      if is_placeholder_worker_url "$route_url"; then
+        echo ""
+        echo -e "  ${YELLOW}真实部署不能使用示例地址。${NC}"
+        echo "  请输入你自己的 Worker 地址，例如："
+        echo "    https://nanok.<你的 workers.dev 子域>.workers.dev"
+        echo ""
+        continue
+      fi
     fi
 
     # Check for http:// (must use https)
@@ -819,18 +928,33 @@ collect_cloudflare_args() {
   NANOBK_DEPLOY_CLOUDFLARE="true"
 
   # Preflight and profile validation before deployment
-  run_cmd "Cloudflare preflight" bash "$REPO_DIR/installer/install-cloudflare.sh" --preflight || {
+  run_critical_step "Cloudflare preflight" bash "$REPO_DIR/installer/install-cloudflare.sh" --preflight || {
     err "Cloudflare preflight failed."
-    err "请根据上方提示修复 Node.js / Wrangler / login / profile 后重试。"
     err ""
     err "常见修复："
-    err "  1. 安装 Node.js >= 22: curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -"
+    err "  1. 安装 Node.js >= 22:"
+    err "     curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -"
+    err "     sudo apt install -y nodejs"
     err "  2. 安装 wrangler: npm install -g wrangler"
-    err "  3. 登录 wrangler: wrangler login --browser=false"
+    err ""
+    # Headless Wrangler OAuth guidance
+    if [[ -z "${DISPLAY:-}" ]] || ! command -v xdg-open &>/dev/null; then
+      err "  检测到这是无图形界面的 VPS，Wrangler OAuth 需要本地浏览器授权："
+      err ""
+      err "    1. 在本地电脑执行 SSH 隧道："
+      err "       ssh -L 8976:127.0.0.1:8976 root@YOUR_VPS_IP"
+      err "    2. 在 VPS 上执行："
+      err "       wrangler login --browser=false"
+      err "    3. 复制授权 URL 到本地浏览器打开"
+      err "    4. 授权完成后验证：wrangler whoami"
+      err ""
+    else
+      err "  3. 登录 wrangler: wrangler login --browser=false"
+    fi
     return 1
   }
 
-  run_cmd "Validate profile" bash "$REPO_DIR/installer/install-cloudflare.sh" --validate-profile-only --profile "$profile" || {
+  run_critical_step "Validate profile" bash "$REPO_DIR/installer/install-cloudflare.sh" --validate-profile-only --profile "$profile" || {
     err "Profile validation failed."
     err "请检查 profile 文件是否包含 hy2/tuic/reality/trojan 四个协议段。"
     return 1
@@ -847,6 +971,14 @@ collect_cloudflare_args() {
       if [[ "$nanob_url" == *"token="* ]] || [[ "$nanob_url" == *"/jb"* ]] || [[ "$nanob_url" == *"/sub"* ]]; then
         echo -e "  ${YELLOW}这里需要 Worker 根地址，不要粘贴带 token 的订阅链接。${NC}"
         continue
+      fi
+
+      # Reject placeholder/example URLs in real deployment mode
+      if [[ "$DRY_RUN" != "1" ]] && [[ "$COMMAND_ONLY" != "1" ]]; then
+        if is_placeholder_worker_url "$nanob_url"; then
+          echo -e "  ${YELLOW}真实部署不能使用示例地址。请输入你自己的 Worker 地址。${NC}"
+          continue
+        fi
       fi
 
       # Check for http://
@@ -912,7 +1044,7 @@ collect_cloudflare_args() {
       "${geo_args[@]}")
     [[ "$DRY_RUN" == "1" ]] && nanok_cmd+=(--dry-run)
 
-    run_cmd "部署 nanok + nanob" "${nanok_cmd[@]}"
+    run_critical_step "部署 nanok + nanob" "${nanok_cmd[@]}"
   else
     NANOBK_DEPLOY_NANOB="false"
     local nanok_cmd=(bash "$REPO_DIR/installer/install-cloudflare.sh" --yes
@@ -921,7 +1053,7 @@ collect_cloudflare_args() {
       --route-url "$route_url")
     [[ "$DRY_RUN" == "1" ]] && nanok_cmd+=(--dry-run)
 
-    run_cmd "部署 nanok" "${nanok_cmd[@]}"
+    run_critical_step "部署 nanok" "${nanok_cmd[@]}"
   fi
 
   # Set CF deploy status based on run_cmd outcome
@@ -933,6 +1065,62 @@ collect_cloudflare_args() {
     failed)      CF_DEPLOY_STATUS="failed" ;;
     *)           CF_DEPLOY_STATUS="unknown" ;;
   esac
+
+  # Auto-write admin env for rotate sync if deploy succeeded
+  if [[ "$CF_DEPLOY_STATUS" == "deployed" ]]; then
+    local admin_env="/root/.nanok-cf-admin.env"
+    local local_env="${REPO_DIR:-.}/.cloudflare.local.env"
+
+    # Read admin token and URLs from local env
+    local adm_token adm_current adm_update
+    if [[ -f "$local_env" ]]; then
+      adm_token=$(read_env_value "$local_env" "ADMIN_TOKEN" 2>/dev/null || echo "")
+      adm_current=$(read_env_value "$local_env" "ADMIN_CURRENT_URL" 2>/dev/null || echo "")
+      adm_update=$(read_env_value "$local_env" "ADMIN_UPDATE_URL" 2>/dev/null || echo "")
+
+      # Also try to construct from route URL if not set
+      if [[ -z "$adm_current" ]] && [[ -n "${NANOBK_NANOK_URL:-}" ]]; then
+        adm_current="${NANOBK_NANOK_URL}/admin/current"
+      fi
+      if [[ -z "$adm_update" ]] && [[ -n "${NANOBK_NANOK_URL:-}" ]]; then
+        adm_update="${NANOBK_NANOK_URL}/admin/update"
+      fi
+    fi
+
+    if [[ -n "$adm_token" ]] && [[ -n "$adm_current" ]] && [[ -n "$adm_update" ]]; then
+      if [[ $EUID -eq 0 ]]; then
+        # Running as root, write directly
+        cat > "$admin_env" <<ENVEOF
+ADMIN_TOKEN="${adm_token}"
+ADMIN_CURRENT_URL="${adm_current}"
+ADMIN_UPDATE_URL="${adm_update}"
+ENVEOF
+        chmod 600 "$admin_env"
+        ok "Admin env written: ${admin_env} (mode 600)"
+      else
+        # Not root, try sudo
+        if command -v sudo &>/dev/null; then
+          sudo bash -c "cat > '$admin_env' <<ENVEOF
+ADMIN_TOKEN=\"${adm_token}\"
+ADMIN_CURRENT_URL=\"${adm_current}\"
+ADMIN_UPDATE_URL=\"${adm_update}\"
+ENVEOF
+chmod 600 '$admin_env'" 2>/dev/null && ok "Admin env written via sudo: ${admin_env}" || {
+            warn "无法写入 ${admin_env}，需要 sudo 权限。"
+            echo "  恢复命令："
+            echo "    sudo install -m 600 ${local_env} ${admin_env}"
+          }
+        else
+          warn "无法写入 ${admin_env}，需要 sudo 权限。"
+          echo "  恢复命令："
+          echo "    sudo install -m 600 ${local_env} ${admin_env}"
+        fi
+      fi
+    else
+      warn "Admin env 未自动生成：缺少 ADMIN_TOKEN 或 admin URLs。"
+      echo "  rotate sync 可能失败，请手动创建 ${admin_env}"
+    fi
+  fi
 }
 
 # ── Bot configuration ───────────────────────────────────────────────────────
@@ -1406,11 +1594,19 @@ run_unified_preflight() {
       else
         preflight_warn "wrangler login: not authenticated"
         echo ""
-        echo "  请执行："
-        echo "    wrangler login --browser=false"
-        echo "  如果通过 SSH 连接 VPS，可在本机建立隧道："
-        echo "    ssh -L 8976:127.0.0.1:8976 root@YOUR_VPS_IP"
-        echo ""
+        if [[ -z "${DISPLAY:-}" ]] || ! command -v xdg-open &>/dev/null; then
+          echo "  检测到无图形界面环境，Wrangler OAuth 需要本地浏览器："
+          echo "    1. 本地电脑: ssh -L 8976:127.0.0.1:8976 root@YOUR_VPS_IP"
+          echo "    2. VPS 上: wrangler login --browser=false"
+          echo "    3. 复制授权 URL 到本地浏览器"
+          echo "    4. 验证: wrangler whoami"
+        else
+          echo "  请执行："
+          echo "    wrangler login --browser=false"
+          echo "  如果通过 SSH 连接 VPS，可在本机建立隧道："
+          echo "    ssh -L 8976:127.0.0.1:8976 root@YOUR_VPS_IP"
+          echo ""
+        fi
       fi
     fi
   fi
@@ -2265,6 +2461,7 @@ run_test_mode() {
       run_safe_test "$REPO_DIR/tests/unified-full-wizard-productization.sh" "full wizard productization"
       run_safe_test "$REPO_DIR/tests/unified-summary-honesty.sh" "summary honesty"
       run_safe_test "$REPO_DIR/tests/unified-full-wizard-behavior.sh" "full wizard behavior"
+      run_safe_test "$REPO_DIR/tests/unified-real-vps-ux-hardening.sh" "real VPS UX hardening"
       run_safe_test "$REPO_DIR/tests/rotate-render-only-tempdir.sh" "rotate tempdir"
       ;;
     *) err "无效选择"; return 1 ;;

@@ -1,5 +1,30 @@
 # Changelog
 
+## v1.7.5 — Real VPS Full Wizard UX Hardening
+
+### Fixed
+
+- Full Wizard now rejects placeholder Worker URLs in real deployment mode
+- Critical deploy steps no longer use ambiguous [y/N] prompts that can silently skip deployment
+- Cloudflare skipped/manual-pending states no longer appear as configured/not verified
+- Bot/Web now remain control-plane-only whenever Cloudflare is not deployed or verified
+- Cloudflare deploy now writes the admin env needed by rotate sync
+- Cloudflare installer no longer prints raw subscription URLs or admin token URLs by default
+
+### Improved
+
+- Added headless Wrangler OAuth guidance for clean VPS environments
+- Added explicit critical-step menus for VPS and Cloudflare deployment
+- Added safer redacted output for subscription/admin URLs
+- Added validation checks for placeholder domains and Worker URLs
+- Updated real VPS validation documentation based on the tenth clean VPS run
+
+### Safety
+
+- Tokens and subscription URLs are hidden by default
+- Local/offline tests still do not claim real VPS or Cloudflare validation
+- Real clean VPS validation remains a user-executed manual step
+
 ## v1.7.4 — Full Wizard Control Plane State Propagation
 
 ### Fixed
