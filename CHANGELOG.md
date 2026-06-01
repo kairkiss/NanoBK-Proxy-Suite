@@ -1,5 +1,34 @@
 # Changelog
 
+## v1.7.1 — Full Wizard Behavior Hardening
+
+### Fixed
+
+- Fixed Worker URL validation so valid HTTPS Worker root URLs are not corrupted
+- Domain input no longer silently truncates protocol/path mistakes without user confirmation
+- Cloudflare is skipped with dependency-missing status whenever the VPS profile is unavailable
+- Bot/Web setup failures are now reported as failed instead of configured/control-plane-only
+- Full Wizard test mode now includes v1.7 productization and behavior hardening tests
+
+### Improved
+
+- Cert-mode menu now includes the letsencrypt placeholder as not recommended / future work
+- Recovery commands are shown for Bot/Web failures
+- Dynamic Full Wizard behavior tests cover URL cleaning, dependency skipping, and failed control-plane setup
+
+### Safety
+
+- Subscription URLs containing tokens are rejected without printing raw tokens
+- Summary continues to avoid raw token and secret output
+- Real VPS / Cloudflare validation remains a user-executed manual step
+
+### Tests
+
+- Added `tests/unified-full-wizard-behavior.sh`: dynamic behavior test for URL validation and dependency handling
+- Updated `tests/unified-full-wizard-productization.sh`: cert-mode letsencrypt and Bot/Web failed state assertions
+- Updated `tests/unified-summary-honesty.sh`: Bot/Web failed state honesty
+- Added v1.7 tests to installer All safe tests
+
 ## v1.7.0 — Clean Full Wizard Productization
 
 ### Added

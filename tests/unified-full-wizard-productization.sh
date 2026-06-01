@@ -53,8 +53,8 @@ check "has self- typo recovery" "$(has_pattern "$INSTALLER" "self-\|selfsigned")
 echo ""
 echo "── Test 2: Domain validation ──"
 
-check "strips http:// prefix" "$(has_pattern "$INSTALLER" 'domain#http://')"
-check "strips https:// prefix" "$(has_pattern "$INSTALLER" 'domain#https://')"
+check "detects http:// prefix" "$(has_pattern "$INSTALLER" 'domain.*http://\|http://.*domain')"
+check "detects https:// prefix" "$(has_pattern "$INSTALLER" 'domain.*https://\|https://.*domain')"
 check "rejects empty domain" "$(has_pattern "$INSTALLER" "域名不能为空")"
 check "rejects domain with spaces" "$(has_pattern "$INSTALLER" "空格\|space")"
 

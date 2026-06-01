@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — Unified Beginner Installer v1.7.0
+# NanoBK Proxy Suite — Unified Beginner Installer v1.7.1
 #
 # Interactive entry point for NanoBK Proxy Suite.
 # Guides users through VPS deployment, Cloudflare setup, Bot, Web Panel.
@@ -20,7 +20,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # ── Constants ───────────────────────────────────────────────────────────────
 
 REPO_URL="https://github.com/kairkiss/NanoBK-Proxy-Suite"
-VERSION="1.7.0"
+VERSION="1.7.1"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -496,22 +496,64 @@ collect_vps_args() {
 
   local domain cert_mode cert_file key_file reality_sname
 
-  # Domain with basic validation
+  # Domain with validation and user confirmation
   while true; do
-    prompt domain "请输入节点域名" "${NANOBK_DOMAIN:-proxy.example.com}"
-    # Strip protocol prefix if user accidentally includes it
-    domain="${domain#http://}"
-    domain="${domain#https://}"
-    domain="${domain%%/*}"
-    domain="${domain%% *}"
+    prompt domain "请输入节点域名 (例如 proxy.example.com)" "${NANOBK_DOMAIN:-proxy.example.com}"
+
     if [[ -z "$domain" ]]; then
       err "域名不能为空。"
       continue
     fi
-    if [[ "$domain" == *" "* ]] || [[ "$domain" == *"/"* ]]; then
-      err "域名不应包含空格或路径。请只输入域名，例如 proxy.example.com"
+
+    # Check for protocol prefix
+    if [[ "$domain" == https://* ]] || [[ "$domain" == http://* ]]; then
+      local suggested="${domain#http://}"
+      suggested="${suggested#https://}"
+      suggested="${suggested%%/*}"
+      suggested="${suggested%% *}"
+      echo ""
+      echo -e "  ${YELLOW}这里需要的是域名本身，例如 example.com，不要带 https:// 或路径。${NC}"
+      echo "  检测到你可能想输入：${suggested}"
+      echo ""
+      echo "    1) 使用 ${suggested}"
+      echo "    2) 重新输入"
+      echo "    3) 退出"
+      echo ""
+      local domain_fix_choice
+      prompt domain_fix_choice "请选择" "1"
+      case "$domain_fix_choice" in
+        1) domain="$suggested" ;;
+        2) continue ;;
+        3|*) return 1 ;;
+      esac
+    fi
+
+    # Check for spaces
+    if [[ "$domain" == *" "* ]]; then
+      err "域名不能包含空格。请只输入域名，例如 proxy.example.com"
       continue
     fi
+
+    # Check for path
+    if [[ "$domain" == *"/"* ]]; then
+      local suggested_path="${domain%%/*}"
+      echo ""
+      echo -e "  ${YELLOW}域名不应包含路径。${NC}"
+      echo "  检测到你可能想输入：${suggested_path}"
+      echo ""
+      echo "    1) 使用 ${suggested_path}"
+      echo "    2) 重新输入"
+      echo "    3) 退出"
+      echo ""
+      local domain_path_choice
+      prompt domain_path_choice "请选择" "1"
+      case "$domain_path_choice" in
+        1) domain="$suggested_path" ;;
+        2) continue ;;
+        3|*) return 1 ;;
+      esac
+    fi
+
     break
   done
   NANOBK_DOMAIN="$domain"
@@ -521,6 +563,7 @@ collect_vps_args() {
   echo "  请选择证书模式："
   echo "    1) self-signed — 测试/自用，最快开始（推荐）"
   echo "    2) existing — 我已有证书 fullchain.pem / privkey.pem"
+  echo "    3) letsencrypt — 暂不推荐，后续版本完善"
   echo ""
 
   local cert_choice
@@ -538,6 +581,29 @@ collect_vps_args() {
       prompt cert_file "证书 fullchain 路径" "/etc/letsencrypt/live/${domain}/fullchain.pem"
       prompt key_file "证书 privkey 路径" "/etc/letsencrypt/live/${domain}/privkey.pem"
       ;;
+    3|letsencrypt)
+      echo ""
+      echo -e "  ${YELLOW}v1.7.1 暂不推荐自动配置 Let's Encrypt。${NC}"
+      echo "  请手动申请证书后选择 existing 模式，或先用 self-signed 测试。"
+      echo ""
+      echo "    1) 改用 self-signed"
+      echo "    2) 改用 existing"
+      echo "    3) 返回重新选择"
+      echo "    4) 退出"
+      echo ""
+      local le_choice
+      prompt le_choice "请选择" "1"
+      case "$le_choice" in
+        1) cert_mode="self-signed"; warn "自签证书只建议测试。"; cert_file=""; key_file=""; ;;
+        2)
+          cert_mode="existing"
+          prompt cert_file "证书 fullchain 路径" "/etc/letsencrypt/live/${domain}/fullchain.pem"
+          prompt key_file "证书 privkey 路径" "/etc/letsencrypt/live/${domain}/privkey.pem"
+          ;;
+        3) return 0 ;;  # Return to re-enter collect_vps_args
+        4|*) return 1 ;;
+      esac
+      ;;
     *)
       # Handle common typos
       case "$cert_choice" in
@@ -546,12 +612,14 @@ collect_vps_args() {
           echo -e "  ${YELLOW}你是不是想选择 self-signed？${NC}"
           echo "    1) 使用 self-signed"
           echo "    2) 重新选择"
+          echo "    3) 退出"
           echo ""
           local cert_fix_choice
           prompt cert_fix_choice "请选择" "1"
           case "$cert_fix_choice" in
             1) cert_mode="self-signed"; warn "自签证书只建议测试。"; cert_file=""; key_file=""; ;;
-            *) return 1 ;;
+            2) return 0 ;;
+            3|*) return 1 ;;
           esac
           ;;
         *)
@@ -596,20 +664,57 @@ collect_cloudflare_args() {
   # Cloudflare URL validation
   while true; do
     prompt route_url "nanok Worker URL (例如 https://nanok.xxx.workers.dev)" "${NANOBK_NANOK_URL:-https://nanok.example.workers.dev}"
-    # Strip trailing slash and query params
-    route_url="${route_url%%\?*}"
-    route_url="${route_url%%/*}"
-    route_url="${route_url%/}"
-    # Re-add https:// if missing
-    if [[ "$route_url" != https://* ]] && [[ "$route_url" != http://* ]]; then
-      route_url="https://${route_url}"
-    fi
-    if [[ "$route_url" == *"token="* ]] || [[ "$route_url" == *"/jb"* ]]; then
+
+    # Check for token/subscription URL first
+    if [[ "$route_url" == *"token="* ]] || [[ "$route_url" == *"/jb"* ]] || [[ "$route_url" == *"/sub"* ]]; then
       echo ""
-      echo -e "  ${YELLOW}提示：这里需要 Worker 根地址，例如 https://nanok.xxx.workers.dev${NC}"
+      echo -e "  ${YELLOW}这里需要 Worker 根地址，例如 https://nanok.xxx.workers.dev${NC}"
       echo "  不要粘贴带 token 的订阅链接。"
+      echo ""
       continue
     fi
+
+    # Check for http:// (must use https)
+    if [[ "$route_url" == http://* ]]; then
+      echo ""
+      echo -e "  ${YELLOW}Worker URL 必须使用 https://，不支持 http://。${NC}"
+      echo ""
+      continue
+    fi
+
+    # Bare host detection (no protocol)
+    if [[ "$route_url" != https://* ]] && [[ "$route_url" != http://* ]] && [[ -n "$route_url" ]] && [[ "$route_url" != *" "* ]]; then
+      # Looks like a bare host
+      local cleaned="${route_url%%/*}"
+      cleaned="${cleaned%%\?*}"
+      cleaned="${cleaned%/}"
+      echo ""
+      echo -e "  ${YELLOW}检测到未包含 https://${NC}"
+      echo "  是否使用 https://${cleaned} ？"
+      echo "    1) 使用 https://${cleaned}"
+      echo "    2) 重新输入"
+      echo "    3) 退出"
+      echo ""
+      local url_fix_choice
+      prompt url_fix_choice "请选择" "1"
+      case "$url_fix_choice" in
+        1) route_url="https://${cleaned}" ;;
+        2) continue ;;
+        3|*) return 1 ;;
+      esac
+    fi
+
+    # Clean: strip query params, fragment, trailing slash
+    route_url="${route_url%%\?*}"
+    route_url="${route_url%%#*}"
+    route_url="${route_url%/}"
+
+    # Validate result looks like a proper https URL
+    if [[ "$route_url" != https://* ]]; then
+      echo -e "  ${YELLOW}URL 必须以 https:// 开头。${NC}"
+      continue
+    fi
+
     break
   done
   NANOBK_NANOK_URL="$route_url"
@@ -654,15 +759,49 @@ collect_cloudflare_args() {
     NANOBK_DEPLOY_NANOB="true"
     while true; do
       prompt nanob_url "nanob Worker URL (例如 https://nanob.xxx.workers.dev)" "${NANOBK_NANOB_URL:-https://nanob.example.workers.dev}"
-      nanob_url="${nanob_url%%\?*}"
-      nanob_url="${nanob_url%/}"
-      if [[ "$nanob_url" != https://* ]] && [[ "$nanob_url" != http://* ]]; then
-        nanob_url="https://${nanob_url}"
-      fi
-      if [[ "$nanob_url" == *"token="* ]] || [[ "$nanob_url" == *"/jb"* ]]; then
-        echo -e "  ${YELLOW}提示：这里需要 Worker 根地址，不要粘贴带 token 的订阅链接。${NC}"
+
+      # Check for token/subscription URL
+      if [[ "$nanob_url" == *"token="* ]] || [[ "$nanob_url" == *"/jb"* ]] || [[ "$nanob_url" == *"/sub"* ]]; then
+        echo -e "  ${YELLOW}这里需要 Worker 根地址，不要粘贴带 token 的订阅链接。${NC}"
         continue
       fi
+
+      # Check for http://
+      if [[ "$nanob_url" == http://* ]]; then
+        echo -e "  ${YELLOW}Worker URL 必须使用 https://，不支持 http://。${NC}"
+        continue
+      fi
+
+      # Bare host detection
+      if [[ "$nanob_url" != https://* ]] && [[ "$nanob_url" != http://* ]] && [[ -n "$nanob_url" ]] && [[ "$nanob_url" != *" "* ]]; then
+        local cleaned_n="${nanob_url%%/*}"
+        cleaned_n="${cleaned_n%%\?*}"
+        cleaned_n="${cleaned_n%/}"
+        echo -e "  ${YELLOW}检测到未包含 https://${NC}"
+        echo "  是否使用 https://${cleaned_n} ？"
+        echo "    1) 使用 https://${cleaned_n}"
+        echo "    2) 重新输入"
+        echo "    3) 退出"
+        echo ""
+        local nanob_url_fix
+        prompt nanob_url_fix "请选择" "1"
+        case "$nanob_url_fix" in
+          1) nanob_url="https://${cleaned_n}" ;;
+          2) continue ;;
+          3|*) return 1 ;;
+        esac
+      fi
+
+      # Clean
+      nanob_url="${nanob_url%%\?*}"
+      nanob_url="${nanob_url%%#*}"
+      nanob_url="${nanob_url%/}"
+
+      if [[ "$nanob_url" != https://* ]]; then
+        echo -e "  ${YELLOW}URL 必须以 https:// 开头。${NC}"
+        continue
+      fi
+
       break
     done
     NANOBK_NANOB_URL="$nanob_url"
@@ -1309,27 +1448,22 @@ run_full_wizard() {
   echo -e "${BOLD}── 阶段 2：Cloudflare 部署 ──${NC}"
   echo ""
 
-  # Check if profile exists (skip in dry-run)
+  # Check if profile exists (skip in dry-run) — unconditional dependency check
   if [[ "$DRY_RUN" != "1" ]] && [[ ! -f "/etc/nanobk/profile.current.json" ]]; then
-    if [[ "$VPS_STAGE_STATUS" == "failed" ]]; then
-      CF_STAGE_STATUS="skipped_dependency"
-      warn "Cloudflare 部署需要 /etc/nanobk/profile.current.json"
-      warn "VPS 阶段失败，跳过 Cloudflare。"
-      echo ""
-      echo "  恢复命令："
-      echo "    bash installer/install.sh --mode vps --lang zh"
-      echo "    bash installer/install.sh --mode cloudflare --lang zh"
-      echo ""
-    elif [[ "$VPS_STAGE_STATUS" == "skipped" ]]; then
-      CF_STAGE_STATUS="skipped_dependency"
-      warn "Cloudflare 部署需要 /etc/nanobk/profile.current.json"
-      warn "VPS 阶段已跳过，跳过 Cloudflare。"
-      echo ""
-      echo "  恢复命令："
-      echo "    bash installer/install.sh --mode vps --lang zh"
-      echo "    bash installer/install.sh --mode cloudflare --lang zh"
-      echo ""
-    fi
+    CF_STAGE_STATUS="skipped_dependency"
+    warn "Cloudflare 部署需要 /etc/nanobk/profile.current.json"
+    warn "请先完成 VPS 安装。"
+    echo ""
+    echo "  恢复命令："
+    echo "    bash installer/install.sh --mode vps --lang zh"
+    echo "    sudo bash /opt/nanobk/bin/healthcheck.sh"
+    echo "    bash bin/nanobk status"
+    echo "    bash installer/install.sh --mode cloudflare --lang zh"
+    echo "    bash bin/nanobk cf verify"
+    echo ""
+    echo "  如果 /opt/nanobk/bin/healthcheck.sh 不存在："
+    echo "    sudo bash installer/install-vps.sh --yes --domain YOUR_DOMAIN --cert-mode self-signed --open-firewall --force"
+    echo ""
   fi
 
   # Only proceed with Cloudflare if dependency check passed
@@ -1375,11 +1509,24 @@ run_full_wizard() {
 
   if confirm "是否配置 Telegram Bot？" "y"; then
     NANOBK_ENABLE_BOT="true"
-    collect_bot_args
-    if [[ "$VPS_STAGE_STATUS" == "failed" ]] || [[ "$CF_STAGE_STATUS" == "failed" ]] || [[ "$CF_STAGE_STATUS" == "skipped_dependency" ]]; then
-      BOT_STAGE_STATUS="control_only"
+    if collect_bot_args; then
+      if [[ "$VPS_STAGE_STATUS" == "failed" ]] || [[ "$CF_STAGE_STATUS" == "failed" ]] || [[ "$CF_STAGE_STATUS" == "skipped_dependency" ]]; then
+        BOT_STAGE_STATUS="control_only"
+      else
+        BOT_STAGE_STATUS="configured"
+      fi
     else
-      BOT_STAGE_STATUS="configured"
+      BOT_STAGE_STATUS="failed"
+      SUMMARY_HAS_FAILURES=1
+      warn "Bot 配置失败。"
+      echo ""
+      echo "  恢复命令："
+      echo "    cd bot"
+      echo "    cp .env.example .env"
+      echo "    nano .env"
+      echo "    bash run.sh"
+      echo "    python3 nanobk_bot.py --self-test"
+      echo ""
     fi
   else
     NANOBK_ENABLE_BOT="false"
@@ -1400,11 +1547,24 @@ run_full_wizard() {
 
   if confirm "是否配置 Web Panel？" "y"; then
     NANOBK_ENABLE_WEB="true"
-    collect_web_args
-    if [[ "$VPS_STAGE_STATUS" == "failed" ]] || [[ "$CF_STAGE_STATUS" == "failed" ]] || [[ "$CF_STAGE_STATUS" == "skipped_dependency" ]]; then
-      WEB_STAGE_STATUS="control_only"
+    if collect_web_args; then
+      if [[ "$VPS_STAGE_STATUS" == "failed" ]] || [[ "$CF_STAGE_STATUS" == "failed" ]] || [[ "$CF_STAGE_STATUS" == "skipped_dependency" ]]; then
+        WEB_STAGE_STATUS="control_only"
+      else
+        WEB_STAGE_STATUS="configured"
+      fi
     else
-      WEB_STAGE_STATUS="configured"
+      WEB_STAGE_STATUS="failed"
+      SUMMARY_HAS_FAILURES=1
+      warn "Web Panel 配置失败。"
+      echo ""
+      echo "  恢复命令："
+      echo "    cd web"
+      echo "    cp .env.example .env"
+      echo "    nano .env"
+      echo "    bash run.sh"
+      echo "    ssh -L 8080:127.0.0.1:8080 root@YOUR_VPS_IP"
+      echo ""
     fi
   else
     NANOBK_ENABLE_WEB="false"
@@ -1519,6 +1679,12 @@ print_summary() {
     else
       echo "    status:  skipped (dry-run)"
     fi
+  elif [[ "${BOT_STAGE_STATUS:-}" == "failed" ]]; then
+    echo "    status:  failed"
+    echo "    recover:"
+    echo "      cd bot && cp .env.example .env && nano .env"
+    echo "      bash run.sh"
+    echo "      python3 nanobk_bot.py --self-test"
   elif [[ "${BOT_STAGE_STATUS:-}" == "control_only" ]]; then
     echo "    status:  configured / control plane only"
     echo "    note:    VPS/Cloudflare are not verified yet"
@@ -1547,6 +1713,12 @@ print_summary() {
     else
       echo "    status:  skipped (dry-run)"
     fi
+  elif [[ "${WEB_STAGE_STATUS:-}" == "failed" ]]; then
+    echo "    status:  failed"
+    echo "    recover:"
+    echo "      cd web && cp .env.example .env && nano .env"
+    echo "      bash run.sh"
+    echo "      ssh -L ${NANOBK_WEB_PORT:-8080}:127.0.0.1:${NANOBK_WEB_PORT:-8080} root@YOUR_VPS_IP"
   elif [[ "${WEB_STAGE_STATUS:-}" == "control_only" ]]; then
     echo "    status:  configured / control plane only"
     echo "    note:    VPS/Cloudflare are not verified yet"
@@ -1870,6 +2042,10 @@ run_test_mode() {
       run_safe_test "$REPO_DIR/tests/unified-installer-config.sh" "installer config"
       run_safe_test "$REPO_DIR/tests/unified-installer-resume.sh" "installer resume"
       run_safe_test "$REPO_DIR/tests/unified-validation-plan.sh" "validation plan"
+      run_safe_test "$REPO_DIR/tests/unified-full-wizard-productization.sh" "full wizard productization"
+      run_safe_test "$REPO_DIR/tests/unified-summary-honesty.sh" "summary honesty"
+      run_safe_test "$REPO_DIR/tests/unified-full-wizard-behavior.sh" "full wizard behavior"
+      run_safe_test "$REPO_DIR/tests/rotate-render-only-tempdir.sh" "rotate tempdir"
       ;;
     3)
       run_safe_test "$REPO_DIR/tests/cloudflare-kv-parser.sh" "KV parser"
@@ -1906,6 +2082,10 @@ run_test_mode() {
       run_safe_test "$REPO_DIR/tests/bot-cli-mock.sh" "bot mock"
       run_safe_test "$REPO_DIR/tests/web-panel-mock.sh" "web panel mock"
       run_safe_test "$REPO_DIR/tests/unified-validation-plan.sh" "validation plan"
+      run_safe_test "$REPO_DIR/tests/unified-full-wizard-productization.sh" "full wizard productization"
+      run_safe_test "$REPO_DIR/tests/unified-summary-honesty.sh" "summary honesty"
+      run_safe_test "$REPO_DIR/tests/unified-full-wizard-behavior.sh" "full wizard behavior"
+      run_safe_test "$REPO_DIR/tests/rotate-render-only-tempdir.sh" "rotate tempdir"
       ;;
     *) err "无效选择"; return 1 ;;
   esac

@@ -39,6 +39,7 @@ All test scripts in `tests/` are designed to be safe for local development. None
 | `unified-full-wizard-productization.sh` | Full wizard input validation and stage deps | No | No | No | ✅ | ✅ |
 | `unified-summary-honesty.sh` | Summary honesty verification | No | No | No | ✅ | ✅ |
 | `rotate-render-only-tempdir.sh` | Temp dir isolation verification | No | No | No | ✅ | ✅ |
+| `unified-full-wizard-behavior.sh` | Dynamic behavior: URL validation, dependency, failed states | No | No | No | ✅ | ✅ |
 
 ¹ Wrangler may download npm packages on first run.
 
