@@ -1,5 +1,33 @@
 # Changelog
 
+## v1.7.8 — Full Wizard Interaction Harness and Real Review Flow
+
+### Added
+
+- Local interactive Full Wizard mock tests to reduce repeated real VPS validation
+- Real VPS, Cloudflare, Bot, and Web review tables with edit loops
+- Strict numbered Full Wizard menus for critical choices
+- Resume stage routing that can actually continue from Cloudflare or Bot/Web
+- Existing KV recovery flow wired into Cloudflare setup
+- Worker URL recommendation flow based on a workers.dev subdomain
+- Test-only mock mode for Full Wizard interaction paths
+
+### Fixed
+
+- Full Wizard no longer relies on loose y/n confirmation for critical user choices
+- Invalid inputs such as t no longer continue as yes in Full Wizard paths
+- Review tables are now part of the actual flow instead of static text
+- Resume menu choices now skip completed stages instead of only changing labels
+- Existing SUB_STORE / NANOB_GEO_CACHE can be reused instead of causing dead-end failures
+- Domain input first offers protocol/path correction, then validates the corrected domain
+- Bot/Web setup now has review/modify confirmation before writing env files
+
+### Safety
+
+- Mock tests do not connect to VPS or Cloudflare
+- Resume state and review tables do not store or print raw secrets
+- Local/offline tests still do not claim real VPS or Cloudflare validation
+
 ## v1.7.7 — Full Wizard Review, Resume, and Existing Resource Recovery
 
 ### Added

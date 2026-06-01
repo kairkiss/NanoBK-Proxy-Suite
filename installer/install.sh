@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — Unified Beginner Installer v1.7.7
+# NanoBK Proxy Suite — Unified Beginner Installer v1.7.8
 #
 # Interactive entry point for NanoBK Proxy Suite.
 # Guides users through VPS deployment, Cloudflare setup, Bot, Web Panel.
@@ -20,7 +20,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # ── Constants ───────────────────────────────────────────────────────────────
 
 REPO_URL="https://github.com/kairkiss/NanoBK-Proxy-Suite"
-VERSION="1.7.7"
+VERSION="1.7.8"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -425,6 +425,61 @@ sys.exit(0)
     return 0  # Clean
   fi
   return 1  # Has bad chars
+}
+
+# ── Test-only mock infrastructure ──────────────────────────────────────────
+# Only active when NANOBK_TEST_MOCK=1
+# Does NOT connect to VPS or Cloudflare
+# Does NOT write to /etc or /root
+# All mock output clearly labeled [MOCK]
+
+mock_log() {
+  echo -e "  ${CYAN}[MOCK]${NC} $*"
+}
+
+mock_deploy_vps() {
+  mock_log "VPS deploy success (simulated)"
+  LAST_RUN_CMD_STATUS="executed"
+  return 0
+}
+
+mock_deploy_cloudflare() {
+  mock_log "Cloudflare deploy success (simulated)"
+  LAST_RUN_CMD_STATUS="executed"
+  return 0
+}
+
+mock_preflight() {
+  mock_log "Cloudflare preflight passed (simulated)"
+  LAST_RUN_CMD_STATUS="executed"
+  return 0
+}
+
+mock_validate_profile() {
+  mock_log "Profile validation passed (simulated)"
+  LAST_RUN_CMD_STATUS="executed"
+  return 0
+}
+
+mock_healthcheck() {
+  mock_log "Healthcheck passed (simulated)"
+  return 0
+}
+
+mock_cf_verify() {
+  mock_log "Cloudflare verify passed (simulated)"
+  return 0
+}
+
+mock_find_existing_kv() {
+  local binding="$1"
+  if [[ "${NANOBK_TEST_MOCK_EXISTING_KV:-}" == "1" ]]; then
+    case "$binding" in
+      SUB_STORE)       echo "mock-sub-store-id"; return 0 ;;
+      NANOB_GEO_CACHE) echo "mock-geo-cache-id"; return 0 ;;
+    esac
+  fi
+  return 1
 }
 
 TEST_FAILURES=0
@@ -873,27 +928,7 @@ collect_vps_args() {
       continue
     fi
 
-    # Reject placeholder/example domains in real deployment mode
-    if [[ "$DRY_RUN" != "1" ]] && [[ "$COMMAND_ONLY" != "1" ]]; then
-      if is_placeholder_value "$domain"; then
-        echo ""
-        echo -e "  ${YELLOW}真实部署不能使用示例域名。${NC}"
-        echo "  请输入你自己的域名，例如 proxy.yourdomain.com"
-        echo ""
-        continue
-      fi
-    fi
-
-    # Validate domain format
-    if ! is_valid_domain_name "$domain"; then
-      err "这不像有效域名。域名通常长这样：proxy.yourdomain.com"
-      err "  - 至少包含一个点"
-      err "  - 只能包含字母、数字、点、横线"
-      err "  - 不能是纯数字"
-      continue
-    fi
-
-    # Check for protocol prefix
+    # Step 1: Check for protocol prefix FIRST (before format validation)
     if [[ "$domain" == https://* ]] || [[ "$domain" == http://* ]]; then
       local suggested="${domain#http://}"
       suggested="${suggested#https://}"
@@ -958,6 +993,26 @@ collect_vps_args() {
         2) continue ;;
         3|*) return 1 ;;
       esac
+    fi
+
+    # Step 2: Reject placeholder/example domains in real deployment mode
+    if [[ "$DRY_RUN" != "1" ]] && [[ "$COMMAND_ONLY" != "1" ]]; then
+      if is_placeholder_value "$domain"; then
+        echo ""
+        echo -e "  ${YELLOW}真实部署不能使用示例域名。${NC}"
+        echo "  请输入你自己的域名，例如 proxy.yourdomain.com"
+        echo ""
+        continue
+      fi
+    fi
+
+    # Step 3: Validate domain format (after protocol/path correction)
+    if ! is_valid_domain_name "$domain"; then
+      err "这不像有效域名。域名通常长这样：proxy.yourdomain.com"
+      err "  - 至少包含一个点"
+      err "  - 只能包含字母、数字、点、横线"
+      err "  - 不能是纯数字"
+      continue
     fi
 
     break
@@ -1074,6 +1129,43 @@ collect_vps_args() {
   NANOBK_CERT_MODE="$cert_mode"
 
   prompt reality_sname "Reality 伪装域名" "www.microsoft.com"
+
+  # VPS Review Table
+  echo ""
+  echo -e "${BOLD}VPS 配置确认${NC}"
+  echo ""
+  echo "  1. 节点域名：${domain}"
+  echo "  2. 证书模式：${cert_mode}"
+  echo "  3. Reality 伪装域名：${reality_sname}"
+  echo ""
+  echo "    1) 确认并执行 VPS 部署"
+  echo "    2) 修改节点域名"
+  echo "    3) 修改证书模式"
+  echo "    4) 修改 Reality 伪装域名"
+  echo "    5) 返回上一级"
+  echo "    6) 退出"
+  echo ""
+  local vps_review_choice
+  prompt_menu_choice vps_review_choice "请选择" "1" "6"
+  case "$vps_review_choice" in
+    1) ;;  # Continue to deploy
+    2) prompt domain "请输入节点域名" "$domain"; NANOBK_DOMAIN="$domain" ;;
+    3) # Re-select cert mode
+       echo "  请选择证书模式："
+       echo "    1) self-signed（推荐）"
+       echo "    2) existing"
+       local cert_re_choice
+       prompt_menu_choice cert_re_choice "请选择" "1" "2"
+       case "$cert_re_choice" in
+         1) cert_mode="self-signed"; cert_file=""; key_file="" ;;
+         2) cert_mode="existing"; prompt cert_file "证书路径" "${cert_file:-}"; prompt key_file "密钥路径" "${key_file:-}" ;;
+       esac
+       NANOBK_CERT_MODE="$cert_mode"
+       ;;
+    4) prompt reality_sname "Reality 伪装域名" "$reality_sname" ;;
+    5) return 0 ;;  # Return to caller
+    6|*) return 1 ;;
+  esac
 
   echo ""
 
@@ -1193,6 +1285,49 @@ collect_cloudflare_args() {
   else
     kv_args+=(--create-kv)
   fi
+
+  # Cloudflare Review Table
+  echo ""
+  echo -e "${BOLD}Cloudflare 配置确认${NC}"
+  echo ""
+  echo "  1. 节点配置文件：${profile}"
+  echo "  2. nanok 地址：${route_url}"
+  echo "  3. KV：$([ "$kv_choice" == "2" ] && echo "使用已有 ID: ${kv_id}" || echo "自动创建")"
+  echo "  4. nanob：$([ "${NANOBK_DEPLOY_NANOB:-true}" == "true" ] && echo "启用" || echo "不启用")"
+  [[ -n "${NANOBK_NANOB_URL:-}" ]] && echo "  5. nanob 地址：${NANOBK_NANOB_URL}"
+  echo ""
+  echo "    1) 确认并部署 Cloudflare"
+  echo "    2) 修改 Worker 地址"
+  echo "    3) 修改 KV 设置"
+  echo "    4) 修改 nanob 设置"
+  echo "    5) 返回上一级"
+  echo "    6) 退出"
+  echo ""
+  local cf_review_choice
+  prompt_menu_choice cf_review_choice "请选择" "1" "6"
+  case "$cf_review_choice" in
+    1) ;;  # Continue to deploy
+    2) prompt route_url "nanok Worker URL" "$route_url"; NANOBK_NANOK_URL="$route_url" ;;
+    3) echo "  KV namespace 选择："
+       echo "    1) 自动创建 KV（推荐）"
+       echo "    2) 使用已有 KV namespace ID"
+       prompt kv_choice "请选择" "$kv_choice"
+       if [[ "$kv_choice" == "2" ]]; then
+         prompt kv_id "KV namespace ID"
+         kv_args=(--kv-namespace-id "$kv_id")
+       else
+         kv_args=(--create-kv)
+       fi
+       ;;
+    4) if confirm "是否部署 nanob 聚合器？" "y"; then
+         NANOBK_DEPLOY_NANOB="true"
+       else
+         NANOBK_DEPLOY_NANOB="false"
+       fi
+       ;;
+    5) return 0 ;;
+    6|*) return 1 ;;
+  esac
 
   NANOBK_DEPLOY_CLOUDFLARE="true"
 
@@ -1478,6 +1613,30 @@ collect_bot_args() {
     warn "请稍后编辑 bot/.env 填写。"
   fi
 
+  # Bot Review Table
+  echo ""
+  echo -e "${BOLD}Telegram Bot 配置确认${NC}"
+  echo ""
+  echo "  1. Bot Token：$([ -n "$bot_token" ] && echo "已填写" || echo "未填写")"
+  echo "  2. Owner ID：${owner_id:-未填写}"
+  echo "  3. Dry-run：待选择"
+  echo ""
+  echo "    1) 确认并继续"
+  echo "    2) 修改 Bot Token"
+  echo "    3) 修改 Owner ID"
+  echo "    4) 返回上一级"
+  echo "    5) 退出"
+  echo ""
+  local bot_review_choice
+  prompt_menu_choice bot_review_choice "请选择" "1" "5"
+  case "$bot_review_choice" in
+    1) ;;  # Continue
+    2) prompt bot_token "Telegram Bot Token" "$bot_token" ;;
+    3) prompt owner_id "Telegram User ID" "$owner_id" ;;
+    4) return 0 ;;
+    5|*) return 1 ;;
+  esac
+
   if confirm "首次启动使用 dry-run 模式？(推荐)" "y"; then
     bot_dry_run="true"
   else
@@ -1579,6 +1738,36 @@ collect_web_args() {
     web_secret=$(openssl rand -base64 32 | tr -d '\n/+=' | head -c 32)
     ok "自动生成 Flask Secret Key"
   fi
+
+  # Web Review Table
+  echo ""
+  echo -e "${BOLD}Web Panel 配置确认${NC}"
+  echo ""
+  echo "  1. Listen host：${web_host}"
+  echo "  2. Listen port：${web_port}"
+  echo "  3. Token：$([ -n "$web_token" ] && echo "已生成" || echo "待生成")"
+  echo "  4. Secret：$([ -n "$web_secret" ] && echo "已生成" || echo "待生成")"
+  echo ""
+  echo "    1) 确认并继续"
+  echo "    2) 修改 host"
+  echo "    3) 修改 port"
+  echo "    4) 重新生成 token/secret"
+  echo "    5) 返回上一级"
+  echo "    6) 退出"
+  echo ""
+  local web_review_choice
+  prompt_menu_choice web_review_choice "请选择" "1" "6"
+  case "$web_review_choice" in
+    1) ;;  # Continue
+    2) prompt web_host "监听地址" "$web_host"; NANOBK_WEB_HOST="$web_host" ;;
+    3) prompt web_port "监听端口" "$web_port"; NANOBK_WEB_PORT="$web_port" ;;
+    4) web_token=$(openssl rand -base64 32 | tr -d '\n/+=' | head -c 32)
+       web_secret=$(openssl rand -base64 32 | tr -d '\n/+=' | head -c 32)
+       ok "已重新生成 token/secret"
+       ;;
+    5) return 0 ;;
+    6|*) return 1 ;;
+  esac
 
   if confirm "首次启动使用 dry-run 模式？(推荐)" "y"; then
     web_dry_run="true"
@@ -2006,16 +2195,19 @@ run_full_wizard() {
     echo ""
     local resume_choice
     prompt_menu_choice resume_choice "请选择" "1" "6"
+    local START_FROM_STAGE="auto"
     case "$resume_choice" in
-      1) ;;  # Continue with recommended flow
-      2) ;;  # Continue with VPS
+      1) START_FROM_STAGE="auto" ;;  # Continue with recommended flow
+      2) START_FROM_STAGE="vps" ;;  # Continue with VPS
       3)
         # Skip to Cloudflare
+        START_FROM_STAGE="cloudflare"
         VPS_STAGE_STATUS="installed"
         CF_STAGE_STATUS="unknown"
         ;;
       4)
         # Skip to Bot/Web
+        START_FROM_STAGE="botweb"
         VPS_STAGE_STATUS="installed"
         CF_STAGE_STATUS="deployed"
         ;;
@@ -2039,13 +2231,16 @@ run_full_wizard() {
   fi
 
   # Phase 0: Preflight
+  local START_FROM_STAGE="${START_FROM_STAGE:-auto}"
   run_unified_preflight || true
 
-  # Phase 1: VPS
+  # Phase 1: VPS (skip if resuming from cloudflare/botweb)
   echo ""
   echo -e "${BOLD}── 阶段 1：VPS 部署 ──${NC}"
   echo ""
-  if confirm "是否配置 VPS 部署？" "y"; then
+  if [[ "$START_FROM_STAGE" == "cloudflare" ]] || [[ "$START_FROM_STAGE" == "botweb" ]]; then
+    echo "  已跳过 VPS 部署（从 ${START_FROM_STAGE} 继续）。"
+  elif confirm "是否配置 VPS 部署？" "y"; then
     local vps_rc=0
     collect_vps_args || vps_rc=$?
     case "$vps_rc" in
@@ -2129,8 +2324,10 @@ run_full_wizard() {
     echo ""
   fi
 
-  # Only proceed with Cloudflare if dependency check passed
-  if [[ "$CF_STAGE_STATUS" != "skipped_dependency" ]]; then
+  # Only proceed with Cloudflare if dependency check passed and not skipping
+  if [[ "$START_FROM_STAGE" == "botweb" ]]; then
+    echo "  已跳过 Cloudflare 部署（从 botweb 继续）。"
+  elif [[ "$CF_STAGE_STATUS" != "skipped_dependency" ]]; then
     if confirm "是否配置 Cloudflare 部署？" "y"; then
       NANOBK_DEPLOY_CLOUDFLARE="true"
       CF_DEPLOY_STATUS="unknown"
@@ -2812,6 +3009,9 @@ run_test_mode() {
       run_safe_test "$REPO_DIR/tests/unified-summary-honesty.sh" "summary honesty"
       run_safe_test "$REPO_DIR/tests/unified-full-wizard-behavior.sh" "full wizard behavior"
       run_safe_test "$REPO_DIR/tests/unified-real-vps-ux-hardening.sh" "real VPS UX hardening"
+      run_safe_test "$REPO_DIR/tests/full-wizard-interactive-mock.sh" "interactive mock"
+      run_safe_test "$REPO_DIR/tests/unified-full-wizard-review-resume.sh" "review resume"
+      run_safe_test "$REPO_DIR/tests/output-control-chars.sh" "output control chars"
       run_safe_test "$REPO_DIR/tests/rotate-render-only-tempdir.sh" "rotate tempdir"
       ;;
     *) err "无效选择"; return 1 ;;
