@@ -58,6 +58,7 @@
 | v1.7.8 | Full wizard interaction harness and real review flow |
 | v1.7.9 | Full wizard real interaction mock hardening |
 | v1.7.10 | Full wizard flow wiring cleanup |
+| v1.7.11 | Full wizard dynamic mock and Cloudflare UX completion |
 | v1.8 | 操作日志 |
 | v1.7 | 权限控制 |
 

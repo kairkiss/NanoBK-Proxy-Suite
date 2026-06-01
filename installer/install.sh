@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — Unified Beginner Installer v1.7.10
+# NanoBK Proxy Suite — Unified Beginner Installer v1.7.11
 #
 # Interactive entry point for NanoBK Proxy Suite.
 # Guides users through VPS deployment, Cloudflare setup, Bot, Web Panel.
@@ -20,7 +20,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # ── Constants ───────────────────────────────────────────────────────────────
 
 REPO_URL="https://github.com/kairkiss/NanoBK-Proxy-Suite"
-VERSION="1.7.10"
+VERSION="1.7.11"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -249,7 +249,8 @@ control_plane_only_required() {
 # ── Placeholder / example value detection ──────────────────────────────────
 
 is_placeholder_value() {
-  local val="${1,,}"  # lowercase
+  local val
+  val=$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')
   case "$val" in
     example.com|example.org|example.net|proxy.example.com|\
     your_domain|your_vps_ip|replace_me|change_me|placeholder|localhost)
@@ -264,7 +265,8 @@ is_placeholder_value() {
 }
 
 is_placeholder_worker_url() {
-  local url="${1,,}"
+  local url
+  url=$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')
   # Strip protocol
   url="${url#https://}"
   url="${url#http://}"
@@ -322,7 +324,7 @@ wizard_state_print() {
 
   if [[ ! -f "$state_file" ]]; then
     echo "  没有找到之前的安装状态。"
-    return 1
+    return 0
   fi
 
   echo "  检测到已有 NanoBK 状态："
@@ -1208,79 +1210,115 @@ collect_cloudflare_args() {
   echo -e "${BOLD}── Cloudflare 部署参数 ──${NC}"
   echo ""
 
-  local profile route_url kv_choice kv_id nanob_url geo_choice geo_id
+  local profile route_url nanob_url
 
   prompt profile "profile.current.json 路径" "/etc/nanobk/profile.current.json"
 
-  # Cloudflare URL validation
-  while true; do
-    prompt route_url "nanok Worker URL (例如 https://nanok.xxx.workers.dev)" "${NANOBK_NANOK_URL:-https://nanok.example.workers.dev}"
+  # Worker URL recommendation flow
+  echo ""
+  echo "  请输入你的 Cloudflare Workers 子域，例如："
+  echo "    your-subdomain.workers.dev"
+  echo ""
+  local workers_subdomain
+  prompt workers_subdomain "Workers 子域" ""
 
-    # Check for token/subscription URL first
-    if [[ "$route_url" == *"token="* ]] || [[ "$route_url" == *"/jb"* ]] || [[ "$route_url" == *"/sub"* ]]; then
-      echo ""
-      echo -e "  ${YELLOW}这里需要 Worker 根地址，例如 https://nanok.xxx.workers.dev${NC}"
-      echo "  不要粘贴带 token 的订阅链接。"
-      echo ""
-      continue
-    fi
+  if [[ -n "$workers_subdomain" ]]; then
+    # Clean subdomain
+    workers_subdomain="${workers_subdomain#https://}"
+    workers_subdomain="${workers_subdomain#http://}"
+    workers_subdomain="${workers_subdomain%%/*}"
+    workers_subdomain="${workers_subdomain%%\?*}"
+    workers_subdomain="${workers_subdomain%/}"
 
-    # Reject placeholder/example URLs in real deployment mode
-    if [[ "$DRY_RUN" != "1" ]] && [[ "$COMMAND_ONLY" != "1" ]]; then
-      if is_placeholder_worker_url "$route_url"; then
-        echo ""
-        echo -e "  ${YELLOW}真实部署不能使用示例地址。${NC}"
-        echo "  请输入你自己的 Worker 地址，例如："
-        echo "    https://nanok.<你的 workers.dev 子域>.workers.dev"
-        echo ""
+    local recommended_nanok="https://nanok.${workers_subdomain}"
+    local recommended_nanob="https://nanob.${workers_subdomain}"
+
+    echo ""
+    echo "  推荐地址："
+    echo "    nanok: ${recommended_nanok}"
+    echo "    nanob: ${recommended_nanob}"
+    echo ""
+    echo "    1) 使用推荐地址"
+    echo "    2) 使用自定义 HTTPS 地址"
+    echo "    3) 返回"
+    echo ""
+    local url_choice
+    prompt_menu_choice url_choice "请选择" "1" "3"
+    case "$url_choice" in
+      1)
+        route_url="$recommended_nanok"
+        nanob_url="$recommended_nanob"
+        NANOBK_DEPLOY_NANOB="true"
+        ;;
+      2)
+        # Fall through to manual URL entry
+        ;;
+      3)
+        return 2
+        ;;
+    esac
+  fi
+
+  # Manual URL entry (if not using recommendation)
+  if [[ -z "$route_url" ]]; then
+    while true; do
+      prompt route_url "nanok Worker URL" "${NANOBK_NANOK_URL:-https://nanok.example.workers.dev}"
+
+      # Check for token/subscription URL
+      if [[ "$route_url" == *"token="* ]] || [[ "$route_url" == *"/jb"* ]] || [[ "$route_url" == *"/sub"* ]]; then
+        echo -e "  ${YELLOW}这里需要 Worker 根地址，不要粘贴带 token 的订阅链接。${NC}"
         continue
       fi
-    fi
 
-    # Check for http:// (must use https)
-    if [[ "$route_url" == http://* ]]; then
-      echo ""
-      echo -e "  ${YELLOW}Worker URL 必须使用 https://，不支持 http://。${NC}"
-      echo ""
-      continue
-    fi
+      # Reject placeholder in real mode
+      if [[ "$DRY_RUN" != "1" ]] && [[ "$COMMAND_ONLY" != "1" ]]; then
+        if is_placeholder_worker_url "$route_url"; then
+          echo -e "  ${YELLOW}真实部署不能使用示例地址。请输入你自己的 Worker 地址。${NC}"
+          continue
+        fi
+      fi
 
-    # Bare host detection (no protocol)
-    if [[ "$route_url" != https://* ]] && [[ "$route_url" != http://* ]] && [[ -n "$route_url" ]] && [[ "$route_url" != *" "* ]]; then
-      # Looks like a bare host
-      local cleaned="${route_url%%/*}"
-      cleaned="${cleaned%%\?*}"
-      cleaned="${cleaned%/}"
-      echo ""
-      echo -e "  ${YELLOW}检测到未包含 https://${NC}"
-      echo "  是否使用 https://${cleaned} ？"
-      echo "    1) 使用 https://${cleaned}"
-      echo "    2) 重新输入"
-      echo "    3) 退出"
-      echo ""
-      local url_fix_choice
-      prompt url_fix_choice "请选择" "1"
-      case "$url_fix_choice" in
-        1) route_url="https://${cleaned}" ;;
-        2) continue ;;
-        3|*) return 1 ;;
-      esac
-    fi
+      # Check for http://
+      if [[ "$route_url" == http://* ]]; then
+        echo -e "  ${YELLOW}Worker URL 必须使用 https://，不支持 http://。${NC}"
+        continue
+      fi
 
-    # Clean: strip query params, fragment, trailing slash
-    route_url="${route_url%%\?*}"
-    route_url="${route_url%%#*}"
-    route_url="${route_url%/}"
+      # Bare host detection
+      if [[ "$route_url" != https://* ]] && [[ -n "$route_url" ]]; then
+        local cleaned="${route_url%%/*}"
+        cleaned="${cleaned%%\?*}"
+        cleaned="${cleaned%/}"
+        echo -e "  ${YELLOW}检测到未包含 https://${NC}"
+        echo "  是否使用 https://${cleaned} ？"
+        echo "    1) 使用 https://${cleaned}"
+        echo "    2) 重新输入"
+        echo "    3) 退出"
+        echo ""
+        local url_fix_choice
+        prompt_menu_choice url_fix_choice "请选择" "1" "3"
+        case "$url_fix_choice" in
+          1) route_url="https://${cleaned}" ;;
+          2) continue ;;
+          3|*) return 1 ;;
+        esac
+      fi
 
-    # Validate result looks like a proper https URL
-    if [[ "$route_url" != https://* ]]; then
-      echo -e "  ${YELLOW}URL 必须以 https:// 开头。${NC}"
-      continue
-    fi
+      # Clean
+      route_url="${route_url%%\?*}"
+      route_url="${route_url%%#*}"
+      route_url="${route_url%/}"
 
-    break
-  done
+      if [[ "$route_url" != https://* ]]; then
+        echo -e "  ${YELLOW}URL 必须以 https:// 开头。${NC}"
+        continue
+      fi
+
+      break
+    done
+  fi
   NANOBK_NANOK_URL="$route_url"
+  [[ -n "$nanob_url" ]] && NANOBK_NANOB_URL="$nanob_url"
 
   # KV detection: check for existing SUB_STORE
   local kv_args=()
@@ -1329,18 +1367,8 @@ collect_cloudflare_args() {
     fi
   fi
 
-  # Cloudflare Review Loop
-  local cf_review_rc=0
-  cloudflare_review_loop "$profile" "$route_url" "${NANOBK_NANOB_URL:-}" "$kv_mode" || cf_review_rc=$?
-  case "$cf_review_rc" in
-    0) ;;  # Confirmed
-    2) return 2 ;;  # Return to caller
-    *) return 1 ;;  # Exit
-  esac
-
-  # Read final values from global vars set by review loop
-  route_url="$NANOBK_NANOK_URL"
-  nanob_url="$NANOBK_NANOB_URL"
+  # Initialize geo_mode (will be updated if nanob enabled)
+  local geo_mode="自动创建"
 
   NANOBK_DEPLOY_CLOUDFLARE="true"
 
@@ -1453,19 +1481,63 @@ collect_cloudflare_args() {
     done
     NANOBK_NANOB_URL="$nanob_url"
 
-    echo ""
-    echo "  Geo KV namespace 选择："
-    echo "    1) 自动创建（推荐）"
-    echo "    2) 使用已有 Geo KV ID"
-    prompt geo_choice "请选择" "1"
-
+    # Geo KV detection: check for existing NANOB_GEO_CACHE
     local geo_args=()
-    if [[ "$geo_choice" == "2" ]]; then
-      prompt geo_id "Geo KV namespace ID"
-      geo_args+=(--nanob-geo-kv-namespace-id "$geo_id")
-    else
-      geo_args+=(--create-nanob-geo-kv)
+    local geo_mode="自动创建"
+    local existing_geo_id=""
+    if [[ "$DRY_RUN" != "1" ]] && [[ "$COMMAND_ONLY" != "1" ]]; then
+      existing_geo_id=$(find_existing_kv_id "NANOB_GEO_CACHE" 2>/dev/null || echo "")
+    elif [[ "${NANOBK_TEST_MOCK_EXISTING_KV:-}" == "1" ]]; then
+      existing_geo_id=$(mock_find_existing_kv "NANOB_GEO_CACHE" 2>/dev/null || echo "")
     fi
+
+    if [[ -n "$existing_geo_id" ]]; then
+      echo ""
+      echo -e "  ${YELLOW}检测到你的 Cloudflare 账号里已经有 NANOB_GEO_CACHE${NC}"
+      echo "  id: ${existing_geo_id}"
+      echo ""
+      echo "    1) 复用现有 NANOB_GEO_CACHE"
+      echo "    2) 创建新的 Geo KV"
+      echo "    3) 使用已有 Geo KV namespace ID"
+      echo "    4) 返回修改"
+      echo "    5) 退出"
+      echo ""
+      local geo_reuse_choice
+      prompt_menu_choice geo_reuse_choice "请选择" "1" "5"
+      case "$geo_reuse_choice" in
+        1) geo_args=(--nanob-geo-kv-namespace-id "$existing_geo_id"); geo_mode="复用现有 NANOB_GEO_CACHE" ;;
+        2) geo_args=(--create-nanob-geo-kv); geo_mode="自动创建" ;;
+        3) prompt geo_id "Geo KV namespace ID"; geo_args=(--nanob-geo-kv-namespace-id "$geo_id"); geo_mode="使用已有 ID" ;;
+        4) return 2 ;;
+        5|*) return 1 ;;
+      esac
+    else
+      echo ""
+      echo "  Geo KV namespace 选择："
+      echo "    1) 自动创建（推荐）"
+      echo "    2) 使用已有 Geo KV ID"
+      local geo_choice
+      prompt_menu_choice geo_choice "请选择" "1" "2"
+      if [[ "$geo_choice" == "2" ]]; then
+        prompt geo_id "Geo KV namespace ID"
+        geo_args=(--nanob-geo-kv-namespace-id "$geo_id")
+        geo_mode="使用已有 ID"
+      else
+        geo_args=(--create-nanob-geo-kv)
+        geo_mode="自动创建"
+      fi
+    fi
+
+    # Cloudflare Review Loop (after all params collected)
+    local cf_review_rc=0
+    cloudflare_review_loop "$profile" "$route_url" "$nanob_url" "$kv_mode" "$geo_mode" || cf_review_rc=$?
+    case "$cf_review_rc" in
+      0) ;;  # Confirmed
+      2) return 2 ;;
+      *) return 1 ;;
+    esac
+    route_url="$NANOBK_NANOK_URL"
+    nanob_url="$NANOBK_NANOB_URL"
 
     local nanok_cmd=(bash "$REPO_DIR/installer/install-cloudflare.sh" --yes
       "${kv_args[@]}"
@@ -1483,6 +1555,17 @@ collect_cloudflare_args() {
     fi
   else
     NANOBK_DEPLOY_NANOB="false"
+
+    # Cloudflare Review Loop (nanob disabled)
+    local cf_review_rc=0
+    cloudflare_review_loop "$profile" "$route_url" "" "$kv_mode" "$geo_mode" || cf_review_rc=$?
+    case "$cf_review_rc" in
+      0) ;;
+      2) return 2 ;;
+      *) return 1 ;;
+    esac
+    route_url="$NANOBK_NANOK_URL"
+
     local nanok_cmd=(bash "$REPO_DIR/installer/install-cloudflare.sh" --yes
       "${kv_args[@]}"
       --profile "$profile"
@@ -2216,6 +2299,7 @@ cloudflare_review_loop() {
   local route_url="$2"
   local nanob_url="${3:-}"
   local kv_mode="${4:-auto}"
+  local geo_mode="${5:-自动创建}"
 
   while true; do
     echo ""
@@ -2226,6 +2310,7 @@ cloudflare_review_loop() {
     echo "  3. KV：${kv_mode}"
     echo "  4. nanob：$([ -n "$nanob_url" ] && echo "启用" || echo "不启用")"
     [[ -n "$nanob_url" ]] && echo "  5. nanob 地址：${nanob_url}"
+    [[ -n "$nanob_url" ]] && echo "  6. Geo KV：${geo_mode}"
     echo ""
     echo "    1) 确认并部署 Cloudflare"
     echo "    2) 修改 Worker 地址"

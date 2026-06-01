@@ -1,5 +1,22 @@
 # Changelog
 
+## v1.7.11 — Full Wizard Dynamic Mock and Cloudflare UX Completion
+
+### Fixed
+
+- Full Wizard interactive mock now runs `installer/install.sh --mode full` with a real input stream
+- Mock test now verifies review edits, invalid input rejection, Worker URL recommendation, KV reuse, token redaction, and Summary output dynamically
+- Cloudflare setup now recommends nanok/nanob Worker URLs from a workers.dev subdomain
+- NANOB_GEO_CACHE existing KV recovery is now wired into the Cloudflare flow
+- Cloudflare review table now reflects recommended Worker URLs and reused KV states
+
+### Safety
+
+- Mock tests do not connect to a real VPS or Cloudflare
+- Mock tests do not write to /etc or /root
+- Review tables and mock output do not print raw tokens or secrets
+- v1.7.11 does not claim real VPS or Cloudflare validation
+
 ## v1.7.10 — Full Wizard Flow Wiring Cleanup
 
 ### Fixed
