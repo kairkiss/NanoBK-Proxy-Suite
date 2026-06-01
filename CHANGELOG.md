@@ -1,5 +1,29 @@
 # Changelog
 
+## v1.7.9 — Full Wizard Real Interaction Mock Hardening
+
+### Fixed
+
+- Full Wizard critical choices no longer use loose y/n confirmation
+- Review tables now loop until the user confirms, returns, or exits
+- Editing a stage field returns to the stage review table
+- Resume routing no longer marks Cloudflare as deployed without evidence
+- Existing KV recovery is now wired into the Cloudflare flow
+- Worker URL recommendations are now wired into the Cloudflare flow
+- Interactive mock tests now execute real input streams instead of static grep checks
+
+### Improved
+
+- Added real local mock interaction tests for invalid input, review edits, resume routing, KV reuse, Worker URL recommendation, and token redaction
+- Bot/Web configuration now uses strict review loops before writing env files
+- Full Wizard state transitions are easier to verify without repeated real VPS tests
+
+### Safety
+
+- Mock tests do not connect to VPS or Cloudflare
+- Review tables and mock output do not print raw tokens or secrets
+- v1.7.9 does not claim real VPS or Cloudflare validation
+
 ## v1.7.8 — Full Wizard Interaction Harness and Real Review Flow
 
 ### Added

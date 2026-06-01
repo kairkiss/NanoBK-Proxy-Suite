@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — Unified Beginner Installer v1.7.8
+# NanoBK Proxy Suite — Unified Beginner Installer v1.7.9
 #
 # Interactive entry point for NanoBK Proxy Suite.
 # Guides users through VPS deployment, Cloudflare setup, Bot, Web Panel.
@@ -20,7 +20,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # ── Constants ───────────────────────────────────────────────────────────────
 
 REPO_URL="https://github.com/kairkiss/NanoBK-Proxy-Suite"
-VERSION="1.7.8"
+VERSION="1.7.9"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -536,6 +536,35 @@ prompt() {
   fi
 }
 
+# Strict yes/no menu for Full Wizard critical choices
+# Returns 0 for yes, 1 for no/exit
+ask_yes_no_menu() {
+  local prompt_text="$1"
+  local default="${2:-y}"
+  local default_num="1"
+  [[ "$default" == "n" ]] && default_num="2"
+
+  if [[ "$YES" == "1" ]]; then
+    [[ "$default" == "y" ]] && return 0 || return 1
+  fi
+
+  echo ""
+  echo "  ${prompt_text}"
+  echo "    1) 是"
+  echo "    2) 否"
+  echo "    3) 退出"
+  echo ""
+  local choice
+  prompt_menu_choice choice "请选择" "$default_num" "3"
+  case "$choice" in
+    1) return 0 ;;
+    2) return 1 ;;
+    3|*) return 1 ;;
+  esac
+}
+
+# Legacy helper. Do not use for Full Wizard critical choices.
+# Use prompt_menu_choice or review loops instead.
 confirm() {
   local prompt_text="$1"
   local default="${2:-n}"
@@ -2150,6 +2179,262 @@ run_unified_preflight() {
   return $PREFLIGHT_ERRORS
 }
 
+# ── Review loop helpers ────────────────────────────────────────────────────
+# These replace loose confirm() calls in Full Wizard critical paths.
+# Each loop shows a review table, allows edits, and only exits on confirm/return/exit.
+
+vps_review_loop() {
+  local domain="$1"
+  local cert_mode="$2"
+  local reality_sname="$3"
+
+  while true; do
+    echo ""
+    echo -e "${BOLD}VPS 配置确认${NC}"
+    echo ""
+    echo "  1. 节点域名：${domain}"
+    echo "  2. 证书模式：${cert_mode}"
+    echo "  3. Reality 伪装域名：${reality_sname}"
+    echo ""
+    echo "    1) 确认并执行 VPS 部署"
+    echo "    2) 修改节点域名"
+    echo "    3) 修改证书模式"
+    echo "    4) 修改 Reality 伪装域名"
+    echo "    5) 返回上一级"
+    echo "    6) 退出"
+    echo ""
+    local choice
+    prompt_menu_choice choice "请选择" "1" "6"
+    case "$choice" in
+      1)
+        # Return values via global vars
+        NANOBK_DOMAIN="$domain"
+        NANOBK_CERT_MODE="$cert_mode"
+        NANOBK_REALITY_SERVERNAME="$reality_sname"
+        return 0  # confirm
+        ;;
+      2) prompt domain "请输入节点域名" "$domain" ;;
+      3)
+        echo "  请选择证书模式："
+        echo "    1) self-signed（推荐）"
+        echo "    2) existing"
+        local cert_choice
+        prompt_menu_choice cert_choice "请选择" "1" "2"
+        case "$cert_choice" in
+          1) cert_mode="self-signed" ;;
+          2) cert_mode="existing" ;;
+        esac
+        ;;
+      4) prompt reality_sname "Reality 伪装域名" "$reality_sname" ;;
+      5) return 2 ;; # return to caller
+      6) return 1 ;; # exit
+      *) return 1 ;; # exit
+    esac
+  done
+}
+
+cloudflare_review_loop() {
+  local profile="$1"
+  local route_url="$2"
+  local nanob_url="${3:-}"
+  local kv_mode="${4:-auto}"
+
+  while true; do
+    echo ""
+    echo -e "${BOLD}Cloudflare 配置确认${NC}"
+    echo ""
+    echo "  1. 节点配置文件：${profile}"
+    echo "  2. nanok 地址：${route_url}"
+    echo "  3. KV：${kv_mode}"
+    echo "  4. nanob：$([ -n "$nanob_url" ] && echo "启用" || echo "不启用")"
+    [[ -n "$nanob_url" ]] && echo "  5. nanob 地址：${nanob_url}"
+    echo ""
+    echo "    1) 确认并部署 Cloudflare"
+    echo "    2) 修改 Worker 地址"
+    echo "    3) 修改 KV 设置"
+    echo "    4) 修改 nanob 设置"
+    echo "    5) 返回上一级"
+    echo "    6) 退出"
+    echo ""
+    local choice
+    prompt_menu_choice choice "请选择" "1" "6"
+    case "$choice" in
+      1)
+        NANOBK_NANOK_URL="$route_url"
+        NANOBK_NANOB_URL="$nanob_url"
+        return 0
+        ;;
+      2) prompt route_url "nanok Worker URL" "$route_url" ;;
+      3)
+        echo "  KV namespace 选择："
+        echo "    1) 自动创建 KV（推荐）"
+        echo "    2) 使用已有 KV namespace ID"
+        local kv_choice
+        prompt_menu_choice kv_choice "请选择" "1" "2"
+        case "$kv_choice" in
+          1) kv_mode="自动创建" ;;
+          2) kv_mode="使用已有 ID"; prompt kv_id "KV namespace ID" ;;
+        esac
+        ;;
+      4)
+        if [[ -n "$nanob_url" ]]; then
+          nanob_url=""
+        else
+          prompt nanob_url "nanob Worker URL" "https://nanob.example.workers.dev"
+        fi
+        ;;
+      5) return 2 ;;
+      6|*) return 1 ;;
+    esac
+  done
+}
+
+bot_review_loop() {
+  local bot_token="$1"
+  local owner_id="$2"
+  local bot_dry_run="${3:-true}"
+
+  while true; do
+    echo ""
+    echo -e "${BOLD}Telegram Bot 配置确认${NC}"
+    echo ""
+    echo "  1. Bot Token：$([ -n "$bot_token" ] && echo "已填写" || echo "未填写")"
+    echo "  2. Owner ID：${owner_id:-未填写}"
+    echo "  3. Dry-run：${bot_dry_run}"
+    echo ""
+    echo "    1) 确认并写入 bot/.env"
+    echo "    2) 修改 Bot Token"
+    echo "    3) 修改 Owner ID"
+    echo "    4) 修改 Dry-run 设置"
+    echo "    5) 返回上一级"
+    echo "    6) 退出"
+    echo ""
+    local choice
+    prompt_menu_choice choice "请选择" "1" "6"
+    case "$choice" in
+      1)
+        NANOBK_BOT_TOKEN="$bot_token"
+        NANOBK_BOT_OWNER_ID="$owner_id"
+        NANOBK_BOT_DRY_RUN="$bot_dry_run"
+        return 0
+        ;;
+      2) prompt bot_token "Bot Token" "" ;;
+      3)
+        prompt owner_id "Owner ID" "$owner_id"
+        if [[ -n "$owner_id" ]] && ! [[ "$owner_id" =~ ^[0-9]+$ ]]; then
+          err "Owner ID 必须是纯数字。"
+          owner_id=""
+        fi
+        ;;
+      4)
+        echo "  Dry-run 模式："
+        echo "    1) 启用（推荐）"
+        echo "    2) 禁用"
+        local dr_choice
+        prompt_menu_choice dr_choice "请选择" "1" "2"
+        case "$dr_choice" in
+          1) bot_dry_run="true" ;;
+          2) bot_dry_run="false" ;;
+        esac
+        ;;
+      5) return 2 ;;
+      6|*) return 1 ;;
+    esac
+  done
+}
+
+web_review_loop() {
+  local web_host="$1"
+  local web_port="$2"
+  local web_dry_run="${3:-true}"
+
+  while true; do
+    echo ""
+    echo -e "${BOLD}Web Panel 配置确认${NC}"
+    echo ""
+    echo "  1. Listen host：${web_host}"
+    echo "  2. Listen port：${web_port}"
+    echo "  3. Token：已生成"
+    echo "  4. Secret：已生成"
+    echo "  5. Dry-run：${web_dry_run}"
+    echo ""
+    echo "    1) 确认并写入 web/.env"
+    echo "    2) 修改 host"
+    echo "    3) 修改 port"
+    echo "    4) 重新生成 token/secret"
+    echo "    5) 修改 Dry-run 设置"
+    echo "    6) 返回上一级"
+    echo "    7) 退出"
+    echo ""
+    local choice
+    prompt_menu_choice choice "请选择" "1" "7"
+    case "$choice" in
+      1)
+        NANOBK_WEB_HOST="$web_host"
+        NANOBK_WEB_PORT="$web_port"
+        NANOBK_WEB_DRY_RUN="$web_dry_run"
+        return 0
+        ;;
+      2) prompt web_host "Listen host" "$web_host" ;;
+      3)
+        prompt web_port "Listen port" "$web_port"
+        if ! [[ "$web_port" =~ ^[0-9]+$ ]]; then
+          err "端口必须是数字。"
+          web_port="8080"
+        fi
+        ;;
+      4) echo "  token/secret 将在确认后自动生成。" ;;
+      5)
+        echo "  Dry-run 模式："
+        echo "    1) 启用（推荐）"
+        echo "    2) 禁用"
+        local dr_choice
+        prompt_menu_choice dr_choice "请选择" "1" "2"
+        case "$dr_choice" in
+          1) web_dry_run="true" ;;
+          2) web_dry_run="false" ;;
+        esac
+        ;;
+      6) return 2 ;;
+      7|*) return 1 ;;
+    esac
+  done
+}
+
+# ── Existing KV detection ──────────────────────────────────────────────────
+
+find_existing_kv_id() {
+  local binding="$1"
+  if [[ "${NANOBK_TEST_MOCK:-}" == "1" ]]; then
+    mock_find_existing_kv "$binding"
+    return $?
+  fi
+  # Real implementation: parse wrangler kv namespace list
+  if command -v wrangler &>/dev/null || command -v npx &>/dev/null; then
+    local wcmd="wrangler"
+    command -v wrangler &>/dev/null || wcmd="npx wrangler"
+    local output
+    output=$($wcmd kv namespace list 2>/dev/null) || return 1
+    # Try to find the binding ID
+    local id
+    id=$(echo "$output" | python3 -c "
+import json, sys
+try:
+    data = json.loads(sys.stdin.read())
+    if isinstance(data, list):
+        for item in data:
+            if item.get('title','') == '$binding' or item.get('binding','') == '$binding':
+                print(item.get('id',''))
+                sys.exit(0)
+except: pass
+sys.exit(1)
+" 2>/dev/null) || return 1
+    echo "$id"
+    return 0
+  fi
+  return 1
+}
+
 # ── Full wizard ─────────────────────────────────────────────────────────────
 
 run_full_wizard() {
@@ -2200,16 +2485,34 @@ run_full_wizard() {
       1) START_FROM_STAGE="auto" ;;  # Continue with recommended flow
       2) START_FROM_STAGE="vps" ;;  # Continue with VPS
       3)
-        # Skip to Cloudflare
+        # Skip to Cloudflare — detect actual VPS state
         START_FROM_STAGE="cloudflare"
-        VPS_STAGE_STATUS="installed"
+        if [[ -f "/etc/nanobk/profile.current.json" ]]; then
+          VPS_STAGE_STATUS="assumed_existing"
+        else
+          VPS_STAGE_STATUS="unknown"
+        fi
         CF_STAGE_STATUS="unknown"
         ;;
       4)
-        # Skip to Bot/Web
+        # Skip to Bot/Web — detect actual states
         START_FROM_STAGE="botweb"
-        VPS_STAGE_STATUS="installed"
-        CF_STAGE_STATUS="deployed"
+        if [[ -f "/etc/nanobk/profile.current.json" ]]; then
+          VPS_STAGE_STATUS="assumed_existing"
+        else
+          VPS_STAGE_STATUS="unknown"
+        fi
+        if [[ -f "${REPO_DIR:-.}/.cloudflare.local.env" ]]; then
+          local cf_v
+          cf_v=$(read_env_value "${REPO_DIR:-.}/.cloudflare.local.env" "NANOBK_VERIFY_STATUS" 2>/dev/null || echo "")
+          if [[ "$cf_v" == "verified" ]]; then
+            CF_STAGE_STATUS="assumed_verified"
+          else
+            CF_STAGE_STATUS="unknown"
+          fi
+        else
+          CF_STAGE_STATUS="unknown"
+        fi
         ;;
       5)
         echo ""
@@ -2240,7 +2543,7 @@ run_full_wizard() {
   echo ""
   if [[ "$START_FROM_STAGE" == "cloudflare" ]] || [[ "$START_FROM_STAGE" == "botweb" ]]; then
     echo "  已跳过 VPS 部署（从 ${START_FROM_STAGE} 继续）。"
-  elif confirm "是否配置 VPS 部署？" "y"; then
+  elif ask_yes_no_menu "是否配置 VPS 部署？" "y"; then
     local vps_rc=0
     collect_vps_args || vps_rc=$?
     case "$vps_rc" in
@@ -2286,7 +2589,7 @@ run_full_wizard() {
         echo "  VPS 未完成，Cloudflare 将被跳过（依赖 profile.current.json）。"
         echo "  Bot/Web 可以配置，但仅为控制端，不代表节点可用。"
         echo ""
-        if ! confirm "是否继续配置 Bot/Web（控制端）？" "n"; then
+        if ! ask_yes_no_menu "是否继续配置 Bot/Web（控制端）？" "n"; then
           save_config
           print_summary
           return 1
@@ -2328,7 +2631,7 @@ run_full_wizard() {
   if [[ "$START_FROM_STAGE" == "botweb" ]]; then
     echo "  已跳过 Cloudflare 部署（从 botweb 继续）。"
   elif [[ "$CF_STAGE_STATUS" != "skipped_dependency" ]]; then
-    if confirm "是否配置 Cloudflare 部署？" "y"; then
+    if ask_yes_no_menu "是否配置 Cloudflare 部署？" "y"; then
       NANOBK_DEPLOY_CLOUDFLARE="true"
       CF_DEPLOY_STATUS="unknown"
       local cf_rc=0
@@ -2402,7 +2705,7 @@ run_full_wizard() {
     echo ""
   fi
 
-  if confirm "是否配置 Telegram Bot？" "y"; then
+  if ask_yes_no_menu "是否配置 Telegram Bot？" "y"; then
     NANOBK_ENABLE_BOT="true"
     if collect_bot_args; then
       if control_plane_only_required; then
@@ -2440,7 +2743,7 @@ run_full_wizard() {
     echo ""
   fi
 
-  if confirm "是否配置 Web Panel？" "y"; then
+  if ask_yes_no_menu "是否配置 Web Panel？" "y"; then
     NANOBK_ENABLE_WEB="true"
     if collect_web_args; then
       if control_plane_only_required; then

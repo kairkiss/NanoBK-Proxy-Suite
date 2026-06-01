@@ -1,6 +1,6 @@
 # Quick Start
 
-**NanoBK Proxy Suite v1.7.8 — Unified Beginner Installer**
+**NanoBK Proxy Suite v1.7.9 — Unified Beginner Installer**
 
 ## One-Line Bootstrap (Recommended)
 

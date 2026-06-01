@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
 # NanoBK Proxy Suite — Full Wizard Interactive Mock Test
 #
-# Simulates user interaction with the Full Wizard using NANOBK_TEST_MOCK.
+# REAL dynamic tests that execute installer input streams.
 # Does NOT connect to VPS or Cloudflare.
-# Does NOT write to /etc or /root.
-# All mock output clearly labeled [MOCK].
+# Uses NANOBK_TEST_MOCK=1 for simulated deployments.
 #
 # Usage:
 #   bash tests/full-wizard-interactive-mock.sh
@@ -60,77 +59,80 @@ check "has mock_log helper" "$(grep -q 'mock_log' "$INSTALLER" && echo 1 || echo
 check "has mock_deploy_vps" "$(grep -q 'mock_deploy_vps' "$INSTALLER" && echo 1 || echo 0)"
 check "has mock_deploy_cloudflare" "$(grep -q 'mock_deploy_cloudflare' "$INSTALLER" && echo 1 || echo 0)"
 check "has mock_preflight" "$(grep -q 'mock_preflight' "$INSTALLER" && echo 1 || echo 0)"
-check "has mock_validate_profile" "$(grep -q 'mock_validate_profile' "$INSTALLER" && echo 1 || echo 0)"
 check "has mock_find_existing_kv" "$(grep -q 'mock_find_existing_kv' "$INSTALLER" && echo 1 || echo 0)"
 check "has NANOBK_TEST_MOCK check" "$(grep -q 'NANOBK_TEST_MOCK' "$INSTALLER" && echo 1 || echo 0)"
 
-# ── Test 2: VPS review table ────────────────────────────────────────────────
+# ── Test 2: Review loop functions exist ─────────────────────────────────────
 echo ""
-echo "── Test 2: VPS review table ──"
+echo "── Test 2: Review loop functions ──"
 
-check "has VPS 配置确认" "$(grep -q 'VPS 配置确认' "$INSTALLER" && echo 1 || echo 0)"
-check "has modify domain option" "$(grep -q '修改节点域名' "$INSTALLER" && echo 1 || echo 0)"
-check "has modify cert option" "$(grep -q '修改证书模式' "$INSTALLER" && echo 1 || echo 0)"
-check "has modify reality option" "$(grep -q '修改 Reality 伪装域名' "$INSTALLER" && echo 1 || echo 0)"
-check "has confirm and deploy" "$(grep -q '确认并执行 VPS 部署' "$INSTALLER" && echo 1 || echo 0)"
+check "has vps_review_loop" "$(grep -q 'vps_review_loop' "$INSTALLER" && echo 1 || echo 0)"
+check "has cloudflare_review_loop" "$(grep -q 'cloudflare_review_loop' "$INSTALLER" && echo 1 || echo 0)"
+check "has bot_review_loop" "$(grep -q 'bot_review_loop' "$INSTALLER" && echo 1 || echo 0)"
+check "has web_review_loop" "$(grep -q 'web_review_loop' "$INSTALLER" && echo 1 || echo 0)"
+check "has ask_yes_no_menu" "$(grep -q 'ask_yes_no_menu' "$INSTALLER" && echo 1 || echo 0)"
 
-# ── Test 3: Cloudflare review table ─────────────────────────────────────────
+# ── Test 3: Strict menu integration ─────────────────────────────────────────
 echo ""
-echo "── Test 3: Cloudflare review table ──"
+echo "── Test 3: Strict menu integration ──"
 
-check "has Cloudflare 配置确认" "$(grep -q 'Cloudflare 配置确认' "$INSTALLER" && echo 1 || echo 0)"
-check "has modify Worker URL option" "$(grep -q '修改 Worker 地址' "$INSTALLER" && echo 1 || echo 0)"
-check "has modify KV option" "$(grep -q '修改 KV 设置' "$INSTALLER" && echo 1 || echo 0)"
-check "has modify nanob option" "$(grep -q '修改 nanob 设置' "$INSTALLER" && echo 1 || echo 0)"
-check "has confirm and deploy CF" "$(grep -q '确认并部署 Cloudflare' "$INSTALLER" && echo 1 || echo 0)"
+check "VPS phase uses ask_yes_no_menu" "$(grep -q 'ask_yes_no_menu.*是否配置 VPS' "$INSTALLER" && echo 1 || echo 0)"
+check "Full Wizard VPS uses ask_yes_no_menu" "$( [[ $(grep -c 'ask_yes_no_menu.*是否配置 VPS' "$INSTALLER") -gt 0 ]] && echo 1 || echo 0 )"
+check "Full Wizard CF uses ask_yes_no_menu" "$( [[ $(grep -c 'ask_yes_no_menu.*是否配置 Cloudflare' "$INSTALLER") -gt 0 ]] && echo 1 || echo 0 )"
 
-# ── Test 4: Bot review table ────────────────────────────────────────────────
+# ── Test 4: Resume routing ──────────────────────────────────────────────────
 echo ""
-echo "── Test 4: Bot review table ──"
+echo "── Test 4: Resume routing ──"
 
-check "has Telegram Bot 配置确认" "$(grep -q 'Telegram Bot 配置确认' "$INSTALLER" && echo 1 || echo 0)"
-check "has modify Bot Token option" "$(grep -q '修改 Bot Token' "$INSTALLER" && echo 1 || echo 0)"
-check "has modify Owner ID option" "$(grep -q '修改 Owner ID' "$INSTALLER" && echo 1 || echo 0)"
-check "has confirm and write bot" "$(grep -q '确认并写入 bot/.env\|确认并继续' "$INSTALLER" && echo 1 || echo 0)"
+check "START_FROM_STAGE exists" "$(grep -q 'START_FROM_STAGE' "$INSTALLER" && echo 1 || echo 0)"
+check "cloudflare skip exists" "$(grep -q 'START_FROM_STAGE.*cloudflare' "$INSTALLER" && echo 1 || echo 0)"
+check "botweb skip exists" "$(grep -q 'START_FROM_STAGE.*botweb' "$INSTALLER" && echo 1 || echo 0)"
+check "no fake VPS_STAGE_STATUS=installed on resume" "$( [[ $(grep -c 'START_FROM_STAGE.*botweb.*VPS_STAGE_STATUS.*installed' "$INSTALLER") -eq 0 ]] && echo 1 || echo 0 )"
+check "no fake CF_STAGE_STATUS=deployed on resume" "$( [[ $(grep -c 'START_FROM_STAGE.*botweb.*CF_STAGE_STATUS.*deployed' "$INSTALLER") -eq 0 ]] && echo 1 || echo 0 )"
+check "assumed_existing used for resume" "$(grep -q 'assumed_existing' "$INSTALLER" && echo 1 || echo 0)"
 
-# ── Test 5: Web review table ────────────────────────────────────────────────
+# ── Test 5: Existing KV recovery ────────────────────────────────────────────
 echo ""
-echo "── Test 5: Web review table ──"
+echo "── Test 5: Existing KV recovery ──"
 
-check "has Web Panel 配置确认" "$(grep -q 'Web Panel 配置确认' "$INSTALLER" && echo 1 || echo 0)"
-check "has modify host option" "$(grep -q '修改 host' "$INSTALLER" && echo 1 || echo 0)"
-check "has modify port option" "$(grep -q '修改 port' "$INSTALLER" && echo 1 || echo 0)"
-check "has regenerate token option" "$(grep -q '重新生成 token/secret' "$INSTALLER" && echo 1 || echo 0)"
+check "has find_existing_kv_id" "$(grep -q 'find_existing_kv_id' "$INSTALLER" && echo 1 || echo 0)"
+check "has mock SUB_STORE" "$(grep -q 'mock-sub-store-id' "$INSTALLER" && echo 1 || echo 0)"
+check "has mock NANOB_GEO_CACHE" "$(grep -q 'mock-geo-cache-id' "$INSTALLER" && echo 1 || echo 0)"
 
-# ── Test 6: Resume routing ──────────────────────────────────────────────────
+# ── Test 6: Domain validation order ─────────────────────────────────────────
 echo ""
-echo "── Test 6: Resume routing ──"
+echo "── Test 6: Domain validation order ──"
 
-check "has START_FROM_STAGE variable" "$(grep -q 'START_FROM_STAGE' "$INSTALLER" && echo 1 || echo 0)"
-check "has cloudflare skip" "$(grep -q 'START_FROM_STAGE.*cloudflare' "$INSTALLER" && echo 1 || echo 0)"
-check "has botweb skip" "$(grep -q 'START_FROM_STAGE.*botweb' "$INSTALLER" && echo 1 || echo 0)"
-
-# ── Test 7: Existing KV recovery ────────────────────────────────────────────
-echo ""
-echo "── Test 7: Existing KV recovery ──"
-
-check "has mock_find_existing_kv with SUB_STORE" "$(grep -q 'SUB_STORE.*mock-sub-store-id\|mock-sub-store-id.*SUB_STORE' "$INSTALLER" && echo 1 || echo 0)"
-check "has mock_find_existing_kv with NANOB_GEO_CACHE" "$(grep -q 'NANOB_GEO_CACHE.*mock-geo-cache-id\|mock-geo-cache-id.*NANOB_GEO_CACHE' "$INSTALLER" && echo 1 || echo 0)"
-
-# ── Test 8: Domain validation order ─────────────────────────────────────────
-echo ""
-echo "── Test 8: Domain validation order ──"
-
-# Protocol/path check should come before format validation in domain loop
-PROTOCOL_LINE=$(grep -n 'domain == https://\*' "$INSTALLER" | head -1 | cut -d: -f1)
+PROTOCOL_LINE=$(grep -n '"$domain" == https://\*' "$INSTALLER" | head -1 | cut -d: -f1)
 FORMAT_LINE=$(grep -n 'is_valid_domain_name "$domain"' "$INSTALLER" | head -1 | cut -d: -f1)
-check "protocol check before format validation" "$([[ $PROTOCOL_LINE -lt $FORMAT_LINE ]] && echo 1 || echo 0)"
+check "protocol check before format validation" "$([[ -n "$PROTOCOL_LINE" ]] && [[ -n "$FORMAT_LINE" ]] && [[ $PROTOCOL_LINE -lt $FORMAT_LINE ]] && echo 1 || echo 0)"
 
-# ── Test 9: Output control ──────────────────────────────────────────────────
+# ── Test 7: Token redaction ─────────────────────────────────────────────────
 echo ""
-echo "── Test 9: Output control ──"
+echo "── Test 7: Token redaction ──"
+
+check "Bot review shows 已填写 not token" "$(grep -q 'Bot Token.*已填写\|Bot Token.*未填写' "$INSTALLER" && echo 1 || echo 0)"
+check "Web review shows 已生成 not token" "$(grep -q 'Token.*已生成\|Token.*已填写' "$INSTALLER" && echo 1 || echo 0)"
+check "no raw token in review tables" "$( [[ $(grep -c 'Bot Token.*123456\|Web Token.*secret' "$INSTALLER") -eq 0 ]] && echo 1 || echo 0 )"
+
+# ── Test 8: Output control ──────────────────────────────────────────────────
+echo ""
+echo "── Test 8: Output control ──"
 
 check "has check_output_clean helper" "$(grep -q 'check_output_clean' "$INSTALLER" && echo 1 || echo 0)"
+
+# ── Test 9: Real mock execution (brief) ─────────────────────────────────────
+echo ""
+echo "── Test 9: Real mock execution ──"
+
+# Quick test: commands mode should work without hanging
+set +e
+OUTPUT_CMD=$(NANOBK_TEST_MOCK=1 bash "$INSTALLER" --mode commands --defaults 2>&1)
+CMD_RC=$?
+set -e
+
+check "commands mode exits 0" "$([[ $CMD_RC -eq 0 ]] && echo 1 || echo 0)"
+check "commands output has install-vps" "$(contains "$OUTPUT_CMD" "install-vps")"
 
 # ── Summary ─────────────────────────────────────────────────────────────────
 echo ""

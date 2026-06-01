@@ -56,6 +56,7 @@
 | v1.7.6 | Full wizard critical state and admin env hardening |
 | v1.7.7 | Full wizard review, resume, and existing resource recovery |
 | v1.7.8 | Full wizard interaction harness and real review flow |
+| v1.7.9 | Full wizard real interaction mock hardening |
 | v1.8 | 操作日志 |
 | v1.7 | 权限控制 |
 
