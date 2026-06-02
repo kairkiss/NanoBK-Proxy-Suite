@@ -42,13 +42,18 @@ def check(desc, ok):
 
 def clean_state():
     """Remove leftover files from this test process temp root only."""
-    if not os.path.isdir(TEST_TMP_ROOT):
-        return
-    for name in os.listdir(TEST_TMP_ROOT):
-        path = os.path.join(TEST_TMP_ROOT, name)
-        if os.path.isdir(path):
-            shutil.rmtree(path, ignore_errors=True)
-        elif os.path.exists(path):
+    if os.path.isdir(TEST_TMP_ROOT):
+        for name in os.listdir(TEST_TMP_ROOT):
+            path = os.path.join(TEST_TMP_ROOT, name)
+            if os.path.isdir(path):
+                shutil.rmtree(path, ignore_errors=True)
+            elif os.path.exists(path):
+                os.remove(path)
+    # Clean repo-root test artifacts so tests don't pollute each other
+    for artifact in [".cloudflare.local.env", ".nanob.local.env",
+                     "bot/.env", "web/.env", ".nanobk-wizard-state.json"]:
+        path = os.path.join(REPO_DIR, artifact)
+        if os.path.exists(path):
             os.remove(path)
 
 
@@ -212,13 +217,17 @@ check("output contains MOCK CF preflight", "MOCK" in output_d and "preflight" in
 check("output contains MOCK profile validation", "MOCK" in output_d and "Profile validation passed" in output_d)
 check("output contains MOCK CF deploy", "MOCK" in output_d and "deploy" in output_d.lower())
 check("output reaches Summary", "NanoBK Setup Summary" in output_d)
-# Cloudflare Summary truth checks
-check("Summary shows nanok deployed or verified",
-      "nanok:" in output_d and ("deployed" in output_d or "verified" in output_d))
-check("Summary does NOT show configured / pending for nanok",
-      not ("nanok:" in output_d and "configured" in output_d and "pending" in output_d))
+# Cloudflare Summary truth checks — strict verified/passed/installed
+check("Summary shows nanok verified",
+      "nanok:" in output_d and "verified" in output_d)
+check("Summary shows nanob verified",
+      "nanob:" in output_d and "verified" in output_d)
+check("Summary shows verify passed",
+      "verify:" in output_d and "passed" in output_d)
 check("Summary shows admin env installed",
       "admin env:" in output_d and "installed" in output_d)
+check("Summary does NOT show configured / pending",
+      "configured" not in output_d or "pending" not in output_d)
 check("Summary does NOT show manual command not executed",
       "manual command not executed" not in output_d)
 

@@ -183,10 +183,13 @@ if [[ -f "$MOCK_PY" ]]; then
   MOCK_CF_OUTPUT=$(python3 "$MOCK_PY" 2>&1) || true
 
   # The Python mock runs Test D which configures Cloudflare
+  # Strict checks — must be verified/passed/installed, not deployed-or-verified
   check "mock Test D reaches Summary" "$(contains "$MOCK_CF_OUTPUT" "output reaches Summary")"
-  check "mock Summary shows nanok deployed/verified" "$(contains "$MOCK_CF_OUTPUT" "nanok deployed or verified")"
+  check "mock Summary shows nanok verified" "$(contains "$MOCK_CF_OUTPUT" "Summary shows nanok verified")"
+  check "mock Summary shows nanob verified" "$(contains "$MOCK_CF_OUTPUT" "Summary shows nanob verified")"
+  check "mock Summary shows verify passed" "$(contains "$MOCK_CF_OUTPUT" "Summary shows verify passed")"
+  check "mock Summary shows admin env installed" "$(contains "$MOCK_CF_OUTPUT" "Summary shows admin env installed")"
   check "mock Summary does NOT show configured/pending" "$(contains "$MOCK_CF_OUTPUT" "does NOT show configured / pending")"
-  check "mock Summary shows admin env installed" "$(contains "$MOCK_CF_OUTPUT" "admin env installed")"
   check "mock Summary does NOT show manual command not executed" "$(contains "$MOCK_CF_OUTPUT" "does NOT show manual command not executed")"
   check "mock all passed" "$(contains "$MOCK_CF_OUTPUT" "passed, 0 failed")"
 else

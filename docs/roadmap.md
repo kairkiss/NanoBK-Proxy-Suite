@@ -68,10 +68,11 @@
 | **v1.7.19** | **Test harness grep stability completion** |
 | **v1.7.20** | **Full Wizard state and Summary truth fix** |
 | **v1.7.21** | **Full Wizard Cloudflare state callback fix** |
+| **v1.7.22** | **Full Wizard verified Summary mock fix** |
 | v1.8 | 操作日志（v1.7 final tag 后再进入） |
 | v1.7 | 权限控制 |
 
-v1.7.21 fixes Cloudflare deploy status callback mismatch and admin env auto-install. It does not claim real VPS validation, Cloudflare validation, or production pass.
+v1.7.21 fixes Cloudflare deploy status callback mismatch and admin env auto-install. v1.7.22 disables legacy admin env in Full Wizard, writes mock verified env, and tightens dynamic Summary checks. Neither claims real VPS validation, Cloudflare validation, or production pass.
 
 ### 1.x 架构原则
 

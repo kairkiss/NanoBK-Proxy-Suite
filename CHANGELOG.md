@@ -1,5 +1,21 @@
 # Changelog
 
+## v1.7.22 — Full Wizard Verified Summary Mock Fix
+
+### Fixed
+
+- Disabled the legacy hand-written admin env auto-write path during Full Wizard so the wizard uses `bin/nanobk cf install-admin-env` as the authoritative admin env installer.
+- Updated Cloudflare mock deploy to write mock verified env state so Summary can prove nanok/nanob verified status.
+- Tightened dynamic stdin mock checks to require `nanok: verified`, `nanob: verified`, `verify: passed`, and `admin env: installed`.
+- Removed loose `deployed or verified` acceptance from Cloudflare Summary mock validation.
+
+### Safety
+
+- No VPS protocol templates, Worker core logic, Bot/Web business logic, or rotate sync logic changed.
+- No new real VPS or Cloudflare validation is claimed by this commit.
+- Admin tokens remain hidden and are not printed in Summary or logs.
+- Real Full Wizard validation remains a manual user-run step.
+
 ## v1.7.21 — Full Wizard Cloudflare State Callback Fix
 
 ### Fixed

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — Unified Beginner Installer v1.7.21
+# NanoBK Proxy Suite — Unified Beginner Installer v1.7.22
 #
 # Interactive entry point for NanoBK Proxy Suite.
 # Guides users through VPS deployment, Cloudflare setup, Bot, Web Panel.
@@ -20,7 +20,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # ── Constants ───────────────────────────────────────────────────────────────
 
 REPO_URL="https://github.com/kairkiss/NanoBK-Proxy-Suite"
-VERSION="1.7.21"
+VERSION="1.7.22"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -459,6 +459,20 @@ mock_deploy_vps() {
 mock_deploy_cloudflare() {
   mock_log "Cloudflare deploy success (simulated)"
   LAST_RUN_CMD_STATUS="executed"
+  # Write mock verified env so Summary can prove verified status
+  local cf_env="${REPO_DIR:-.}/.cloudflare.local.env"
+  local nb_env="${REPO_DIR:-.}/.nanob.local.env"
+  cat > "$cf_env" <<'MOCKEOF'
+NANOBK_VERIFY_STATUS=verified
+ADMIN_TOKEN=mock-admin-token
+ADMIN_CURRENT_URL=https://nanok.demo-user.workers.dev/admin/current
+ADMIN_UPDATE_URL=https://nanok.demo-user.workers.dev/admin/update
+MOCKEOF
+  chmod 600 "$cf_env"
+  cat > "$nb_env" <<'MOCKEOF'
+NANOB_VERIFY_STATUS=verified
+MOCKEOF
+  chmod 600 "$nb_env"
   return 0
 }
 
@@ -713,6 +727,11 @@ read_config_value() {
     return 0
   done < "$file"
   return 0
+}
+
+# Alias for bin/nanobk compatibility — same behavior as read_config_value
+read_env_value() {
+  read_config_value "$@"
 }
 
 valid_mode() {
@@ -1661,7 +1680,8 @@ collect_cloudflare_args() {
   esac
 
   # Auto-write admin env for rotate sync if deploy succeeded
-  if [[ "$CF_DEPLOY_STATUS" == "deployed" ]]; then
+  # Skip in Full Wizard — wizard uses install_cf_admin_env_from_wizard() instead
+  if [[ "${NANOBK_FULL_WIZARD_ACTIVE:-0}" != "1" ]] && [[ "$CF_DEPLOY_STATUS" == "deployed" ]]; then
     local admin_env="/root/.nanok-cf-admin.env"
     local local_env="${REPO_DIR:-.}/.cloudflare.local.env"
 
@@ -2644,6 +2664,7 @@ install_cf_admin_env_from_wizard() {
 # ── Full wizard ─────────────────────────────────────────────────────────────
 
 run_full_wizard() {
+  NANOBK_FULL_WIZARD_ACTIVE="1"
   NANOBK_DEPLOY_CLOUDFLARE="true"
   NANOBK_DEPLOY_NANOB="true"
   NANOBK_ENABLE_BOT="true"
