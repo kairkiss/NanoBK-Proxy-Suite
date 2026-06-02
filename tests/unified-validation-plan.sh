@@ -31,7 +31,7 @@ check() {
 contains() {
   local text="$1"
   local pattern="$2"
-  if echo "$text" | grep -qi "$pattern"; then
+  if grep -qi -- "$pattern" <<< "$text"; then
     echo "1"
   else
     echo "0"
@@ -41,7 +41,7 @@ contains() {
 not_contains() {
   local text="$1"
   local pattern="$2"
-  if echo "$text" | grep -qi "$pattern"; then
+  if grep -qi -- "$pattern" <<< "$text"; then
     echo "0"
   else
     echo "1"
@@ -115,8 +115,8 @@ if [[ -f "$DOC" ]]; then
   # Check that cat .env is not in executable code blocks (only in warnings)
   DOC_CONTENT="$(cat "$DOC")"
   # Count occurrences - warnings say "Do NOT execute" which is safe
-  CAT_BOT_COUNT=$(echo "$DOC_CONTENT" | grep -c "cat bot/.env" || true)
-  CAT_WEB_COUNT=$(echo "$DOC_CONTENT" | grep -c "cat web/.env" || true)
+  CAT_BOT_COUNT=$(grep -c "cat bot/.env" <<< "$DOC_CONTENT" || true)
+  CAT_WEB_COUNT=$(grep -c "cat web/.env" <<< "$DOC_CONTENT" || true)
   # Should only appear in warning lines (Do NOT execute), not in code examples
   check "cat bot/.env only in warnings" "$([[ $CAT_BOT_COUNT -le 1 ]] && echo 1 || echo 0)"
   check "cat web/.env only in warnings" "$([[ $CAT_WEB_COUNT -le 1 ]] && echo 1 || echo 0)"

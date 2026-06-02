@@ -1,5 +1,21 @@
 # Changelog
 
+## v1.7.18 — Validation Test Harness Grep Stability Fix
+
+### Fixed
+
+- Stabilized validation-plan test helpers under `set -Eeuo pipefail`.
+- Replaced fragile `echo "$output" | grep -q` checks with here-string based grep checks.
+- Fixed a flaky `contains nanob` failure where validate-plan output contained `nanob` but the test harness misreported failure.
+- Applied the same fix to `unified-cloudflare-dependency.sh`, `unified-real-vps-ux-hardening.sh`, and `unified-dry-run-preflight.sh`.
+- Preserved Full Wizard and Cloudflare installer behavior unchanged.
+
+### Safety
+
+- No real VPS or Cloudflare validation is claimed.
+- No VPS protocol templates, Worker core logic, Bot/Web business logic, or rotate sync logic changed.
+- This release only fixes local validation test harness stability.
+
 ## v1.7.17 — Cloudflare Mock/Dry-run Unbound Variable Fix
 
 ### Fixed
