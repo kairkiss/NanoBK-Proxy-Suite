@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — UI Display Layer v1.8.1
+# NanoBK Proxy Suite — UI Display Layer v1.8.3
 #
 # Provides unified, product-quality CLI display functions for the installer.
 # This file only handles display — it never makes deployment decisions.
@@ -106,7 +106,7 @@ ui_banner() {
     # Legacy bypass
     echo ""
     echo "NanoBK Proxy Suite ${version}"
-    [[ -n "$subtitle" ]] && echo "$subtitle"
+    [[ -n "$subtitle" ]] && echo "  ${subtitle}"
     echo ""
     return 0
   fi
@@ -413,9 +413,9 @@ ui_recovery_block() {
   local commands=("$@")
 
   if [[ "${NANOBK_UI:-}" == "0" ]]; then
-    echo "  恢复命令："
+    echo "  恢复方法："
     for cmd in "${commands[@]}"; do
-      echo "    ${cmd}"
+      echo "    \$ ${cmd}"
     done
     echo ""
     return 0

@@ -1,5 +1,30 @@
 # Changelog
 
+## v1.8.3 — CLI Visual Snapshot and Install Output Polish
+
+### Added
+
+- New `tests/unified-cli-visual-snapshot-v1.8.sh` — visual snapshot tests for CLI output shape.
+  - Banner snapshot: verifies product name, version, subtitle, no ANSI/emoji in PLAIN mode.
+  - Section snapshot: verifies `Step N/M` format, no Unicode bars/dashes in PLAIN mode.
+  - Recovery block snapshot: verifies commands shown, no secret leakage, no ANSI in PLAIN.
+  - Token reminder snapshot: verifies honest wording (revoke/regenerate/脱敏), no absolute promise.
+  - Progress snapshot: verifies `Step N/M - label` in PLAIN, no Unicode bars.
+  - Divider snapshot: verifies ASCII dash in PLAIN, no Unicode dash.
+  - Summary card snapshot: verifies honest status words preserved, no fake success.
+  - Full Wizard dry-run smoke: verifies key content present, no secret leakage, no dangerous control chars.
+  - Test helper self-check: verifies no `printf | grep -q` pipe, uses here-string.
+
+### Changed
+
+- Polished `ui_banner` legacy bypass (UI=0) to indent subtitle consistently.
+- Polished `ui_recovery_block` legacy bypass (UI=0) label from "恢复命令" to "恢复方法" for consistency with non-legacy output.
+- Updated UI display layer version comment to v1.8.3.
+
+### Safety
+
+- No deployment logic, install.sh business logic, VPS protocol templates, Cloudflare Worker core, rotate sync, Bot/Web logic, or Summary status logic changed.
+
 ## v1.8.2 — CLI UI Test Stability and Log Raw Guard
 
 ### Fixed
