@@ -1,5 +1,21 @@
 # Changelog
 
+## v1.7.13 — Cloudflare Stdin Mock and KV Helper Completion
+
+### Fixed
+
+- Added or repaired find_existing_kv_id so Cloudflare existing KV recovery can return namespace IDs
+- Mock KV recovery now returns mock-sub-store-id and mock-geo-cache-id through the real Cloudflare flow
+- Dynamic stdin mock now covers the Cloudflare branch, Worker URL recommendation, SUB_STORE reuse, NANOB_GEO_CACHE reuse, and mock Cloudflare deploy
+- Dynamic stdin mock now covers resume-from-Cloudflare and resume-to-Bot/Web routing
+
+### Safety
+
+- Mock tests do not connect to a real VPS or Cloudflare
+- Mock tests do not write to /etc or /root
+- Mock output does not print raw tokens or secrets
+- v1.7.13 does not claim real VPS or Cloudflare validation
+
 ## v1.7.12 — Full Wizard Real Stdin Mock Validation
 
 ### Fixed

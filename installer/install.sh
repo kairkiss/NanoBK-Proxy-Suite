@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — Unified Beginner Installer v1.7.12
+# NanoBK Proxy Suite — Unified Beginner Installer v1.7.13
 #
 # Interactive entry point for NanoBK Proxy Suite.
 # Guides users through VPS deployment, Cloudflare setup, Bot, Web Panel.
@@ -20,7 +20,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # ── Constants ───────────────────────────────────────────────────────────────
 
 REPO_URL="https://github.com/kairkiss/NanoBK-Proxy-Suite"
-VERSION="1.7.12"
+VERSION="1.7.13"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -1214,7 +1214,8 @@ collect_cloudflare_args() {
 
   local profile route_url nanob_url
 
-  prompt profile "profile.current.json 路径" "/etc/nanobk/profile.current.json"
+  local default_profile="${NANOBK_DEFAULT_PROFILE_PATH:-/etc/nanobk/profile.current.json}"
+  prompt profile "profile.current.json 路径" "$default_profile"
 
   # Worker URL recommendation flow
   echo ""
@@ -1326,11 +1327,8 @@ collect_cloudflare_args() {
   local kv_args=()
   local kv_mode="自动创建"
   local existing_sub_store_id=""
-  if [[ "$DRY_RUN" != "1" ]] && [[ "$COMMAND_ONLY" != "1" ]]; then
-    existing_sub_store_id=$(find_existing_kv_id "SUB_STORE" 2>/dev/null || echo "")
-  elif [[ "${NANOBK_TEST_MOCK_EXISTING_KV:-}" == "1" ]]; then
-    existing_sub_store_id=$(mock_find_existing_kv "SUB_STORE" 2>/dev/null || echo "")
-  fi
+  # find_existing_kv_id handles mock/dry-run/real internally
+  existing_sub_store_id=$(find_existing_kv_id "SUB_STORE" 2>/dev/null || echo "")
 
   if [[ -n "$existing_sub_store_id" ]]; then
     echo ""
@@ -1487,11 +1485,8 @@ collect_cloudflare_args() {
     local geo_args=()
     local geo_mode="自动创建"
     local existing_geo_id=""
-    if [[ "$DRY_RUN" != "1" ]] && [[ "$COMMAND_ONLY" != "1" ]]; then
-      existing_geo_id=$(find_existing_kv_id "NANOB_GEO_CACHE" 2>/dev/null || echo "")
-    elif [[ "${NANOBK_TEST_MOCK_EXISTING_KV:-}" == "1" ]]; then
-      existing_geo_id=$(mock_find_existing_kv "NANOB_GEO_CACHE" 2>/dev/null || echo "")
-    fi
+    # find_existing_kv_id handles mock/dry-run/real internally
+    existing_geo_id=$(find_existing_kv_id "NANOB_GEO_CACHE" 2>/dev/null || echo "")
 
     if [[ -n "$existing_geo_id" ]]; then
       echo ""
@@ -2480,9 +2475,14 @@ web_review_loop() {
 
 find_existing_kv_id() {
   local binding="$1"
+  # Mock mode
   if [[ "${NANOBK_TEST_MOCK:-}" == "1" ]]; then
     mock_find_existing_kv "$binding"
     return $?
+  fi
+  # Don't access real wrangler in dry-run or commands-only mode
+  if [[ "${DRY_RUN:-0}" == "1" ]] || [[ "${COMMAND_ONLY:-0}" == "1" ]]; then
+    return 1
   fi
   # Real implementation: parse wrangler kv namespace list
   if command -v wrangler &>/dev/null || command -v npx &>/dev/null; then
@@ -2685,7 +2685,17 @@ run_full_wizard() {
   echo ""
 
   # Check if profile exists (skip in dry-run) — unconditional dependency check
-  if [[ "$DRY_RUN" != "1" ]] && [[ ! -f "/etc/nanobk/profile.current.json" ]]; then
+  local profile_check_path="/etc/nanobk/profile.current.json"
+  # In mock mode, create and use mock profile
+  if [[ "${NANOBK_TEST_MOCK:-}" == "1" ]] && [[ -n "${NANOBK_TEST_TMPDIR:-}" ]]; then
+    profile_check_path="${NANOBK_TEST_TMPDIR}/etc/nanobk/profile.current.json"
+    mkdir -p "$(dirname "$profile_check_path")"
+    if [[ ! -f "$profile_check_path" ]]; then
+      echo '{"hy2":{},"tuic":{},"reality":{},"trojan":{}}' > "$profile_check_path"
+      mock_log "Created mock profile: ${profile_check_path}"
+    fi
+  fi
+  if [[ "$DRY_RUN" != "1" ]] && [[ ! -f "$profile_check_path" ]]; then
     CF_STAGE_STATUS="skipped_dependency"
     warn "Cloudflare 部署需要 /etc/nanobk/profile.current.json"
     warn "请先完成 VPS 安装。"
@@ -3101,7 +3111,7 @@ run_vps_mode() {
 
 require_default_profile_for_cloudflare() {
   local profile="${NANOBK_DEFAULT_PROFILE_PATH:-/etc/nanobk/profile.current.json}"
-  # In mock mode, create a mock profile in tmpdir
+  # In mock mode, create a mock profile in tmpdir and set the path
   if [[ "${NANOBK_TEST_MOCK:-}" == "1" ]] && [[ -n "${NANOBK_TEST_TMPDIR:-}" ]]; then
     local mock_profile="${NANOBK_TEST_TMPDIR}/etc/nanobk/profile.current.json"
     mkdir -p "$(dirname "$mock_profile")"
@@ -3109,6 +3119,8 @@ require_default_profile_for_cloudflare() {
       echo '{"hy2":{},"tuic":{},"reality":{},"trojan":{}}' > "$mock_profile"
       mock_log "Created mock profile: ${mock_profile}"
     fi
+    # Set the profile path to the mock location
+    NANOBK_DEFAULT_PROFILE_PATH="$mock_profile"
     return 0
   fi
   if [[ ! -f "$profile" ]]; then
