@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — Unified Beginner Installer v1.7.27
+# NanoBK Proxy Suite — Unified Beginner Installer v1.8.0
 #
 # Interactive entry point for NanoBK Proxy Suite.
 # Guides users through VPS deployment, Cloudflare setup, Bot, Web Panel.
@@ -17,10 +17,17 @@ set -Eeuo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
+# ── UI display layer ──────────────────────────────────────────────────────
+
+# shellcheck source=installer/lib/ui.sh
+[[ -f "${SCRIPT_DIR}/lib/ui.sh" ]] && source "${SCRIPT_DIR}/lib/ui.sh"
+# shellcheck source=installer/lib/operation-log.sh
+[[ -f "${SCRIPT_DIR}/lib/operation-log.sh" ]] && source "${SCRIPT_DIR}/lib/operation-log.sh"
+
 # ── Constants ───────────────────────────────────────────────────────────────
 
 REPO_URL="https://github.com/kairkiss/NanoBK-Proxy-Suite"
-VERSION="1.7.27"
+VERSION="1.8.0"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -2759,9 +2766,8 @@ run_full_wizard() {
   WEB_STAGE_STATUS="unknown"
   SUMMARY_HAS_FAILURES=0
 
-  echo ""
-  echo -e "${BOLD}═══ Full Recommended — VPS + Cloudflare + Bot + Web Panel ═══${NC}"
-  echo ""
+  ui_banner "v${VERSION}" "Full Recommended — VPS + Cloudflare + Bot + Web Panel"
+
   echo "  将引导你完成以下步骤："
   echo "    0. Preflight 环境预检"
   echo "    1. VPS 四协议部署"
@@ -2770,10 +2776,9 @@ run_full_wizard() {
   echo "    4. Web Panel 配置"
   echo "    5. 最终摘要"
   echo ""
-  echo -e "  ${YELLOW}安全提示：${NC}"
+  ui_token_reminder
   echo "    - 一错不崩，每一步失败都有恢复命令"
   echo "    - Bot/Web 是控制端配置，不等于节点可用"
-  echo "    - 不会泄露 token/password 到屏幕或日志"
   echo ""
 
   # Check for existing installation state
@@ -2836,16 +2841,14 @@ run_full_wizard() {
         fi
         ;;
       5)
-        echo ""
-        echo "  恢复命令："
-        echo "    bash installer/install.sh --mode vps --lang zh"
-        echo "    bash installer/install.sh --mode cloudflare --lang zh"
-        echo "    bash installer/install.sh --mode bot --lang zh"
-        echo "    bash installer/install.sh --mode web --lang zh"
-        echo "    sudo bash /opt/nanobk/bin/healthcheck.sh"
-        echo "    bash bin/nanobk status"
-        echo "    bash bin/nanobk cf verify"
-        echo ""
+        ui_recovery_block \
+          "bash installer/install.sh --mode vps --lang zh" \
+          "bash installer/install.sh --mode cloudflare --lang zh" \
+          "bash installer/install.sh --mode bot --lang zh" \
+          "bash installer/install.sh --mode web --lang zh" \
+          "sudo bash /opt/nanobk/bin/healthcheck.sh" \
+          "bash bin/nanobk status" \
+          "bash bin/nanobk cf verify"
         return 0
         ;;
       6)
@@ -2859,9 +2862,7 @@ run_full_wizard() {
   run_unified_preflight || true
 
   # Phase 1: VPS (skip if resuming from cloudflare/botweb)
-  echo ""
-  echo -e "${BOLD}── 阶段 1：VPS 部署 ──${NC}"
-  echo ""
+  ui_section "阶段 1：VPS 部署" "1" "5"
   if [[ "$START_FROM_STAGE" == "cloudflare" ]] || [[ "$START_FROM_STAGE" == "botweb" ]]; then
     echo "  已跳过 VPS 部署（从 ${START_FROM_STAGE} 继续）。"
   elif ask_yes_no_menu "是否配置 VPS 部署？" "y"; then
@@ -2885,11 +2886,8 @@ run_full_wizard() {
           skipped_user)
             VPS_STAGE_STATUS="manual_pending"
             SUMMARY_HAS_FAILURES=1
-            warn "VPS 部署命令已跳过，未实际执行。"
-            echo ""
-            echo "  你可以手动执行："
-            echo "    bash installer/install.sh --mode vps --lang zh"
-            echo ""
+            ui_warn "VPS 部署命令已跳过，未实际执行。"
+            ui_recovery_block "bash installer/install.sh --mode vps --lang zh"
             ;;
           *)
             VPS_STAGE_STATUS="installed"
@@ -2899,11 +2897,8 @@ run_full_wizard() {
       *)
         VPS_STAGE_STATUS="failed"
         SUMMARY_HAS_FAILURES=1
-        warn "VPS 阶段失败。"
-        echo ""
-        echo "  恢复命令："
-        echo "    bash installer/install.sh --mode vps --lang zh"
-        echo ""
+        ui_error "VPS 阶段失败。"
+        ui_recovery_block "bash installer/install.sh --mode vps --lang zh"
         ;;
     esac
 
@@ -2928,9 +2923,7 @@ run_full_wizard() {
   [[ "$DRY_RUN" != "1" ]] && wizard_state_write "vps_done" 2>/dev/null || true
 
   # Phase 2: Cloudflare — strict dependency on VPS profile
-  echo ""
-  echo -e "${BOLD}── 阶段 2：Cloudflare 部署 ──${NC}"
-  echo ""
+  ui_section "阶段 2：Cloudflare 部署" "2" "5"
 
   # Check if profile exists (skip in dry-run) — unconditional dependency check
   local profile_check_path="/etc/nanobk/profile.current.json"
@@ -3037,12 +3030,10 @@ run_full_wizard() {
         *)
           CF_STAGE_STATUS="failed"
           SUMMARY_HAS_FAILURES=1
-          warn "Cloudflare 部署阶段失败。"
-          echo ""
-          echo "  恢复命令："
-          echo "    bash installer/install.sh --mode cloudflare --lang zh"
-          echo "    bash bin/nanobk cf verify"
-          echo ""
+          ui_error "Cloudflare 部署阶段失败。"
+          ui_recovery_block \
+            "bash installer/install.sh --mode cloudflare --lang zh" \
+            "bash bin/nanobk cf verify"
           ;;
       esac
 
@@ -3066,13 +3057,11 @@ run_full_wizard() {
   [[ "$DRY_RUN" != "1" ]] && wizard_state_write "cloudflare_done" 2>/dev/null || true
 
   # Phase 3: Bot
-  echo ""
-  echo -e "${BOLD}── 阶段 3：Telegram Bot ──${NC}"
-  echo ""
+  ui_section "阶段 3：Telegram Bot" "3" "5"
 
   # Control-plane-only warning if VPS/CF not ready
   if control_plane_only_required; then
-    echo -e "  ${YELLOW}注意：Bot 是控制端配置，不代表 VPS 节点或 Cloudflare 订阅已经可用。${NC}"
+    ui_warn "Bot 是控制端配置，不代表 VPS 节点或 Cloudflare 订阅已经可用。"
     echo ""
   fi
 
@@ -3087,15 +3076,11 @@ run_full_wizard() {
     else
       BOT_STAGE_STATUS="failed"
       SUMMARY_HAS_FAILURES=1
-      warn "Bot 配置失败。"
-      echo ""
-      echo "  恢复命令："
-      echo "    cd bot"
-      echo "    cp .env.example .env"
-      echo "    nano .env"
-      echo "    bash run.sh"
-      echo "    python3 nanobk_bot.py --self-test"
-      echo ""
+      ui_error "Bot 配置失败。"
+      ui_recovery_block \
+        "cd bot && cp .env.example .env && nano .env" \
+        "bash run.sh" \
+        "python3 nanobk_bot.py --self-test"
     fi
   else
     NANOBK_ENABLE_BOT="false"
@@ -3104,13 +3089,11 @@ run_full_wizard() {
   fi
 
   # Phase 4: Web Panel
-  echo ""
-  echo -e "${BOLD}── 阶段 4：Web Panel ──${NC}"
-  echo ""
+  ui_section "阶段 4：Web Panel" "4" "5"
 
   # Control-plane-only warning if VPS/CF not ready
   if control_plane_only_required; then
-    echo -e "  ${YELLOW}注意：Web Panel 是控制端配置，不代表 VPS 节点或 Cloudflare 订阅已经可用。${NC}"
+    ui_warn "Web Panel 是控制端配置，不代表 VPS 节点或 Cloudflare 订阅已经可用。"
     echo ""
   fi
 
@@ -3125,15 +3108,11 @@ run_full_wizard() {
     else
       WEB_STAGE_STATUS="failed"
       SUMMARY_HAS_FAILURES=1
-      warn "Web Panel 配置失败。"
-      echo ""
-      echo "  恢复命令："
-      echo "    cd web"
-      echo "    cp .env.example .env"
-      echo "    nano .env"
-      echo "    bash run.sh"
-      echo "    ssh -L 8080:127.0.0.1:8080 root@YOUR_VPS_IP"
-      echo ""
+      ui_error "Web Panel 配置失败。"
+      ui_recovery_block \
+        "cd web && cp .env.example .env && nano .env" \
+        "bash run.sh" \
+        "ssh -L ${NANOBK_WEB_PORT:-8080}:127.0.0.1:${NANOBK_WEB_PORT:-8080} root@YOUR_VPS_IP"
     fi
   else
     NANOBK_ENABLE_WEB="false"
@@ -3155,10 +3134,7 @@ run_full_wizard() {
 
 print_summary() {
   echo ""
-  echo -e "${BOLD}────────────────────────────${NC}"
-  echo -e "${BOLD}  NanoBK Setup Summary${NC}"
-  echo -e "${BOLD}────────────────────────────${NC}"
-  echo ""
+  ui_section "NanoBK Setup Summary" "5" "5"
 
   # VPS — honest status
   echo "  VPS:"

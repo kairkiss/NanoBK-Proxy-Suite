@@ -74,10 +74,10 @@
 | **v1.7.25** | **Interactive mock input and verified Summary alignment fix** |
 | **v1.7.26** | **Existing deployment resume preflight summary fix** |
 | **v1.7.27** | **Existing runtime refresh reliability fix** |
-| v1.8 | 操作日志（v1.7 final tag 后再进入） |
-| v1.7 | 权限控制 |
+| **v1.8.0** | **CLI Product UI and Operation Log Polish** |
+| v1.9 | 权限控制 |
 
-v1.7.21 fixes Cloudflare deploy status callback mismatch and admin env auto-install. v1.7.22 disables legacy admin env in Full Wizard, writes mock verified env, and tightens dynamic Summary checks. v1.7.23 fixes mock preflight port isolation so interactive mock tests are not affected by already-running NanoBK services. v1.7.24 adds hard timeouts and diagnostics to dynamic mock tests so Phase A cannot hang indefinitely. v1.7.25 fixes mock input flows so tests don't fall into placeholder URL rejection loops and ensures Summary shows nanok/nanob verified. v1.7.26 refreshes existing deployment runtime state and skips core port preflight when resuming from Cloudflare/BotWeb. v1.7.27 fixes healthcheck --quiet removal and preserves refreshed installed/verified state through resume choices. None claims real VPS validation, Cloudflare validation, or production pass.
+v1.7.21 fixes Cloudflare deploy status callback mismatch and admin env auto-install. v1.7.22 disables legacy admin env in Full Wizard, writes mock verified env, and tightens dynamic Summary checks. v1.7.23 fixes mock preflight port isolation so interactive mock tests are not affected by already-running NanoBK services. v1.7.24 adds hard timeouts and diagnostics to dynamic mock tests so Phase A cannot hang indefinitely. v1.7.25 fixes mock input flows so tests don't fall into placeholder URL rejection loops and ensures Summary shows nanok/nanob verified. v1.7.26 refreshes existing deployment runtime state and skips core port preflight when resuming from Cloudflare/BotWeb. v1.7.27 fixes healthcheck --quiet removal and preserves refreshed installed/verified state through resume choices. None claims real VPS validation, Cloudflare validation, or production pass. v1.8.0 adds CLI product UI polish (ui.sh, operation-log.sh) without changing deployment logic, protocol templates, Worker core, Bot/Web business logic, or rotate sync.
 
 ### 1.x 架构原则
 

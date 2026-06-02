@@ -1,5 +1,37 @@
 # Changelog
 
+## v1.8.0 — CLI Product UI and Operation Log Polish
+
+### Added
+
+- New `installer/lib/ui.sh` — unified UI display layer for the installer and Full Wizard.
+  - `ui_banner`, `ui_section`, `ui_step`, `ui_info`, `ui_success`, `ui_warn`, `ui_error` functions.
+  - `ui_progress` with `[■■■□□□]` visual bar and plain fallback.
+  - `ui_summary_card`, `ui_recovery_block`, `ui_token_reminder`, `ui_describe`.
+  - Supports `NANOBK_PLAIN=1` (all decoration off), `NANOBK_NO_EMOJI=1` (emoji off only), `NANOBK_UI=0` (legacy bypass).
+  - Non-TTY and CI-safe: no color, no emoji, no spinner outside interactive terminals.
+- New `installer/lib/operation-log.sh` — operation logging skeleton.
+  - Timestamped log files under `/var/log/nanobk/` or `$TMPDIR` fallback.
+  - `oplog_redact` helper strips bot tokens, API tokens, passwords, workers.dev URLs before logging.
+  - `oplog_run` captures command output to log, shows inline only in `NANOBK_VERBOSE=1`.
+  - `oplog_hint_on_failure` shows log path after failures.
+- Full Wizard now uses `ui_banner` for startup display.
+- Full Wizard phase headers use `ui_section` with progress indicator (`[■■■□□□] 1/5`).
+- Full Wizard failure recovery blocks use `ui_recovery_block` for consistent formatting.
+- Full Wizard token safety reminder uses `ui_token_reminder`.
+- Full Wizard control-plane-only warnings use `ui_warn`.
+
+### Changed
+
+- Version bumped to 1.8.0 in `bin/nanobk`, `installer/install.sh`, `installer/bootstrap.sh`.
+
+### Safety
+
+- No VPS protocol templates, Worker core logic, Bot/Web business logic, or rotate sync logic changed.
+- No deployment logic, menu logic, resume routing, or healthcheck/cf verify semantics changed.
+- Summary honest status words (planned, dry-run, failed, manual_pending, skipped, etc.) are preserved unchanged.
+- No secret tokens, env file contents, real IPs, or subscription URLs are printed.
+
 ## v1.7.27 — Existing Runtime Refresh Reliability Fix
 
 ### Fixed
