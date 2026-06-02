@@ -1,5 +1,18 @@
 # Changelog
 
+## v1.8.4 — CLI Wording and Page Copy Polish
+
+### Changed
+
+- Polished `ui_token_reminder` wording: "输入 token 时请不要截图，也不要把它发到聊天、issue 或日志里。NanoBK 会尽量隐藏敏感信息，但你仍然应该把 token 当作密码保管。如果 token 暴露，请立即在对应平台 revoke / regenerate。"
+- Polished `ui_recovery_block` wording: added intro "可以稍后继续" and "下面这些命令可以帮助你恢复或重新执行当前阶段：" before listing commands.
+- Strengthened visual snapshot checks: added "当作密码保管", "隐藏敏感信息", "聊天、issue 或日志", "可以稍后继续", "恢复或重新执行", control-plane wording assertions.
+
+### Safety
+
+- No install.sh business logic, deployment logic, VPS protocol templates, Cloudflare Worker core, rotate sync, Bot/Web logic, or Summary status logic changed.
+- Control-plane semantic "Bot/Web 是控制端配置，不代表 VPS 节点或 Cloudflare 订阅已经可用" preserved in install.sh.
+
 ## v1.8.3 — CLI Visual Snapshot and Install Output Polish
 
 ### Added

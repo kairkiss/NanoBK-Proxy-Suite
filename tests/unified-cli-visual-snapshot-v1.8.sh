@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — v1.8.3 CLI Visual Snapshot Test
+# NanoBK Proxy Suite — v1.8.4 CLI Visual Snapshot Test
 #
 # Checks UI output shape without real deployment.
 # Uses safe mock / dry-run / defaults only.
@@ -62,7 +62,7 @@ source_ui_and_run() {
 }
 
 echo ""
-echo "=== Test Suite: v1.8.3 CLI Visual Snapshot ==="
+echo "=== Test Suite: v1.8.4 CLI Visual Snapshot ==="
 
 # ── Snapshot 1: Banner ────────────────────────────────────────────────────
 
@@ -70,11 +70,11 @@ echo ""
 echo "--- Snapshot 1: ui_banner PLAIN ---"
 
 output=$(source_ui_and_run "NANOBK_PLAIN=1" "
-  ui_banner 'v1.8.3' 'Full Recommended — VPS + Cloudflare + Bot + Web Panel'
+  ui_banner 'v1.8.4' 'Full Recommended — VPS + Cloudflare + Bot + Web Panel'
 ")
 
 assert_contains "$output" "NanoBK Proxy Suite" "Banner: product name"
-assert_contains "$output" "v1.8.3" "Banner: version"
+assert_contains "$output" "v1.8.4" "Banner: version"
 assert_contains "$output" "Full Recommended" "Banner: subtitle"
 
 if has_ansi "$output"; then
@@ -136,7 +136,8 @@ output=$(source_ui_and_run "NANOBK_PLAIN=1" "
   ui_recovery_block 'bash installer/install.sh --mode vps --lang zh' 'bash bin/nanobk status'
 ")
 
-assert_contains "$output" "恢复" "Recovery: contains recovery label"
+assert_contains "$output" "可以稍后继续" "Recovery: contains continue-later label"
+assert_contains "$output" "恢复或重新执行" "Recovery: contains recovery intro"
 assert_contains "$output" "installer/install.sh" "Recovery: contains installer command"
 assert_contains "$output" "nanobk status" "Recovery: contains nanobk command"
 
@@ -160,8 +161,9 @@ output=$(source_ui_and_run "NANOBK_PLAIN=1" "
 ")
 
 assert_contains "$output" "不要截图" "Token: contains do-not-screenshot"
-assert_contains "$output" "把 token 发到聊天" "Token: contains do-not-share"
-assert_contains "$output" "脱敏" "Token: contains redaction mention"
+assert_contains "$output" "聊天、issue 或日志" "Token: contains do-not-share"
+assert_contains "$output" "当作密码保管" "Token: contains treat-as-password"
+assert_contains "$output" "隐藏敏感信息" "Token: contains hide-sensitive-info"
 assert_contains "$output" "revoke" "Token: contains revoke"
 assert_contains "$output" "regenerate" "Token: contains regenerate"
 assert_not_contains "$output" "不会出现在屏幕或日志中" "Token: no absolute promise"
@@ -256,6 +258,11 @@ assert_not_contains "$wizard_output" "SECRET=" "Wizard: no SECRET= in output"
 # Check wizard output does not contain raw env file contents
 assert_not_contains "$wizard_output" "NANOBK_CF_API_TOKEN" "Wizard: no raw CF token var"
 assert_not_contains "$wizard_output" "ADMIN_TOKEN=" "Wizard: no raw ADMIN_TOKEN"
+
+# Check control-plane wording preserved in install.sh
+install_content=$(cat "${REPO_DIR}/installer/install.sh")
+assert_contains "$install_content" "控制端配置" "install.sh: control-plane wording preserved"
+assert_contains "$install_content" "不代表 VPS 节点或 Cloudflare 订阅已经可用" "install.sh: control-plane semantic preserved"
 
 # ── Snapshot 10: Test helper stability ────────────────────────────────────
 

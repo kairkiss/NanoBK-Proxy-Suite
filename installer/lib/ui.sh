@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — UI Display Layer v1.8.3
+# NanoBK Proxy Suite — UI Display Layer v1.8.4
 #
 # Provides unified, product-quality CLI display functions for the installer.
 # This file only handles display — it never makes deployment decisions.
@@ -413,7 +413,7 @@ ui_recovery_block() {
   local commands=("$@")
 
   if [[ "${NANOBK_UI:-}" == "0" ]]; then
-    echo "  恢复方法："
+    echo "  可以稍后继续："
     for cmd in "${commands[@]}"; do
       echo "    \$ ${cmd}"
     done
@@ -423,12 +423,16 @@ ui_recovery_block() {
 
   echo ""
   if [[ "$_ui_has_color" == "1" ]]; then
-    echo -e "  ${_ui_c_yellow}恢复方法：${_ui_c_reset}"
+    echo -e "  ${_ui_c_yellow}可以稍后继续${_ui_c_reset}"
+    echo "  下面这些命令可以帮助你恢复或重新执行当前阶段："
+    echo ""
     for cmd in "${commands[@]}"; do
       echo -e "    ${_ui_c_cyan}\$${_ui_c_reset} ${cmd}"
     done
   else
-    echo "  恢复方法："
+    echo "  可以稍后继续"
+    echo "  下面这些命令可以帮助你恢复或重新执行当前阶段："
+    echo ""
     for cmd in "${commands[@]}"; do
       echo "    \$ ${cmd}"
     done
@@ -496,8 +500,9 @@ ui_describe() {
 ui_token_reminder() {
   if [[ "${NANOBK_UI:-}" == "0" ]]; then
     echo "  安全提示："
-    echo "    - 不要把 token 发到聊天、issue、日志"
-    echo "    - 如果 token 暴露，请立即 revoke / regenerate"
+    echo "    - 输入 token 时请不要截图，也不要把它发到聊天、issue 或日志里。"
+    echo "    - NanoBK 会尽量隐藏敏感信息，但你仍然应该把 token 当作密码保管。"
+    echo "    - 如果 token 暴露，请立即在对应平台 revoke / regenerate。"
     return 0
   fi
 
@@ -505,13 +510,13 @@ ui_token_reminder() {
   lock=$(_ui_sym "🔒" "[SECURE]")
 
   if [[ "$_ui_has_color" == "1" ]]; then
-    echo -e "  ${_ui_c_cyan}${lock}${_ui_c_reset}  安全提示："
+    echo -e "  ${_ui_c_cyan}${lock}${_ui_c_reset}  安全提示"
   else
-    echo "  ${lock}  安全提示："
+    echo "  ${lock}  安全提示"
   fi
-  echo "    - 不要截图或把 token 发到聊天、issue、日志"
-  echo "    - NanoBK 会尽量脱敏显示敏感信息"
-  echo "    - 如果 token 暴露，请立即 revoke / regenerate"
+  echo "    - 输入 token 时请不要截图，也不要把它发到聊天、issue 或日志里。"
+  echo "    - NanoBK 会尽量隐藏敏感信息，但你仍然应该把 token 当作密码保管。"
+  echo "    - 如果 token 暴露，请立即在对应平台 revoke / regenerate。"
 }
 
 # ── Decorative divider ────────────────────────────────────────────────────
