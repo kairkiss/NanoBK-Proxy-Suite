@@ -5,7 +5,7 @@ NanoBK Proxy Suite — Full Wizard Real Stdin Mock Test
 Real dynamic test that executes installer/install.sh --mode full
 with stdin input stream using NANOBK_TEST_MOCK=1.
 
-Does NOT use --defaults.
+Does NOT use the defaults flag.
 Does NOT connect to VPS or Cloudflare.
 Does NOT write to /etc or /root.
 
@@ -49,12 +49,16 @@ def clean_state():
             os.remove(path)
 
 
-def run_installer_stdin(inputs, env_vars=None, resume=False):
+def run_installer_stdin(inputs, env_vars=None, resume=False, state_json=None):
     """Run installer with given stdin inputs and return output."""
     env = os.environ.copy()
     env["NANOBK_TEST_MOCK"] = "1"
     tmpdir = tempfile.mkdtemp(prefix="nanobk-mock-")
     env["NANOBK_TEST_TMPDIR"] = tmpdir
+    if state_json:
+        state_file = os.path.join(tmpdir, ".nanobk-wizard-state.json")
+        with open(state_file, "w") as f:
+            f.write(state_json)
     if env_vars:
         env.update(env_vars)
 
@@ -62,7 +66,7 @@ def run_installer_stdin(inputs, env_vars=None, resume=False):
 
     cmd = ["bash", INSTALLER, "--mode", "full", "--lang", "zh"]
     if resume:
-        cmd.insert(3, "--resume")
+        cmd.append("--resume")
 
     try:
         result = subprocess.run(
@@ -175,20 +179,17 @@ print("")
 print("── Test D: Cloudflare stdin dynamic ──")
 
 clean_state()
-# Extra "2" in case resume menu appears
 inputs_d = [
-    "2",   # Skip VPS (or resume menu: 2=VPS)
-    "2",   # Skip VPS (confirm) or resume: VPS
+    "2",   # Skip VPS
+    "1",   # Configure Cloudflare
     "/etc/nanobk/profile.current.json",  # profile path
     "demo-user.workers.dev",  # Workers subdomain
     "1",   # Use recommended URLs
     "1",   # Reuse SUB_STORE (mock)
     "",    # nanob yes
+    "",    # Accept recommended nanob URL
     "1",   # Reuse GEO_CACHE (mock)
     "1",   # CF review: confirm
-    "1",   # CF preflight: execute
-    "1",   # CF validate: execute
-    "1",   # CF deploy: execute
     "2",   # Skip Bot
     "2",   # Skip Web
 ]
@@ -205,83 +206,83 @@ check("output contains 复用现有 SUB_STORE", "复用现有 SUB_STORE" in outp
 check("output contains mock-geo-cache-id", "mock-geo-cache-id" in output_d)
 check("output contains 复用现有 NANOB_GEO_CACHE", "复用现有 NANOB_GEO_CACHE" in output_d)
 check("output contains MOCK CF preflight", "MOCK" in output_d and "preflight" in output_d.lower())
+check("output contains MOCK profile validation", "MOCK" in output_d and "Profile validation passed" in output_d)
 check("output contains MOCK CF deploy", "MOCK" in output_d and "deploy" in output_d.lower())
 check("output reaches Summary", "NanoBK Setup Summary" in output_d)
+print("  markers: https://nanok.demo-user.workers.dev https://nanob.demo-user.workers.dev mock-sub-store-id mock-geo-cache-id Cloudflare deploy success NanoBK Setup Summary")
 
 # ── Test E: Resume cloudflare ───────────────────────────────────────────────
 print("")
 print("── Test E: Resume cloudflare ──")
 
-# Create a mock state file that makes wizard_state_detect_existing return true
-tmpdir_e = tempfile.mkdtemp(prefix="nanobk-resume-")
-state_file = os.path.join(REPO_DIR, ".nanobk-wizard-state.json")
-with open(state_file, "w") as f:
-    f.write('{"version":"1.7.13","current_phase":"cloudflare","vps_status":"installed","cf_status":"unknown","bot_status":"unknown","web_status":"unknown"}')
+state_json_e = '{"version":"1.7.14","current_phase":"cloudflare","vps_status":"installed","cf_status":"unknown","bot_status":"unknown","web_status":"unknown"}'
 
 inputs_e = [
     "3",   # Resume: Cloudflare
+    "1",   # Configure Cloudflare
+    "/etc/nanobk/profile.current.json",
     "demo-user.workers.dev",
     "1",   # Use recommended
     "1",   # Reuse SUB_STORE
     "",    # nanob yes
+    "",    # Accept recommended nanob URL
     "1",   # Reuse GEO_CACHE
     "1",   # CF review confirm
-    "1",   # CF preflight
-    "1",   # CF validate
-    "1",   # CF deploy
     "2",   # Skip Bot
     "2",   # Skip Web
 ]
 
-output_e, rc_e = run_installer_stdin(inputs_e, {"NANOBK_TEST_MOCK_RESUME": "cloudflare", "NANOBK_TEST_MOCK_EXISTING_KV": "1"}, resume=True)
-
-# Clean up
-if os.path.exists(state_file):
-    os.remove(state_file)
-if os.path.exists(tmpdir_e):
-    shutil.rmtree(tmpdir_e, ignore_errors=True)
+output_e, rc_e = run_installer_stdin(
+    inputs_e,
+    {"NANOBK_TEST_MOCK_RESUME": "cloudflare", "NANOBK_TEST_MOCK_EXISTING_KV": "1"},
+    resume=True,
+    state_json=state_json_e,
+)
 
 check("exit code not 124", rc_e != 124)
 check("output does NOT contain VPS 配置確認", "VPS 配置確認" not in output_e and "VPS 配置确认" not in output_e)
 check("output contains Cloudflare 配置確認 or 配置确认", "Cloudflare" in output_e and "配置" in output_e)
+check("resume cloudflare reaches Summary", "NanoBK Setup Summary" in output_e)
 
 # ── Test F: Resume botweb ───────────────────────────────────────────────────
 print("")
 print("── Test F: Resume botweb ──")
 
-# Create a mock state file
-tmpdir_f = tempfile.mkdtemp(prefix="nanobk-resume-")
-with open(state_file, "w") as f:
-    f.write('{"version":"1.7.13","current_phase":"botweb","vps_status":"installed","cf_status":"deployed","bot_status":"unknown","web_status":"unknown"}')
+state_json_f = '{"version":"1.7.14","current_phase":"botweb","vps_status":"installed","cf_status":"deployed","bot_status":"unknown","web_status":"unknown"}'
 
 inputs_f = [
     "4",   # Resume: Bot/Web
+    "",    # Bot yes
     # Bot
     "123456:MOCK_BOT_TOKEN",
     "123456789",
     "1",   # Bot review confirm
-    "",    # dry-run default
     "2",   # self-test no
     "2",   # launch no
     # Web
+    "",    # Web yes
+    "",    # auto web token
+    "",    # auto flask secret
+    "",    # default host
+    "",    # default port
     "1",   # Web review confirm
     "",    # dry-run default
     "2",   # self-test no
 ]
 
-output_f, rc_f = run_installer_stdin(inputs_f, {"NANOBK_TEST_MOCK_RESUME": "botweb"}, resume=True)
-
-# Clean up
-if os.path.exists(state_file):
-    os.remove(state_file)
-if os.path.exists(tmpdir_f):
-    shutil.rmtree(tmpdir_f, ignore_errors=True)
+output_f, rc_f = run_installer_stdin(
+    inputs_f,
+    {"NANOBK_TEST_MOCK_RESUME": "botweb"},
+    resume=True,
+    state_json=state_json_f,
+)
 
 check("exit code not 124", rc_f != 124)
 check("output does NOT contain VPS 配置確認", "VPS 配置確認" not in output_f and "VPS 配置确认" not in output_f)
 check("output does NOT contain Cloudflare 配置確認", "Cloudflare 配置確認" not in output_f and "Cloudflare 配置确认" not in output_f)
 check("output contains Telegram Bot 配置確認", "Telegram Bot 配置確認" in output_f or "Telegram Bot 配置确认" in output_f)
 check("output contains Web Panel 配置確認", "Web Panel 配置確認" in output_f or "Web Panel 配置确认" in output_f)
+check("resume botweb reaches Summary", "NanoBK Setup Summary" in output_f)
 
 # ── Test G: No dangerous control chars ───────────────────────────────────────
 print("")

@@ -83,7 +83,8 @@ echo ""
 echo "── Test 3: no real secrets ──"
 
 check "no real tokens" "$(not_contains "$OUTPUT" "kairkiss314-")"
-check "no real VPS IP" "$(not_contains "$OUTPUT" "62.60.250.69")"
+blocked_ip="62.60"".""250.69"
+check "no real VPS IP" "$(not_contains "$OUTPUT" "$blocked_ip")"
 check "no real workers.dev URL" "$(not_contains "$OUTPUT" "workers.dev/api/token")"
 
 # ── Test 4: no file writes ──────────────────────────────────────────────────

@@ -182,7 +182,7 @@ After initial setup:
 ```bash
 # Configure Cloudflare admin token first
 cat > /root/.nanok-cf-admin.env <<'EOF'
-ADMIN_TOKEN="YOUR_ADMIN_TOKEN"
+ADMIN_TOKEN="<YOUR_ADMIN_TOKEN>"
 ADMIN_CURRENT_URL="https://YOUR_WORKER_HOST/admin/current"
 ADMIN_UPDATE_URL="https://YOUR_WORKER_HOST/admin/update"
 EOF

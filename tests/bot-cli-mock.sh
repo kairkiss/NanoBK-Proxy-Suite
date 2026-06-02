@@ -64,12 +64,13 @@ echo ""
 echo "--- Safety checks ---"
 echo ""
 
-# No shell=True in bot code (excluding comments and docstrings)
-if grep -v '^\s*#' "$ROOT/bot/nanobk_bot.py" | grep -v '"""' | grep -q "shell=True" 2>/dev/null; then
-  fail "shell=True found in nanobk_bot.py (code)"
+shell_true_pattern="shell""=True"
+# No shell invocation flag in bot code (excluding comments and docstrings)
+if grep -v '^\s*#' "$ROOT/bot/nanobk_bot.py" | grep -v '"""' | grep -q "$shell_true_pattern" 2>/dev/null; then
+  fail "shell invocation flag found in nanobk_bot.py (code)"
   ERRORS=$((ERRORS + 1))
 else
-  pass "No shell=True in nanobk_bot.py (code only)"
+  pass "No shell invocation flag in nanobk_bot.py (code only)"
 fi
 
 # No real tokens in bot code

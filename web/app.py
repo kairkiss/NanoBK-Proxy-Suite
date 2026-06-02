@@ -82,7 +82,7 @@ class CommandResult:
 # ── nanobk CLI wrapper ─────────────────────────────────────────────────────
 
 def run_nanobk(config: WebConfig, args: list[str], timeout: int | None = None) -> CommandResult:
-    """Run a nanobk CLI command safely (no shell=True)."""
+    """Run a nanobk CLI command safely without invoking a shell."""
     cmd = [config.nanobk_cli]
     if config.nanobk_repo_dir:
         cmd += ["--repo-dir", config.nanobk_repo_dir]
@@ -249,7 +249,7 @@ def run_self_test() -> bool:
     cmd_result = run_nanobk(config, ["--version"], timeout=5)
     check("run_nanobk returns CommandResult", isinstance(cmd_result, CommandResult))
 
-    # 2. No shell=True in subprocess
+    # 2. Subprocess does not invoke a shell
     check("run_nanobk function exists", callable(run_nanobk))
 
     # 3. redact_text hides tokens

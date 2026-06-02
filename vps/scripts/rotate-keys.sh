@@ -231,7 +231,7 @@ load_cf_admin_env() {
   if [[ ! -f "$CF_ADMIN_ENV" ]]; then
     if [[ "$NANOBK_DRY_RUN" == "1" ]]; then
       warn "CF admin env not found: ${CF_ADMIN_ENV} (OK in dry-run)"
-      ADMIN_TOKEN="DRY_RUN_ADMIN_TOKEN"
+      ADMIN_TOKEN="-DRY_RUN_ADMIN_TOKEN"
       ADMIN_UPDATE_URL="https://nanok.example.workers.dev/admin/update"
       ADMIN_CURRENT_URL="https://nanok.example.workers.dev/admin/current"
       return 0

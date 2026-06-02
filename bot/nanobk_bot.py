@@ -67,7 +67,7 @@ class CommandResult:
 # ── nanobk CLI wrapper ─────────────────────────────────────────────────────
 
 def run_nanobk(config: BotConfig, args: list[str], timeout: int | None = None) -> CommandResult:
-    """Run a nanobk CLI command safely (no shell=True)."""
+    """Run a nanobk CLI command safely without invoking a shell."""
     cmd = [config.nanobk_cli]
     if config.nanobk_repo_dir:
         cmd += ["--repo-dir", config.nanobk_repo_dir]

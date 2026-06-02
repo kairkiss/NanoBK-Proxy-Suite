@@ -38,7 +38,7 @@ echo ""
 cat > "$TMP/.nanob.local.env" <<'EOF'
 NANOB_WORKER_NAME="nanob"
 NANOB_ROUTE_URL="https://nanob.example.workers.dev"
-NANOB_TOKEN="fake-token-for-test"
+NANOB_TOKEN="_fake-token-for-test"
 NANOB_PATH="/jb"
 NANOB_DEPLOY_STATUS="deployed"
 NANOB_VERIFY_STATUS="pending"

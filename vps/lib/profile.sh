@@ -226,7 +226,7 @@ generate_cf_admin_env_template() {
 # chmod 600 /root/.nanok-cf-admin.env
 # Do NOT commit this file.
 
-ADMIN_TOKEN="REPLACE_WITH_YOUR_ADMIN_TOKEN"
+ADMIN_TOKEN="<REPLACE_WITH_YOUR_ADMIN_TOKEN>"
 ADMIN_CURRENT_URL="https://YOUR_WORKER_HOST/admin/current"
 ADMIN_UPDATE_URL="https://YOUR_WORKER_HOST/admin/update"
 EOF

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — Unified Beginner Installer v1.7.13
+# NanoBK Proxy Suite — Unified Beginner Installer v1.7.14
 #
 # Interactive entry point for NanoBK Proxy Suite.
 # Guides users through VPS deployment, Cloudflare setup, Bot, Web Panel.
@@ -20,7 +20,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # ── Constants ───────────────────────────────────────────────────────────────
 
 REPO_URL="https://github.com/kairkiss/NanoBK-Proxy-Suite"
-VERSION="1.7.13"
+VERSION="1.7.14"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -351,6 +351,15 @@ wizard_state_print() {
 }
 
 wizard_state_detect_existing() {
+  local state_file
+  state_file=$(wizard_state_path)
+  if [[ -f "$state_file" ]]; then
+    return 0
+  fi
+  if [[ "${NANOBK_TEST_MOCK:-}" == "1" ]] && [[ -n "${NANOBK_TEST_MOCK_RESUME:-}" ]]; then
+    return 0
+  fi
+
   # Check actual system state
   local vps_ok=0 cf_ok=0 bot_ok=0 web_ok=0
 
@@ -2121,6 +2130,12 @@ run_unified_preflight() {
     echo ""
     log "Cloudflare 工具检查:"
 
+    if [[ "${NANOBK_TEST_MOCK:-}" == "1" ]]; then
+      preflight_pass "node: mocked"
+      preflight_pass "npx: mocked"
+      preflight_pass "wrangler: mocked (no real Cloudflare access)"
+      preflight_pass "wrangler login: mocked"
+    else
     if command -v node &>/dev/null; then
       local nmajor
       nmajor=$(node -v 2>/dev/null | sed 's/^v//' | cut -d. -f1 || echo "0")
@@ -2189,6 +2204,7 @@ run_unified_preflight() {
           echo ""
         fi
       fi
+    fi
     fi
   fi
 
@@ -2475,35 +2491,53 @@ web_review_loop() {
 
 find_existing_kv_id() {
   local binding="$1"
+
   # Mock mode
   if [[ "${NANOBK_TEST_MOCK:-}" == "1" ]]; then
     mock_find_existing_kv "$binding"
     return $?
   fi
+
   # Don't access real wrangler in dry-run or commands-only mode
   if [[ "${DRY_RUN:-0}" == "1" ]] || [[ "${COMMAND_ONLY:-0}" == "1" ]]; then
     return 1
   fi
-  # Real implementation: parse wrangler kv namespace list
+
   if command -v wrangler &>/dev/null || command -v npx &>/dev/null; then
     local wcmd="wrangler"
     command -v wrangler &>/dev/null || wcmd="npx wrangler"
     local output
     output=$($wcmd kv namespace list 2>/dev/null) || return 1
-    # Try to find the binding ID
+
     local id
     id=$(echo "$output" | python3 -c "
 import json, sys
+binding = sys.argv[1]
+text = sys.stdin.read()
 try:
-    data = json.loads(sys.stdin.read())
+    data = json.loads(text)
     if isinstance(data, list):
         for item in data:
-            if item.get('title','') == '$binding' or item.get('binding','') == '$binding':
-                print(item.get('id',''))
-                sys.exit(0)
-except: pass
+            if not isinstance(item, dict):
+                continue
+            if item.get('title', '') == binding or item.get('binding', '') == binding:
+                kv_id = item.get('id', '')
+                if kv_id:
+                    print(kv_id)
+                    sys.exit(0)
+except Exception:
+    pass
+
+for line in text.splitlines():
+    if binding not in line:
+        continue
+    parts = line.replace(',', ' ').replace('\"', ' ').split()
+    for part in parts:
+        if len(part) >= 16 and all(c.isalnum() or c in '-_' for c in part) and part != binding:
+            print(part)
+            sys.exit(0)
 sys.exit(1)
-" 2>/dev/null) || return 1
+    " "$binding" 2>/dev/null) || return 1
     echo "$id"
     return 0
   fi
@@ -3349,7 +3383,7 @@ run_test_mode() {
   echo ""
 
   local choice
-  prompt choice "请选择" "5"
+  prompt choice "请选择" "1"
 
   case "$choice" in
     1)

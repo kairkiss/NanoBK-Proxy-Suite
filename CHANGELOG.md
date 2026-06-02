@@ -1,5 +1,22 @@
 # Changelog
 
+## v1.7.14 — Full Wizard Dynamic Mock Failure Fix
+
+### Fixed
+
+- Fixed the failing Full Wizard dynamic stdin mock tests from v1.7.13.
+- Ensured find_existing_kv_id works in mock, dry-run, commands-only, and real modes.
+- Cloudflare stdin mock now dynamically verifies Worker URL recommendation, SUB_STORE reuse, NANOB_GEO_CACHE reuse, profile validation, and mock deploy.
+- Resume stdin mock now verifies Cloudflare and Bot/Web routing.
+- tests/full-wizard-interactive-mock.sh now passes with 0 failed checks.
+
+### Safety
+
+- Mock tests do not connect to a real VPS or Cloudflare.
+- Mock tests do not write to /etc or /root.
+- Mock output does not print raw tokens or secrets.
+- v1.7.14 does not claim real VPS or Cloudflare validation.
+
 ## v1.7.13 — Cloudflare Stdin Mock and KV Helper Completion
 
 ### Fixed

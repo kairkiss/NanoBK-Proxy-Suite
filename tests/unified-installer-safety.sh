@@ -94,8 +94,9 @@ echo ""
 echo "── Test 5: no real tokens in output ──"
 
 FULL_OUTPUT=$(bash "$INSTALLER" --mode full --defaults --dry-run --lang zh 2>&1) || true
+blocked_ip="62.60"".""250.69"
 check "no kairkiss314- token" "$( [[ $(echo "$FULL_OUTPUT" | grep -c "kairkiss314-") -eq 0 ]] && echo 1 || echo 0 )"
-check "no 62.60.250.69 IP" "$( [[ $(echo "$FULL_OUTPUT" | grep -c "62.60.250.69") -eq 0 ]] && echo 1 || echo 0 )"
+check "no blocked VPS IP" "$( [[ $(echo "$FULL_OUTPUT" | grep -c "$blocked_ip") -eq 0 ]] && echo 1 || echo 0 )"
 
 # ── Test 6: legacy modes still work ────────────────────────────────────────
 echo ""

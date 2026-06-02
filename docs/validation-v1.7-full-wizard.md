@@ -5,8 +5,8 @@
 - Real clean VPS Full Wizard validation must be executed by a human tester
 - Claude Code / local tests cannot claim real VPS / Cloudflare validation passed
 - dry-run does not prove real deployment works
-- v1.7.13 adds Cloudflare stdin mock coverage
-- dynamic stdin mock must cover Cloudflare + resume before real VPS
+- v1.7.14 fixes the v1.7.13 Full Wizard dynamic stdin mock failure
+- dynamic stdin mock covers Cloudflare + resume before real VPS
 - dynamic mock passing still does not mean production passed
 - 1.7 Full Wizard not completed before entering 1.8
 - Do not paste tokens into chat, logs, or issues

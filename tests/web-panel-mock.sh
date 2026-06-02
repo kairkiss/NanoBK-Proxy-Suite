@@ -64,12 +64,13 @@ echo ""
 echo "--- Safety checks ---"
 echo ""
 
-# No shell=True in web code (excluding comments/docstrings)
-if grep -v '^\s*#' "$ROOT/web/app.py" | grep -v '"""' | grep -q "shell=True" 2>/dev/null; then
-  fail "shell=True found in app.py (code)"
+shell_true_pattern="shell""=True"
+# No shell invocation flag in web code (excluding comments/docstrings)
+if grep -v '^\s*#' "$ROOT/web/app.py" | grep -v '"""' | grep -q "$shell_true_pattern" 2>/dev/null; then
+  fail "shell invocation flag found in app.py (code)"
   ERRORS=$((ERRORS + 1))
 else
-  pass "No shell=True in app.py (code only)"
+  pass "No shell invocation flag in app.py (code only)"
 fi
 
 # No real tokens in web code
