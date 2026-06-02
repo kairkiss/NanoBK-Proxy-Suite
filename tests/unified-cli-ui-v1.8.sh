@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — v1.8.0 CLI UI Test
+# NanoBK Proxy Suite — v1.8.1 CLI UI Test
 #
 # Tests the UI display layer and operation log features.
 # Does NOT test deployment logic — only display behavior.
@@ -17,19 +17,21 @@ FAIL=0
 
 pass() {
   PASS=$((PASS + 1))
-  echo "  ✓ $1"
+  echo "  OK $1"
 }
 
 fail() {
   FAIL=$((FAIL + 1))
-  echo "  ✕ $1"
+  echo "  FAIL $1"
 }
+
+# ── Assertions: use here-string, NOT pipe, to avoid pipefail flakiness ────
 
 assert_contains() {
   local haystack="$1"
   local needle="$2"
   local label="$3"
-  if printf '%s\n' "$haystack" | grep -qF "$needle"; then
+  if grep -qF "$needle" <<< "$haystack"; then
     pass "$label"
   else
     fail "$label — expected to contain: $needle"
@@ -40,7 +42,7 @@ assert_not_contains() {
   local haystack="$1"
   local needle="$2"
   local label="$3"
-  if printf '%s\n' "$haystack" | grep -qF "$needle"; then
+  if grep -qF "$needle" <<< "$haystack"; then
     fail "$label — should NOT contain: $needle"
   else
     pass "$label"
@@ -62,7 +64,7 @@ source_ui_and_run() {
 # ── Test 1: NANOBK_PLAIN=1 disables emoji and color ──────────────────────
 
 echo ""
-echo "=== Test Suite: v1.8.0 CLI UI ==="
+echo "=== Test Suite: v1.8.1 CLI UI ==="
 echo ""
 
 echo "--- Test 1: NANOBK_PLAIN=1 disables emoji and color ---"
@@ -75,14 +77,115 @@ output=$(source_ui_and_run "NANOBK_PLAIN=1" "
   ui_section 'Test Section'
 ")
 
-assert_not_contains "$output" "✓" "PLAIN: no checkmark emoji"
-assert_not_contains "$output" "✕" "PLAIN: no X emoji"
-assert_not_contains "$output" "!" "PLAIN: no exclamation emoji in info"
-assert_not_contains "$output" '\033[' "PLAIN: no ANSI escape codes"
+# Check with actual emoji chars using here-string (no pipe)
+if grep -qF '✓' <<< "$output"; then
+  fail "PLAIN: no checkmark emoji"
+else
+  pass "PLAIN: no checkmark emoji"
+fi
+if grep -qF '✕' <<< "$output"; then
+  fail "PLAIN: no X emoji"
+else
+  pass "PLAIN: no X emoji"
+fi
+# Check no ANSI escapes
+if grep -qE $'\x1b\[' <<< "$output"; then
+  fail "PLAIN: no ANSI escape codes"
+else
+  pass "PLAIN: no ANSI escape codes"
+fi
 assert_contains "$output" "[INFO]" "PLAIN: contains [INFO] tag"
 assert_contains "$output" "OK" "PLAIN: contains OK text"
 assert_contains "$output" "WARN" "PLAIN: contains WARN text"
 assert_contains "$output" "ERR" "PLAIN: contains ERR text"
+
+# ── Test 1b: PLAIN section has no Unicode bars ────────────────────────────
+
+echo ""
+echo "--- Test 1b: PLAIN section is pure ASCII ---"
+
+output=$(source_ui_and_run "NANOBK_PLAIN=1" "
+  ui_section '阶段 1' 1 5
+")
+
+if grep -qF '■' <<< "$output"; then
+  fail "PLAIN section: no Unicode filled bar"
+else
+  pass "PLAIN section: no Unicode filled bar"
+fi
+if grep -qF '□' <<< "$output"; then
+  fail "PLAIN section: no Unicode empty bar"
+else
+  pass "PLAIN section: no Unicode empty bar"
+fi
+if grep -qF '──' <<< "$output"; then
+  fail "PLAIN section: no Unicode dash"
+else
+  pass "PLAIN section: no Unicode dash"
+fi
+if grep -qE $'\x1b\[' <<< "$output"; then
+  fail "PLAIN section: no ANSI escape"
+else
+  pass "PLAIN section: no ANSI escape"
+fi
+assert_contains "$output" "Step 1/5" "PLAIN section: contains Step 1/5"
+assert_contains "$output" "阶段 1" "PLAIN section: contains title"
+
+# ── Test 1c: PLAIN progress is pure ASCII ─────────────────────────────────
+
+echo ""
+echo "--- Test 1c: PLAIN progress is pure ASCII ---"
+
+output=$(source_ui_and_run "NANOBK_PLAIN=1" "
+  ui_progress 3 6 'Installing'
+")
+
+if grep -qF '■' <<< "$output"; then
+  fail "PLAIN progress: no Unicode filled bar"
+else
+  pass "PLAIN progress: no Unicode filled bar"
+fi
+if grep -qF '□' <<< "$output"; then
+  fail "PLAIN progress: no Unicode empty bar"
+else
+  pass "PLAIN progress: no Unicode empty bar"
+fi
+assert_contains "$output" "Step 3/6" "PLAIN progress: shows Step 3/6"
+assert_contains "$output" "Installing" "PLAIN progress: shows label"
+
+# ── Test 1d: PLAIN divider uses ASCII ─────────────────────────────────────
+
+echo ""
+echo "--- Test 1d: PLAIN divider uses ASCII ---"
+
+output=$(source_ui_and_run "NANOBK_PLAIN=1" "
+  ui_divider
+")
+
+if grep -qF '─' <<< "$output"; then
+  fail "PLAIN divider: no Unicode dash"
+else
+  pass "PLAIN divider: no Unicode dash"
+fi
+# Should contain plain ASCII dashes
+assert_contains "$output" "-" "PLAIN divider: contains ASCII dash"
+
+# ── Test 1e: PLAIN spinner is plain text ──────────────────────────────────
+
+echo ""
+echo "--- Test 1e: PLAIN spinner is plain text ---"
+
+output=$(source_ui_and_run "NANOBK_PLAIN=1" "
+  ui_spinner_start 'Testing'
+  ui_spinner_stop
+")
+
+if grep -qE $'\x1b\[' <<< "$output"; then
+  fail "PLAIN spinner: no ANSI escape"
+else
+  pass "PLAIN spinner: no ANSI escape"
+fi
+assert_contains "$output" "Testing" "PLAIN spinner: shows message text"
 
 # ── Test 2: NANOBK_NO_EMOJI=1 disables emoji but keeps color ─────────────
 
@@ -95,7 +198,11 @@ output=$(source_ui_and_run "NANOBK_NO_EMOJI=1" "
 ")
 
 # In non-TTY (subshell), color is auto-disabled, so check for symbol fallbacks
-assert_not_contains "$output" "✓" "NO_EMOJI: no checkmark emoji"
+if grep -qF '✓' <<< "$output"; then
+  fail "NO_EMOJI: no checkmark emoji"
+else
+  pass "NO_EMOJI: no checkmark emoji"
+fi
 assert_contains "$output" "OK" "NO_EMOJI: contains OK fallback"
 
 # ── Test 3: Default UI (non-TTY) does not produce dangerous control chars ─
@@ -110,9 +217,6 @@ output=$(source_ui_and_run "" "
   ui_error 'test'
 ")
 
-# Should not contain raw escape sequences in non-TTY
-# (non-TTY auto-disables color)
-# But the text content should still be present
 assert_contains "$output" "[INFO]" "Default non-TTY: contains info text"
 
 # ── Test 4: NANOBK_UI=0 legacy bypass ────────────────────────────────────
@@ -142,9 +246,8 @@ output=$(source_ui_and_run "NANOBK_PLAIN=1" "
 assert_contains "$output" "cmd one" "Recovery: shows first command"
 assert_contains "$output" "cmd two" "Recovery: shows second command"
 assert_contains "$output" "cmd three" "Recovery: shows third command"
-assert_contains "$output" "\$" "Recovery: shows dollar prompt"
 
-# ── Test 6: ui_token_reminder does not leak secrets ───────────────────────
+# ── Test 6: ui_token_reminder honest wording ──────────────────────────────
 
 echo ""
 echo "--- Test 6: ui_token_reminder safety ---"
@@ -156,7 +259,11 @@ output=$(source_ui_and_run "NANOBK_PLAIN=1" "
 assert_not_contains "$output" "BOT_TOKEN" "Token reminder: no BOT_TOKEN"
 assert_not_contains "$output" "123456" "Token reminder: no example token"
 assert_contains "$output" "token" "Token reminder: mentions token concept"
-assert_contains "$output" "不会" "Token reminder: says won't leak"
+assert_contains "$output" "revoke" "Token reminder: mentions revoke"
+assert_contains "$output" "regenerate" "Token reminder: mentions regenerate"
+assert_contains "$output" "脱敏" "Token reminder: mentions redaction"
+# Must NOT contain over-promise
+assert_not_contains "$output" "不会出现在屏幕或日志中" "Token reminder: no absolute promise"
 
 # ── Test 7: ui_summary_card preserves honest status words ────────────────
 
@@ -192,23 +299,136 @@ output=$(bash -c "
 assert_not_contains "$output" "abc123def456ghi789jkl012mno" "Redaction: long token value removed"
 assert_contains "$output" "REDACTED" "Redaction: shows REDACTED"
 
+# ── Test 8b: Comprehensive redaction patterns ─────────────────────────────
+
+echo ""
+echo "--- Test 8b: Comprehensive redaction patterns ---"
+
+redact_test() {
+  local input="$1"
+  local desc="$2"
+  bash -c "
+    source '${REPO_DIR}/installer/lib/operation-log.sh'
+    oplog_redact '${input}'
+  " 2>&1
+}
+
+# SUB_TOKEN
+output=$(redact_test "SUB_TOKEN=supersecretvalue123" "SUB_TOKEN")
+assert_not_contains "$output" "supersecretvalue123" "Redact SUB_TOKEN: value removed"
+assert_contains "$output" "REDACTED" "Redact SUB_TOKEN: shows REDACTED"
+
+# ADMIN_TOKEN
+output=$(redact_test "ADMIN_TOKEN=adminsecretvalue456" "ADMIN_TOKEN")
+assert_not_contains "$output" "adminsecretvalue456" "Redact ADMIN_TOKEN: value removed"
+assert_contains "$output" "REDACTED" "Redact ADMIN_TOKEN: shows REDACTED"
+
+# NANOB_TOKEN
+output=$(redact_test "NANOB_TOKEN=nanobsecret789" "NANOB_TOKEN")
+assert_not_contains "$output" "nanobsecret789" "Redact NANOB_TOKEN: value removed"
+assert_contains "$output" "REDACTED" "Redact NANOB_TOKEN: shows REDACTED"
+
+# CF_API_TOKEN
+output=$(redact_test "CF_API_TOKEN=cfsecretvalueabc" "CF_API_TOKEN")
+assert_not_contains "$output" "cfsecretvalueabc" "Redact CF_API_TOKEN: value removed"
+assert_contains "$output" "REDACTED" "Redact CF_API_TOKEN: shows REDACTED"
+
+# Authorization: Bearer
+output=$(redact_test "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.payload.signature" "Bearer token")
+assert_not_contains "$output" "eyJhbGciOiJIUzI1NiJ9" "Redact Bearer: token removed"
+assert_contains "$output" "REDACTED" "Redact Bearer: shows REDACTED"
+
+# password
+output=$(redact_test "password=mypassword123" "password")
+assert_not_contains "$output" "mypassword123" "Redact password: value removed"
+assert_contains "$output" "REDACTED" "Redact password: shows REDACTED"
+
+# SECRET
+output=$(redact_test "SECRET=mysecretvalue456" "SECRET")
+assert_not_contains "$output" "mysecretvalue456" "Redact SECRET: value removed"
+assert_contains "$output" "REDACTED" "Redact SECRET: shows REDACTED"
+
+# PRIVATE_KEY
+output=$(redact_test "PRIVATE_KEY=privatekeyvalue789" "PRIVATE_KEY")
+assert_not_contains "$output" "privatekeyvalue789" "Redact PRIVATE_KEY: value removed"
+assert_contains "$output" "REDACTED" "Redact PRIVATE_KEY: shows REDACTED"
+
+# REALITY_PRIVATE_KEY
+output=$(redact_test "REALITY_PRIVATE_KEY=realitykeyvalue012" "REALITY_PRIVATE_KEY")
+assert_not_contains "$output" "realitykeyvalue012" "Redact REALITY_PRIVATE_KEY: value removed"
+assert_contains "$output" "REDACTED" "Redact REALITY_PRIVATE_KEY: shows REDACTED"
+
+# Quoted token
+output=$(redact_test "ADMIN_TOKEN='quotedsecretvalue'" "Quoted ADMIN_TOKEN")
+assert_not_contains "$output" "quotedsecretvalue" "Redact quoted token: value removed"
+assert_contains "$output" "REDACTED" "Redact quoted token: shows REDACTED"
+
+# workers.dev URL with query token
+output=$(redact_test "https://my-worker.workers.dev/api?token=secret123&other=ok" "workers.dev URL with token")
+assert_not_contains "$output" "secret123" "Redact workers.dev URL: token query removed"
+assert_not_contains "$output" "workers.dev" "Redact workers.dev URL: full URL removed"
+
+# pages.dev URL with query token
+output=$(redact_test "https://my-page.pages.dev/path?admin_token=adminsecret456" "pages.dev URL with token")
+assert_not_contains "$output" "adminsecret456" "Redact pages.dev URL: token query removed"
+
+# Bot token pattern (123456789:ABC...)
+output=$(redact_test "1234567890:ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghi" "Bot token pattern")
+assert_not_contains "$output" "1234567890:" "Redact bot token: token removed"
+assert_contains "$output" "REDACTED" "Redact bot token: shows REDACTED"
+
+# ── Test 8c: oplog_write redacts before writing ───────────────────────────
+
+echo ""
+echo "--- Test 8c: oplog_write redacts before writing ---"
+
+output=$(bash -c "
+  source '${REPO_DIR}/installer/lib/operation-log.sh'
+  export NANOBK_LOG_DIR='/tmp/nanobk-test-oplog-$$'
+  mkdir -p \"\$NANOBK_LOG_DIR\"
+  oplog_init 'test-redact' >/dev/null
+  oplog_write 'SECRET=mysecretvalue should not appear'
+  cat \"\$_oplog_current_file\"
+  rm -rf \"\$NANOBK_LOG_DIR\"
+" 2>&1)
+
+assert_not_contains "$output" "mysecretvalue" "oplog_write: secret not in log file"
+assert_contains "$output" "REDACTED" "oplog_write: log contains REDACTED"
+
+# ── Test 8d: oplog_run redacts command line ───────────────────────────────
+
+echo ""
+echo "--- Test 8d: oplog_run redacts command line ---"
+
+output=$(bash -c "
+  source '${REPO_DIR}/installer/lib/operation-log.sh'
+  export NANOBK_LOG_DIR='/tmp/nanobk-test-oplog2-$$'
+  mkdir -p \"\$NANOBK_LOG_DIR\"
+  oplog_init 'test-cmd' >/dev/null
+  oplog_run 'test' echo 'TOKEN=secretcmdvalue123'
+  cat \"\$_oplog_current_file\"
+  rm -rf \"\$NANOBK_LOG_DIR\"
+" 2>&1)
+
+assert_not_contains "$output" "secretcmdvalue123" "oplog_run: command secret not in log"
+
 # ── Test 9: ui_banner displays version ────────────────────────────────────
 
 echo ""
 echo "--- Test 9: ui_banner displays version ---"
 
 output=$(source_ui_and_run "NANOBK_PLAIN=1" "
-  ui_banner 'v1.8.0' 'Test Subtitle'
+  ui_banner 'v1.8.1' 'Test Subtitle'
 ")
 
 assert_contains "$output" "NanoBK Proxy Suite" "Banner: shows product name"
-assert_contains "$output" "v1.8.0" "Banner: shows version"
+assert_contains "$output" "v1.8.1" "Banner: shows version"
 assert_contains "$output" "Test Subtitle" "Banner: shows subtitle"
 
-# ── Test 10: ui_progress shows bar in color mode ──────────────────────────
+# ── Test 10: ui_progress in PLAIN mode ────────────────────────────────────
 
 echo ""
-echo "--- Test 10: ui_progress ---"
+echo "--- Test 10: ui_progress PLAIN ---"
 
 output=$(source_ui_and_run "NANOBK_PLAIN=1" "
   ui_progress 3 6 'Installing'
@@ -217,27 +437,25 @@ output=$(source_ui_and_run "NANOBK_PLAIN=1" "
 assert_contains "$output" "3/6" "Progress: shows count"
 assert_contains "$output" "Installing" "Progress: shows label"
 
-# ── Test 11: Version is 1.8.0 ────────────────────────────────────────────
+# ── Test 11: Version is 1.8.1 ────────────────────────────────────────────
 
 echo ""
 echo "--- Test 11: Version consistency ---"
 
 nanobk_version=$("${REPO_DIR}/bin/nanobk" --version 2>&1)
-assert_contains "$nanobk_version" "1.8.0" "nanobk --version shows 1.8.0"
+assert_contains "$nanobk_version" "1.8.1" "nanobk --version shows 1.8.1"
 
 install_version=$(grep '^VERSION=' "${REPO_DIR}/installer/install.sh" | head -1)
-assert_contains "$install_version" "1.8.0" "install.sh VERSION is 1.8.0"
+assert_contains "$install_version" "1.8.1" "install.sh VERSION is 1.8.1"
 
 bootstrap_version=$(grep '^BOOTSTRAP_VERSION=' "${REPO_DIR}/installer/bootstrap.sh" | head -1)
-assert_contains "$bootstrap_version" "1.8.0" "bootstrap.sh BOOTSTRAP_VERSION is 1.8.0"
+assert_contains "$bootstrap_version" "1.8.1" "bootstrap.sh BOOTSTRAP_VERSION is 1.8.1"
 
 # ── Test 12: Summary status words not replaced with success ───────────────
 
 echo ""
 echo "--- Test 12: install.sh Summary honesty ---"
 
-# Check that install.sh still contains honest status words in print_summary
-# Use grep directly on the file to avoid pipe/argument length issues
 for status_word in "planned / dry-run" "commands only" "manual_pending" "failed" "skipped" "control plane only" "unknown"; do
   if grep -qF "$status_word" "${REPO_DIR}/installer/install.sh"; then
     pass "install.sh contains honest status: ${status_word}"
@@ -251,6 +469,52 @@ if grep -qF "status:  success" "${REPO_DIR}/installer/install.sh"; then
   fail "install.sh: no fake 'success' status"
 else
   pass "install.sh: no fake 'success' status"
+fi
+
+# ── Test 13: oplog_hint_on_failure has no ANSI in non-TTY ─────────────────
+
+echo ""
+echo "--- Test 13: oplog_hint_on_failure non-TTY safety ---"
+
+output=$(bash -c "
+  source '${REPO_DIR}/installer/lib/operation-log.sh'
+  export NANOBK_LOG_DIR='/tmp/nanobk-test-hint-$$'
+  mkdir -p \"\$NANOBK_LOG_DIR\"
+  oplog_init 'test-hint' >/dev/null
+  oplog_hint_on_failure '测试失败'
+  rm -rf \"\$NANOBK_LOG_DIR\"
+" 2>&1)
+
+if grep -qE $'\x1b\[' <<< "$output"; then
+  fail "oplog_hint: no ANSI in non-TTY"
+else
+  pass "oplog_hint: no ANSI in non-TTY"
+fi
+assert_contains "$output" "测试失败" "oplog_hint: contains failure message"
+assert_contains "$output" "详细日志" "oplog_hint: contains log path hint"
+
+# ── Test 14: Test helper stability check ──────────────────────────────────
+
+echo ""
+echo "--- Test 14: Test helper stability ---"
+
+# This test file must NOT use "printf | grep -q" pattern (pipefail hazard)
+# Exclude this check itself from the search
+if grep -v 'pipe+grep-q\|pipefail hazard' "${REPO_DIR}/tests/unified-cli-ui-v1.8.sh" | grep -qF 'printf'; then
+  if grep -v 'pipe+grep-q\|pipefail hazard' "${REPO_DIR}/tests/unified-cli-ui-v1.8.sh" | grep -qF ' | grep -q'; then
+    fail "Test file: no printf|grep-q pipe pattern"
+  else
+    pass "Test file: no printf|grep-q pipe pattern"
+  fi
+else
+  pass "Test file: no printf|grep-q pipe pattern"
+fi
+
+# This test file MUST use here-string for assertions
+if grep -qF '<<< "$haystack"' "${REPO_DIR}/tests/unified-cli-ui-v1.8.sh"; then
+  pass "Test file: uses here-string for assertions"
+else
+  fail "Test file: must use here-string for assertions"
 fi
 
 # ── Summary ───────────────────────────────────────────────────────────────

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — Operation Log Skeleton
+# NanoBK Proxy Suite — Operation Log Skeleton v1.8.1
 #
 # Provides operation logging for the installer.
 # Default UI shows concise messages; verbose mode shows full output.
@@ -20,6 +20,15 @@ if [[ "${_NANOBK_OPLOG_LOADED:-}" == "1" ]]; then
   return 0 2>/dev/null || true
 fi
 _NANOBK_OPLOG_LOADED=1
+
+# ── Color capability (lightweight, independent of ui.sh) ──────────────────
+
+_oplog_has_color() {
+  [[ "${NANOBK_PLAIN:-}" != "1" ]] &&
+  [[ "${NO_COLOR:-}" == "" ]] &&
+  [[ "${CI:-}" == "" ]] &&
+  [[ -t 1 ]]
+}
 
 # ── Resolve log directory ─────────────────────────────────────────────────
 
@@ -65,14 +74,12 @@ oplog_init() {
   # Create empty file
   : > "$_oplog_current_file" 2>/dev/null || true
 
-  # Write header
-  {
-    echo "# NanoBK Proxy Suite — Operation Log"
-    echo "# Started: $(date 2>/dev/null || echo 'unknown')"
-    echo "# Label: ${label}"
-    echo "# ---"
-    echo ""
-  } >> "$_oplog_current_file" 2>/dev/null || true
+  # Write header (raw, not redacted — header has no secrets)
+  _oplog_write_raw "# NanoBK Proxy Suite — Operation Log"
+  _oplog_write_raw "# Started: $(date 2>/dev/null || echo 'unknown')"
+  _oplog_write_raw "# Label: ${label}"
+  _oplog_write_raw "# ---"
+  _oplog_write_raw ""
 
   echo "$_oplog_current_file"
 }
@@ -83,13 +90,25 @@ oplog_path() {
   echo "${_oplog_current_file:-}"
 }
 
-# ── Append to log (redacted) ──────────────────────────────────────────────
+# ── Internal: raw write (no redaction, for headers only) ──────────────────
 
-# Usage: oplog_write "message"
-oplog_write() {
+_oplog_write_raw() {
   local msg="$1"
   if [[ -n "${_oplog_current_file:-}" ]]; then
     echo "$msg" >> "$_oplog_current_file" 2>/dev/null || true
+  fi
+}
+
+# ── Append to log (redacted) ──────────────────────────────────────────────
+
+# Usage: oplog_write "message"
+# Always redacts before writing to prevent secret leakage.
+oplog_write() {
+  local msg="$1"
+  if [[ -n "${_oplog_current_file:-}" ]]; then
+    local redacted
+    redacted=$(oplog_redact "$msg")
+    echo "$redacted" >> "$_oplog_current_file" 2>/dev/null || true
   fi
 }
 
@@ -100,17 +119,44 @@ oplog_write() {
 oplog_redact() {
   local text="$1"
 
-  # Redact common token patterns
-  text=$(echo "$text" | sed -E \
+  # Redact common token patterns — conservative, err on the side of redacting more
+  text=$(printf '%s\n' "$text" | sed -E \
     -e 's/[0-9]{8,10}:[A-Za-z0-9_-]{30,}/[REDACTED_BOT_TOKEN]/g' \
-    -e 's/CF_API_TOKEN[= ][^ ]+/CF_API_TOKEN=[REDACTED]/g' \
-    -e 's/TOKEN[= ][A-Za-z0-9_-]{20,}/TOKEN=[REDACTED]/g' \
-    -e 's/SECRET[= ][A-Za-z0-9_-]{20,}/SECRET=[REDACTED]/g' \
-    -e 's/KEY[= ][A-Za-z0-9_-]{20,}/KEY=[REDACTED]/g' \
-    -e 's/password[= ][^ ]+/password=[REDACTED]/gi' \
-    -e 's/PRIVATE[= ][^ ]+/PRIVATE=[REDACTED]/g' \
+    -e 's/(SUB_TOKEN=)[^ ]*/\1[REDACTED]/g' \
+    -e "s/(SUB_TOKEN=')[^']*'/\1[REDACTED]'/g" \
+    -e 's/(SUB_TOKEN=")[^"]*"/\1[REDACTED]"/g' \
+    -e 's/(ADMIN_TOKEN=)[^ ]*/\1[REDACTED]/g' \
+    -e "s/(ADMIN_TOKEN=')[^']*'/\1[REDACTED]'/g" \
+    -e 's/(ADMIN_TOKEN=")[^"]*"/\1[REDACTED]"/g' \
+    -e 's/(NANOB_TOKEN=)[^ ]*/\1[REDACTED]/g' \
+    -e "s/(NANOB_TOKEN=')[^']*'/\1[REDACTED]'/g" \
+    -e 's/(NANOB_TOKEN=")[^"]*"/\1[REDACTED]"/g' \
+    -e 's/(CF_API_TOKEN=)[^ ]*/\1[REDACTED]/g' \
+    -e "s/(CF_API_TOKEN=')[^']*'/\1[REDACTED]'/g" \
+    -e 's/(CF_API_TOKEN=")[^"]*"/\1[REDACTED]"/g' \
+    -e 's/(REALITY_PRIVATE_KEY=)[^ ]*/\1[REDACTED]/g' \
+    -e "s/(REALITY_PRIVATE_KEY=')[^']*'/\1[REDACTED]'/g" \
+    -e 's/(REALITY_PRIVATE_KEY=")[^"]*"/\1[REDACTED]"/g' \
+    -e 's/(PRIVATE_KEY=)[^ ]*/\1[REDACTED]/g' \
+    -e "s/(PRIVATE_KEY=')[^']*'/\1[REDACTED]'/g" \
+    -e 's/(PRIVATE_KEY=")[^"]*"/\1[REDACTED]"/g' \
+    -e 's/(SECRET=)[A-Za-z0-9_-]{4,}/\1[REDACTED]/g' \
+    -e "s/(SECRET=')[^']*'/\1[REDACTED]'/g" \
+    -e 's/(SECRET=")[^"]*"/\1[REDACTED]"/g' \
+    -e 's/(KEY=)[A-Za-z0-9_-]{8,}/\1[REDACTED]/g' \
+    -e "s/(KEY=')[^']*'/\1[REDACTED]'/g" \
+    -e 's/(KEY=")[^"]*"/\1[REDACTED]"/g' \
+    -e 's/(TOKEN=)[A-Za-z0-9_-]{8,}/\1[REDACTED]/g' \
+    -e "s/(TOKEN=')[^']*'/\1[REDACTED]'/g" \
+    -e 's/(TOKEN=")[^"]*"/\1[REDACTED]"/g' \
+    -e 's/(password=)[^ ]*/\1[REDACTED]/gi' \
+    -e "s/(password=')[^']*'/\1[REDACTED]'/gi" \
+    -e 's/(password=")[^"]*"/\1[REDACTED]"/gi' \
+    -e 's/(Authorization: Bearer )[A-Za-z0-9._-]+/\1[REDACTED]/g' \
     -e 's|https://[a-zA-Z0-9.-]+\.workers\.dev[^ ]*|[REDACTED_WORKERS_URL]|g' \
     -e 's|https://[a-zA-Z0-9.-]+\.pages\.dev[^ ]*|[REDACTED_PAGES_URL]|g' \
+    -e 's/([?&](admin_)?token=)[^& ]*/\1[REDACTED]/gi' \
+    -e 's/([?&]sub_token=)[^& ]*/\1[REDACTED]/gi' \
     2>/dev/null || echo "$text")
 
   echo "$text"
@@ -129,7 +175,11 @@ oplog_run() {
   local cmd=("$@")
 
   oplog_write "--- ${desc} ---"
-  oplog_write "Command: ${cmd[*]}"
+  # Redact the command line itself (may contain tokens as arguments)
+  local cmd_display="${cmd[*]}"
+  local cmd_redacted
+  cmd_redacted=$(oplog_redact "$cmd_display")
+  oplog_write "Command: ${cmd_redacted}"
   oplog_write ""
 
   local output=""
@@ -164,7 +214,7 @@ oplog_hint_on_failure() {
 
   if [[ -n "${_oplog_current_file:-}" ]] && [[ -f "$_oplog_current_file" ]]; then
     echo ""
-    if [[ "${NANOBK_PLAIN:-}" == "1" ]]; then
+    if [[ "${NANOBK_PLAIN:-}" == "1" ]] || ! _oplog_has_color; then
       echo "  ${custom_msg}。详细日志: ${_oplog_current_file}"
     else
       echo -e "  ${custom_msg}。"
@@ -177,7 +227,7 @@ oplog_hint_on_failure() {
 
 oplog_close() {
   local status="${1:-completed}"
-  oplog_write "# ---"
-  oplog_write "# Finished: $(date 2>/dev/null || echo 'unknown')"
-  oplog_write "# Status: ${status}"
+  _oplog_write_raw "# ---"
+  _oplog_write_raw "# Finished: $(date 2>/dev/null || echo 'unknown')"
+  _oplog_write_raw "# Status: ${status}"
 }

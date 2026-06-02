@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — UI Display Layer
+# NanoBK Proxy Suite — UI Display Layer v1.8.1
 #
 # Provides unified, product-quality CLI display functions for the installer.
 # This file only handles display — it never makes deployment decisions.
@@ -32,8 +32,8 @@ ui_detect_capabilities() {
     _ui_is_tty=1
   fi
 
-  # Color: available unless PLAIN or NO_COLOR or non-TTY
-  if [[ "${NANOBK_PLAIN:-}" != "1" ]] && [[ "${NO_COLOR:-}" == "" ]] && [[ "$_ui_is_tty" == "1" ]]; then
+  # Color: available unless PLAIN or NO_COLOR or non-TTY or CI
+  if [[ "${NANOBK_PLAIN:-}" != "1" ]] && [[ "${NO_COLOR:-}" == "" ]] && [[ "${CI:-}" == "" ]] && [[ "$_ui_is_tty" == "1" ]]; then
     _ui_has_color=1
   fi
 
@@ -112,13 +112,13 @@ ui_banner() {
   fi
 
   echo ""
-  if [[ "$_ui_has_emoji" == "1" ]]; then
+  if [[ "$_ui_has_color" == "1" ]]; then
     echo -e "  ${_ui_c_bold}NanoBK Proxy Suite${_ui_c_reset}  ${_ui_c_cyan}${version}${_ui_c_reset}"
   else
-    echo -e "  ${_ui_c_bold}NanoBK Proxy Suite${_ui_c_reset}  ${_ui_c_cyan}${version}${_ui_c_reset}"
+    echo "  NanoBK Proxy Suite  ${version}"
   fi
   if [[ -n "$subtitle" ]]; then
-    echo -e "  ${subtitle}"
+    echo "  ${subtitle}"
   fi
   echo ""
 }
@@ -133,6 +133,18 @@ ui_section() {
   if [[ "${NANOBK_UI:-}" == "0" ]]; then
     echo ""
     echo "── $title ──"
+    echo ""
+    return 0
+  fi
+
+  # PLAIN mode: pure ASCII, no Unicode bars
+  if [[ "${NANOBK_PLAIN:-}" == "1" ]]; then
+    echo ""
+    if [[ -n "$step_num" ]] && [[ -n "$step_total" ]]; then
+      echo "  Step ${step_num}/${step_total} - ${title}"
+    else
+      echo "  ${title}"
+    fi
     echo ""
     return 0
   fi
@@ -157,7 +169,7 @@ ui_section() {
   if [[ "$_ui_has_color" == "1" ]]; then
     echo -e "  ${prefix}${_ui_c_bold}── ${title} ──${_ui_c_reset}"
   else
-    echo -e "  ${prefix}── ${title} ──"
+    echo "  ${prefix}── ${title} ──"
   fi
   echo ""
 }
@@ -171,6 +183,11 @@ ui_step() {
 
   if [[ "${NANOBK_UI:-}" == "0" ]]; then
     echo "Step ${num}/${total}: ${desc}"
+    return 0
+  fi
+
+  if [[ "${NANOBK_PLAIN:-}" == "1" ]]; then
+    echo "  Step ${num}/${total}: ${desc}"
     return 0
   fi
 
@@ -274,6 +291,12 @@ ui_progress() {
     return 0
   fi
 
+  # PLAIN mode: pure ASCII
+  if [[ "${NANOBK_PLAIN:-}" == "1" ]]; then
+    echo "  Step ${current}/${total} - ${label}"
+    return 0
+  fi
+
   if [[ "$_ui_has_color" == "1" ]]; then
     local filled=$((current))
     local empty=$((total - current))
@@ -293,7 +316,8 @@ _ui_spinner_pid=""
 ui_spinner_start() {
   local msg="${1:-Processing...}"
 
-  if [[ "${NANOBK_UI:-}" == "0" ]] || [[ "$_ui_is_tty" != "1" ]]; then
+  # PLAIN, non-TTY, or UI=0: just print text, no animation
+  if [[ "${NANOBK_PLAIN:-}" == "1" ]] || [[ "${NANOBK_UI:-}" == "0" ]] || [[ "$_ui_is_tty" != "1" ]]; then
     echo "  ${msg}"
     return 0
   fi
@@ -320,7 +344,10 @@ ui_spinner_stop() {
     kill "$_ui_spinner_pid" 2>/dev/null || true
     wait "$_ui_spinner_pid" 2>/dev/null || true
     _ui_spinner_pid=""
-    printf "\r\033[K"  # Clear spinner line
+    # Only clear line on TTY and not in PLAIN mode
+    if [[ "$_ui_is_tty" == "1" ]] && [[ "${NANOBK_PLAIN:-}" != "1" ]]; then
+      printf "\r\033[K"
+    fi
   fi
 }
 
@@ -468,7 +495,9 @@ ui_describe() {
 
 ui_token_reminder() {
   if [[ "${NANOBK_UI:-}" == "0" ]]; then
-    echo "  安全提示：不会泄露 token/password 到屏幕或日志"
+    echo "  安全提示："
+    echo "    - 不要把 token 发到聊天、issue、日志"
+    echo "    - 如果 token 暴露，请立即 revoke / regenerate"
     return 0
   fi
 
@@ -476,17 +505,29 @@ ui_token_reminder() {
   lock=$(_ui_sym "🔒" "[SECURE]")
 
   if [[ "$_ui_has_color" == "1" ]]; then
-    echo -e "  ${_ui_c_cyan}${lock}${_ui_c_reset}  安全提示：token / password 不会出现在屏幕或日志中"
+    echo -e "  ${_ui_c_cyan}${lock}${_ui_c_reset}  安全提示："
   else
-    echo "  ${lock}  安全提示：token / password 不会出现在屏幕或日志中"
+    echo "  ${lock}  安全提示："
   fi
+  echo "    - 不要截图或把 token 发到聊天、issue、日志"
+  echo "    - NanoBK 会尽量脱敏显示敏感信息"
+  echo "    - 如果 token 暴露，请立即 revoke / regenerate"
 }
 
 # ── Decorative divider ────────────────────────────────────────────────────
 
 ui_divider() {
-  local char="${1:-─}"
   local width=60
+
+  # PLAIN mode: use simple ASCII dash
+  if [[ "${NANOBK_PLAIN:-}" == "1" ]]; then
+    printf "  "
+    printf "%0.s-" $(seq 1 $width)
+    printf "\n"
+    return 0
+  fi
+
+  local char="${1:-─}"
 
   if [[ "$_ui_has_color" == "1" ]]; then
     printf "  ${_ui_c_cyan}"

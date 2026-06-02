@@ -1,5 +1,34 @@
 # Changelog
 
+## v1.8.1 — CLI UI Plain Mode and Log Safety Fix
+
+### Fixed
+
+- Fixed test helper `assert_contains`/`assert_not_contains` to use here-string (`<<<`) instead of `printf | grep -q` pipe, preventing `set -Eeuo pipefail` flakiness.
+- Fixed `NANOBK_PLAIN=1` mode: `ui_section` now outputs `Step N/M - title` instead of Unicode `■□──` bars.
+- Fixed `NANOBK_PLAIN=1` mode: `ui_progress` now outputs `Step N/M - label` instead of Unicode bars.
+- Fixed `NANOBK_PLAIN=1` mode: `ui_divider` now uses plain ASCII `-` instead of Unicode `─`.
+- Fixed `NANOBK_PLAIN=1` mode: `ui_spinner_start` explicitly skips animation in PLAIN mode.
+- Fixed `ui_spinner_stop`: no longer emits `\033[K` ANSI clear-line escape in non-TTY/PLAIN mode.
+- Fixed `ui_banner`: no `echo -e` in non-color mode.
+- Fixed `oplog_hint_on_failure`: no longer emits `\033[0;36m` ANSI escape in non-TTY/PLAIN/CI mode.
+- Corrected `ui_token_reminder` wording: removed over-promise "不会出现在屏幕或日志中", now says "不要截图或把 token 发到聊天、issue、日志" and "尽量脱敏".
+
+### Hardened
+
+- `oplog_write` now always calls `oplog_redact` before writing to log file (was raw write).
+- `oplog_run` now redacts command line arguments before logging.
+- `oplog_redact` expanded coverage: `SUB_TOKEN`, `ADMIN_TOKEN`, `NANOB_TOKEN`, `CF_API_TOKEN`, `REALITY_PRIVATE_KEY`, `PRIVATE_KEY`, `SECRET`, `KEY`, `TOKEN` (with single/double quote variants), `Authorization: Bearer`, `password` (with quote variants), `?token=`, `&token=`, `?admin_token=`, `?sub_token=` query parameters.
+- `ui_detect_capabilities` now checks `CI` env var to disable color in CI environments.
+- Added internal `_oplog_write_raw` for header-only writes that bypass redaction.
+- Added `_oplog_has_color` helper for lightweight capability check independent of ui.sh.
+
+### Safety
+
+- No VPS protocol templates, Worker core logic, Bot/Web business logic, or rotate sync logic changed.
+- No deployment logic, menu logic, resume routing, or healthcheck/cf verify semantics changed.
+- Summary honest status words preserved unchanged.
+
 ## v1.8.0 — CLI Product UI and Operation Log Polish
 
 ### Added
