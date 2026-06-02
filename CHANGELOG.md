@@ -1,5 +1,23 @@
 # Changelog
 
+## v1.8.6 — CLI Manual Dry-run Visual Acceptance Guide
+
+### Added
+
+- New `docs/validation-v1.8-cli-visual.md` — manual CLI visual acceptance guide.
+  - Purpose: CLI page visual and beginner experience acceptance (not real deployment).
+  - Safety rules: do NOT input real tokens, do NOT cat env files, do NOT share real IPs/URLs.
+  - Safe dry-run commands: `NANOBK_TEST_MOCK=1 NANOBK_ASSUME_PORTS_FREE=1 --dry-run --defaults`.
+  - PLAIN mode and NO_EMOJI mode commands.
+  - Human review checklist: entry page, stages, dry-run honesty, security, summary, overall feel.
+  - PASS / NEEDS POLISH / BLOCKED criteria.
+  - Feedback template.
+- New `tests/unified-cli-visual-guide-v1.8.sh` — verifies guide contains required safety rules, commands, and acceptance criteria.
+
+### Safety
+
+- No install.sh business logic, deployment logic, VPS protocol templates, Cloudflare Worker core, rotate sync, Bot/Web logic, or Summary status logic changed.
+
 ## v1.8.5 — CLI Dry-run Page Layout Polish
 
 ### Added
