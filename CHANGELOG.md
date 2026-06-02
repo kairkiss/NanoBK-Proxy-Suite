@@ -1,6 +1,35 @@
 # Changelog
 
-## v1.7.14 — Full Wizard Dynamic Mock Failure Fix
+## v1.7.16 — Version and Documentation Sync
+
+### Fixed
+
+- Synchronized displayed version numbers across installer, CLI, bootstrap, README, quickstart, roadmap, and validation docs.
+- Documented that v1.7.15 hardened the Full Wizard test gates.
+- Kept Full Wizard dynamic stdin mock as the local prerequisite before any further real VPS validation.
+
+### Safety
+
+- No real VPS or Cloudflare validation is claimed.
+- No installer behavior, protocol templates, Worker core logic, or rotate sync logic changed in this release.
+- Real clean VPS validation remains a manual user-run step.
+
+## v1.7.15 — Full Wizard Test Gate Hardening
+
+### Fixed
+
+- Restored `installer/install.sh --mode test --defaults` to run all safe tests by default.
+- Dynamic stdin mock now requires installer exit code 0 for each main flow.
+- Dynamic stdin mock no longer deletes real repository `bot/.env` or `web/.env` by default.
+- Removed artificial marker output that could cause external grep checks to pass without installer output.
+
+### Safety
+
+- Mock tests remain offline and do not connect to a real VPS or Cloudflare.
+- Mock tests do not write to `/etc`, `/root`, or real repository env files by default.
+- v1.7.15 does not claim real VPS or Cloudflare validation.
+
+## Previous Full Wizard Dynamic Mock Failure Fix
 
 ### Fixed
 
@@ -15,7 +44,7 @@
 - Mock tests do not connect to a real VPS or Cloudflare.
 - Mock tests do not write to /etc or /root.
 - Mock output does not print raw tokens or secrets.
-- v1.7.14 does not claim real VPS or Cloudflare validation.
+- This release does not claim real VPS or Cloudflare validation.
 
 ## v1.7.13 — Cloudflare Stdin Mock and KV Helper Completion
 

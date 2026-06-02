@@ -3,14 +3,18 @@
 ## Important
 
 - Real clean VPS Full Wizard validation must be executed by a human tester
-- Claude Code / local tests cannot claim real VPS / Cloudflare validation passed
+- Local automated tests cannot claim real VPS / Cloudflare validation passed
 - dry-run does not prove real deployment works
-- v1.7.14 fixes the v1.7.13 Full Wizard dynamic stdin mock failure
+- The pre-gate-hardening release fixed the Full Wizard dynamic stdin mock failure
+- v1.7.15 fixes the Full Wizard test gates
+- v1.7.16 synchronizes displayed versions and documentation
 - dynamic stdin mock covers Cloudflare + resume before real VPS
 - dynamic mock passing still does not mean production passed
-- 1.7 Full Wizard not completed before entering 1.8
+- Real clean VPS / Cloudflare validation must be run by the user
+- Do not enter v1.8 before v1.7 Full Wizard is completed
 - Do not paste tokens into chat, logs, or issues
 - Do not `cat bot/.env` or `cat web/.env`
+- Do not paste `bot/.env` or `web/.env`
 - Subscription URLs need to be redacted before sharing
 - Bot/Web are control plane only — they do not mean VPS/Cloudflare is working
 
