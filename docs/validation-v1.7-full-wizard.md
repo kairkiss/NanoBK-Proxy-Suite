@@ -26,7 +26,11 @@
 - v1.7.22 Phase A failed on deployed VPS because interactive mock preflight detected real occupied ports
 - v1.7.23 fixes mock preflight port isolation so NANOBK_TEST_MOCK=1 skips real port detection
 - v1.7.23 does not claim automatic real VPS validation; user must re-run real Full Wizard
-- Phase A local gate must be re-run after v1.7.23
+- v1.7.23 Phase A still failed because dynamic mock hung without timeout or diagnostics
+- v1.7.24 adds hard timeouts and process group cleanup to dynamic mock tests
+- v1.7.24 Phase A must fail fast with useful logs instead of hanging indefinitely
+- v1.7.24 does not claim automatic real VPS validation; user must re-run real Full Wizard
+- Phase A local gate must be re-run after v1.7.24
 - Phase A must be all green before entering Phase B manual dry-run interactive validation
 - dynamic stdin mock covers Cloudflare + resume before real VPS
 - dynamic mock passing still does not mean production passed

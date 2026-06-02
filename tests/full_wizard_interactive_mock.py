@@ -14,6 +14,7 @@ Usage:
 """
 
 import os
+import signal
 import subprocess
 import sys
 import tempfile
@@ -28,6 +29,8 @@ atexit.register(lambda: shutil.rmtree(TEST_TMP_ROOT, ignore_errors=True))
 
 PASS = 0
 FAIL = 0
+
+TEST_TIMEOUT_SECONDS = int(os.environ.get("NANOBK_MOCK_TEST_TIMEOUT", "180"))
 
 
 def check(desc, ok):
@@ -57,8 +60,31 @@ def clean_state():
             os.remove(path)
 
 
-def run_installer_stdin(inputs, env_vars=None, resume=False, state_json=None):
-    """Run installer with given stdin inputs and return output."""
+def _kill_proc_tree(proc):
+    """Kill entire process group started with start_new_session=True."""
+    try:
+        os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+    except (ProcessLookupError, OSError):
+        pass
+    try:
+        proc.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+        except (ProcessLookupError, OSError):
+            pass
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            pass
+
+
+def run_installer_stdin(inputs, env_vars=None, resume=False, state_json=None, test_name="unknown"):
+    """Run installer with given stdin inputs and return output.
+
+    Uses Popen with start_new_session=True so the entire process group
+    can be killed on timeout, preventing orphaned installer/bash children.
+    """
     env = os.environ.copy()
     env["NANOBK_TEST_MOCK"] = "1"
     env["NANOBK_ASSUME_PORTS_FREE"] = "1"
@@ -77,14 +103,41 @@ def run_installer_stdin(inputs, env_vars=None, resume=False, state_json=None):
     if resume:
         cmd.append("--resume")
 
+    proc = None
     try:
-        result = subprocess.run(
-            cmd, input=input_str, capture_output=True, text=True,
-            timeout=180, env=env,
+        proc = subprocess.Popen(
+            cmd,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            env=env,
+            start_new_session=True,
         )
-        return result.stdout + result.stderr, result.returncode
-    except subprocess.TimeoutExpired:
-        return "TIMEOUT", 124
+        try:
+            stdout, _ = proc.communicate(input=input_str, timeout=TEST_TIMEOUT_SECONDS)
+            return stdout, proc.returncode
+        except subprocess.TimeoutExpired:
+            # Kill entire process group
+            _kill_proc_tree(proc)
+            # Collect whatever output was buffered
+            try:
+                stdout, _ = proc.communicate(timeout=5)
+            except Exception:
+                stdout = ""
+            # Diagnostic output
+            input_summary = "\n".join(f"    [{i}] {line}" for i, line in enumerate(inputs[:20]))
+            if len(inputs) > 20:
+                input_summary += f"\n    ... ({len(inputs) - 20} more lines)"
+            last_lines = stdout.split("\n")[-200:] if stdout else ["(no output captured)"]
+            print(f"\n  [TIMEOUT] {test_name}")
+            print(f"  timeout: {TEST_TIMEOUT_SECONDS}s")
+            print(f"  input steps:")
+            print(input_summary)
+            print(f"  last {len(last_lines)} lines of output:")
+            for line in last_lines:
+                print(f"    | {line}")
+            return stdout or "TIMEOUT", 124
     finally:
         if os.path.exists(tmpdir):
             shutil.rmtree(tmpdir, ignore_errors=True)
@@ -105,6 +158,7 @@ def check_output_clean(text):
 
 
 print("=== Full Wizard Real Stdin Mock Test ===")
+print(f"(per-test timeout: {TEST_TIMEOUT_SECONDS}s)")
 print("")
 
 # ── Test A: Invalid input + VPS review edit + Summary ───────────────────────
@@ -125,7 +179,7 @@ inputs_a = [
     "2",   # Skip Web
 ]
 
-output_a, rc_a = run_installer_stdin(inputs_a)
+output_a, rc_a = run_installer_stdin(inputs_a, test_name="Test A: VPS review edit flow")
 
 check("exit code is 0", rc_a == 0)
 check("output contains 无效输入", "无效输入" in output_a)
@@ -154,7 +208,7 @@ inputs_b = [
     "2",   # Skip Web
 ]
 
-output_b, rc_b = run_installer_stdin(inputs_b)
+output_b, rc_b = run_installer_stdin(inputs_b, test_name="Test B: Bot token redaction")
 
 check("exit code is 0", rc_b == 0)
 check("output contains Telegram Bot 配置确认", "Telegram Bot 配置确认" in output_b)
@@ -177,7 +231,7 @@ inputs_c = [
     "2",   # self-test: no
 ]
 
-output_c, rc_c = run_installer_stdin(inputs_c)
+output_c, rc_c = run_installer_stdin(inputs_c, test_name="Test C: Web Panel setup")
 
 check("exit code is 0", rc_c == 0)
 check("output contains Web Panel 配置确认", "Web Panel 配置确认" in output_c)
@@ -203,7 +257,11 @@ inputs_d = [
     "2",   # Skip Web
 ]
 
-output_d, rc_d = run_installer_stdin(inputs_d, {"NANOBK_TEST_MOCK_EXISTING_KV": "1"})
+output_d, rc_d = run_installer_stdin(
+    inputs_d,
+    {"NANOBK_TEST_MOCK_EXISTING_KV": "1"},
+    test_name="Test D: Cloudflare verified Summary",
+)
 
 check("exit code is 0", rc_d == 0)
 check("output contains Cloudflare 配置確認 or 配置确认",
@@ -258,6 +316,7 @@ output_e, rc_e = run_installer_stdin(
     {"NANOBK_TEST_MOCK_RESUME": "cloudflare", "NANOBK_TEST_MOCK_EXISTING_KV": "1"},
     resume=True,
     state_json=state_json_e,
+    test_name="Test E: Resume cloudflare",
 )
 
 check("exit code is 0", rc_e == 0)
@@ -296,6 +355,7 @@ output_f, rc_f = run_installer_stdin(
     {"NANOBK_TEST_MOCK_RESUME": "botweb"},
     resume=True,
     state_json=state_json_f,
+    test_name="Test F: Resume botweb",
 )
 
 check("exit code is 0", rc_f == 0)
@@ -317,7 +377,7 @@ print("")
 print(f"=== {PASS} passed, {FAIL} failed ===")
 
 if FAIL > 0:
-    log_file = os.path.join(tempfile.gettempdir(), "nanobk-v1713-stdin-mock.log")
+    log_file = os.path.join(tempfile.gettempdir(), "nanobk-v1724-stdin-mock.log")
     with open(log_file, "w") as f:
         f.write("=== Test A ===\n" + output_a + "\n\n")
         f.write("=== Test B ===\n" + output_b + "\n\n")

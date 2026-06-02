@@ -177,21 +177,45 @@ check "dry-run shows planned / dry-run" "$(contains "$DRY_OUTPUT" "planned.*dry-
 echo ""
 echo "── Test 10: Dynamic mock Cloudflare Summary ──"
 
+# Resolve timeout binary
+if command -v timeout >/dev/null 2>&1; then
+  _TIMEOUT_BIN="timeout"
+elif command -v gtimeout >/dev/null 2>&1; then
+  _TIMEOUT_BIN="gtimeout"
+else
+  _TIMEOUT_BIN=""
+fi
+
 # Use Python mock to run full wizard with Cloudflare and check Summary
 MOCK_PY="$SCRIPT_DIR/full_wizard_interactive_mock.py"
+MOCK_TIMEOUT="${NANOBK_MOCK_TEST_TIMEOUT:-240}"
 if [[ -f "$MOCK_PY" ]]; then
-  MOCK_CF_OUTPUT=$(python3 "$MOCK_PY" 2>&1) || true
+  MOCK_RC=0
+  if [[ -n "$_TIMEOUT_BIN" ]]; then
+    MOCK_CF_OUTPUT=$("$_TIMEOUT_BIN" "${MOCK_TIMEOUT}s" python3 "$MOCK_PY" 2>&1) || MOCK_RC=$?
+  else
+    echo "  [WARN] timeout/gtimeout not found; relying on Python per-test timeouts."
+    MOCK_CF_OUTPUT=$(python3 "$MOCK_PY" 2>&1) || MOCK_RC=$?
+  fi
 
-  # The Python mock runs Test D which configures Cloudflare
-  # Strict checks — must be verified/passed/installed, not deployed-or-verified
-  check "mock Test D reaches Summary" "$(contains "$MOCK_CF_OUTPUT" "output reaches Summary")"
-  check "mock Summary shows nanok verified" "$(contains "$MOCK_CF_OUTPUT" "Summary shows nanok verified")"
-  check "mock Summary shows nanob verified" "$(contains "$MOCK_CF_OUTPUT" "Summary shows nanob verified")"
-  check "mock Summary shows verify passed" "$(contains "$MOCK_CF_OUTPUT" "Summary shows verify passed")"
-  check "mock Summary shows admin env installed" "$(contains "$MOCK_CF_OUTPUT" "Summary shows admin env installed")"
-  check "mock Summary does NOT show configured/pending" "$(contains "$MOCK_CF_OUTPUT" "does NOT show configured / pending")"
-  check "mock Summary does NOT show manual command not executed" "$(contains "$MOCK_CF_OUTPUT" "does NOT show manual command not executed")"
-  check "mock all passed" "$(contains "$MOCK_CF_OUTPUT" "passed, 0 failed")"
+  if [[ $MOCK_RC -eq 124 ]]; then
+    echo ""
+    echo "  [TIMEOUT] Test 10: Dynamic mock exceeded ${MOCK_TIMEOUT}s hard timeout."
+    echo "  Last 50 lines of output:"
+    echo "$MOCK_CF_OUTPUT" | tail -50 | while IFS= read -r _line; do echo "    | $_line"; done
+    check "mock did not timeout" "0"
+  else
+    # The Python mock runs Test D which configures Cloudflare
+    # Strict checks — must be verified/passed/installed, not deployed-or-verified
+    check "mock Test D reaches Summary" "$(contains "$MOCK_CF_OUTPUT" "output reaches Summary")"
+    check "mock Summary shows nanok verified" "$(contains "$MOCK_CF_OUTPUT" "Summary shows nanok verified")"
+    check "mock Summary shows nanob verified" "$(contains "$MOCK_CF_OUTPUT" "Summary shows nanob verified")"
+    check "mock Summary shows verify passed" "$(contains "$MOCK_CF_OUTPUT" "Summary shows verify passed")"
+    check "mock Summary shows admin env installed" "$(contains "$MOCK_CF_OUTPUT" "Summary shows admin env installed")"
+    check "mock Summary does NOT show configured/pending" "$(contains "$MOCK_CF_OUTPUT" "does NOT show configured / pending")"
+    check "mock Summary does NOT show manual command not executed" "$(contains "$MOCK_CF_OUTPUT" "does NOT show manual command not executed")"
+    check "mock all passed" "$(contains "$MOCK_CF_OUTPUT" "passed, 0 failed")"
+  fi
 else
   check "mock Python test exists" "0"
 fi

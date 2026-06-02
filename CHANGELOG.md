@@ -1,5 +1,22 @@
 # Changelog
 
+## v1.7.24 — Interactive Mock Timeout Diagnostics Fix
+
+### Fixed
+
+- Added hard timeouts to dynamic Full Wizard interactive mock tests so Phase A cannot hang indefinitely.
+- Added subprocess cleanup (process group kill) for timed-out mock installer runs.
+- Added timeout diagnostics with test name, recent output, and input summary.
+- Added timeout protection for state-summary dynamic mock checks.
+- Preserved v1.7.22/v1.7.23 strict Cloudflare Summary checks for nanok/nanob verified, verify passed, and admin env installed.
+
+### Safety
+
+- No VPS protocol templates, Worker core logic, Bot/Web business logic, or rotate sync logic changed.
+- No new real VPS or Cloudflare validation is claimed by this commit.
+- Real deployment mode remains unchanged.
+- Real Full Wizard validation remains a manual user-run step.
+
 ## v1.7.23 — Test Harness Mock Preflight Isolation Fix
 
 ### Fixed
