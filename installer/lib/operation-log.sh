@@ -64,20 +64,22 @@ _oplog_resolve_dir() {
 # Creates a timestamped log file and returns its path via _oplog_current_file.
 oplog_init() {
   local label="${1:-install}"
+  local safe_label
+  safe_label=$(oplog_redact "$label")
   local timestamp
   timestamp=$(date +%Y%m%d-%H%M%S 2>/dev/null || echo "unknown")
 
   _oplog_resolve_dir
 
-  _oplog_current_file="${_oplog_dir}/${label}-${timestamp}.log"
+  _oplog_current_file="${_oplog_dir}/${safe_label}-${timestamp}.log"
 
   # Create empty file
   : > "$_oplog_current_file" 2>/dev/null || true
 
-  # Write header (raw, not redacted — header has no secrets)
+  # Write header
   _oplog_write_raw "# NanoBK Proxy Suite — Operation Log"
   _oplog_write_raw "# Started: $(date 2>/dev/null || echo 'unknown')"
-  _oplog_write_raw "# Label: ${label}"
+  _oplog_write_raw "# Label: ${safe_label}"
   _oplog_write_raw "# ---"
   _oplog_write_raw ""
 
@@ -227,7 +229,9 @@ oplog_hint_on_failure() {
 
 oplog_close() {
   local status="${1:-completed}"
+  local safe_status
+  safe_status=$(oplog_redact "$status")
   _oplog_write_raw "# ---"
   _oplog_write_raw "# Finished: $(date 2>/dev/null || echo 'unknown')"
-  _oplog_write_raw "# Status: ${status}"
+  _oplog_write_raw "# Status: ${safe_status}"
 }

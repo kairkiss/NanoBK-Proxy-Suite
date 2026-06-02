@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.8.2 — CLI UI Test Stability and Log Raw Guard
+
+### Fixed
+
+- Fixed test helper stability check in `tests/unified-cli-ui-v1.8.sh` Test 14: replaced `grep -v | grep -qF` pipe with variable + here-string to eliminate `set -Eeuo pipefail` flakiness.
+- `oplog_init` now redacts the `label` parameter before writing to log file and using it in the log filename.
+- `oplog_close` now redacts the `status` parameter before writing to log file.
+
+### Safety
+
+- No deployment logic, VPS protocol templates, Cloudflare Worker core, rotate sync, Bot/Web logic, or install.sh main flow changed.
+
 ## v1.8.1 — CLI UI Plain Mode and Log Safety Fix
 
 ### Fixed

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — v1.8.1 CLI UI Test
+# NanoBK Proxy Suite — v1.8.2 CLI UI Test
 #
 # Tests the UI display layer and operation log features.
 # Does NOT test deployment logic — only display behavior.
@@ -64,7 +64,7 @@ source_ui_and_run() {
 # ── Test 1: NANOBK_PLAIN=1 disables emoji and color ──────────────────────
 
 echo ""
-echo "=== Test Suite: v1.8.1 CLI UI ==="
+echo "=== Test Suite: v1.8.2 CLI UI ==="
 echo ""
 
 echo "--- Test 1: NANOBK_PLAIN=1 disables emoji and color ---"
@@ -412,17 +412,52 @@ output=$(bash -c "
 
 assert_not_contains "$output" "secretcmdvalue123" "oplog_run: command secret not in log"
 
+# ── Test 8e: oplog_init label redaction ───────────────────────────────────
+
+echo ""
+echo "--- Test 8e: oplog_init label redaction ---"
+
+output=$(bash -c "
+  source '${REPO_DIR}/installer/lib/operation-log.sh'
+  export NANOBK_LOG_DIR='/tmp/nanobk-test-oplog3-$$'
+  mkdir -p \"\$NANOBK_LOG_DIR\"
+  oplog_init 'TOKEN=secretlabel123' >/dev/null
+  cat \"\$_oplog_current_file\"
+  rm -rf \"\$NANOBK_LOG_DIR\"
+" 2>&1)
+
+assert_not_contains "$output" "secretlabel123" "oplog_init: label secret not in log"
+assert_contains "$output" "REDACTED" "oplog_init: label shows REDACTED"
+
+# ── Test 8f: oplog_close status redaction ─────────────────────────────────
+
+echo ""
+echo "--- Test 8f: oplog_close status redaction ---"
+
+output=$(bash -c "
+  source '${REPO_DIR}/installer/lib/operation-log.sh'
+  export NANOBK_LOG_DIR='/tmp/nanobk-test-oplog4-$$'
+  mkdir -p \"\$NANOBK_LOG_DIR\"
+  oplog_init 'test-close' >/dev/null
+  oplog_close 'SECRET=secretstatus123'
+  cat \"\$_oplog_current_file\"
+  rm -rf \"\$NANOBK_LOG_DIR\"
+" 2>&1)
+
+assert_not_contains "$output" "secretstatus123" "oplog_close: status secret not in log"
+assert_contains "$output" "REDACTED" "oplog_close: status shows REDACTED"
+
 # ── Test 9: ui_banner displays version ────────────────────────────────────
 
 echo ""
 echo "--- Test 9: ui_banner displays version ---"
 
 output=$(source_ui_and_run "NANOBK_PLAIN=1" "
-  ui_banner 'v1.8.1' 'Test Subtitle'
+  ui_banner 'v1.8.2' 'Test Subtitle'
 ")
 
 assert_contains "$output" "NanoBK Proxy Suite" "Banner: shows product name"
-assert_contains "$output" "v1.8.1" "Banner: shows version"
+assert_contains "$output" "v1.8.2" "Banner: shows version"
 assert_contains "$output" "Test Subtitle" "Banner: shows subtitle"
 
 # ── Test 10: ui_progress in PLAIN mode ────────────────────────────────────
@@ -437,19 +472,19 @@ output=$(source_ui_and_run "NANOBK_PLAIN=1" "
 assert_contains "$output" "3/6" "Progress: shows count"
 assert_contains "$output" "Installing" "Progress: shows label"
 
-# ── Test 11: Version is 1.8.1 ────────────────────────────────────────────
+# ── Test 11: Version is 1.8.2 ────────────────────────────────────────────
 
 echo ""
 echo "--- Test 11: Version consistency ---"
 
 nanobk_version=$("${REPO_DIR}/bin/nanobk" --version 2>&1)
-assert_contains "$nanobk_version" "1.8.1" "nanobk --version shows 1.8.1"
+assert_contains "$nanobk_version" "1.8.2" "nanobk --version shows 1.8.2"
 
 install_version=$(grep '^VERSION=' "${REPO_DIR}/installer/install.sh" | head -1)
-assert_contains "$install_version" "1.8.1" "install.sh VERSION is 1.8.1"
+assert_contains "$install_version" "1.8.2" "install.sh VERSION is 1.8.2"
 
 bootstrap_version=$(grep '^BOOTSTRAP_VERSION=' "${REPO_DIR}/installer/bootstrap.sh" | head -1)
-assert_contains "$bootstrap_version" "1.8.1" "bootstrap.sh BOOTSTRAP_VERSION is 1.8.1"
+assert_contains "$bootstrap_version" "1.8.2" "bootstrap.sh BOOTSTRAP_VERSION is 1.8.2"
 
 # ── Test 12: Summary status words not replaced with success ───────────────
 
@@ -498,16 +533,14 @@ assert_contains "$output" "详细日志" "oplog_hint: contains log path hint"
 echo ""
 echo "--- Test 14: Test helper stability ---"
 
-# This test file must NOT use "printf | grep -q" pattern (pipefail hazard)
-# Exclude this check itself from the search
-if grep -v 'pipe+grep-q\|pipefail hazard' "${REPO_DIR}/tests/unified-cli-ui-v1.8.sh" | grep -qF 'printf'; then
-  if grep -v 'pipe+grep-q\|pipefail hazard' "${REPO_DIR}/tests/unified-cli-ui-v1.8.sh" | grep -qF ' | grep -q'; then
-    fail "Test file: no printf|grep-q pipe pattern"
-  else
-    pass "Test file: no printf|grep-q pipe pattern"
-  fi
+# This test file must NOT contain "| grep -q" pipe pattern (pipefail hazard)
+# Use variable + here-string to avoid any pipe in the check itself
+# Filter out this self-check block and comments referencing the pattern
+filtered_test_file="$(grep -v 'pipe+grep-q\|pipefail hazard\|pipe pattern\|no printf\|grep -qF.*filtered\|must NOT contain' "${REPO_DIR}/tests/unified-cli-ui-v1.8.sh" || true)"
+if grep -qF ' | grep -q' <<< "$filtered_test_file"; then
+  fail "Test file: no pipe+grep-q pattern"
 else
-  pass "Test file: no printf|grep-q pipe pattern"
+  pass "Test file: no pipe+grep-q pattern"
 fi
 
 # This test file MUST use here-string for assertions
