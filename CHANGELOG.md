@@ -1,5 +1,21 @@
 # Changelog
 
+## v1.7.23 — Test Harness Mock Preflight Isolation Fix
+
+### Fixed
+
+- Made `NANOBK_TEST_MOCK=1` preflight port checks assume core ports are free so interactive mock tests are not affected by already-running NanoBK services.
+- Added/used `NANOBK_ASSUME_PORTS_FREE=1` for hermetic test-mode preflight isolation.
+- Kept real non-mock Full Wizard port conflict detection unchanged.
+- Preserved v1.7.22 strict Cloudflare Summary checks for verified nanok/nanob, verify passed, and admin env installed.
+
+### Safety
+
+- No VPS protocol templates, Worker core logic, Bot/Web business logic, or rotate sync logic changed.
+- No new real VPS or Cloudflare validation is claimed by this commit.
+- Real deployment mode still checks core port conflicts.
+- Real Full Wizard validation remains a manual user-run step.
+
 ## v1.7.22 — Full Wizard Verified Summary Mock Fix
 
 ### Fixed

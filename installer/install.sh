@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — Unified Beginner Installer v1.7.22
+# NanoBK Proxy Suite — Unified Beginner Installer v1.7.23
 #
 # Interactive entry point for NanoBK Proxy Suite.
 # Guides users through VPS deployment, Cloudflare setup, Bot, Web Panel.
@@ -20,7 +20,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # ── Constants ───────────────────────────────────────────────────────────────
 
 REPO_URL="https://github.com/kairkiss/NanoBK-Proxy-Suite"
-VERSION="1.7.22"
+VERSION="1.7.23"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -2024,8 +2024,8 @@ check_port_available() {
   local proto="$2"
   local label="$3"
 
-  if [[ "$DRY_RUN" == "1" ]]; then
-    preflight_pass "${label} :${port} (${proto}): [DRY-RUN] assumed free"
+  if [[ "$DRY_RUN" == "1" ]] || [[ "${NANOBK_TEST_MOCK:-}" == "1" ]] || [[ "${NANOBK_ASSUME_PORTS_FREE:-}" == "1" ]]; then
+    preflight_pass "${label} :${port} (${proto}): assumed free (mock/dry-run)"
     return 0
   fi
 

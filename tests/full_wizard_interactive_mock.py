@@ -61,6 +61,7 @@ def run_installer_stdin(inputs, env_vars=None, resume=False, state_json=None):
     """Run installer with given stdin inputs and return output."""
     env = os.environ.copy()
     env["NANOBK_TEST_MOCK"] = "1"
+    env["NANOBK_ASSUME_PORTS_FREE"] = "1"
     tmpdir = tempfile.mkdtemp(prefix="run-", dir=TEST_TMP_ROOT)
     env["NANOBK_TEST_TMPDIR"] = tmpdir
     if state_json:
