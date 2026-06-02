@@ -18,7 +18,10 @@
 - v1.7.19 could not tag because Full Wizard Summary had state truth bugs
 - v1.7.20 fixes Full Wizard state machine and Summary truthfulness
 - v1.7.20 does not claim automatic real VPS validation; user must re-run real Full Wizard
-- Phase A local gate must be re-run after v1.7.20
+- v1.7.20 had a Cloudflare deploy status callback mismatch (deployed vs executed)
+- v1.7.21 fixes Cloudflare deploy/verify/admin env status callback
+- v1.7.21 does not claim automatic real VPS validation; user must re-run real Full Wizard
+- Phase A local gate must be re-run after v1.7.21
 - Phase A must be all green before entering Phase B manual dry-run interactive validation
 - dynamic stdin mock covers Cloudflare + resume before real VPS
 - dynamic mock passing still does not mean production passed

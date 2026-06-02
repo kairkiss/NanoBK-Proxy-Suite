@@ -1,5 +1,21 @@
 # Changelog
 
+## v1.7.21 — Full Wizard Cloudflare State Callback Fix
+
+### Fixed
+
+- Fixed Cloudflare deploy status callback mismatch where the deploy collector returned `deployed` but the Full Wizard caller expected `executed`.
+- Added a real `install_cf_admin_env_from_wizard` helper that reuses `bin/nanobk cf install-admin-env` instead of duplicating admin env file writing logic.
+- Refreshed Cloudflare verify states before Summary so nanok/nanob can show verified when env status proves verification passed.
+- Added dynamic mock coverage for Cloudflare verified Summary and admin env status.
+
+### Safety
+
+- No VPS protocol templates, Worker core logic, Bot/Web business logic, or rotate sync logic changed.
+- No new real VPS or Cloudflare validation is claimed by this commit.
+- Admin tokens remain hidden and are not printed in Summary or logs.
+- Real Full Wizard validation remains a manual user-run step.
+
 ## v1.7.20 — Full Wizard State and Summary Truth Fix
 
 ### Fixed

@@ -212,6 +212,15 @@ check("output contains MOCK CF preflight", "MOCK" in output_d and "preflight" in
 check("output contains MOCK profile validation", "MOCK" in output_d and "Profile validation passed" in output_d)
 check("output contains MOCK CF deploy", "MOCK" in output_d and "deploy" in output_d.lower())
 check("output reaches Summary", "NanoBK Setup Summary" in output_d)
+# Cloudflare Summary truth checks
+check("Summary shows nanok deployed or verified",
+      "nanok:" in output_d and ("deployed" in output_d or "verified" in output_d))
+check("Summary does NOT show configured / pending for nanok",
+      not ("nanok:" in output_d and "configured" in output_d and "pending" in output_d))
+check("Summary shows admin env installed",
+      "admin env:" in output_d and "installed" in output_d)
+check("Summary does NOT show manual command not executed",
+      "manual command not executed" not in output_d)
 
 # ── Test E: Resume cloudflare ───────────────────────────────────────────────
 print("")

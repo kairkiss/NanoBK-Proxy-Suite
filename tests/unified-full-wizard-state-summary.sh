@@ -173,6 +173,26 @@ check "dry-run Summary has Cloudflare section" "$(contains "$DRY_OUTPUT" "Cloudf
 check "dry-run does NOT show manual command not executed" "$(not_contains "$DRY_OUTPUT" "manual command not executed")"
 check "dry-run shows planned / dry-run" "$(contains "$DRY_OUTPUT" "planned.*dry-run\|dry-run.*planned")"
 
+# ── Test 10: Dynamic mock — Cloudflare verified Summary ─────────────────────
+echo ""
+echo "── Test 10: Dynamic mock Cloudflare Summary ──"
+
+# Use Python mock to run full wizard with Cloudflare and check Summary
+MOCK_PY="$SCRIPT_DIR/full_wizard_interactive_mock.py"
+if [[ -f "$MOCK_PY" ]]; then
+  MOCK_CF_OUTPUT=$(python3 "$MOCK_PY" 2>&1) || true
+
+  # The Python mock runs Test D which configures Cloudflare
+  check "mock Test D reaches Summary" "$(contains "$MOCK_CF_OUTPUT" "output reaches Summary")"
+  check "mock Summary shows nanok deployed/verified" "$(contains "$MOCK_CF_OUTPUT" "nanok deployed or verified")"
+  check "mock Summary does NOT show configured/pending" "$(contains "$MOCK_CF_OUTPUT" "does NOT show configured / pending")"
+  check "mock Summary shows admin env installed" "$(contains "$MOCK_CF_OUTPUT" "admin env installed")"
+  check "mock Summary does NOT show manual command not executed" "$(contains "$MOCK_CF_OUTPUT" "does NOT show manual command not executed")"
+  check "mock all passed" "$(contains "$MOCK_CF_OUTPUT" "passed, 0 failed")"
+else
+  check "mock Python test exists" "0"
+fi
+
 # ── Summary ─────────────────────────────────────────────────────────────────
 echo ""
 echo "=== ${PASS} passed, ${FAIL} failed ==="

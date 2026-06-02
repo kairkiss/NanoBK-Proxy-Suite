@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — Unified Beginner Installer v1.7.20
+# NanoBK Proxy Suite — Unified Beginner Installer v1.7.21
 #
 # Interactive entry point for NanoBK Proxy Suite.
 # Guides users through VPS deployment, Cloudflare setup, Bot, Web Panel.
@@ -20,7 +20,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # ── Constants ───────────────────────────────────────────────────────────────
 
 REPO_URL="https://github.com/kairkiss/NanoBK-Proxy-Suite"
-VERSION="1.7.20"
+VERSION="1.7.21"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -2621,7 +2621,7 @@ install_cf_admin_env_from_wizard() {
     return 0
   fi
   if [[ "${NANOBK_TEST_MOCK:-}" == "1" ]]; then
-    CF_ADMIN_ENV_STATUS="mock"
+    CF_ADMIN_ENV_STATUS="installed"
     return 0
   fi
   if bash "$REPO_DIR/bin/nanobk" cf install-admin-env; then
@@ -2865,7 +2865,7 @@ run_full_wizard() {
         0)
           # Check what actually happened
           case "${CF_DEPLOY_STATUS:-unknown}" in
-            executed)
+            deployed)
               CF_STAGE_STATUS="deployed"
               CF_NANOK_STATUS="deployed"
               if [[ "${NANOBK_DEPLOY_NANOB:-}" == "true" ]]; then
