@@ -31,7 +31,7 @@ check() {
 contains() {
   local text="$1"
   local pattern="$2"
-  if echo "$text" | grep -qi "$pattern"; then
+  if grep -qi -- "$pattern" <<< "$text"; then
     echo "1"
   else
     echo "0"
@@ -41,7 +41,7 @@ contains() {
 not_contains() {
   local text="$1"
   local pattern="$2"
-  if echo "$text" | grep -qi "$pattern"; then
+  if grep -qi -- "$pattern" <<< "$text"; then
     echo "0"
   else
     echo "1"

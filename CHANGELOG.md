@@ -1,5 +1,22 @@
 # Changelog
 
+## v1.7.19 — Test Harness Grep Stability Completion
+
+### Fixed
+
+- Completed grep/pipefail stabilization across remaining Full Wizard test harness scripts.
+- Replaced remaining fragile `echo "$output" | grep -q` checks with here-string based grep checks.
+- Fixed flaky dry-run Summary assertions such as `planned / dry-run` checks in unified-full-wizard-behavior.sh.
+- Applied here-string fix to all test files: unified-full-wizard-behavior.sh, unified-beginner-flow.sh, unified-full-wizard-review-resume.sh, unified-summary-honesty.sh, unified-test-failure-propagation.sh, unified-noninteractive-mode.sh, unified-installer-safety.sh, unified-installer-resume.sh, unified-installer-config.sh, unified-installer-dry-run.sh, unified-preflight-static.sh, unified-dry-run-preflight.sh, nanob-status-env.sh, nanob-fallback-static.sh, nanobk-status-cloudflare.sh, nanobk-cli-dry-run.sh, bootstrap-dry-run.sh, cloudflare-installer-dry-run.sh, production-hotfix-static.sh.
+- Preserved Full Wizard, Cloudflare installer, VPS protocol templates, Worker core logic, Bot/Web business logic, and rotate sync behavior unchanged.
+
+### Safety
+
+- No real VPS or Cloudflare validation is claimed.
+- No production validation is claimed.
+- This release only fixes local test harness stability.
+- Real clean VPS validation remains a manual user-run step.
+
 ## v1.7.18 — Validation Test Harness Grep Stability Fix
 
 ### Fixed

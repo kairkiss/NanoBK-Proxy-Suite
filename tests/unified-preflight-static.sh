@@ -77,9 +77,9 @@ echo ""
 echo "── ss unavailable branch safety ──"
 
 SS_BLOCK="$(grep -n -A8 -B2 'ss 不可用' "$INSTALLER" || true)"
-check "ss unavailable branch exists" "$(echo "$SS_BLOCK" | grep -q 'ss 不可用' && echo 1 || echo 0)"
-check "ss unavailable branch has return 1" "$(echo "$SS_BLOCK" | grep -q 'return 1' && echo 1 || echo 0)"
-check "ss unavailable branch does NOT recurse" "$(echo "$SS_BLOCK" | grep -q 'handle_core_port_conflict' && echo 0 || echo 1)"
+check "ss unavailable branch exists" "$(grep -q 'ss 不可用' <<< "$SS_BLOCK" && echo 1 || echo 0)"
+check "ss unavailable branch has return 1" "$(grep -q 'return 1' <<< "$SS_BLOCK" && echo 1 || echo 0)"
+check "ss unavailable branch does NOT recurse" "$(grep -q 'handle_core_port_conflict' <<< "$SS_BLOCK" && echo 0 || echo 1)"
 
 # ── Node.js and Wrangler ───────────────────────────────────────────────────
 echo ""

@@ -12,6 +12,10 @@
 - v1.7.17 fixes the local gate blocker exposed by the 12th real VPS Phase 1 validation
 - v1.7.18 fixes flaky `echo "$output" | grep -q` patterns in test harnesses under `set -Eeuo pipefail`
 - v1.7.18 is a test harness stability fix, not a Full Wizard main flow change
+- v1.7.19 completes grep/pipefail stabilization across all remaining test harness scripts
+- v1.7.19 is a test harness stability fix, not a Full Wizard main flow change
+- Phase A local gate must be re-run after v1.7.19
+- Phase A must be all green before entering Phase B manual dry-run interactive validation
 - dynamic stdin mock covers Cloudflare + resume before real VPS
 - dynamic mock passing still does not mean production passed
 - Real clean VPS / Cloudflare validation must be run by the user

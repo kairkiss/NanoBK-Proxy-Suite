@@ -155,21 +155,21 @@ echo ""
 echo "--- Secret leakage check ---"
 echo ""
 
-if echo "$JSON_OUTPUT" | grep -q "$FAKE_SUB"; then
+if grep -q "$FAKE_SUB" <<< "$JSON_OUTPUT"; then
   fail "SUB_TOKEN leaked in JSON output!"
   ERRORS=$((ERRORS + 1))
 else
   pass "SUB_TOKEN not in JSON output"
 fi
 
-if echo "$JSON_OUTPUT" | grep -q "$FAKE_ADMIN"; then
+if grep -q "$FAKE_ADMIN" <<< "$JSON_OUTPUT"; then
   fail "ADMIN_TOKEN leaked in JSON output!"
   ERRORS=$((ERRORS + 1))
 else
   pass "ADMIN_TOKEN not in JSON output"
 fi
 
-if echo "$JSON_OUTPUT" | grep -q "$FAKE_NANOB"; then
+if grep -q "$FAKE_NANOB" <<< "$JSON_OUTPUT"; then
   fail "NANOB_TOKEN leaked in JSON output!"
   ERRORS=$((ERRORS + 1))
 else
@@ -209,28 +209,28 @@ echo ""
 
 TEXT_OUTPUT=$(bash "$ROOT/bin/nanobk" --repo-dir "$ROOT" status --config-dir "$TMP/etc/nanobk" 2>&1)
 
-if echo "$TEXT_OUTPUT" | grep -q "Cloudflare:"; then
+if grep -q "Cloudflare:" <<< "$TEXT_OUTPUT"; then
   pass "Text output has Cloudflare section"
 else
   fail "Text output missing Cloudflare section"
   ERRORS=$((ERRORS + 1))
 fi
 
-if echo "$TEXT_OUTPUT" | grep -q "Aggregator:"; then
+if grep -q "Aggregator:" <<< "$TEXT_OUTPUT"; then
   pass "Text output has Aggregator section"
 else
   fail "Text output missing Aggregator section"
   ERRORS=$((ERRORS + 1))
 fi
 
-if echo "$TEXT_OUTPUT" | grep -q "$FAKE_SUB"; then
+if grep -q "$FAKE_SUB" <<< "$TEXT_OUTPUT"; then
   fail "SUB_TOKEN leaked in text output!"
   ERRORS=$((ERRORS + 1))
 else
   pass "SUB_TOKEN not in text output"
 fi
 
-if echo "$TEXT_OUTPUT" | grep -q "$FAKE_NANOB"; then
+if grep -q "$FAKE_NANOB" <<< "$TEXT_OUTPUT"; then
   fail "NANOB_TOKEN leaked in text output!"
   ERRORS=$((ERRORS + 1))
 else
@@ -245,7 +245,7 @@ echo ""
 
 # Command-level --dry-run
 CLI_DRY=$(bash "$ROOT/bin/nanobk" --repo-dir "$ROOT" install-cli --dry-run --target /tmp/nanobk-cli-test-link-$$ 2>&1)
-if echo "$CLI_DRY" | grep -q "DRY-RUN"; then
+if grep -q "DRY-RUN" <<< "$CLI_DRY"; then
   pass "install-cli --dry-run shows DRY-RUN"
 else
   fail "install-cli --dry-run missing DRY-RUN"
@@ -263,13 +263,13 @@ fi
 
 # Default target --dry-run should not fail for non-root
 CLI_DRY_DEFAULT=$(bash "$ROOT/bin/nanobk" --repo-dir "$ROOT" install-cli --dry-run 2>&1) || true
-if echo "$CLI_DRY_DEFAULT" | grep -q "DRY-RUN"; then
+if grep -q "DRY-RUN" <<< "$CLI_DRY_DEFAULT"; then
   pass "install-cli --dry-run (default target) shows DRY-RUN"
-elif echo "$CLI_DRY_DEFAULT" | grep -q "已安装"; then
+elif grep -q "已安装" <<< "$CLI_DRY_DEFAULT"; then
   pass "install-cli --dry-run (default target): already installed (OK)"
-elif echo "$CLI_DRY_DEFAULT" | grep -q "sudo\|root"; then
+elif grep -q "sudo\|root" <<< "$CLI_DRY_DEFAULT"; then
   pass "install-cli --dry-run (default target) shows sudo hint (OK)"
-elif echo "$CLI_DRY_DEFAULT" | grep -q "目标已存在\|使用 --force"; then
+elif grep -q "目标已存在\|使用 --force" <<< "$CLI_DRY_DEFAULT"; then
   pass "install-cli --dry-run (default target): existing symlink conflict (OK)"
 else
   fail "install-cli --dry-run (default target) unexpected output"

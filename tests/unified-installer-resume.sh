@@ -41,7 +41,7 @@ EOF
 OUTPUT=$(bash "$ROOT/installer/install.sh" --mode doctor --dry-run --defaults \
   --config-file "$TMP/test.env" --resume 2>&1 || true)
 
-if echo "$OUTPUT" | grep -q "读取已有配置"; then
+if grep -q "读取已有配置" <<< "$OUTPUT"; then
   pass "--resume reads config"
 else
   fail "--resume missing config read message"
@@ -61,7 +61,7 @@ OUTPUT2=$(bash "$ROOT/installer/install.sh" --mode doctor --dry-run --defaults \
   --config-file "$TMP/test.env" --resume 2>&1 || true)
 
 # Config was read (we see the log message)
-if echo "$OUTPUT2" | grep -q "读取已有配置"; then
+if grep -q "读取已有配置" <<< "$OUTPUT2"; then
   pass "explicit --mode: config was read"
 else
   fail "explicit --mode: config was not read"
@@ -69,7 +69,7 @@ else
 fi
 
 # Should NOT show "命令模板" which is the commands mode output
-if echo "$OUTPUT2" | grep -q "命令模板"; then
+if grep -q "命令模板" <<< "$OUTPUT2"; then
   fail "config mode=commands leaked through despite explicit --mode doctor"
   ERRORS=$((ERRORS + 1))
 else
@@ -86,7 +86,7 @@ OUTPUT3=$(bash "$ROOT/installer/install.sh" --dry-run --defaults \
   --config-file "$TMP/test.env" --resume 2>&1 || true)
 
 # Config was read (we see the log message)
-if echo "$OUTPUT3" | grep -q "读取已有配置"; then
+if grep -q "读取已有配置" <<< "$OUTPUT3"; then
   pass "--resume without --mode: config was read"
 else
   fail "--resume without --mode: config was not read"
@@ -108,7 +108,7 @@ OUTPUT4=$(bash "$ROOT/installer/install.sh" --mode doctor --dry-run --defaults -
   --config-file "$TMP/lang-test.env" --resume 2>&1 || true)
 
 # Should NOT show English warning since zh is explicit
-if echo "$OUTPUT4" | grep -q "English UI is partial"; then
+if grep -q "English UI is partial" <<< "$OUTPUT4"; then
   fail "English warning shown despite explicit --lang zh"
   ERRORS=$((ERRORS + 1))
 else

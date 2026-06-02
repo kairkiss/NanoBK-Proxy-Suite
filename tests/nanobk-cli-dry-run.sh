@@ -53,13 +53,13 @@ echo ""
 
 # test --dry-run (command position)
 TEST_DRY_OUTPUT=$(bash "$ROOT/bin/nanobk" --repo-dir "$ROOT" test --dry-run 2>&1)
-if echo "$TEST_DRY_OUTPUT" | grep -q "DRY-RUN"; then
+if grep -q "DRY-RUN" <<< "$TEST_DRY_OUTPUT"; then
   pass "nanobk test --dry-run shows DRY-RUN"
 else
   fail "nanobk test --dry-run missing DRY-RUN"
   ERRORS=$((ERRORS + 1))
 fi
-if ! echo "$TEST_DRY_OUTPUT" | grep -q "passed"; then
+if ! grep -q "passed" <<< "$TEST_DRY_OUTPUT"; then
   pass "nanobk test --dry-run did not actually run tests"
 else
   fail "nanobk test --dry-run actually ran tests (should be dry)"
@@ -68,7 +68,7 @@ fi
 
 # doctor --dry-run (command position)
 DOCTOR_DRY_OUTPUT=$(bash "$ROOT/bin/nanobk" --repo-dir "$ROOT" doctor --dry-run 2>&1)
-if echo "$DOCTOR_DRY_OUTPUT" | grep -q "DRY-RUN"; then
+if grep -q "DRY-RUN" <<< "$DOCTOR_DRY_OUTPUT"; then
   pass "nanobk doctor --dry-run shows DRY-RUN"
 else
   fail "nanobk doctor --dry-run missing DRY-RUN"
@@ -77,7 +77,7 @@ fi
 
 # Global --dry-run
 TEST_GLOBAL_DRY=$(bash "$ROOT/bin/nanobk" --repo-dir "$ROOT" --dry-run test 2>&1)
-if echo "$TEST_GLOBAL_DRY" | grep -q "DRY-RUN"; then
+if grep -q "DRY-RUN" <<< "$TEST_GLOBAL_DRY"; then
   pass "nanobk --dry-run test shows DRY-RUN"
 else
   fail "nanobk --dry-run test missing DRY-RUN"
@@ -85,7 +85,7 @@ else
 fi
 
 DOCTOR_GLOBAL_DRY=$(bash "$ROOT/bin/nanobk" --repo-dir "$ROOT" --dry-run doctor 2>&1)
-if echo "$DOCTOR_GLOBAL_DRY" | grep -q "DRY-RUN"; then
+if grep -q "DRY-RUN" <<< "$DOCTOR_GLOBAL_DRY"; then
   pass "nanobk --dry-run doctor shows DRY-RUN"
 else
   fail "nanobk --dry-run doctor missing DRY-RUN"
@@ -194,14 +194,14 @@ echo ""
 for proto in hy2 tuic reality trojan; do
   ROTATE_OUTPUT=$(bash "$ROOT/bin/nanobk" --repo-dir "$ROOT" rotate "$proto" --dry-run --yes --skip-cloudflare --skip-services 2>&1 || true)
   # Strip ANSI codes for grep
-  ROTATE_CLEAN=$(echo "$ROTATE_OUTPUT" | sed $'s/\x1b\\[[0-9;]*m//g')
-  if echo "$ROTATE_CLEAN" | grep -q "DRY-RUN"; then
+  ROTATE_CLEAN=$(sed $'s/\x1b\\[[0-9;]*m//g' <<< "$ROTATE_OUTPUT")
+  if grep -q "DRY-RUN" <<< "$ROTATE_CLEAN"; then
     pass "nanobk rotate ${proto} --dry-run shows DRY-RUN"
   else
     fail "nanobk rotate ${proto} --dry-run missing DRY-RUN"
     ERRORS=$((ERRORS + 1))
   fi
-  if echo "$ROTATE_CLEAN" | grep -q "\-\-protocol ${proto}"; then
+  if grep -q "\-\-protocol ${proto}" <<< "$ROTATE_CLEAN"; then
     pass "nanobk rotate ${proto} passes --protocol ${proto}"
   else
     fail "nanobk rotate ${proto} missing --protocol ${proto}"

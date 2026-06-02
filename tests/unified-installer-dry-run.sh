@@ -50,7 +50,7 @@ echo ""
 
 CMD_OUTPUT=$(bash "$ROOT/installer/install.sh" --mode commands --dry-run 2>&1 || true)
 
-if echo "$CMD_OUTPUT" | grep -q "VPS 部署\|Cloudflare\|rotate"; then
+if grep -q "VPS 部署\|Cloudflare\|rotate" <<< "$CMD_OUTPUT"; then
   pass "--mode commands shows command templates"
 else
   fail "--mode commands missing templates"
@@ -67,49 +67,49 @@ echo ""
 # Use --yes to auto-accept all prompts.
 FULL_ZH=$(bash "$ROOT/installer/install.sh" --mode full --dry-run --yes --lang zh 2>&1 || true)
 
-if echo "$FULL_ZH" | grep -q "DRY-RUN\|dry-run\|dry_run"; then
+if grep -q "DRY-RUN\|dry-run\|dry_run" <<< "$FULL_ZH"; then
   pass "full --dry-run --lang zh shows dry-run"
 else
   fail "full --dry-run --lang zh missing dry-run"
   ERRORS=$((ERRORS + 1))
 fi
 
-if echo "$FULL_ZH" | grep -q "install-vps\|VPS"; then
+if grep -q "install-vps\|VPS" <<< "$FULL_ZH"; then
   pass "full --dry-run includes VPS command"
 else
   fail "full --dry-run missing VPS command"
   ERRORS=$((ERRORS + 1))
 fi
 
-if echo "$FULL_ZH" | grep -q "healthcheck\|nanobk status"; then
+if grep -q "healthcheck\|nanobk status" <<< "$FULL_ZH"; then
   pass "full --dry-run includes healthcheck/status"
 else
   fail "full --dry-run missing healthcheck/status"
   ERRORS=$((ERRORS + 1))
 fi
 
-if echo "$FULL_ZH" | grep -q "preflight\|validate-profile-only"; then
+if grep -q "preflight\|validate-profile-only" <<< "$FULL_ZH"; then
   pass "full --dry-run includes Cloudflare preflight/validation"
 else
   fail "full --dry-run missing Cloudflare preflight/validation"
   ERRORS=$((ERRORS + 1))
 fi
 
-if echo "$FULL_ZH" | grep -q "bot/.env\|Would write bot"; then
+if grep -q "bot/.env\|Would write bot" <<< "$FULL_ZH"; then
   pass "full --dry-run mentions bot/.env"
 else
   fail "full --dry-run missing bot/.env"
   ERRORS=$((ERRORS + 1))
 fi
 
-if echo "$FULL_ZH" | grep -q "web/.env\|Would write web"; then
+if grep -q "web/.env\|Would write web" <<< "$FULL_ZH"; then
   pass "full --dry-run mentions web/.env"
 else
   fail "full --dry-run missing web/.env"
   ERRORS=$((ERRORS + 1))
 fi
 
-if echo "$FULL_ZH" | grep -q "Setup Summary\|NanoBK Setup"; then
+if grep -q "Setup Summary\|NanoBK Setup" <<< "$FULL_ZH"; then
   pass "full --dry-run includes summary"
 else
   fail "full --dry-run missing summary"
@@ -124,14 +124,14 @@ echo ""
 
 FULL_EN=$(bash "$ROOT/installer/install.sh" --mode full --dry-run --yes --lang en 2>&1 || true)
 
-if echo "$FULL_EN" | grep -q "DRY-RUN\|dry-run"; then
+if grep -q "DRY-RUN\|dry-run" <<< "$FULL_EN"; then
   pass "full --dry-run --lang en shows dry-run"
 else
   fail "full --dry-run --lang en missing dry-run"
   ERRORS=$((ERRORS + 1))
 fi
 
-if echo "$FULL_EN" | grep -q "English UI is partial"; then
+if grep -q "English UI is partial" <<< "$FULL_EN"; then
   pass "English UI partial warning shown"
 else
   fail "English UI partial warning missing"
@@ -194,7 +194,7 @@ echo ""
 
 DOCTOR_OUTPUT=$(bash "$ROOT/installer/install.sh" --mode doctor --dry-run --defaults 2>&1 || true)
 
-if echo "$DOCTOR_OUTPUT" | grep -q "DRY-RUN\|dry-run"; then
+if grep -q "DRY-RUN\|dry-run" <<< "$DOCTOR_OUTPUT"; then
   pass "doctor --dry-run shows dry-run"
 else
   fail "doctor --dry-run missing dry-run"
@@ -209,7 +209,7 @@ echo ""
 
 TEST_OUTPUT=$(bash "$ROOT/installer/install.sh" --mode test --dry-run --defaults 2>&1 <<< "5" || true)
 
-if echo "$TEST_OUTPUT" | grep -q "DRY-RUN\|dry-run"; then
+if grep -q "DRY-RUN\|dry-run" <<< "$TEST_OUTPUT"; then
   pass "test --dry-run shows dry-run"
 else
   fail "test --dry-run missing dry-run"

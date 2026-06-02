@@ -120,7 +120,7 @@ if [[ -f "$CONFIG_FILE" ]]; then
   RESUME_OUTPUT=$(bash "$ROOT/installer/install.sh" --mode doctor --dry-run --defaults \
     --config-file "$CONFIG_FILE" --resume 2>&1 || true)
 
-  if echo "$RESUME_OUTPUT" | grep -q "读取已有配置\|Loading\|config"; then
+  if grep -q "读取已有配置\|Loading\|config" <<< "$RESUME_OUTPUT"; then
     pass "--resume reads config"
   else
     # May not print explicit message, just verify it doesn't crash
@@ -140,7 +140,7 @@ echo 'NANOBK_INVALID_SYNTAX="unclosed' > "$INVALID_CONFIG"
 INVALID_OUTPUT=$(bash "$ROOT/installer/install.sh" --mode doctor --dry-run --defaults \
   --config-file "$INVALID_CONFIG" --resume 2>&1 || true)
 
-if echo "$INVALID_OUTPUT" | grep -q "ERROR\|error\|invalid"; then
+if grep -q "ERROR\|error\|invalid" <<< "$INVALID_OUTPUT"; then
   pass "invalid config shows error"
 else
   # If it doesn't crash, that's acceptable
@@ -207,7 +207,7 @@ else
   pass "Invalid mode command NOT executed"
 fi
 
-if echo "$INVALID_MODE_OUTPUT" | grep -q "Ignoring invalid mode"; then
+if grep -q "Ignoring invalid mode" <<< "$INVALID_MODE_OUTPUT"; then
   pass "Invalid mode warning shown"
 else
   pass "Invalid mode handled (no crash)"

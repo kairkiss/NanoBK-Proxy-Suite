@@ -48,7 +48,7 @@ echo "--- --help ---"
 echo ""
 
 HELP_OUTPUT=$(bash "$ROOT/installer/bootstrap.sh" --help 2>&1)
-if echo "$HELP_OUTPUT" | grep -q "Remote Bootstrap"; then
+if grep -q "Remote Bootstrap" <<< "$HELP_OUTPUT"; then
   pass "--help shows usage"
 else
   fail "--help missing expected text"
@@ -63,28 +63,28 @@ echo ""
 
 DRY_OUTPUT=$(bash "$ROOT/installer/bootstrap.sh" --dry-run --install-dir /tmp/nanobk-bootstrap-dry-test-$$ 2>&1 | sed 's/\x1b\[[0-9;]*m//g')
 
-if echo "$DRY_OUTPUT" | grep -q "DRY-RUN"; then
+if grep -q "DRY-RUN" <<< "$DRY_OUTPUT"; then
   pass "--dry-run shows DRY-RUN"
 else
   fail "--dry-run missing DRY-RUN marker"
   ERRORS=$((ERRORS + 1))
 fi
 
-if echo "$DRY_OUTPUT" | grep -q "git clone"; then
+if grep -q "git clone" <<< "$DRY_OUTPUT"; then
   pass "--dry-run shows clone command"
 else
   fail "--dry-run missing clone command"
   ERRORS=$((ERRORS + 1))
 fi
 
-if echo "$DRY_OUTPUT" | grep -q "install.sh"; then
+if grep -q "install.sh" <<< "$DRY_OUTPUT"; then
   pass "--dry-run shows install.sh launch"
 else
   fail "--dry-run missing install.sh launch"
   ERRORS=$((ERRORS + 1))
 fi
 
-if echo "$DRY_OUTPUT" | grep -q "仓库尚未实际 clone"; then
+if grep -q "仓库尚未实际 clone" <<< "$DRY_OUTPUT"; then
   pass "--dry-run clarifies clone is preview only"
 else
   fail "--dry-run missing clone preview clarification"
@@ -99,7 +99,7 @@ echo ""
 
 PASSTHROUGH_OUTPUT=$(bash "$ROOT/installer/bootstrap.sh" --dry-run --install-dir /tmp/nanobk-passthrough-test-$$ -- --mode commands 2>&1 | sed 's/\x1b\[[0-9;]*m//g')
 
-if echo "$PASSTHROUGH_OUTPUT" | grep -q "\-\-mode commands"; then
+if grep -q "\-\-mode commands" <<< "$PASSTHROUGH_OUTPUT"; then
   pass "passthrough --mode commands"
 else
   fail "passthrough args not forwarded"

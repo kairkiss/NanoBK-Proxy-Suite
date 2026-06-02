@@ -115,7 +115,7 @@ echo ""
 echo "--- token safety ---"
 echo ""
 
-if echo "$OUTPUT2" | grep -q "fake-token-for-test"; then
+if grep -q "fake-token-for-test" <<< "$OUTPUT2"; then
   fail "nanob token leaked in JSON output"
   ERRORS=$((ERRORS + 1))
 else
@@ -191,7 +191,7 @@ ln -sf "$TMP/.nanob.local.env" "$TMP/repo2/.nanob.local.env"
 # Run verify with fake curl in PATH
 VERIFY_OUTPUT=$(PATH="$TMP/bin:$PATH" bash "$TMP/repo2/installer/install-cloudflare.sh" --verify-nanob-only --dry-run 2>&1 || true)
 
-if echo "$VERIFY_OUTPUT" | grep -q "DRY-RUN\|verify"; then
+if grep -q "DRY-RUN\|verify" <<< "$VERIFY_OUTPUT"; then
   pass "verify-nanob-only runs in dry-run"
 else
   fail "verify-nanob-only missing output"

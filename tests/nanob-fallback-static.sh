@@ -126,7 +126,7 @@ DRY_OUTPUT=$(bash "$ROOT/installer/install-cloudflare.sh" --dry-run --yes \
   --nanob-route-url https://nanob-test.example.workers.dev \
   --nanob-geo-kv-namespace-id FAKE_GEO_KV 2>&1 || true)
 
-if echo "$DRY_OUTPUT" | grep -qi "edgetunnel.*disabled\|EDGE_HOST.*empty\|edge-host.*<disabled>"; then
+if grep -qi "edgetunnel.*disabled\|EDGE_HOST.*empty\|edge-host.*<disabled>" <<< "$DRY_OUTPUT"; then
   pass "deploy-nanob without edge: edgetunnel disabled"
 else
   # EDGE_HOST might just be empty, which is fine
@@ -134,7 +134,7 @@ else
 fi
 
 # Verify no error about missing edge params
-if echo "$DRY_OUTPUT" | grep -qi "error.*edge\|missing.*edge"; then
+if grep -qi "error.*edge\|missing.*edge" <<< "$DRY_OUTPUT"; then
   fail "deploy-nanob without edge: unexpected edge error"
   ERRORS=$((ERRORS + 1))
 else

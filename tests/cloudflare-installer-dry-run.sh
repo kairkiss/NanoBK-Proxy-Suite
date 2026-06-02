@@ -60,14 +60,14 @@ DRY_OUTPUT=$(bash "$ROOT/installer/install-cloudflare.sh" --dry-run --yes \
   --kv-namespace-id FAKE_KV_ID \
   --route-url https://nanok-test.example.workers.dev 2>&1 || true)
 
-if echo "$DRY_OUTPUT" | grep -q "DRY-RUN"; then
+if grep -q "DRY-RUN" <<< "$DRY_OUTPUT"; then
   pass "dry-run shows DRY-RUN markers"
 else
   fail "dry-run missing DRY-RUN markers"
   ERRORS=$((ERRORS + 1))
 fi
 
-if echo "$DRY_OUTPUT" | grep -q "nanok-test"; then
+if grep -q "nanok-test" <<< "$DRY_OUTPUT"; then
   pass "dry-run shows worker name"
 else
   fail "dry-run missing worker name"
@@ -86,7 +86,7 @@ DRY_NANOB=$(bash "$ROOT/installer/install-cloudflare.sh" --dry-run --yes \
   --nanob-route-url https://nanob-test.example.workers.dev \
   --nanob-geo-kv-namespace-id FAKE_GEO_KV_ID 2>&1 || true)
 
-if echo "$DRY_NANOB" | grep -q "nanob-test"; then
+if grep -q "nanob-test" <<< "$DRY_NANOB"; then
   pass "dry-run with nanob shows nanob URL"
 else
   fail "dry-run with nanob missing nanob URL"
@@ -106,7 +106,7 @@ DRY_EDGE=$(bash "$ROOT/installer/install-cloudflare.sh" --dry-run --yes \
   --nanob-geo-kv-namespace-id FAKE_GEO_KV_ID \
   --edge-host "https://edge-test.example.workers.dev/" 2>&1 || true)
 
-if echo "$DRY_EDGE" | grep -q "edge-test.example.workers.dev"; then
+if grep -q "edge-test.example.workers.dev" <<< "$DRY_EDGE"; then
   pass "edge-host cleaned (no https:// or trailing /)"
 else
   fail "edge-host not cleaned properly"
@@ -143,7 +143,7 @@ DRY_KV_CREATE=$(bash "$ROOT/installer/install-cloudflare.sh" --dry-run --yes \
   --profile "$TMP/profile.json" \
   --create-kv \
   --route-url https://nanok-test.example.workers.dev 2>&1 || true)
-if echo "$DRY_KV_CREATE" | grep -q "kv namespace create"; then
+if grep -q "kv namespace create" <<< "$DRY_KV_CREATE"; then
   pass "dry-run with --create-kv shows 'kv namespace create'"
 else
   fail "dry-run with --create-kv missing 'kv namespace create'"
@@ -155,14 +155,14 @@ fi
 echo ""
 echo "--- Service Binding ---"
 
-if echo "$DRY_NANOB" | grep -q "NANOK_SERVICE"; then
+if grep -q "NANOK_SERVICE" <<< "$DRY_NANOB"; then
   pass "nanob wrangler.toml includes NANOK_SERVICE binding"
 else
   fail "nanob wrangler.toml missing NANOK_SERVICE binding"
   ERRORS=$((ERRORS + 1))
 fi
 
-if echo "$DRY_NANOB" | grep -q "services"; then
+if grep -q "services" <<< "$DRY_NANOB"; then
   pass "nanob wrangler.toml includes [[services]] section"
 else
   fail "nanob wrangler.toml missing [[services]] section"
@@ -177,7 +177,7 @@ echo "--- --preflight ---"
 # preflight should NOT fail with "KV namespace" error
 PREFLIGHT_OUTPUT=$(bash "$ROOT/installer/install-cloudflare.sh" --preflight 2>&1 || true)
 
-if echo "$PREFLIGHT_OUTPUT" | grep -qi "KV namespace\|create-kv\|kv-namespace-id"; then
+if grep -qi "KV namespace\|create-kv\|kv-namespace-id" <<< "$PREFLIGHT_OUTPUT"; then
   fail "--preflight requires KV options (should not)"
   ERRORS=$((ERRORS + 1))
 else
@@ -185,7 +185,7 @@ else
 fi
 
 # preflight should NOT fail with "fail: command not found" or "info: command not found"
-if echo "$PREFLIGHT_OUTPUT" | grep -q "command not found"; then
+if grep -q "command not found" <<< "$PREFLIGHT_OUTPUT"; then
   fail "--preflight has undefined command error"
   ERRORS=$((ERRORS + 1))
 else
@@ -193,7 +193,7 @@ else
 fi
 
 # preflight should contain "Preflight" in output
-if echo "$PREFLIGHT_OUTPUT" | grep -qi "preflight"; then
+if grep -qi "preflight" <<< "$PREFLIGHT_OUTPUT"; then
   pass "--preflight shows preflight summary"
 else
   fail "--preflight missing preflight summary"

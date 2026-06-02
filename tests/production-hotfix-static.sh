@@ -193,7 +193,7 @@ test_asset_match() {
   local should_match="$3"
   local label="$4"
 
-  if echo "$asset_name" | grep -iE "$pattern" >/dev/null 2>&1; then
+  if grep -iE -- "$pattern" <<< "$asset_name" >/dev/null 2>&1; then
     if [[ "$should_match" == "yes" ]]; then
       pass "pattern match: ${label}"
     else

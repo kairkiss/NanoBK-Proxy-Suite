@@ -31,7 +31,7 @@ check() {
 contains() {
   local text="$1"
   local pattern="$2"
-  if echo "$text" | grep -qi "$pattern"; then
+  if grep -qi -- "$pattern" <<< "$text"; then
     echo "1"
   else
     echo "0"
@@ -124,12 +124,12 @@ echo "── Test 7: summary uses honest states ──"
 
 OUTPUT_FULL=$(bash "$INSTALLER" --mode full --dry-run --defaults --lang zh 2>&1) || true
 check "dry-run summary has planned or dry-run" "$(contains "$OUTPUT_FULL" "planned\|dry-run")"
-check "dry-run summary does NOT show installed" "$( [[ $(echo "$OUTPUT_FULL" | grep -c "status:  installed") -eq 0 ]] && echo 1 || echo 0 )"
-check "dry-run summary does NOT show verified" "$( [[ $(echo "$OUTPUT_FULL" | grep -c "status:  verified") -eq 0 ]] && echo 1 || echo 0 )"
+check "dry-run summary does NOT show installed" "$( [[ $(grep -c "status:  installed" <<< "$OUTPUT_FULL") -eq 0 ]] && echo 1 || echo 0 )"
+check "dry-run summary does NOT show verified" "$( [[ $(grep -c "status:  verified" <<< "$OUTPUT_FULL") -eq 0 ]] && echo 1 || echo 0 )"
 check "full dry-run has assumed free" "$(contains "$OUTPUT_FULL" "assumed free")"
 check "dry-run summary says no real deployment" "$(contains "$OUTPUT_FULL" "dry-run.*没有执行\|dry-run.*No real\|dry-run 摘要")"
-check "dry-run has no healthcheck passed" "$( [[ $(echo "$OUTPUT_FULL" | grep -c "healthcheck passed") -eq 0 ]] && echo 1 || echo 0 )"
-check "dry-run has no Cloudflare verified" "$( [[ $(echo "$OUTPUT_FULL" | grep -c "Cloudflare.*verified\|nanok.*verified") -eq 0 ]] && echo 1 || echo 0 )"
+check "dry-run has no healthcheck passed" "$( [[ $(grep -c "healthcheck passed" <<< "$OUTPUT_FULL") -eq 0 ]] && echo 1 || echo 0 )"
+check "dry-run has no Cloudflare verified" "$( [[ $(grep -c "Cloudflare.*verified\|nanok.*verified" <<< "$OUTPUT_FULL") -eq 0 ]] && echo 1 || echo 0 )"
 
 OUTPUT_CLI_DRY=$(bash "$INSTALLER" --mode cli-only --dry-run --defaults --lang zh 2>&1) || true
 check "cli-only dry-run has assumed free" "$(contains "$OUTPUT_CLI_DRY" "assumed free")"

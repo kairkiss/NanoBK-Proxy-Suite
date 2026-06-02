@@ -65,10 +65,11 @@
 | **v1.7.16** | **Full Wizard Test Gate + Version Sync 收口** |
 | **v1.7.17** | **Cloudflare mock/dry-run unbound variable fix** |
 | **v1.7.18** | **Validation test harness grep stability fix** |
+| **v1.7.19** | **Test harness grep stability completion** |
 | v1.8 | 操作日志（v1.7 final tag 后再进入） |
 | v1.7 | 权限控制 |
 
-v1.7.18 fixes flaky `echo "$output" | grep -q` patterns in test harnesses under `set -Eeuo pipefail`. It does not claim real VPS validation, Cloudflare validation, or production pass.
+v1.7.19 completes grep/pipefail stabilization across all remaining test harness scripts. It does not claim real VPS validation, Cloudflare validation, or production pass.
 
 ### 1.x 架构原则
 
