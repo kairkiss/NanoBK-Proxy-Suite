@@ -3383,7 +3383,7 @@ run_test_mode() {
   echo ""
 
   local choice
-  prompt choice "请选择" "1"
+  prompt choice "请选择" "5"
 
   case "$choice" in
     1)

@@ -18,10 +18,13 @@ import subprocess
 import sys
 import tempfile
 import shutil
+import atexit
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 REPO_DIR = os.path.dirname(SCRIPT_DIR)
 INSTALLER = os.path.join(REPO_DIR, "installer", "install.sh")
+TEST_TMP_ROOT = tempfile.mkdtemp(prefix="nanobk-stdin-mock-")
+atexit.register(lambda: shutil.rmtree(TEST_TMP_ROOT, ignore_errors=True))
 
 PASS = 0
 FAIL = 0
@@ -38,14 +41,14 @@ def check(desc, ok):
 
 
 def clean_state():
-    """Remove leftover state and env files from repo dir."""
-    for path in [
-        os.path.join(REPO_DIR, ".nanobk-wizard-state.json"),
-        os.path.join(REPO_DIR, "bot", ".env"),
-        os.path.join(REPO_DIR, "web", ".env"),
-        "/opt/NanoBK-Proxy-Suite/.nanobk-wizard-state.json",
-    ]:
-        if os.path.exists(path):
+    """Remove leftover files from this test process temp root only."""
+    if not os.path.isdir(TEST_TMP_ROOT):
+        return
+    for name in os.listdir(TEST_TMP_ROOT):
+        path = os.path.join(TEST_TMP_ROOT, name)
+        if os.path.isdir(path):
+            shutil.rmtree(path, ignore_errors=True)
+        elif os.path.exists(path):
             os.remove(path)
 
 
@@ -53,7 +56,7 @@ def run_installer_stdin(inputs, env_vars=None, resume=False, state_json=None):
     """Run installer with given stdin inputs and return output."""
     env = os.environ.copy()
     env["NANOBK_TEST_MOCK"] = "1"
-    tmpdir = tempfile.mkdtemp(prefix="nanobk-mock-")
+    tmpdir = tempfile.mkdtemp(prefix="run-", dir=TEST_TMP_ROOT)
     env["NANOBK_TEST_TMPDIR"] = tmpdir
     if state_json:
         state_file = os.path.join(tmpdir, ".nanobk-wizard-state.json")
@@ -118,7 +121,7 @@ inputs_a = [
 
 output_a, rc_a = run_installer_stdin(inputs_a)
 
-check("exit code not 124", rc_a != 124)
+check("exit code is 0", rc_a == 0)
 check("output contains 无效输入", "无效输入" in output_a)
 check("output contains alpha.example-user.test", "alpha.example-user.test" in output_a)
 check("output contains beta.example-user.test", "beta.example-user.test" in output_a)
@@ -147,7 +150,7 @@ inputs_b = [
 
 output_b, rc_b = run_installer_stdin(inputs_b)
 
-check("exit code not 124", rc_b != 124)
+check("exit code is 0", rc_b == 0)
 check("output contains Telegram Bot 配置确认", "Telegram Bot 配置确认" in output_b)
 check("output shows Bot Token 已填写", "已填写" in output_b)
 check("output does NOT contain raw token", "SECRET_TEST_BOT_TOKEN" not in output_b)
@@ -170,7 +173,7 @@ inputs_c = [
 
 output_c, rc_c = run_installer_stdin(inputs_c)
 
-check("exit code not 124", rc_c != 124)
+check("exit code is 0", rc_c == 0)
 check("output contains Web Panel 配置确认", "Web Panel 配置确认" in output_c)
 check("output reaches Summary", "NanoBK Setup Summary" in output_c)
 
@@ -196,7 +199,7 @@ inputs_d = [
 
 output_d, rc_d = run_installer_stdin(inputs_d, {"NANOBK_TEST_MOCK_EXISTING_KV": "1"})
 
-check("exit code not 124", rc_d != 124)
+check("exit code is 0", rc_d == 0)
 check("output contains Cloudflare 配置確認 or 配置确认",
       "Cloudflare 配置確認" in output_d or "Cloudflare 配置确认" in output_d)
 check("output contains nanok.demo-user.workers.dev", "nanok.demo-user.workers.dev" in output_d)
@@ -209,7 +212,6 @@ check("output contains MOCK CF preflight", "MOCK" in output_d and "preflight" in
 check("output contains MOCK profile validation", "MOCK" in output_d and "Profile validation passed" in output_d)
 check("output contains MOCK CF deploy", "MOCK" in output_d and "deploy" in output_d.lower())
 check("output reaches Summary", "NanoBK Setup Summary" in output_d)
-print("  markers: https://nanok.demo-user.workers.dev https://nanob.demo-user.workers.dev mock-sub-store-id mock-geo-cache-id Cloudflare deploy success NanoBK Setup Summary")
 
 # ── Test E: Resume cloudflare ───────────────────────────────────────────────
 print("")
@@ -239,7 +241,7 @@ output_e, rc_e = run_installer_stdin(
     state_json=state_json_e,
 )
 
-check("exit code not 124", rc_e != 124)
+check("exit code is 0", rc_e == 0)
 check("output does NOT contain VPS 配置確認", "VPS 配置確認" not in output_e and "VPS 配置确认" not in output_e)
 check("output contains Cloudflare 配置確認 or 配置确认", "Cloudflare" in output_e and "配置" in output_e)
 check("resume cloudflare reaches Summary", "NanoBK Setup Summary" in output_e)
@@ -277,7 +279,7 @@ output_f, rc_f = run_installer_stdin(
     state_json=state_json_f,
 )
 
-check("exit code not 124", rc_f != 124)
+check("exit code is 0", rc_f == 0)
 check("output does NOT contain VPS 配置確認", "VPS 配置確認" not in output_f and "VPS 配置确认" not in output_f)
 check("output does NOT contain Cloudflare 配置確認", "Cloudflare 配置確認" not in output_f and "Cloudflare 配置确认" not in output_f)
 check("output contains Telegram Bot 配置確認", "Telegram Bot 配置確認" in output_f or "Telegram Bot 配置确认" in output_f)
