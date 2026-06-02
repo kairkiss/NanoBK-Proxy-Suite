@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — Unified Beginner Installer v1.7.16
+# NanoBK Proxy Suite — Unified Beginner Installer v1.7.17
 #
 # Interactive entry point for NanoBK Proxy Suite.
 # Guides users through VPS deployment, Cloudflare setup, Bot, Web Panel.
@@ -20,7 +20,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # ── Constants ───────────────────────────────────────────────────────────────
 
 REPO_URL="https://github.com/kairkiss/NanoBK-Proxy-Suite"
-VERSION="1.7.16"
+VERSION="1.7.17"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -1221,7 +1221,7 @@ collect_cloudflare_args() {
   echo -e "${BOLD}── Cloudflare 部署参数 ──${NC}"
   echo ""
 
-  local profile route_url nanob_url
+  local profile="" route_url="" nanob_url=""
 
   local default_profile="${NANOBK_DEFAULT_PROFILE_PATH:-/etc/nanobk/profile.current.json}"
   prompt profile "profile.current.json 路径" "$default_profile"
@@ -1601,7 +1601,7 @@ collect_cloudflare_args() {
     local local_env="${REPO_DIR:-.}/.cloudflare.local.env"
 
     # Read admin token and URLs from local env
-    local adm_token adm_current adm_update
+    local adm_token="" adm_current="" adm_update=""
     if [[ -f "$local_env" ]]; then
       adm_token=$(read_env_value "$local_env" "ADMIN_TOKEN" 2>/dev/null || echo "")
       adm_current=$(read_env_value "$local_env" "ADMIN_CURRENT_URL" 2>/dev/null || echo "")

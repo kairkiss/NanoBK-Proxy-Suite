@@ -1,5 +1,21 @@
 # Changelog
 
+## v1.7.17 — Cloudflare Mock/Dry-run Unbound Variable Fix
+
+### Fixed
+
+- Initialized Cloudflare route/profile variables to prevent `route_url: unbound variable` in dry-run/default flows.
+- Initialized Cloudflare admin env variables to prevent `adm_token: unbound variable` in mock/dry-run paths.
+- Preserved mock/dry-run/commands-only behavior without requiring real Cloudflare admin tokens.
+- Revalidated Full Wizard dynamic stdin mock and all safe tests after cleaning test residues.
+
+### Safety
+
+- No real VPS or Cloudflare validation is claimed.
+- No VPS protocol templates, Worker core logic, or rotate sync logic changed.
+- Mock and dry-run paths must not require or print raw admin tokens.
+- Real clean VPS validation remains a manual user-run step.
+
 ## v1.7.16 — Version and Documentation Sync
 
 ### Fixed

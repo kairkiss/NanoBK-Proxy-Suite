@@ -8,6 +8,8 @@
 - The pre-gate-hardening release fixed the Full Wizard dynamic stdin mock failure
 - v1.7.15 fixes the Full Wizard test gates
 - v1.7.16 synchronizes displayed versions and documentation
+- v1.7.17 fixes `route_url: unbound variable` and `adm_token: unbound variable` that blocked local gate tests on clean VPS
+- v1.7.17 fixes the local gate blocker exposed by the 12th real VPS Phase 1 validation
 - dynamic stdin mock covers Cloudflare + resume before real VPS
 - dynamic mock passing still does not mean production passed
 - Real clean VPS / Cloudflare validation must be run by the user

@@ -63,10 +63,11 @@
 | v1.7.13 | Cloudflare stdin mock and KV helper completion |
 | v1.7.15 | Full wizard test gate hardening |
 | **v1.7.16** | **Full Wizard Test Gate + Version Sync 收口** |
+| **v1.7.17** | **Cloudflare mock/dry-run unbound variable fix** |
 | v1.8 | 操作日志（v1.7 final tag 后再进入） |
 | v1.7 | 权限控制 |
 
-v1.7.16 only synchronizes displayed versions and documentation after the v1.7.15 test-gate hardening. The prior dynamic mock failure fix remains part of the v1.7 cleanup history. It does not claim real VPS validation, Cloudflare validation, or production pass.
+v1.7.17 fixes `route_url: unbound variable` and `adm_token: unbound variable` that blocked local gate tests on clean VPS. It does not claim real VPS validation, Cloudflare validation, or production pass.
 
 ### 1.x 架构原则
 
