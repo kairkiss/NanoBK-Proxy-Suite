@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — Unified Beginner Installer v1.7.26
+# NanoBK Proxy Suite — Unified Beginner Installer v1.7.27
 #
 # Interactive entry point for NanoBK Proxy Suite.
 # Guides users through VPS deployment, Cloudflare setup, Bot, Web Panel.
@@ -20,7 +20,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # ── Constants ───────────────────────────────────────────────────────────────
 
 REPO_URL="https://github.com/kairkiss/NanoBK-Proxy-Suite"
-VERSION="1.7.26"
+VERSION="1.7.27"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -423,7 +423,7 @@ wizard_refresh_existing_runtime_state() {
     NANOBK_DOMAIN="${NANOBK_DOMAIN:-$(python3 -c "import json; d=json.load(open('/etc/nanobk/profile.current.json')); print(d.get('domain',''))" 2>/dev/null || echo "")}"
     # Try healthcheck if available
     if [[ -x "/opt/nanobk/bin/healthcheck.sh" ]]; then
-      if sudo bash /opt/nanobk/bin/healthcheck.sh --quiet 2>/dev/null; then
+      if sudo bash /opt/nanobk/bin/healthcheck.sh >/dev/null 2>&1; then
         VPS_STAGE_STATUS="installed"
         VPS_HEALTHCHECK_STATUS="passed"
       fi
@@ -2796,33 +2796,43 @@ run_full_wizard() {
       1) START_FROM_STAGE="auto" ;;  # Continue with recommended flow
       2) START_FROM_STAGE="vps" ;;  # Continue with VPS
       3)
-        # Skip to Cloudflare — detect actual VPS state
+        # Skip to Cloudflare — preserve refreshed state if available
         START_FROM_STAGE="cloudflare"
-        if [[ -f "/etc/nanobk/profile.current.json" ]]; then
-          VPS_STAGE_STATUS="assumed_existing"
-        else
-          VPS_STAGE_STATUS="unknown"
+        if [[ "${VPS_STAGE_STATUS:-}" != "installed" ]]; then
+          if [[ -f "/etc/nanobk/profile.current.json" ]]; then
+            VPS_STAGE_STATUS="assumed_existing"
+          else
+            VPS_STAGE_STATUS="unknown"
+          fi
         fi
-        CF_STAGE_STATUS="unknown"
+        # Don't overwrite refreshed verified state
+        if [[ "${CF_STAGE_STATUS:-}" != "verified" ]] && [[ "${CF_STAGE_STATUS:-}" != "deployed" ]]; then
+          CF_STAGE_STATUS="unknown"
+        fi
         ;;
       4)
-        # Skip to Bot/Web — detect actual states
+        # Skip to Bot/Web — preserve refreshed state if available
         START_FROM_STAGE="botweb"
-        if [[ -f "/etc/nanobk/profile.current.json" ]]; then
-          VPS_STAGE_STATUS="assumed_existing"
-        else
-          VPS_STAGE_STATUS="unknown"
+        if [[ "${VPS_STAGE_STATUS:-}" != "installed" ]]; then
+          if [[ -f "/etc/nanobk/profile.current.json" ]]; then
+            VPS_STAGE_STATUS="assumed_existing"
+          else
+            VPS_STAGE_STATUS="unknown"
+          fi
         fi
-        if [[ -f "${REPO_DIR:-.}/.cloudflare.local.env" ]]; then
-          local cf_v
-          cf_v=$(read_env_value "${REPO_DIR:-.}/.cloudflare.local.env" "NANOBK_VERIFY_STATUS" 2>/dev/null || echo "")
-          if [[ "$cf_v" == "verified" ]]; then
-            CF_STAGE_STATUS="assumed_verified"
+        # Don't overwrite refreshed verified/deployed state
+        if [[ "${CF_STAGE_STATUS:-}" != "verified" ]] && [[ "${CF_STAGE_STATUS:-}" != "deployed" ]]; then
+          if [[ -f "${REPO_DIR:-.}/.cloudflare.local.env" ]]; then
+            local cf_v
+            cf_v=$(read_env_value "${REPO_DIR:-.}/.cloudflare.local.env" "NANOBK_VERIFY_STATUS" 2>/dev/null || echo "")
+            if [[ "$cf_v" == "verified" ]]; then
+              CF_STAGE_STATUS="assumed_verified"
+            else
+              CF_STAGE_STATUS="unknown"
+            fi
           else
             CF_STAGE_STATUS="unknown"
           fi
-        else
-          CF_STAGE_STATUS="unknown"
         fi
         ;;
       5)

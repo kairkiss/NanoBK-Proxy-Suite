@@ -38,7 +38,10 @@
 - v1.7.25 real existing deployment resume exposed stale state + preflight port conflict
 - v1.7.26 refreshes runtime state and skips core port preflight only for resume existing deployment
 - v1.7.26 does not claim automatic real VPS validation; user must re-run real Full Wizard
-- Phase A local gate must be re-run after v1.7.26
+- v1.7.26 had refresh reliability issues: unsupported healthcheck --quiet, resume choice overwriting refreshed state
+- v1.7.27 removes unsupported healthcheck --quiet and preserves refreshed installed/verified state through resume choices
+- v1.7.27 does not claim automatic real VPS validation; user must re-run real Full Wizard
+- Phase A local gate must be re-run after v1.7.27
 - Phase A must be all green before entering Phase B manual dry-run interactive validation
 - dynamic stdin mock covers Cloudflare + resume before real VPS
 - dynamic mock passing still does not mean production passed

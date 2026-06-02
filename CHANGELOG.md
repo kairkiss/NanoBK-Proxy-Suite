@@ -1,5 +1,20 @@
 # Changelog
 
+## v1.7.27 — Existing Runtime Refresh Reliability Fix
+
+### Fixed
+
+- Removed unsupported `--quiet` argument from Full Wizard existing runtime healthcheck refresh.
+- Preserved refreshed `installed` / `verified` / `admin env installed` states when choosing Cloudflare or Bot/Web resume paths.
+- Fixed the new existing deployment resume test harness to avoid `echo "$text" | grep -q` under `set -Eeuo pipefail`.
+
+### Safety
+
+- No VPS protocol templates, Worker core logic, Bot/Web business logic, or rotate sync logic changed.
+- No new real VPS or Cloudflare validation is claimed by this commit.
+- Real fresh deployment mode still checks core port conflicts.
+- Real Full Wizard validation remains a manual user-run step.
+
 ## v1.7.26 — Existing Deployment Resume Preflight Summary Fix
 
 ### Fixed
