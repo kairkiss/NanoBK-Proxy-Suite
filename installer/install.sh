@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — Unified Beginner Installer v1.7.25
+# NanoBK Proxy Suite — Unified Beginner Installer v1.7.26
 #
 # Interactive entry point for NanoBK Proxy Suite.
 # Guides users through VPS deployment, Cloudflare setup, Bot, Web Panel.
@@ -20,7 +20,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # ── Constants ───────────────────────────────────────────────────────────────
 
 REPO_URL="https://github.com/kairkiss/NanoBK-Proxy-Suite"
-VERSION="1.7.25"
+VERSION="1.7.26"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -321,32 +321,40 @@ STATEEOF
 }
 
 wizard_state_print() {
-  local state_file
-  state_file=$(wizard_state_path)
-
-  if [[ ! -f "$state_file" ]]; then
-    echo "  没有找到之前的安装状态。"
-    return 0
-  fi
-
   echo "  检测到已有 NanoBK 状态："
   echo ""
 
-  # Read values safely
-  local phase vps cf bot web domain
-  phase=$(python3 -c "import json; d=json.load(open('$state_file')); print(d.get('current_phase','unknown'))" 2>/dev/null || echo "unknown")
-  vps=$(python3 -c "import json; d=json.load(open('$state_file')); print(d.get('vps_status','unknown'))" 2>/dev/null || echo "unknown")
-  cf=$(python3 -c "import json; d=json.load(open('$state_file')); print(d.get('cf_status','unknown'))" 2>/dev/null || echo "unknown")
-  bot=$(python3 -c "import json; d=json.load(open('$state_file')); print(d.get('bot_status','unknown'))" 2>/dev/null || echo "unknown")
-  web=$(python3 -c "import json; d=json.load(open('$state_file')); print(d.get('web_status','unknown'))" 2>/dev/null || echo "unknown")
-  domain=$(python3 -c "import json; d=json.load(open('$state_file')); print(d.get('domain',''))" 2>/dev/null || echo "")
+  # Show domain if known
+  [[ -n "${NANOBK_DOMAIN:-}" ]] && [[ "$NANOBK_DOMAIN" != "proxy.example.com" ]] && echo "    域名: ${NANOBK_DOMAIN}"
 
-  echo "    上次阶段: ${phase}"
-  echo "    VPS: ${vps}"
-  echo "    Cloudflare: ${cf}"
-  echo "    Bot: ${bot}"
-  echo "    Web: ${web}"
-  [[ -n "$domain" ]] && echo "    域名: ${domain}"
+  # VPS status — prefer refreshed in-memory state
+  local vps_label="unknown"
+  case "${VPS_STAGE_STATUS:-unknown}" in
+    installed)       vps_label="installed / healthy" ;;
+    assumed_existing) vps_label="assumed existing" ;;
+    manual_pending)  vps_label="manual_pending" ;;
+    failed)          vps_label="failed" ;;
+    *)               vps_label="${VPS_STAGE_STATUS:-unknown}" ;;
+  esac
+  echo "    VPS: ${vps_label}"
+  if [[ "${VPS_HEALTHCHECK_STATUS:-}" == "passed" ]]; then
+    echo "    healthcheck: passed"
+  fi
+
+  # Cloudflare status — prefer refreshed in-memory state
+  local cf_label="unknown"
+  case "${CF_STAGE_STATUS:-unknown}" in
+    verified)        cf_label="verified" ;;
+    deployed)        cf_label="deployed" ;;
+    assumed_verified) cf_label="assumed verified" ;;
+    manual_pending)  cf_label="manual_pending" ;;
+    failed)          cf_label="failed" ;;
+    *)               cf_label="${CF_STAGE_STATUS:-unknown}" ;;
+  esac
+  echo "    Cloudflare: ${cf_label}"
+  [[ "${CF_NANOB_STATUS:-}" == "verified" ]] && echo "    nanob: verified"
+  [[ "${CF_ADMIN_ENV_STATUS:-}" == "installed" ]] && echo "    admin env: installed"
+
   echo ""
 }
 
@@ -399,6 +407,60 @@ wizard_state_detect_existing() {
   fi
 
   return 0
+}
+
+# Refresh runtime state from real system files before showing resume menu.
+# This overwrites stale wizard-state values with actual system status.
+wizard_refresh_existing_runtime_state() {
+  # Skip in mock/dry-run modes
+  if [[ "${NANOBK_TEST_MOCK:-}" == "1" ]] || [[ "$DRY_RUN" == "1" ]] || [[ "$COMMAND_ONLY" == "1" ]]; then
+    return 0
+  fi
+
+  # VPS: check real profile and healthcheck
+  if [[ -f "/etc/nanobk/profile.current.json" ]]; then
+    VPS_STAGE_STATUS="assumed_existing"
+    NANOBK_DOMAIN="${NANOBK_DOMAIN:-$(python3 -c "import json; d=json.load(open('/etc/nanobk/profile.current.json')); print(d.get('domain',''))" 2>/dev/null || echo "")}"
+    # Try healthcheck if available
+    if [[ -x "/opt/nanobk/bin/healthcheck.sh" ]]; then
+      if sudo bash /opt/nanobk/bin/healthcheck.sh --quiet 2>/dev/null; then
+        VPS_STAGE_STATUS="installed"
+        VPS_HEALTHCHECK_STATUS="passed"
+      fi
+    fi
+  fi
+
+  # Cloudflare: check real env files
+  local cf_env="${REPO_DIR:-.}/.cloudflare.local.env"
+  local nb_env="${REPO_DIR:-.}/.nanob.local.env"
+  if [[ -f "$cf_env" ]]; then
+    local cf_verify
+    cf_verify=$(read_env_value "$cf_env" "NANOBK_VERIFY_STATUS" 2>/dev/null || echo "")
+    if [[ "$cf_verify" == "verified" ]]; then
+      CF_STAGE_STATUS="verified"
+      CF_NANOK_STATUS="verified"
+      CF_VERIFY_STATUS="passed"
+    elif [[ "$cf_verify" == "deployed" ]]; then
+      CF_STAGE_STATUS="deployed"
+      CF_NANOK_STATUS="deployed"
+    fi
+  fi
+  if [[ -f "$nb_env" ]]; then
+    local nb_verify
+    nb_verify=$(read_env_value "$nb_env" "NANOB_VERIFY_STATUS" 2>/dev/null || echo "")
+    if [[ "$nb_verify" == "verified" ]]; then
+      CF_NANOB_STATUS="verified"
+    fi
+  fi
+
+  # Admin env
+  if [[ -f "/root/.nanok-cf-admin.env" ]]; then
+    local admin_mode
+    admin_mode=$(stat -c "%a" /root/.nanok-cf-admin.env 2>/dev/null || echo "")
+    if [[ "$admin_mode" == "600" ]]; then
+      CF_ADMIN_ENV_STATUS="installed"
+    fi
+  fi
 }
 
 # ── Existing Cloudflare KV recovery ────────────────────────────────────────
@@ -2208,6 +2270,13 @@ run_unified_preflight() {
     preflight_pass "TUIC :9443 (udp): assumed free (dry-run)"
     preflight_pass "Reality :8443 (tcp): assumed free (dry-run)"
     preflight_pass "Trojan :2443 (tcp): assumed free (dry-run)"
+  elif [[ "${START_FROM_STAGE:-}" == "cloudflare" ]] || [[ "${START_FROM_STAGE:-}" == "botweb" ]]; then
+    # Resuming existing deployment — NanoBK services own these ports
+    echo ""
+    preflight_pass "HY2 :443 (udp): skipped (existing deployment resume)"
+    preflight_pass "TUIC :9443 (udp): skipped (existing deployment resume)"
+    preflight_pass "Reality :8443 (tcp): skipped (existing deployment resume)"
+    preflight_pass "Trojan :2443 (tcp): skipped (existing deployment resume)"
   elif [[ "$os_name" == "Linux" ]]; then
     echo ""
     check_port_available 443 udp "HY2" || handle_core_port_conflict 443 "HY2" || true
@@ -2709,6 +2778,8 @@ run_full_wizard() {
 
   # Check for existing installation state
   if wizard_state_detect_existing 2>/dev/null; then
+    # Refresh real runtime state before showing stale wizard-state values
+    wizard_refresh_existing_runtime_state
     echo ""
     wizard_state_print
     echo "    1) 从推荐阶段继续"
@@ -3619,6 +3690,7 @@ run_test_mode() {
       run_safe_test "$REPO_DIR/tests/unified-summary-honesty.sh" "summary honesty"
       run_safe_test "$REPO_DIR/tests/unified-full-wizard-behavior.sh" "full wizard behavior"
       run_safe_test "$REPO_DIR/tests/unified-full-wizard-state-summary.sh" "full wizard state summary"
+      run_safe_test "$REPO_DIR/tests/unified-existing-deployment-resume.sh" "existing deployment resume"
       run_safe_test "$REPO_DIR/tests/rotate-render-only-tempdir.sh" "rotate tempdir"
       ;;
     3)
@@ -3660,6 +3732,7 @@ run_test_mode() {
       run_safe_test "$REPO_DIR/tests/unified-summary-honesty.sh" "summary honesty"
       run_safe_test "$REPO_DIR/tests/unified-full-wizard-behavior.sh" "full wizard behavior"
       run_safe_test "$REPO_DIR/tests/unified-full-wizard-state-summary.sh" "full wizard state summary"
+      run_safe_test "$REPO_DIR/tests/unified-existing-deployment-resume.sh" "existing deployment resume"
       run_safe_test "$REPO_DIR/tests/unified-real-vps-ux-hardening.sh" "real VPS UX hardening"
       run_safe_test "$REPO_DIR/tests/full-wizard-interactive-mock.sh" "interactive mock"
       run_safe_test "$REPO_DIR/tests/unified-full-wizard-review-resume.sh" "review resume"

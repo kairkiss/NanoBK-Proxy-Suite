@@ -34,7 +34,11 @@
 - v1.7.25 fixes mock wizard state detection so resume menu doesn't appear in non-resume mock tests
 - v1.7.25 aligns mock inputs/state so Phase A can verify Summary rather than timing out on placeholder URLs
 - v1.7.25 does not claim automatic real VPS validation; user must re-run real Full Wizard
-- Phase A local gate must be re-run after v1.7.25
+- v1.7.25 Phase A / Phase B passed
+- v1.7.25 real existing deployment resume exposed stale state + preflight port conflict
+- v1.7.26 refreshes runtime state and skips core port preflight only for resume existing deployment
+- v1.7.26 does not claim automatic real VPS validation; user must re-run real Full Wizard
+- Phase A local gate must be re-run after v1.7.26
 - Phase A must be all green before entering Phase B manual dry-run interactive validation
 - dynamic stdin mock covers Cloudflare + resume before real VPS
 - dynamic mock passing still does not mean production passed

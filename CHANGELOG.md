@@ -1,5 +1,22 @@
 # Changelog
 
+## v1.7.26 — Existing Deployment Resume Preflight Summary Fix
+
+### Fixed
+
+- Refreshed existing deployment runtime state before showing the Full Wizard resume menu.
+- Avoided stale `manual_pending` / `deployed` resume labels when healthcheck and Cloudflare verify state already prove installed/verified status.
+- Skipped VPS core port conflict preflight when resuming from Cloudflare/Bot/Web on an existing deployment.
+- Preserved fresh deployment port conflict checks for real new installs.
+- Improved existing deployment Summary so verified nanok/nanob and admin env installed status are shown truthfully.
+
+### Safety
+
+- No VPS protocol templates, Worker core logic, Bot/Web business logic, or rotate sync logic changed.
+- No new real VPS or Cloudflare validation is claimed by this commit.
+- Real fresh deployment mode still checks core port conflicts.
+- Real Full Wizard validation remains a manual user-run step.
+
 ## v1.7.25 — Interactive Mock Input and Verified Summary Alignment Fix
 
 ### Fixed
