@@ -30,7 +30,11 @@
 - v1.7.24 adds hard timeouts and process group cleanup to dynamic mock tests
 - v1.7.24 Phase A must fail fast with useful logs instead of hanging indefinitely
 - v1.7.24 does not claim automatic real VPS validation; user must re-run real Full Wizard
-- Phase A local gate must be re-run after v1.7.24
+- v1.7.24 Phase A still failed because mock input flows hit placeholder URL rejection on VPS with real system state
+- v1.7.25 fixes mock wizard state detection so resume menu doesn't appear in non-resume mock tests
+- v1.7.25 aligns mock inputs/state so Phase A can verify Summary rather than timing out on placeholder URLs
+- v1.7.25 does not claim automatic real VPS validation; user must re-run real Full Wizard
+- Phase A local gate must be re-run after v1.7.25
 - Phase A must be all green before entering Phase B manual dry-run interactive validation
 - dynamic stdin mock covers Cloudflare + resume before real VPS
 - dynamic mock passing still does not mean production passed

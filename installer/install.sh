@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — Unified Beginner Installer v1.7.24
+# NanoBK Proxy Suite — Unified Beginner Installer v1.7.25
 #
 # Interactive entry point for NanoBK Proxy Suite.
 # Guides users through VPS deployment, Cloudflare setup, Bot, Web Panel.
@@ -20,7 +20,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # ── Constants ───────────────────────────────────────────────────────────────
 
 REPO_URL="https://github.com/kairkiss/NanoBK-Proxy-Suite"
-VERSION="1.7.24"
+VERSION="1.7.25"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -358,6 +358,12 @@ wizard_state_detect_existing() {
   fi
   if [[ "${NANOBK_TEST_MOCK:-}" == "1" ]] && [[ -n "${NANOBK_TEST_MOCK_RESUME:-}" ]]; then
     return 0
+  fi
+
+  # In mock mode without explicit resume, skip system state detection
+  # so mock tests don't get the resume menu from real system state
+  if [[ "${NANOBK_TEST_MOCK:-}" == "1" ]]; then
+    return 1
   fi
 
   # Check actual system state

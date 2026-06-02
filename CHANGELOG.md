@@ -1,5 +1,22 @@
 # Changelog
 
+## v1.7.25 — Interactive Mock Input and Verified Summary Alignment Fix
+
+### Fixed
+
+- Updated dynamic Full Wizard mock input flows so mock tests no longer fall into example Worker URL placeholder rejection loops on VPS with real system state.
+- Fixed mock wizard state detection so resume menu doesn't appear in non-resume mock tests, preventing input stream misalignment.
+- Aligned Cloudflare mock state so Summary proves `nanok: verified`, `nanob: verified`, `verify: passed`, and `admin env: installed`.
+- Prevented Cloudflare verified Summary mock tests from being polluted by unrelated mock VPS failed state.
+
+### Safety
+
+- Real deployment still rejects example/placeholder Worker URLs.
+- Strict Cloudflare Summary checks remain enforced; `deployed or verified` is not accepted.
+- Dynamic mock timeout and subprocess cleanup diagnostics remain in place.
+- No VPS protocol templates, Worker core logic, Bot/Web business logic, or rotate sync logic changed.
+- No new real VPS or Cloudflare validation is claimed by this commit.
+
 ## v1.7.24 — Interactive Mock Timeout Diagnostics Fix
 
 ### Fixed
