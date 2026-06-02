@@ -1,5 +1,21 @@
 # Changelog
 
+## v1.7.20 — Full Wizard State and Summary Truth Fix
+
+### Fixed
+
+- Separated VPS deploy status from optional healthcheck/status-check results so skipped checks no longer overwrite successful installs.
+- Refreshed Cloudflare deploy/verify stage states so Full Wizard Summary reports deployed/verified instead of configured/pending after success.
+- Full Wizard now installs Cloudflare admin env via `bin/nanobk cf install-admin-env` after Cloudflare deploy success.
+- Replaced remaining loose Full Wizard `[y/N]` prompts for healthcheck/status/verify steps with strict numbered menus.
+
+### Safety
+
+- No VPS protocol templates, Worker core logic, Bot/Web business logic, or rotate sync logic changed.
+- No new real VPS or Cloudflare validation is claimed by this commit.
+- Admin tokens remain hidden and are not printed in Summary or logs.
+- Real Full Wizard validation remains a manual user-run step.
+
 ## v1.7.19 — Test Harness Grep Stability Completion
 
 ### Fixed

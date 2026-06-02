@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — Unified Beginner Installer v1.7.19
+# NanoBK Proxy Suite — Unified Beginner Installer v1.7.20
 #
 # Interactive entry point for NanoBK Proxy Suite.
 # Guides users through VPS deployment, Cloudflare setup, Bot, Web Panel.
@@ -20,7 +20,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # ── Constants ───────────────────────────────────────────────────────────────
 
 REPO_URL="https://github.com/kairkiss/NanoBK-Proxy-Suite"
-VERSION="1.7.19"
+VERSION="1.7.20"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -1203,13 +1203,78 @@ collect_vps_args() {
     run_critical_step "部署 VPS 四协议" "${cmd[@]}" || return 1
   fi
 
+  # Save deploy result before optional checks overwrite LAST_RUN_CMD_STATUS
+  VPS_DEPLOY_STATUS="${LAST_RUN_CMD_STATUS:-unknown}"
+
   # Post-deploy healthcheck and status (only meaningful if actually deployed)
-  if [[ "$LAST_RUN_CMD_STATUS" == "executed" ]]; then
+  if [[ "$VPS_DEPLOY_STATUS" == "executed" ]]; then
     if [[ "${NANOBK_TEST_MOCK:-}" == "1" ]]; then
       mock_healthcheck
+      VPS_HEALTHCHECK_STATUS="passed"
+      VPS_STATUS_CHECK_STATUS="shown"
     else
-      run_cmd "VPS healthcheck" sudo bash "${REPO_DIR}/vps/scripts/healthcheck.sh" --config-dir /etc/nanobk || true
-      run_cmd "NanoBK status" bash "${REPO_DIR}/bin/nanobk" status --config-dir /etc/nanobk || true
+      # Healthcheck — strict numbered menu
+      echo ""
+      log "VPS healthcheck"
+      print_cmd sudo bash "${REPO_DIR}/vps/scripts/healthcheck.sh" --config-dir /etc/nanobk
+      echo ""
+      echo "    1) 执行 healthcheck（推荐）"
+      echo "    2) 跳过，稍后手动执行"
+      echo "    3) 返回上一步"
+      echo "    4) 退出"
+      echo ""
+      local hc_choice
+      prompt hc_choice "请选择" "1"
+      case "$hc_choice" in
+        1)
+          if sudo bash "${REPO_DIR}/vps/scripts/healthcheck.sh" --config-dir /etc/nanobk; then
+            VPS_HEALTHCHECK_STATUS="passed"
+          else
+            VPS_HEALTHCHECK_STATUS="failed"
+          fi
+          ;;
+        2)
+          VPS_HEALTHCHECK_STATUS="skipped_user"
+          echo -e "  ${YELLOW}已跳过 healthcheck。你可以手动执行：${NC}"
+          echo "    sudo bash /opt/nanobk/bin/healthcheck.sh"
+          ;;
+        3)
+          VPS_HEALTHCHECK_STATUS="skipped_user"
+          ;;
+        4|*)
+          VPS_HEALTHCHECK_STATUS="skipped_user"
+          ;;
+      esac
+
+      # Status check — strict numbered menu
+      echo ""
+      log "NanoBK status"
+      print_cmd bash "${REPO_DIR}/bin/nanobk" status --config-dir /etc/nanobk
+      echo ""
+      echo "    1) 查看 status（推荐）"
+      echo "    2) 跳过，稍后手动执行"
+      echo "    3) 返回上一步"
+      echo "    4) 退出"
+      echo ""
+      local sc_choice
+      prompt sc_choice "请选择" "1"
+      case "$sc_choice" in
+        1)
+          bash "${REPO_DIR}/bin/nanobk" status --config-dir /etc/nanobk || true
+          VPS_STATUS_CHECK_STATUS="shown"
+          ;;
+        2)
+          VPS_STATUS_CHECK_STATUS="skipped_user"
+          echo -e "  ${YELLOW}已跳过 status。你可以手动执行：${NC}"
+          echo "    bash bin/nanobk status"
+          ;;
+        3)
+          VPS_STATUS_CHECK_STATUS="skipped_user"
+          ;;
+        4|*)
+          VPS_STATUS_CHECK_STATUS="skipped_user"
+          ;;
+      esac
     fi
   fi
 }
@@ -2544,6 +2609,38 @@ sys.exit(1)
   return 1
 }
 
+# ── Admin env auto-install from wizard ──────────────────────────────────────
+
+install_cf_admin_env_from_wizard() {
+  if [[ "$DRY_RUN" == "1" ]]; then
+    CF_ADMIN_ENV_STATUS="dry_run"
+    return 0
+  fi
+  if [[ "$COMMAND_ONLY" == "1" ]]; then
+    CF_ADMIN_ENV_STATUS="commands_only"
+    return 0
+  fi
+  if [[ "${NANOBK_TEST_MOCK:-}" == "1" ]]; then
+    CF_ADMIN_ENV_STATUS="mock"
+    return 0
+  fi
+  if bash "$REPO_DIR/bin/nanobk" cf install-admin-env; then
+    CF_ADMIN_ENV_STATUS="installed"
+    # Verify mode without printing content
+    if [[ -f /root/.nanok-cf-admin.env ]]; then
+      local mode
+      mode=$(stat -c "%a" /root/.nanok-cf-admin.env 2>/dev/null || echo "unknown")
+      ok "admin env: installed / mode ${mode}"
+    fi
+  else
+    CF_ADMIN_ENV_STATUS="failed"
+    SUMMARY_HAS_FAILURES=1
+    warn "admin env 自动生成失败。"
+    echo "  恢复命令："
+    echo "    bash bin/nanobk cf install-admin-env"
+  fi
+}
+
 # ── Full wizard ─────────────────────────────────────────────────────────────
 
 run_full_wizard() {
@@ -2554,7 +2651,14 @@ run_full_wizard() {
 
   # Stage status tracking
   VPS_STAGE_STATUS="unknown"
+  VPS_DEPLOY_STATUS="unknown"
+  VPS_HEALTHCHECK_STATUS="unknown"
+  VPS_STATUS_CHECK_STATUS="unknown"
   CF_STAGE_STATUS="unknown"
+  CF_NANOK_STATUS="unknown"
+  CF_NANOB_STATUS="unknown"
+  CF_VERIFY_STATUS="unknown"
+  CF_ADMIN_ENV_STATUS="unknown"
   BOT_STAGE_STATUS="unknown"
   WEB_STAGE_STATUS="unknown"
   SUMMARY_HAS_FAILURES=0
@@ -2657,13 +2761,15 @@ run_full_wizard() {
     collect_vps_args || vps_rc=$?
     case "$vps_rc" in
       0)
-        # Check what actually happened
-        case "${LAST_RUN_CMD_STATUS:-unknown}" in
+        # Check deploy result (saved before optional healthcheck/status checks)
+        case "${VPS_DEPLOY_STATUS:-unknown}" in
           executed)
             VPS_STAGE_STATUS="installed"
             ;;
           dry_run)
             VPS_STAGE_STATUS="dry_run"
+            VPS_HEALTHCHECK_STATUS="dry_run"
+            VPS_STATUS_CHECK_STATUS="dry_run"
             ;;
           commands_only)
             VPS_STAGE_STATUS="commands_only"
@@ -2759,9 +2865,46 @@ run_full_wizard() {
         0)
           # Check what actually happened
           case "${CF_DEPLOY_STATUS:-unknown}" in
-            executed)      CF_STAGE_STATUS="deployed" ;;
-            dry_run)       CF_STAGE_STATUS="dry_run" ;;
-            commands_only) CF_STAGE_STATUS="commands_only" ;;
+            executed)
+              CF_STAGE_STATUS="deployed"
+              CF_NANOK_STATUS="deployed"
+              if [[ "${NANOBK_DEPLOY_NANOB:-}" == "true" ]]; then
+                CF_NANOB_STATUS="deployed"
+              else
+                CF_NANOB_STATUS="disabled"
+              fi
+              # Check verify status from env files
+              local _cf_v
+              _cf_v=$(read_env_value "${REPO_DIR:-.}/.cloudflare.local.env" "NANOBK_VERIFY_STATUS" 2>/dev/null || echo "")
+              if [[ "$_cf_v" == "verified" ]]; then
+                CF_VERIFY_STATUS="passed"
+                CF_NANOK_STATUS="verified"
+                CF_STAGE_STATUS="verified"
+              fi
+              if [[ -f "${REPO_DIR:-.}/.nanob.local.env" ]]; then
+                local _nb_v
+                _nb_v=$(read_env_value "${REPO_DIR:-.}/.nanob.local.env" "NANOB_VERIFY_STATUS" 2>/dev/null || echo "")
+                if [[ "$_nb_v" == "verified" ]]; then
+                  CF_NANOB_STATUS="verified"
+                fi
+              fi
+              # Auto-install admin env
+              install_cf_admin_env_from_wizard
+              ;;
+            dry_run)
+              CF_STAGE_STATUS="dry_run"
+              CF_NANOK_STATUS="dry_run"
+              CF_NANOB_STATUS="dry_run"
+              CF_VERIFY_STATUS="dry_run"
+              CF_ADMIN_ENV_STATUS="dry_run"
+              ;;
+            commands_only)
+              CF_STAGE_STATUS="commands_only"
+              CF_NANOK_STATUS="commands_only"
+              CF_NANOB_STATUS="commands_only"
+              CF_VERIFY_STATUS="commands_only"
+              CF_ADMIN_ENV_STATUS="commands_only"
+              ;;
             skipped_user)
               CF_STAGE_STATUS="manual_pending"
               SUMMARY_HAS_FAILURES=1
@@ -2779,6 +2922,7 @@ run_full_wizard() {
               ;;
             *)
               CF_STAGE_STATUS="deployed"
+              CF_NANOK_STATUS="deployed"
               ;;
           esac
           ;;
@@ -2936,9 +3080,27 @@ print_summary() {
     else
       echo "    status:  skipped (dry-run)"
     fi
+  elif [[ "${VPS_STAGE_STATUS:-}" == "installed" ]]; then
+    echo "    domain:  ${NANOBK_DOMAIN:-unknown}"
+    echo "    status:  installed"
+    # Healthcheck status
+    case "${VPS_HEALTHCHECK_STATUS:-unknown}" in
+      passed)        echo "    healthcheck: passed" ;;
+      failed)        echo "    healthcheck: failed" ;;
+      skipped_user)  echo "    healthcheck: skipped (manual)" ;;
+      dry_run)       echo "    healthcheck: dry-run" ;;
+      *)             echo "    healthcheck: not run" ;;
+    esac
+    # Status check
+    case "${VPS_STATUS_CHECK_STATUS:-unknown}" in
+      shown)         echo "    status check: shown" ;;
+      skipped_user)  echo "    status check: skipped (manual)" ;;
+      dry_run)       echo "    status check: dry-run" ;;
+      *)             echo "    status check: not run" ;;
+    esac
   elif [[ -f "/etc/nanobk/profile.current.json" ]]; then
     echo "    domain:  ${NANOBK_DOMAIN:-unknown}"
-    echo "    status:  installed / not healthchecked"
+    echo "    status:  installed"
     echo "    note:    run nanobk status or healthcheck to verify services"
   elif [[ -n "${NANOBK_DOMAIN:-}" ]] && [[ "$NANOBK_DOMAIN" != "proxy.example.com" ]]; then
     echo "    domain:  ${NANOBK_DOMAIN}"
@@ -2983,7 +3145,34 @@ print_summary() {
     else
       echo "    status:  skipped (dry-run)"
     fi
+  elif [[ "${CF_STAGE_STATUS:-}" == "deployed" ]] || [[ "${CF_STAGE_STATUS:-}" == "verified" ]]; then
+    # Use in-memory status from wizard
+    echo "    nanok:   ${CF_NANOK_STATUS:-deployed}"
+    if [[ "${NANOBK_DEPLOY_NANOB:-}" == "true" ]]; then
+      echo "    nanob:   ${CF_NANOB_STATUS:-deployed}"
+    fi
+    # Verify status
+    case "${CF_VERIFY_STATUS:-unknown}" in
+      passed)       echo "    verify:  passed" ;;
+      failed)       echo "    verify:  failed" ;;
+      skipped_user) echo "    verify:  skipped (manual)" ;;
+      dry_run)      echo "    verify:  dry-run" ;;
+      *)            ;;  # Don't show if unknown
+    esac
+    # Admin env status
+    case "${CF_ADMIN_ENV_STATUS:-unknown}" in
+      installed)    echo "    admin env: installed" ;;
+      failed)
+        echo "    admin env: failed"
+        echo "    recover:   bash bin/nanobk cf install-admin-env"
+        ;;
+      dry_run)      echo "    admin env: dry-run" ;;
+      commands_only) echo "    admin env: commands only" ;;
+      mock)         ;;  # Don't show in mock mode
+      *)            ;;  # Don't show if unknown
+    esac
   elif [[ -f "${REPO_DIR:-.}/.cloudflare.local.env" ]]; then
+    # Fallback: read from env files (for resume/legacy flows)
     local cf_verify
     cf_verify=$(read_env_value "${REPO_DIR:-.}/.cloudflare.local.env" "NANOBK_VERIFY_STATUS" 2>/dev/null || echo "")
     if [[ "$cf_verify" == "verified" ]]; then
@@ -3402,6 +3591,7 @@ run_test_mode() {
       run_safe_test "$REPO_DIR/tests/unified-full-wizard-productization.sh" "full wizard productization"
       run_safe_test "$REPO_DIR/tests/unified-summary-honesty.sh" "summary honesty"
       run_safe_test "$REPO_DIR/tests/unified-full-wizard-behavior.sh" "full wizard behavior"
+      run_safe_test "$REPO_DIR/tests/unified-full-wizard-state-summary.sh" "full wizard state summary"
       run_safe_test "$REPO_DIR/tests/rotate-render-only-tempdir.sh" "rotate tempdir"
       ;;
     3)
@@ -3442,6 +3632,7 @@ run_test_mode() {
       run_safe_test "$REPO_DIR/tests/unified-full-wizard-productization.sh" "full wizard productization"
       run_safe_test "$REPO_DIR/tests/unified-summary-honesty.sh" "summary honesty"
       run_safe_test "$REPO_DIR/tests/unified-full-wizard-behavior.sh" "full wizard behavior"
+      run_safe_test "$REPO_DIR/tests/unified-full-wizard-state-summary.sh" "full wizard state summary"
       run_safe_test "$REPO_DIR/tests/unified-real-vps-ux-hardening.sh" "real VPS UX hardening"
       run_safe_test "$REPO_DIR/tests/full-wizard-interactive-mock.sh" "interactive mock"
       run_safe_test "$REPO_DIR/tests/unified-full-wizard-review-resume.sh" "review resume"
