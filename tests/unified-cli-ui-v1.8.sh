@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — v1.8.4 CLI UI Test
+# NanoBK Proxy Suite — v1.8.5 CLI UI Test
 #
 # Tests the UI display layer and operation log features.
 # Does NOT test deployment logic — only display behavior.
@@ -64,7 +64,7 @@ source_ui_and_run() {
 # ── Test 1: NANOBK_PLAIN=1 disables emoji and color ──────────────────────
 
 echo ""
-echo "=== Test Suite: v1.8.4 CLI UI ==="
+echo "=== Test Suite: v1.8.5 CLI UI ==="
 echo ""
 
 echo "--- Test 1: NANOBK_PLAIN=1 disables emoji and color ---"
@@ -455,11 +455,11 @@ echo ""
 echo "--- Test 9: ui_banner displays version ---"
 
 output=$(source_ui_and_run "NANOBK_PLAIN=1" "
-  ui_banner 'v1.8.4' 'Test Subtitle'
+  ui_banner 'v1.8.5' 'Test Subtitle'
 ")
 
 assert_contains "$output" "NanoBK Proxy Suite" "Banner: shows product name"
-assert_contains "$output" "v1.8.4" "Banner: shows version"
+assert_contains "$output" "v1.8.5" "Banner: shows version"
 assert_contains "$output" "Test Subtitle" "Banner: shows subtitle"
 
 # ── Test 10: ui_progress in PLAIN mode ────────────────────────────────────
@@ -474,19 +474,19 @@ output=$(source_ui_and_run "NANOBK_PLAIN=1" "
 assert_contains "$output" "3/6" "Progress: shows count"
 assert_contains "$output" "Installing" "Progress: shows label"
 
-# ── Test 11: Version is 1.8.4 ────────────────────────────────────────────
+# ── Test 11: Version is 1.8.5 ────────────────────────────────────────────
 
 echo ""
 echo "--- Test 11: Version consistency ---"
 
 nanobk_version=$("${REPO_DIR}/bin/nanobk" --version 2>&1)
-assert_contains "$nanobk_version" "1.8.4" "nanobk --version shows 1.8.4"
+assert_contains "$nanobk_version" "1.8.5" "nanobk --version shows 1.8.5"
 
 install_version=$(grep '^VERSION=' "${REPO_DIR}/installer/install.sh" | head -1)
-assert_contains "$install_version" "1.8.4" "install.sh VERSION is 1.8.4"
+assert_contains "$install_version" "1.8.5" "install.sh VERSION is 1.8.5"
 
 bootstrap_version=$(grep '^BOOTSTRAP_VERSION=' "${REPO_DIR}/installer/bootstrap.sh" | head -1)
-assert_contains "$bootstrap_version" "1.8.4" "bootstrap.sh BOOTSTRAP_VERSION is 1.8.4"
+assert_contains "$bootstrap_version" "1.8.5" "bootstrap.sh BOOTSTRAP_VERSION is 1.8.5"
 
 # ── Test 12: Summary status words not replaced with success ───────────────
 

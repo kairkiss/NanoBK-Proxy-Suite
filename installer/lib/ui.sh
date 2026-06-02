@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — UI Display Layer v1.8.4
+# NanoBK Proxy Suite — UI Display Layer v1.8.5
 #
 # Provides unified, product-quality CLI display functions for the installer.
 # This file only handles display — it never makes deployment decisions.
@@ -543,4 +543,29 @@ ui_divider() {
     printf "%0.s${char}" $(seq 1 $width)
     printf "\n"
   fi
+}
+
+# ── Dry-run notice ────────────────────────────────────────────────────────
+
+# Displays a clear dry-run disclaimer.
+# Usage: ui_dry_run_notice
+ui_dry_run_notice() {
+  if [[ "${NANOBK_UI:-}" == "0" ]]; then
+    echo "  [DRY-RUN] 这是 dry-run 摘要，没有执行真实部署。"
+    echo "  [DRY-RUN] This is a dry-run summary. No real deployment was performed."
+    return 0
+  fi
+
+  local info
+  info=$(_ui_sym "ℹ" "[DRY-RUN]")
+
+  echo ""
+  if [[ "$_ui_has_color" == "1" ]]; then
+    echo -e "  ${_ui_c_cyan}${info}${_ui_c_reset}  这是 dry-run 摘要，没有执行真实部署。"
+    echo -e "  ${_ui_c_cyan}${info}${_ui_c_reset}  This is a dry-run summary. No real deployment was performed."
+  else
+    echo "  ${info}  这是 dry-run 摘要，没有执行真实部署。"
+    echo "  ${info}  This is a dry-run summary. No real deployment was performed."
+  fi
+  echo ""
 }

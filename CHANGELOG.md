@@ -1,5 +1,24 @@
 # Changelog
 
+## v1.8.5 — CLI Dry-run Page Layout Polish
+
+### Added
+
+- New `ui_dry_run_notice` function in `installer/lib/ui.sh` — displays clear dry-run disclaimer in both Chinese and English.
+- New `tests/unified-cli-dry-run-layout-v1.8.sh` — dry-run page layout snapshot tests.
+  - Entry page: verifies NanoBK, Full Recommended, VPS+Cloudflare+Bot+Web Panel.
+  - Stage structure: verifies VPS, Cloudflare, Telegram Bot, Web Panel presence.
+  - Stage ordering: verifies VPS → Cloudflare → Bot → Web Panel order.
+  - Dry-run honesty: verifies "planned / dry-run", no fake success, Summary present.
+  - Control-plane wording: verifies "控制端配置" and "不代表 VPS 节点或 Cloudflare 订阅已经可用" preserved in install.sh.
+  - Secret safety: verifies no SECRET_TEST_BOT_TOKEN, TOKEN=, SECRET=, ADMIN_TOKEN=, NANOBK_CF_API_TOKEN, env file paths.
+  - Visual noise: verifies no bash trace (`+ echo`, `+ set`), limits raw command lines.
+  - Test helper stability: verifies no `printf | grep -q` pipe, uses here-string.
+
+### Safety
+
+- No install.sh business logic, deployment logic, VPS protocol templates, Cloudflare Worker core, rotate sync, Bot/Web logic, or Summary status logic changed.
+
 ## v1.8.4 — CLI Wording and Page Copy Polish
 
 ### Changed
