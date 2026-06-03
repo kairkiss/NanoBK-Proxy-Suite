@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — v1.8.21 CLI Stage Cards Test
+# NanoBK Proxy Suite — v1.8.22 CLI Stage Cards Test
 #
 # Tests ui_stage_card and stage-specific helpers without real deployment.
 #
@@ -60,7 +60,7 @@ source_ui_and_run() {
 }
 
 echo ""
-echo "=== Test Suite: v1.8.21 CLI Stage Cards ==="
+echo "=== Test Suite: v1.8.22 CLI Stage Cards ==="
 
 # ── 1: Stage card default snapshot ────────────────────────────────────────
 

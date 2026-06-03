@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — v1.8.21 CLI Mode Boundaries Test
+# NanoBK Proxy Suite — v1.8.22 CLI Mode Boundaries Test
 #
 # Tests full installer output respects mode boundaries:
 #   PLAIN: no box drawing / emoji / Unicode progress
@@ -58,7 +58,7 @@ count_lines() {
 }
 
 echo ""
-echo "=== Test Suite: v1.8.21 CLI Mode Boundaries ==="
+echo "=== Test Suite: v1.8.22 CLI Mode Boundaries ==="
 
 # ── Test 1: Plain full output ────────────────────────────────────────────
 

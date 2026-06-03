@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — Unified Beginner Installer v1.8.21
+# NanoBK Proxy Suite — Unified Beginner Installer v1.8.22
 #
 # Interactive entry point for NanoBK Proxy Suite.
 # Guides users through VPS deployment, Cloudflare setup, Bot, Web Panel.
@@ -27,7 +27,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # ── Constants ───────────────────────────────────────────────────────────────
 
 REPO_URL="https://github.com/kairkiss/NanoBK-Proxy-Suite"
-VERSION="1.8.21"
+VERSION="1.8.22"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -3914,6 +3914,32 @@ run_safe_test() {
   fi
 }
 
+# Operation-log pilot check — opt-in only, harmless, redacted
+# Only runs when NANOBK_OPLOG_PILOT=1
+# Does NOT integrate with real run_cmd / run_critical_step
+run_operation_log_pilot_check() {
+  [[ "${NANOBK_OPLOG_PILOT:-}" == "1" ]] || return 0
+  if ! command -v bash >/dev/null 2>&1; then
+    warn "operation-log pilot skipped: bash not found"
+    return 0
+  fi
+
+  log "operation-log pilot enabled"
+  oplog_init "install-test-pilot" >/dev/null
+  local rc=0
+  oplog_run_hidden "operation-log harmless pilot" \
+    bash -c 'echo pilot-visible-output; echo TOKEN=fake-token-for-redaction-test' || rc=$?
+  if [[ "$rc" -eq 0 ]]; then
+    ok "operation-log pilot completed"
+    echo "  Log: $(oplog_path)"
+  else
+    err "operation-log pilot failed"
+    oplog_hint_on_failure "operation-log pilot failed"
+    return "$rc"
+  fi
+  return 0
+}
+
 run_test_mode() {
   # Reset failure state
   TEST_FAILURES=0
@@ -3921,6 +3947,9 @@ run_test_mode() {
 
   echo ""
   section_line "本地安全测试"
+
+  # Operation-log pilot hook (opt-in only)
+  run_operation_log_pilot_check
 
   # Test override hook (for test harness only)
   if [[ -n "${NANOBK_TEST_OVERRIDE_SCRIPT:-}" ]]; then

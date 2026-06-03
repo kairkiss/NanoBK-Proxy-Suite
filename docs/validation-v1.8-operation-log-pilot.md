@@ -81,6 +81,15 @@ The `oplog_redact` function strips:
 - Added UI=0 no-ANSI test to pilot test suite with log hint and secret safety assertions.
 - PLAIN/CI no-ANSI behavior preserved.
 
+## v1.8.22 Install.sh Pilot Hook
+
+- `NANOBK_OPLOG_PILOT=1` can trigger a harmless operation-log pilot under `--mode test --defaults`.
+- It does NOT run in full/vps/cloudflare/bot/web/doctor modes.
+- It does NOT integrate with real `run_cmd` / `run_critical_step`.
+- It does NOT prove real deployment output hiding.
+- It proves install.sh can initialize operation-log and run a redacted harmless hidden-output command.
+- Full rollout still requires explicit review approval.
+
 ## Next Step Before Full Rollout
 
 Before integrating `oplog_run_hidden` into `run_cmd`:

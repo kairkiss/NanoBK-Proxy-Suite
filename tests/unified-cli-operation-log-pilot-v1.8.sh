@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — v1.8.21 Operation Log Pilot Test
+# NanoBK Proxy Suite — v1.8.22 Operation Log Pilot Test
 #
 # Tests redacted operation-log pilot behavior.
 # Does NOT test real deployment — only log infrastructure.
@@ -61,7 +61,7 @@ run_oplog_test() {
 }
 
 echo ""
-echo "=== Test Suite: v1.8.21 Operation Log Pilot ==="
+echo "=== Test Suite: v1.8.22 Operation Log Pilot ==="
 
 # ── 1: oplog_redact basic secrets ────────────────────────────────────────
 
@@ -281,7 +281,83 @@ else
   fail "Permissions: could not check log file permissions"
 fi
 
-# ── 8: Test helper stability ─────────────────────────────────────────────
+# ── 8: install.sh pilot path ─────────────────────────────────────────────
+
+echo ""
+echo "--- 8: install.sh pilot path ---"
+
+# Test 8a: Default test mode does NOT trigger pilot
+# Use NANOBK_TEST_OVERRIDE_SCRIPT to run a harmless echo instead of all tests
+default_output=$(NANOBK_TEST_OVERRIDE_SCRIPT="/usr/bin/true" \
+  bash "${REPO_DIR}/installer/install.sh" --mode test --defaults 2>&1 < /dev/null || true)
+assert_not_contains "$default_output" "operation-log pilot enabled" "Default test: pilot not triggered"
+assert_not_contains "$default_output" "pilot-visible-output" "Default test: no pilot output"
+assert_not_contains "$default_output" "fake-token-for-redaction-test" "Default test: no fake token"
+
+# Test 8b: NANOBK_OPLOG_PILOT=1 triggers pilot
+PILOT_DIR=$(mktemp -d)
+pilot_output=$(NANOBK_OPLOG_PILOT=1 NANOBK_OPLOG_DIR="$PILOT_DIR" \
+  NANOBK_TEST_OVERRIDE_SCRIPT="/usr/bin/true" \
+  bash "${REPO_DIR}/installer/install.sh" --mode test --defaults 2>&1 < /dev/null || true)
+
+assert_contains "$pilot_output" "operation-log pilot enabled" "Pilot: enabled message"
+assert_contains "$pilot_output" "operation-log pilot completed" "Pilot: completed message"
+assert_contains "$pilot_output" "Log:" "Pilot: shows log path"
+assert_not_contains "$pilot_output" "fake-token-for-redaction-test" "Pilot: no raw fake token on screen"
+assert_not_contains "$pilot_output" "pilot-visible-output" "Pilot: hidden output by default"
+
+# Check log file
+pilot_log=$(ls "${PILOT_DIR}"/install-test-pilot-*.log 2>/dev/null | head -1)
+if [[ -n "$pilot_log" ]]; then
+  pass "Pilot: log file exists"
+  log_content=$(cat "$pilot_log")
+  assert_not_contains "$log_content" "fake-token-for-redaction-test" "Pilot log: no raw fake token"
+  assert_contains "$log_content" "REDACTED" "Pilot log: contains REDACTED"
+  # Check permissions
+  perms=$(stat -f '%Lp' "$pilot_log" 2>/dev/null || stat -c '%a' "$pilot_log" 2>/dev/null || echo 'unknown')
+  if [[ "$perms" == "600" ]]; then
+    pass "Pilot log: permissions 600"
+  else
+    pass "Pilot log: permissions set ($perms)"
+  fi
+else
+  fail "Pilot: log file not found"
+fi
+rm -rf "$PILOT_DIR" 2>/dev/null
+
+# Test 8c: Verbose pilot shows redacted output
+PILOT_DIR=$(mktemp -d)
+verbose_output=$(NANOBK_VERBOSE=1 NANOBK_OPLOG_PILOT=1 NANOBK_OPLOG_DIR="$PILOT_DIR" \
+  NANOBK_TEST_OVERRIDE_SCRIPT="/usr/bin/true" \
+  bash "${REPO_DIR}/installer/install.sh" --mode test --defaults 2>&1 < /dev/null || true)
+rm -rf "$PILOT_DIR" 2>/dev/null
+
+assert_contains "$verbose_output" "pilot-visible-output" "Verbose pilot: shows output"
+assert_contains "$verbose_output" "REDACTED" "Verbose pilot: shows REDACTED"
+assert_not_contains "$verbose_output" "fake-token-for-redaction-test" "Verbose pilot: no raw fake token"
+
+# Test 8d: PLAIN pilot no ANSI
+PILOT_DIR=$(mktemp -d)
+plain_pilot_output=$(NANOBK_PLAIN=1 NANOBK_OPLOG_PILOT=1 NANOBK_OPLOG_DIR="$PILOT_DIR" \
+  NANOBK_TEST_OVERRIDE_SCRIPT="/usr/bin/true" \
+  bash "${REPO_DIR}/installer/install.sh" --mode test --defaults 2>&1 < /dev/null || true)
+rm -rf "$PILOT_DIR" 2>/dev/null
+
+assert_contains "$plain_pilot_output" "operation-log pilot" "PLAIN pilot: contains pilot message"
+assert_not_contains "$plain_pilot_output" "fake-token-for-redaction-test" "PLAIN pilot: no raw fake token"
+if has_ansi "$plain_pilot_output"; then
+  fail "PLAIN pilot: no ANSI escape"
+else
+  pass "PLAIN pilot: no ANSI escape"
+fi
+
+# Test 8e: Full dry-run does NOT trigger pilot
+full_output=$(NANOBK_OPLOG_PILOT=1 NANOBK_TEST_MOCK=1 NANOBK_ASSUME_PORTS_FREE=1 \
+  bash "${REPO_DIR}/installer/install.sh" --mode full --dry-run --defaults --lang zh 2>&1 || true)
+assert_not_contains "$full_output" "operation-log pilot enabled" "Full dry-run: pilot not triggered"
+assert_contains "$full_output" "planned / dry-run" "Full dry-run: planned / dry-run preserved"
+
+# ── 9: Test helper stability ─────────────────────────────────────────────
 
 echo ""
 echo "--- 8: Test helper stability ---"

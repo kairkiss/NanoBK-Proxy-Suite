@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.8.22 — Operation Log Install.sh Pilot Hook
+
+### Added
+
+- Added `run_operation_log_pilot_check()` to `installer/install.sh` — opt-in harmless operation-log pilot under `NANOBK_OPLOG_PILOT=1` + `--mode test --defaults`.
+- Pilot runs a harmless echo command with fake token, verifies redaction, shows log path.
+- Default test mode does NOT trigger pilot (requires explicit `NANOBK_OPLOG_PILOT=1`).
+- Full dry-run mode does NOT trigger pilot.
+- Added install.sh pilot path tests: default no-trigger, pilot trigger, verbose redacted output, PLAIN no-ANSI, full dry-run unaffected.
+
+### Safety
+
+- Pilot only runs under `NANOBK_OPLOG_PILOT=1` + `--mode test --defaults`. No real deployment paths changed. No `run_cmd`/`run_critical_step` integration.
+
 ## v1.8.21 — Operation Log UI=0 Boundary Fix
 
 ### Fixed
