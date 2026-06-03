@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — UI Display Layer v1.8.10
+# NanoBK Proxy Suite — UI Display Layer v1.8.13
 #
 # Provides unified, product-quality CLI display functions for the installer.
 # This file only handles display — it never makes deployment decisions.
@@ -9,6 +9,7 @@
 #   NANOBK_NO_EMOJI=1  — disable emoji only; color and symbols may remain
 #   NANOBK_VERBOSE=1   — show detailed command output / extra log hints
 #   NANOBK_UI=0        — completely bypass new UI (fallback to legacy output)
+#   NANOBK_COMPACT=1   — compact display mode (shorter banner, cards, reminders)
 #
 # Source this file; do not execute directly.
 
@@ -94,6 +95,12 @@ _ui_sym() {
   else
     echo -n "$plain"
   fi
+}
+
+# ── Compact mode helper ──────────────────────────────────────────────────
+
+_ui_is_compact() {
+  [[ "${NANOBK_COMPACT:-}" == "1" ]]
 }
 
 # ── Banner / Brand Identity ───────────────────────────────────────────────
@@ -193,6 +200,20 @@ ui_banner() {
     echo ""
     echo "NanoBK Proxy Suite ${version}"
     [[ -n "$subtitle" ]] && echo "  ${subtitle}"
+    echo ""
+    return 0
+  fi
+
+  # Compact mode: single-line banner
+  if _ui_is_compact; then
+    local short_sub="${subtitle%% — *}"
+    [[ -z "$short_sub" ]] && short_sub="$subtitle"
+    echo ""
+    if [[ "$_ui_has_color" == "1" ]]; then
+      echo -e "  ${_ui_c_bold}NanoBK${_ui_c_reset} ${version} · ${short_sub}"
+    else
+      echo "  NanoBK ${version} · ${short_sub}"
+    fi
     echo ""
     return 0
   fi
@@ -505,6 +526,16 @@ ui_recovery_block() {
     return 0
   fi
 
+  # Compact mode: short intro, still show all commands
+  if _ui_is_compact; then
+    echo "  恢复："
+    for cmd in "${commands[@]}"; do
+      echo "    \$ ${cmd}"
+    done
+    echo ""
+    return 0
+  fi
+
   echo ""
   if [[ "$_ui_has_color" == "1" ]]; then
     echo -e "  ${_ui_c_yellow}可以稍后继续${_ui_c_reset}"
@@ -590,6 +621,13 @@ ui_token_reminder() {
     return 0
   fi
 
+  # Compact mode: single-line safety reminder
+  if _ui_is_compact; then
+    echo "  安全：token 请当作密码保管；不要截图/发到聊天、issue 或日志；泄露后 revoke/regenerate。"
+    echo ""
+    return 0
+  fi
+
   local lock
   lock=$(_ui_sym "🔒" "[SECURE]")
 
@@ -640,6 +678,13 @@ ui_dry_run_notice() {
     return 0
   fi
 
+  # Compact mode: shorter but still honest
+  if _ui_is_compact; then
+    echo "  dry-run：没有执行真实部署。No real deployment was performed."
+    echo ""
+    return 0
+  fi
+
   local info
   info=$(_ui_sym "ℹ" "[DRY-RUN]")
 
@@ -668,6 +713,23 @@ ui_stage_card() {
   if [[ "${NANOBK_UI:-}" == "0" ]]; then
     # Legacy bypass: minimal output
     [[ -n "$desc" ]] && echo "  ${desc}"
+    return 0
+  fi
+
+  # Compact mode: single-line summary
+  if _ui_is_compact; then
+    local compact_line="${title}："
+    local first=1
+    for item in "${items[@]}"; do
+      if [[ $first -eq 1 ]]; then
+        compact_line+="${item}"
+        first=0
+      else
+        compact_line+=" · ${item}"
+      fi
+    done
+    echo "  ${compact_line}"
+    echo ""
     return 0
   fi
 

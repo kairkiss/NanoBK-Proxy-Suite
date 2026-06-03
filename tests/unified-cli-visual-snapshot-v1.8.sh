@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — v1.8.12 CLI Visual Snapshot Test
+# NanoBK Proxy Suite — v1.8.13 CLI Visual Snapshot Test
 #
 # Checks UI output shape without real deployment.
 # Uses safe mock / dry-run / defaults only.
@@ -62,7 +62,7 @@ source_ui_and_run() {
 }
 
 echo ""
-echo "=== Test Suite: v1.8.12 CLI Visual Snapshot ==="
+echo "=== Test Suite: v1.8.13 CLI Visual Snapshot ==="
 
 # ── Snapshot 1: Banner ────────────────────────────────────────────────────
 
@@ -70,11 +70,11 @@ echo ""
 echo "--- Snapshot 1: ui_banner PLAIN ---"
 
 output=$(source_ui_and_run "NANOBK_PLAIN=1" "
-  ui_banner 'v1.8.12' 'Full Recommended — VPS + Cloudflare + Bot + Web Panel'
+  ui_banner 'v1.8.13' 'Full Recommended — VPS + Cloudflare + Bot + Web Panel'
 ")
 
 assert_contains "$output" "NanoBK Proxy Suite" "Banner: product name"
-assert_contains "$output" "v1.8.12" "Banner: version"
+assert_contains "$output" "v1.8.13" "Banner: version"
 assert_contains "$output" "Full Recommended" "Banner: subtitle"
 
 if has_ansi "$output"; then

@@ -1,5 +1,22 @@
 # Changelog
 
+## v1.8.13 — CLI Compact Mode and Visual Density Polish
+
+### Added
+
+- New `NANOBK_COMPACT=1` environment variable for compact display mode.
+- Compact banner: single-line format (`NanoBK v1.8.13 · Full Recommended`), no box drawing.
+- Compact stage cards: single-line per stage with key items joined by `·`.
+- Compact token reminder: single-line safety summary preserving all required security semantics.
+- Compact recovery block: shorter intro, still shows all recovery commands.
+- Compact dry-run notice: shorter format, still contains both Chinese and English disclaimers.
+- New `tests/unified-cli-compact-mode-v1.8.sh` — compact mode snapshot tests covering banner, stage cards, token reminder, recovery block, dry-run notice, Full Wizard dry-run, and line count comparison.
+
+### Safety
+
+- Compact mode preserves all security semantics: no secrets, no fake success, control-plane warnings, honest status words.
+- No install.sh business logic, deployment logic, VPS protocol templates, Cloudflare Worker core, rotate sync, Bot/Web logic, or Summary status logic changed.
+
 ## v1.8.12 — CLI Stage Page Cards Polish
 
 ### Added
