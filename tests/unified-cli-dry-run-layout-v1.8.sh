@@ -142,6 +142,26 @@ assert_not_contains "$wizard_output" "status: success" "Honesty: no fake success
 # Summary section should exist
 assert_contains "$wizard_output" "Summary" "Honesty: contains Summary"
 
+# ── Layout 4b: VPS Summary dry-run wording ───────────────────────────────
+
+echo ""
+echo "--- Layout 4b: VPS Summary dry-run wording ---"
+
+# VPS Summary should show "planned / dry-run", not "skipped (dry-run)"
+assert_not_contains "$wizard_output" "skipped (dry-run)" "VPS Summary: no skipped (dry-run)"
+assert_contains "$wizard_output" "planned / dry-run" "VPS Summary: contains planned / dry-run"
+
+# ── Layout 4c: Mock output product wording ───────────────────────────────
+
+echo ""
+echo "--- Layout 4c: Mock output product wording ---"
+
+# Mock output should use product-like wording
+assert_contains "$wizard_output" "模拟完成" "Mock: contains simulated-complete wording"
+
+# Old English mock wording should be replaced
+assert_not_contains "$wizard_output" "deploy success (simulated)" "Mock: no old deploy success wording"
+
 # ── Layout 5: Control-plane wording ───────────────────────────────────────
 
 echo ""
@@ -150,6 +170,10 @@ echo "--- Layout 5: Control-plane wording ---"
 install_content=$(cat "${REPO_DIR}/installer/install.sh")
 assert_contains "$install_content" "控制端配置" "Control-plane: wording preserved in source"
 assert_contains "$install_content" "不代表 VPS 节点或 Cloudflare 订阅已经可用" "Control-plane: semantic preserved in source"
+
+# Mock/dry-run existing state explanation must be present in source
+assert_contains "$install_content" "mock / dry-run 模式" "Source: mock/dry-run explanation present"
+assert_contains "$install_content" "不会读取真实部署状态" "Source: real-state-skip explanation present"
 
 # ── Layout 6: Secret safety ───────────────────────────────────────────────
 

@@ -1,5 +1,29 @@
 # Changelog
 
+## v1.8.7 — CLI Dry-run Mock State Wording Polish
+
+### Changed
+
+- VPS Summary in dry-run mode now shows `planned / dry-run` instead of `skipped (dry-run)` (display-only, no logic change).
+- Added mock/dry-run explanation in `wizard_state_print`: "（mock / dry-run 模式，不会读取真实部署状态）" when `NANOBK_TEST_MOCK=1` or `DRY_RUN=1`.
+- Polished mock output wording from English to Chinese product copy:
+  - `VPS deploy success (simulated)` → `VPS 部署步骤已模拟完成 (dry-run)`
+  - `Cloudflare deploy success (simulated)` → `Cloudflare 部署步骤已模拟完成 (dry-run)`
+  - `Cloudflare preflight passed (simulated)` → `Cloudflare 预检已模拟通过 (dry-run)`
+  - `Profile validation passed (simulated)` → `配置文件验证已模拟通过 (dry-run)`
+  - `Healthcheck passed (simulated)` → `健康检查已模拟通过 (dry-run)`
+  - `Cloudflare verify passed (simulated)` → `Cloudflare 验证已模拟通过 (dry-run)`
+- Strengthened dry-run layout tests: VPS Summary wording, mock output product wording, mock/dry-run explanation in source.
+
+### Known Limitations
+
+- Telegram Bot configuration confirmation may appear twice in dry-run defaults mode. This is a pre-existing interaction flow behavior and is not addressed in this release to avoid modifying real Bot configuration logic.
+
+### Safety
+
+- No run_cmd / run_critical_step, deploy status tracking, resume routing, Summary status judgment logic, VPS protocol templates, Cloudflare Worker core, rotate sync, Bot/Web business logic, or admin env logic changed.
+- All mock output changes are display-only strings; no variable meanings, status words, or execution paths changed.
+
 ## v1.8.6 — CLI Manual Dry-run Visual Acceptance Guide
 
 ### Added

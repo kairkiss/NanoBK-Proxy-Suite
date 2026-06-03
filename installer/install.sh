@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — Unified Beginner Installer v1.8.6
+# NanoBK Proxy Suite — Unified Beginner Installer v1.8.7
 #
 # Interactive entry point for NanoBK Proxy Suite.
 # Guides users through VPS deployment, Cloudflare setup, Bot, Web Panel.
@@ -27,7 +27,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # ── Constants ───────────────────────────────────────────────────────────────
 
 REPO_URL="https://github.com/kairkiss/NanoBK-Proxy-Suite"
-VERSION="1.8.6"
+VERSION="1.8.7"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -329,6 +329,11 @@ STATEEOF
 
 wizard_state_print() {
   echo "  检测到已有 NanoBK 状态："
+
+  # In mock/dry-run mode, explain that real state is not read
+  if [[ "${NANOBK_TEST_MOCK:-}" == "1" ]] || [[ "${DRY_RUN:-}" == "1" ]]; then
+    echo "  （mock / dry-run 模式，不会读取真实部署状态）"
+  fi
   echo ""
 
   # Show domain if known
@@ -526,13 +531,13 @@ mock_log() {
 }
 
 mock_deploy_vps() {
-  mock_log "VPS deploy success (simulated)"
+  mock_log "VPS 部署步骤已模拟完成 (dry-run)"
   LAST_RUN_CMD_STATUS="executed"
   return 0
 }
 
 mock_deploy_cloudflare() {
-  mock_log "Cloudflare deploy success (simulated)"
+  mock_log "Cloudflare 部署步骤已模拟完成 (dry-run)"
   LAST_RUN_CMD_STATUS="executed"
   # Write mock verified env so Summary can prove verified status
   local cf_env="${REPO_DIR:-.}/.cloudflare.local.env"
@@ -552,24 +557,24 @@ MOCKEOF
 }
 
 mock_preflight() {
-  mock_log "Cloudflare preflight passed (simulated)"
+  mock_log "Cloudflare 预检已模拟通过 (dry-run)"
   LAST_RUN_CMD_STATUS="executed"
   return 0
 }
 
 mock_validate_profile() {
-  mock_log "Profile validation passed (simulated)"
+  mock_log "配置文件验证已模拟通过 (dry-run)"
   LAST_RUN_CMD_STATUS="executed"
   return 0
 }
 
 mock_healthcheck() {
-  mock_log "Healthcheck passed (simulated)"
+  mock_log "健康检查已模拟通过 (dry-run)"
   return 0
 }
 
 mock_cf_verify() {
-  mock_log "Cloudflare verify passed (simulated)"
+  mock_log "Cloudflare 验证已模拟通过 (dry-run)"
   return 0
 }
 
@@ -3162,7 +3167,7 @@ print_summary() {
       echo "    cert:    ${NANOBK_CERT_MODE:-unknown}"
       echo "    status:  planned / dry-run"
     else
-      echo "    status:  skipped (dry-run)"
+      echo "    status:  planned / dry-run"
     fi
   elif [[ "${VPS_STAGE_STATUS:-}" == "installed" ]]; then
     echo "    domain:  ${NANOBK_DOMAIN:-unknown}"

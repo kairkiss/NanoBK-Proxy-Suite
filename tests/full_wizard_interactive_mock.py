@@ -272,9 +272,9 @@ check("output contains mock-sub-store-id", "mock-sub-store-id" in output_d)
 check("output contains 复用现有 SUB_STORE", "复用现有 SUB_STORE" in output_d)
 check("output contains mock-geo-cache-id", "mock-geo-cache-id" in output_d)
 check("output contains 复用现有 NANOB_GEO_CACHE", "复用现有 NANOB_GEO_CACHE" in output_d)
-check("output contains MOCK CF preflight", "MOCK" in output_d and "preflight" in output_d.lower())
-check("output contains MOCK profile validation", "MOCK" in output_d and "Profile validation passed" in output_d)
-check("output contains MOCK CF deploy", "MOCK" in output_d and "deploy" in output_d.lower())
+check("output contains MOCK CF preflight", "MOCK" in output_d and ("预检" in output_d or "preflight" in output_d.lower()))
+check("output contains MOCK profile validation", "MOCK" in output_d and ("配置文件验证" in output_d or "Profile validation passed" in output_d))
+check("output contains MOCK CF deploy", "MOCK" in output_d and ("部署步骤" in output_d or "deploy" in output_d.lower()))
 check("output reaches Summary", "NanoBK Setup Summary" in output_d)
 # Cloudflare Summary truth checks — strict verified/passed/installed
 check("Summary shows nanok verified",
