@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — UI Display Layer v1.8.5
+# NanoBK Proxy Suite — UI Display Layer v1.8.10
 #
 # Provides unified, product-quality CLI display functions for the installer.
 # This file only handles display — it never makes deployment decisions.
@@ -96,14 +96,88 @@ _ui_sym() {
   fi
 }
 
-# ── Banner ────────────────────────────────────────────────────────────────
+# ── Banner / Brand Identity ───────────────────────────────────────────────
+
+# Box-drawing banner for interactive terminals (≤80 cols, 7 lines)
+_ui_banner_box() {
+  local version="${1:-}"
+  local subtitle="${2:-}"
+  local vdisp="${version:+ ${version}}"
+
+  local line1=" NanoBK Proxy Suite${vdisp}"
+  local line2=" 一条命令，完成 VPS 代理部署"
+  local line3=""
+  local line4=" ${subtitle}"
+
+  # Calculate box width (max of content lines, min 46, max 52)
+  local max_len=${#line1}
+  [[ ${#line2} -gt $max_len ]] && max_len=${#line2}
+  [[ -n "$subtitle" ]] && [[ ${#line4} -gt $max_len ]] && max_len=${#line4}
+  local inner=$((max_len + 2))
+  [[ $inner -lt 46 ]] && inner=46
+  [[ $inner -gt 52 ]] && inner=52
+
+  # Build horizontal lines
+  local top_bot=""
+  local mid=""
+  for ((i=0; i<inner; i++)); do top_bot+="─"; done
+  for ((i=0; i<inner; i++)); do mid+=" "; done
+
+  # Pad content lines to inner width
+  local pad1="" pad2="" pad4=""
+  local diff1=$((inner - ${#line1}))
+  local diff2=$((inner - ${#line2}))
+  for ((i=0; i<diff1; i++)); do pad1+=" "; done
+  for ((i=0; i<diff2; i++)); do pad2+=" "; done
+
+  echo ""
+  if [[ "$_ui_has_color" == "1" ]]; then
+    echo -e "  ${_ui_c_cyan}╭${top_bot}╮${_ui_c_reset}"
+    echo -e "  ${_ui_c_cyan}│${_ui_c_reset}${_ui_c_bold}${line1}${_ui_c_reset}${pad1}${_ui_c_cyan}│${_ui_c_reset}"
+    echo -e "  ${_ui_c_cyan}│${_ui_c_reset}${line2}${pad2}${_ui_c_cyan}│${_ui_c_reset}"
+    echo -e "  ${_ui_c_cyan}│${_ui_c_reset}${mid}${_ui_c_cyan}│${_ui_c_reset}"
+    if [[ -n "$subtitle" ]]; then
+      local diff4=$((inner - ${#line4}))
+      for ((i=0; i<diff4; i++)); do pad4+=" "; done
+      echo -e "  ${_ui_c_cyan}│${_ui_c_reset}${_ui_c_bold}${line4}${_ui_c_reset}${pad4}${_ui_c_cyan}│${_ui_c_reset}"
+    fi
+    echo -e "  ${_ui_c_cyan}╰${top_bot}╯${_ui_c_reset}"
+  else
+    echo "  +${top_bot}+"
+    echo "  |${line1}${pad1}|"
+    echo "  |${line2}${pad2}|"
+    echo "  |${mid}|"
+    if [[ -n "$subtitle" ]]; then
+      local diff4=$((inner - ${#line4}))
+      for ((i=0; i<diff4; i++)); do pad4+=" "; done
+      echo "  |${line4}${pad4}|"
+    fi
+    echo "  +${top_bot}+"
+  fi
+  echo ""
+}
+
+# PLAIN / non-TTY banner: clean text, no box, no ANSI, no emoji
+_ui_banner_plain() {
+  local version="${1:-}"
+  local subtitle="${2:-}"
+  local vdisp="${version:+ ${version}}"
+
+  echo ""
+  echo "NanoBK Proxy Suite${vdisp}"
+  echo "  一条命令，完成 VPS 代理部署"
+  if [[ -n "$subtitle" ]]; then
+    echo "  ${subtitle}"
+  fi
+  echo ""
+}
 
 ui_banner() {
   local version="${1:-}"
   local subtitle="${2:-}"
 
+  # UI=0: legacy bypass — minimal traditional output
   if [[ "${NANOBK_UI:-}" == "0" ]]; then
-    # Legacy bypass
     echo ""
     echo "NanoBK Proxy Suite ${version}"
     [[ -n "$subtitle" ]] && echo "  ${subtitle}"
@@ -111,16 +185,14 @@ ui_banner() {
     return 0
   fi
 
-  echo ""
-  if [[ "$_ui_has_color" == "1" ]]; then
-    echo -e "  ${_ui_c_bold}NanoBK Proxy Suite${_ui_c_reset}  ${_ui_c_cyan}${version}${_ui_c_reset}"
-  else
-    echo "  NanoBK Proxy Suite  ${version}"
+  # PLAIN or non-TTY: clean text fallback
+  if [[ "${NANOBK_PLAIN:-}" == "1" ]] || [[ "$_ui_is_tty" != "1" ]]; then
+    _ui_banner_plain "$version" "$subtitle"
+    return 0
   fi
-  if [[ -n "$subtitle" ]]; then
-    echo "  ${subtitle}"
-  fi
-  echo ""
+
+  # Default: branded box banner
+  _ui_banner_box "$version" "$subtitle"
 }
 
 # ── Section header ────────────────────────────────────────────────────────

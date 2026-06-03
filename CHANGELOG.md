@@ -1,5 +1,22 @@
 # Changelog
 
+## v1.8.10 — NanoBK Brand Banner and CLI Identity
+
+### Added
+
+- Enhanced `ui_banner` in `installer/lib/ui.sh` with branded box-style banner for interactive terminals.
+  - Default mode: Unicode box-drawing frame with product name, tagline ("一条命令，完成 VPS 代理部署"), and subtitle.
+  - PLAIN mode: clean text fallback, no box drawing, no ANSI, no emoji.
+  - NO_EMOJI mode: box drawing preserved (if terminal supports), no emoji.
+  - UI=0 mode: minimal traditional output, no box, no emoji.
+  - Non-TTY / CI: automatically falls back to plain text, no ANSI, no emoji.
+  - Width guard: longest line ≤ 52 columns inside box, ≤ 90 columns total.
+- New `tests/unified-cli-brand-identity-v1.8.sh` — brand identity snapshot tests covering default, PLAIN, NO_EMOJI, UI=0, CI=1 modes, width guard, and secret safety.
+
+### Safety
+
+- No install.sh business logic, deployment logic, VPS protocol templates, Cloudflare Worker core, rotate sync, Bot/Web logic, or Summary status logic changed.
+
 ## v1.8.9 — CLI Visual Polish Checkpoint and Validation Notes
 
 ### Added
