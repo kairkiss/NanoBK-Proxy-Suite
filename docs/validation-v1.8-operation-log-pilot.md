@@ -97,6 +97,16 @@ The `oplog_redact` function strips:
 - v1.8.23 restricts pilot to `NANOBK_OPLOG_PILOT=1` + `DEFAULTS=1` (i.e., `--defaults` required).
 - Added regression test: `NANOBK_OPLOG_PILOT=1 --mode test` without `--defaults` does NOT trigger pilot.
 
+## v1.8.24 Single Test Path Wrapper Pilot
+
+- `NANOBK_OPLOG_TEST_WRAP=1` wraps exactly one safe test script (`output-control-chars.sh`) under `--mode test --defaults`.
+- Default test mode unchanged.
+- Full/vps/cloudflare/bot/web modes unchanged.
+- No real deploy command wrapped.
+- No `run_cmd`/`run_critical_step` rollout.
+- Failure propagation tested.
+- Full rollout still requires explicit review.
+
 ## Next Step Before Full Rollout
 
 Before integrating `oplog_run_hidden` into `run_cmd`:

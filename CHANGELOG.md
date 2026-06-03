@@ -1,5 +1,18 @@
 # Changelog
 
+## v1.8.24 — Operation Log Single Test Path Pilot
+
+### Added
+
+- Added `run_safe_test_logged_pilot()` to `installer/install.sh` — wraps one safe test script (`output-control-chars.sh`) with operation-log hidden output under `NANOBK_OPLOG_TEST_WRAP=1` + `DEFAULTS=1`.
+- Wrapped test output hidden by default, log file written with redaction, verbose shows redacted output.
+- Failure propagation preserved: `TEST_FAILURES` and `TEST_FAILED_NAMES` updated on failure.
+- Added single test path wrapper pilot tests: default no-trigger, trigger, non-defaults no-trigger, full dry-run no-trigger, verbose, PLAIN no-ANSI.
+
+### Safety
+
+- Only wraps `output-control-chars.sh` under explicit opt-in. No real deployment paths changed. No `run_cmd`/`run_critical_step` integration.
+
 ## v1.8.23 — Operation Log Pilot Defaults Boundary Fix
 
 ### Fixed

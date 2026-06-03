@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — Unified Beginner Installer v1.8.23
+# NanoBK Proxy Suite — Unified Beginner Installer v1.8.24
 #
 # Interactive entry point for NanoBK Proxy Suite.
 # Guides users through VPS deployment, Cloudflare setup, Bot, Web Panel.
@@ -27,7 +27,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # ── Constants ───────────────────────────────────────────────────────────────
 
 REPO_URL="https://github.com/kairkiss/NanoBK-Proxy-Suite"
-VERSION="1.8.23"
+VERSION="1.8.24"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -3941,6 +3941,42 @@ run_operation_log_pilot_check() {
   return 0
 }
 
+# Operation-log test wrapper pilot — wraps one safe test script with hidden output
+# Only runs when NANOBK_OPLOG_TEST_WRAP=1 + DEFAULTS=1 + MODE=test
+# Does NOT integrate with real run_cmd / run_critical_step
+run_safe_test_logged_pilot() {
+  [[ "${NANOBK_OPLOG_TEST_WRAP:-}" == "1" ]] || return 1
+  [[ "${DEFAULTS:-0}" == "1" ]] || return 1
+
+  local script="$1"
+  local label="$2"
+
+  if [[ ! -f "$script" ]]; then
+    warn "测试文件不存在: ${script}"
+    TEST_FAILURES=$((TEST_FAILURES + 1))
+    TEST_FAILED_NAMES+=("${label} (missing)")
+    return 0
+  fi
+
+  log "operation-log test wrapper enabled: ${label}"
+  oplog_init "test-${label//[^a-zA-Z0-9_-]/_}" >/dev/null
+
+  local rc=0
+  oplog_run_hidden "$label" bash "$script" || rc=$?
+
+  if [[ "$rc" -eq 0 ]]; then
+    ok "测试通过: ${label}"
+    echo "  Log: $(oplog_path)"
+  else
+    err "测试失败: ${label}"
+    oplog_hint_on_failure "测试失败: ${label}"
+    TEST_FAILURES=$((TEST_FAILURES + 1))
+    TEST_FAILED_NAMES+=("${label} (rc=${rc})")
+  fi
+
+  return 0
+}
+
 run_test_mode() {
   # Reset failure state
   TEST_FAILURES=0
@@ -4036,7 +4072,10 @@ run_test_mode() {
       run_safe_test "$REPO_DIR/tests/unified-real-vps-ux-hardening.sh" "real VPS UX hardening"
       run_safe_test "$REPO_DIR/tests/full-wizard-interactive-mock.sh" "interactive mock"
       run_safe_test "$REPO_DIR/tests/unified-full-wizard-review-resume.sh" "review resume"
-      run_safe_test "$REPO_DIR/tests/output-control-chars.sh" "output control chars"
+      # Operation-log test wrapper pilot: wrap output-control-chars when opt-in
+      if ! run_safe_test_logged_pilot "$REPO_DIR/tests/output-control-chars.sh" "output control chars"; then
+        run_safe_test "$REPO_DIR/tests/output-control-chars.sh" "output control chars"
+      fi
       run_safe_test "$REPO_DIR/tests/rotate-render-only-tempdir.sh" "rotate tempdir"
       ;;
     *) err "无效选择"; return 1 ;;
