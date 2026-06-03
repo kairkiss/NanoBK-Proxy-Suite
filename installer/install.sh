@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — Unified Beginner Installer v1.8.7
+# NanoBK Proxy Suite — Unified Beginner Installer v1.8.8
 #
 # Interactive entry point for NanoBK Proxy Suite.
 # Guides users through VPS deployment, Cloudflare setup, Bot, Web Panel.
@@ -27,7 +27,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # ── Constants ───────────────────────────────────────────────────────────────
 
 REPO_URL="https://github.com/kairkiss/NanoBK-Proxy-Suite"
-VERSION="1.8.7"
+VERSION="1.8.8"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -3161,6 +3161,12 @@ print_summary() {
     echo "    reason:  install-vps failed"
     echo "    recover:"
     echo "      bash installer/install.sh --mode vps --lang zh"
+  elif [[ "${VPS_STAGE_STATUS:-}" == "skipped" ]]; then
+    if [[ "$DRY_RUN" == "1" ]]; then
+      echo "    status:  skipped (dry-run)"
+    else
+      echo "    status:  skipped"
+    fi
   elif [[ "$DRY_RUN" == "1" ]]; then
     if [[ -n "${NANOBK_DOMAIN:-}" ]] && [[ "$NANOBK_DOMAIN" != "proxy.example.com" ]]; then
       echo "    domain:  ${NANOBK_DOMAIN}"

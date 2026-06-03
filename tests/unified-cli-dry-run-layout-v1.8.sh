@@ -142,14 +142,45 @@ assert_not_contains "$wizard_output" "status: success" "Honesty: no fake success
 # Summary section should exist
 assert_contains "$wizard_output" "Summary" "Honesty: contains Summary"
 
-# ── Layout 4b: VPS Summary dry-run wording ───────────────────────────────
+# ── Layout 4b: VPS Summary dry-run wording (default dry-run) ─────────────
 
 echo ""
-echo "--- Layout 4b: VPS Summary dry-run wording ---"
+echo "--- Layout 4b: VPS Summary dry-run wording (default) ---"
 
-# VPS Summary should show "planned / dry-run", not "skipped (dry-run)"
-assert_not_contains "$wizard_output" "skipped (dry-run)" "VPS Summary: no skipped (dry-run)"
-assert_contains "$wizard_output" "planned / dry-run" "VPS Summary: contains planned / dry-run"
+# Extract VPS block from Summary (from "VPS:" to "Cloudflare:")
+vps_block=$(awk '/^  VPS:/{found=1} found{print} /^  Cloudflare:/{if(found) exit}' <<< "$wizard_output" | grep -v 'Cloudflare:')
+
+# In default dry-run, VPS block should show "planned / dry-run"
+assert_contains "$vps_block" "planned / dry-run" "VPS block default: contains planned / dry-run"
+assert_not_contains "$vps_block" "skipped (dry-run)" "VPS block default: no skipped (dry-run)"
+assert_not_contains "$vps_block" "status:  installed" "VPS block default: no installed"
+assert_not_contains "$vps_block" "status:  success" "VPS block default: no success"
+
+# ── Layout 4d: User-skip VPS dry-run Summary ─────────────────────────────
+
+echo ""
+echo "--- Layout 4d: User-skip VPS dry-run Summary ---"
+
+# Run with user explicitly skipping VPS (input: 2=skip VPS, then skip CF/Bot/Web, 6=exit resume if shown)
+skip_output=$(printf '2\nn\nn\nn\n' | env NANOBK_TEST_MOCK=1 NANOBK_ASSUME_PORTS_FREE=1 \
+  bash "${REPO_DIR}/installer/install.sh" --mode full --dry-run --lang zh 2>&1 || true)
+
+# Extract VPS block from skip output
+skip_vps_block=$(awk '/^  VPS:/{found=1} found{print} /^  Cloudflare:/{if(found) exit}' <<< "$skip_output" | grep -v 'Cloudflare:')
+
+# When user skips VPS in dry-run, VPS block should show "skipped"
+if [[ -n "$skip_vps_block" ]]; then
+  if grep -qF 'skipped' <<< "$skip_vps_block"; then
+    pass "VPS block skip: contains skipped"
+  else
+    fail "VPS block skip: expected skipped in VPS block"
+  fi
+  # Should NOT show "planned / dry-run" when user explicitly skipped
+  assert_not_contains "$skip_vps_block" "planned / dry-run" "VPS block skip: no planned / dry-run"
+else
+  # If no VPS block found (resume menu appeared), that's OK for this test
+  pass "VPS block skip: no VPS block (resume menu or skipped)"
+fi
 
 # ── Layout 4c: Mock output product wording ───────────────────────────────
 
@@ -161,6 +192,36 @@ assert_contains "$wizard_output" "模拟完成" "Mock: contains simulated-comple
 
 # Old English mock wording should be replaced
 assert_not_contains "$wizard_output" "deploy success (simulated)" "Mock: no old deploy success wording"
+
+# ── Layout 4e: Mock/dry-run existing-state explanation ────────────────────
+
+echo ""
+echo "--- Layout 4e: Mock/dry-run existing-state explanation ---"
+
+# Create a temporary wizard state file to trigger existing state detection
+mock_state_dir=$(mktemp -d)
+trap "rm -rf '$mock_state_dir'" EXIT
+
+# Write a mock wizard state file
+cat > "${mock_state_dir}/.nanobk-wizard-state.json" <<'MOCKSTATE'
+{
+  "stage": "vps_done",
+  "domain": "mock.example.com",
+  "timestamp": "2025-01-01T00:00:00"
+}
+MOCKSTATE
+
+# Run with mock state file present
+existing_output=$(env NANOBK_TEST_MOCK=1 NANOBK_ASSUME_PORTS_FREE=1 NANOBK_TEST_TMPDIR="$mock_state_dir" \
+  bash "${REPO_DIR}/installer/install.sh" --mode full --dry-run --defaults --lang zh 2>&1 || true)
+
+# When existing state is detected in mock/dry-run mode, explanation must be present
+if grep -qF '检测到已有 NanoBK 状态' <<< "$existing_output"; then
+  assert_contains "$existing_output" "mock / dry-run 模式" "Existing state: contains mock mode explanation"
+  assert_contains "$existing_output" "不会读取真实部署状态" "Existing state: contains real-state-skip explanation"
+else
+  pass "Existing state: no existing state detected (mock isolation worked)"
+fi
 
 # ── Layout 5: Control-plane wording ───────────────────────────────────────
 

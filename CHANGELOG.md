@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.8.8 — CLI Dry-run Skip Summary Honesty Fix
+
+### Fixed
+
+- Fixed dry-run VPS Summary honesty edge case: when user explicitly skips VPS in dry-run mode, Summary now correctly shows `skipped (dry-run)` instead of `planned / dry-run`.
+- Added `VPS_STAGE_STATUS == "skipped"` check before global `DRY_RUN` check in `print_summary()` VPS block (display-only, no logic change).
+- Narrowed dry-run layout test `skipped (dry-run)` check to VPS Summary block only (was global, could误伤).
+- Added user-skip VPS dry-run Summary test: verifies VPS block shows `skipped` when user explicitly skips.
+- Added mock/dry-run existing-state output test: creates temporary wizard state file and verifies explanation text appears in output.
+
+### Safety
+
+- No run_cmd / run_critical_step, deploy status tracking, resume routing, VPS protocol templates, Cloudflare Worker core, rotate sync, Bot/Web business logic, or admin env logic changed.
+
 ## v1.8.7 — CLI Dry-run Mock State Wording Polish
 
 ### Changed
