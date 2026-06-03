@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — Unified Beginner Installer v1.8.14
+# NanoBK Proxy Suite — Unified Beginner Installer v1.8.15
 #
 # Interactive entry point for NanoBK Proxy Suite.
 # Guides users through VPS deployment, Cloudflare setup, Bot, Web Panel.
@@ -27,7 +27,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # ── Constants ───────────────────────────────────────────────────────────────
 
 REPO_URL="https://github.com/kairkiss/NanoBK-Proxy-Suite"
-VERSION="1.8.14"
+VERSION="1.8.15"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -66,6 +66,20 @@ INSTALLER_CONFIG=""
 
 log()   { echo -e "${BLUE}[INFO]${NC}  $*"; }
 ok()    { echo -e "${GREEN}[OK]${NC}    $*"; }
+
+# Mode-aware section header (PLAIN/UI=0/COMPACT use plain text, default uses ──)
+section_line() {
+  local title="$1"
+  if [[ "${NANOBK_PLAIN:-}" == "1" ]] || [[ "${NANOBK_UI:-}" == "0" ]]; then
+    echo ""
+    echo "${title}"
+    echo ""
+  elif [[ "${NANOBK_COMPACT:-}" == "1" ]]; then
+    echo "${title}"
+  else
+    echo -e "${BOLD}── ${title} ──${NC}"
+  fi
+}
 warn()  { echo -e "${YELLOW}[WARN]${NC}  $*"; }
 err()   { echo -e "${RED}[ERROR]${NC} $*" >&2; }
 die()   { err "$*"; exit 1; }
@@ -891,16 +905,24 @@ detect_environment() {
   [[ $EUID -eq 0 ]] && ENV_HAS_ROOT=1
 
   local tools_status=""
+  local tool_ok="✓" tool_fail="✗"
+  if [[ "${NANOBK_PLAIN:-}" == "1" ]] || [[ "${NANOBK_UI:-}" == "0" ]]; then
+    tool_ok="OK" tool_fail="FAIL"
+  fi
   for cmd in curl jq python3 openssl git node npm; do
     if command -v "$cmd" &>/dev/null; then
-      tools_status+="  ✓ ${cmd}\n"
+      tools_status+="  ${tool_ok} ${cmd}\n"
     else
-      tools_status+="  ✗ ${cmd}\n"
+      tools_status+="  ${tool_fail} ${cmd}\n"
     fi
   done
 
   echo ""
-  echo -e "${BOLD}  工具状态:${NC}"
+  if [[ "${NANOBK_COMPACT:-}" == "1" ]]; then
+    echo "  Tools:"
+  else
+    echo -e "${BOLD}  工具状态:${NC}"
+  fi
   echo -e "$tools_status"
 }
 
@@ -1054,9 +1076,7 @@ EOF
 # ── VPS parameter collection ────────────────────────────────────────────────
 
 collect_vps_args() {
-  echo ""
-  echo -e "${BOLD}── VPS 四协议部署参数 ──${NC}"
-  echo ""
+  section_line "VPS 四协议部署参数"
 
   local domain cert_mode cert_file key_file reality_sname
 
@@ -1381,9 +1401,7 @@ collect_vps_args() {
 # ── Cloudflare parameter collection ─────────────────────────────────────────
 
 collect_cloudflare_args() {
-  echo ""
-  echo -e "${BOLD}── Cloudflare 部署参数 ──${NC}"
-  echo ""
+  section_line "Cloudflare 部署参数"
 
   local profile="" route_url="" nanob_url=""
 
@@ -1826,9 +1844,7 @@ ENVEOF
 # ── Bot configuration ───────────────────────────────────────────────────────
 
 collect_bot_args() {
-  echo ""
-  echo -e "${BOLD}── Telegram Bot 配置 ──${NC}"
-  echo ""
+  section_line "Telegram Bot 配置"
 
   NANOBK_ENABLE_BOT="true"
 
@@ -1956,9 +1972,7 @@ EOF
 # ── Web Panel configuration ─────────────────────────────────────────────────
 
 collect_web_args() {
-  echo ""
-  echo -e "${BOLD}── Web Panel 配置 ──${NC}"
-  echo ""
+  section_line "Web Panel 配置"
 
   NANOBK_ENABLE_WEB="true"
 
@@ -2095,9 +2109,29 @@ EOF
 PREFLIGHT_ERRORS=0
 PREFLIGHT_WARNINGS=0
 
-preflight_pass() { echo -e "  ${GREEN}✓${NC} $*"; }
-preflight_fail() { echo -e "  ${RED}✗${NC} $*"; PREFLIGHT_ERRORS=$((PREFLIGHT_ERRORS + 1)); }
-preflight_warn() { echo -e "  ${YELLOW}⚠${NC} $*"; PREFLIGHT_WARNINGS=$((PREFLIGHT_WARNINGS + 1)); }
+preflight_pass() {
+  if [[ "${NANOBK_PLAIN:-}" == "1" ]] || [[ "${NANOBK_UI:-}" == "0" ]]; then
+    echo "  OK $*"
+  else
+    echo -e "  ${GREEN}✓${NC} $*"
+  fi
+}
+preflight_fail() {
+  if [[ "${NANOBK_PLAIN:-}" == "1" ]] || [[ "${NANOBK_UI:-}" == "0" ]]; then
+    echo "  FAIL $*"
+  else
+    echo -e "  ${RED}✗${NC} $*"
+  fi
+  PREFLIGHT_ERRORS=$((PREFLIGHT_ERRORS + 1))
+}
+preflight_warn() {
+  if [[ "${NANOBK_PLAIN:-}" == "1" ]] || [[ "${NANOBK_UI:-}" == "0" ]]; then
+    echo "  WARN $*"
+  else
+    echo -e "  ${YELLOW}⚠${NC} $*"
+  fi
+  PREFLIGHT_WARNINGS=$((PREFLIGHT_WARNINGS + 1))
+}
 
 check_port_available() {
   local port="$1"
@@ -2207,9 +2241,7 @@ run_unified_preflight() {
   PREFLIGHT_ERRORS=0
   PREFLIGHT_WARNINGS=0
 
-  echo ""
-  echo -e "${BOLD}── Preflight ──${NC}"
-  echo ""
+  section_line "Preflight"
 
   # OS
   local os_name
@@ -2244,14 +2276,29 @@ run_unified_preflight() {
 
   # Core tools
   local missing_tools=()
+  local found_tools=()
   for cmd in curl git python3 bash openssl; do
     if command -v "$cmd" &>/dev/null; then
-      preflight_pass "${cmd}: $(command -v "$cmd")"
+      found_tools+=("$cmd")
     else
-      preflight_fail "${cmd}: not found"
       missing_tools+=("$cmd")
     fi
   done
+  if [[ "${NANOBK_COMPACT:-}" == "1" ]]; then
+    if [[ ${#missing_tools[@]} -eq 0 ]]; then
+      preflight_pass "Tools: ${found_tools[*]} (all available)"
+    else
+      preflight_fail "Tools: missing ${missing_tools[*]}"
+    fi
+  else
+    for cmd in curl git python3 bash openssl; do
+      if command -v "$cmd" &>/dev/null; then
+        preflight_pass "${cmd}: $(command -v "$cmd")"
+      else
+        preflight_fail "${cmd}: not found"
+      fi
+    done
+  fi
 
   # Disk space (only on Linux with df available)
   if command -v df &>/dev/null && [[ "$os_name" == "Linux" ]]; then
@@ -2278,10 +2325,14 @@ run_unified_preflight() {
   # Port checks (VPS protocols)
   if [[ "$DRY_RUN" == "1" ]]; then
     echo ""
-    preflight_pass "HY2 :443 (udp): assumed free (dry-run)"
-    preflight_pass "TUIC :9443 (udp): assumed free (dry-run)"
-    preflight_pass "Reality :8443 (tcp): assumed free (dry-run)"
-    preflight_pass "Trojan :2443 (tcp): assumed free (dry-run)"
+    if [[ "${NANOBK_COMPACT:-}" == "1" ]]; then
+      preflight_pass "Ports: HY2:443 TUIC:9443 Reality:8443 Trojan:2443 (dry-run)"
+    else
+      preflight_pass "HY2 :443 (udp): assumed free (dry-run)"
+      preflight_pass "TUIC :9443 (udp): assumed free (dry-run)"
+      preflight_pass "Reality :8443 (tcp): assumed free (dry-run)"
+      preflight_pass "Trojan :2443 (tcp): assumed free (dry-run)"
+    fi
   elif [[ "${START_FROM_STAGE:-}" == "cloudflare" ]] || [[ "${START_FROM_STAGE:-}" == "botweb" ]]; then
     # Resuming existing deployment — NanoBK services own these ports
     echo ""
@@ -2300,13 +2351,21 @@ run_unified_preflight() {
   # Cloudflare checks
   if [[ "$check_cf" == "true" ]]; then
     echo ""
-    log "Cloudflare 工具检查:"
+    if [[ "${NANOBK_COMPACT:-}" == "1" ]]; then
+      log "CF tools:"
+    else
+      log "Cloudflare 工具检查:"
+    fi
 
     if [[ "${NANOBK_TEST_MOCK:-}" == "1" ]]; then
-      preflight_pass "node: mocked"
-      preflight_pass "npx: mocked"
-      preflight_pass "wrangler: mocked (no real Cloudflare access)"
-      preflight_pass "wrangler login: mocked"
+      if [[ "${NANOBK_COMPACT:-}" == "1" ]]; then
+        preflight_pass "CF tools: node/npx/wrangler (mocked)"
+      else
+        preflight_pass "node: mocked"
+        preflight_pass "npx: mocked"
+        preflight_pass "wrangler: mocked (no real Cloudflare access)"
+        preflight_pass "wrangler login: mocked"
+      fi
     else
     if command -v node &>/dev/null; then
       local nmajor
@@ -2383,11 +2442,21 @@ run_unified_preflight() {
   # Bot checks
   if [[ "$check_bot" == "true" ]]; then
     echo ""
-    log "Bot 工具检查:"
+    if [[ "${NANOBK_COMPACT:-}" == "1" ]]; then
+      log "Bot tools:"
+    else
+      log "Bot 工具检查:"
+    fi
     if command -v python3 &>/dev/null; then
-      preflight_pass "python3: $(python3 --version 2>&1)"
+      if [[ "${NANOBK_COMPACT:-}" == "1" ]]; then
+        preflight_pass "python3: $(python3 --version 2>&1 | awk '{print $2}')"
+      else
+        preflight_pass "python3: $(python3 --version 2>&1)"
+      fi
       if python3 -c "import venv" &>/dev/null 2>&1; then
-        preflight_pass "python3-venv: available"
+        if [[ "${NANOBK_COMPACT:-}" != "1" ]]; then
+          preflight_pass "python3-venv: available"
+        fi
       else
         preflight_warn "python3-venv: not available"
         echo ""
@@ -2405,10 +2474,18 @@ run_unified_preflight() {
   # Web checks
   if [[ "$check_web" == "true" ]]; then
     echo ""
-    log "Web Panel 工具检查:"
+    if [[ "${NANOBK_COMPACT:-}" == "1" ]]; then
+      log "Web tools:"
+    else
+      log "Web Panel 工具检查:"
+    fi
     local web_port="${NANOBK_WEB_PORT:-8080}"
     if [[ "$DRY_RUN" == "1" ]]; then
-      preflight_pass "Web Panel :${web_port} (tcp): assumed free (dry-run)"
+      if [[ "${NANOBK_COMPACT:-}" == "1" ]]; then
+        preflight_pass "Web Panel :${web_port} (dry-run)"
+      else
+        preflight_pass "Web Panel :${web_port} (tcp): assumed free (dry-run)"
+      fi
     else
       check_port_available "$web_port" tcp "Web Panel" || true
     fi
@@ -3489,7 +3566,7 @@ run_web_mode() {
 
 run_cli_only_mode() {
   echo ""
-  echo -e "${BOLD}═══ CLI Only — VPS 四协议 + nanobk CLI ═══${NC}"
+  section_line "CLI Only — VPS 四协议 + nanobk CLI"
   echo ""
   NANOBK_DEPLOY_CLOUDFLARE="false"
   NANOBK_ENABLE_BOT="false"
@@ -3511,7 +3588,7 @@ run_cli_only_mode() {
 
 run_cli_bot_mode() {
   echo ""
-  echo -e "${BOLD}═══ CLI + Bot — VPS + Telegram Bot ═══${NC}"
+  section_line "CLI + Bot — VPS + Telegram Bot"
   echo ""
   NANOBK_ENABLE_BOT="true"
   NANOBK_DEPLOY_CLOUDFLARE="false"
@@ -3534,7 +3611,7 @@ run_cli_bot_mode() {
 
 run_cli_web_mode() {
   echo ""
-  echo -e "${BOLD}═══ CLI + Web — VPS + Web Panel ═══${NC}"
+  section_line "CLI + Web — VPS + Web Panel"
   echo ""
   NANOBK_ENABLE_WEB="true"
   NANOBK_DEPLOY_CLOUDFLARE="false"
@@ -3557,7 +3634,7 @@ run_cli_web_mode() {
 
 run_cli_bot_web_mode() {
   echo ""
-  echo -e "${BOLD}═══ CLI + Bot + Web — VPS + Telegram Bot + Web Panel ═══${NC}"
+  section_line "CLI + Bot + Web — VPS + Telegram Bot + Web Panel"
   echo ""
   NANOBK_ENABLE_BOT="true"
   NANOBK_ENABLE_WEB="true"
@@ -3582,7 +3659,7 @@ run_cli_bot_web_mode() {
 
 run_rotate_mode() {
   echo ""
-  echo -e "${BOLD}── 一键换密钥 ──${NC}"
+  section_line "一键换密钥"
   echo ""
 
   local config_dir cf_admin_env skip_cf skip_svc
@@ -3652,7 +3729,7 @@ run_test_mode() {
   TEST_FAILED_NAMES=()
 
   echo ""
-  echo -e "${BOLD}── 本地安全测试 ──${NC}"
+  section_line "本地安全测试"
 
   # Test override hook (for test harness only)
   if [[ -n "${NANOBK_TEST_OVERRIDE_SCRIPT:-}" ]]; then
@@ -3750,13 +3827,13 @@ run_test_mode() {
 
 run_commands_mode() {
   echo ""
-  echo -e "${BOLD}═══ 命令模板（可复制） ═══${NC}"
+  section_line "命令模板（可复制）"
   echo ""
   echo -e "  ${YELLOW}注意: commands-only 模式不会验证系统状态。${NC}"
   echo -e "  ${YELLOW}Note: Commands-only mode does not validate the system.${NC}"
   echo ""
 
-  echo -e "${BOLD}── VPS 部署 ──${NC}"
+  section_line "VPS 部署"
   echo ""
   echo "  sudo bash installer/install-vps.sh --yes \\"
   echo "    --domain proxy.example.com \\"
@@ -3765,23 +3842,23 @@ run_commands_mode() {
   echo "    --key-file /etc/letsencrypt/live/proxy.example.com/privkey.pem"
   echo ""
 
-  echo -e "${BOLD}── VPS healthcheck ──${NC}"
+  section_line "VPS healthcheck"
   echo ""
   echo "  sudo bash vps/scripts/healthcheck.sh --config-dir /etc/nanobk"
   echo ""
 
-  echo -e "${BOLD}── Cloudflare preflight ──${NC}"
+  section_line "Cloudflare preflight"
   echo ""
   echo "  bash installer/install-cloudflare.sh --preflight"
   echo ""
 
-  echo -e "${BOLD}── Cloudflare profile validation ──${NC}"
+  section_line "Cloudflare profile validation"
   echo ""
   echo "  bash installer/install-cloudflare.sh --validate-profile-only \\"
   echo "    --profile /etc/nanobk/profile.current.json"
   echo ""
 
-  echo -e "${BOLD}── Cloudflare nanok deploy ──${NC}"
+  section_line "Cloudflare nanok deploy"
   echo ""
   echo "  bash installer/install-cloudflare.sh --yes \\"
   echo "    --create-kv \\"
@@ -3789,7 +3866,7 @@ run_commands_mode() {
   echo "    --route-url https://nanok.example.workers.dev"
   echo ""
 
-  echo -e "${BOLD}── Cloudflare nanok + nanob deploy ──${NC}"
+  section_line "Cloudflare nanok + nanob deploy"
   echo ""
   echo "  bash installer/install-cloudflare.sh --yes \\"
   echo "    --create-kv --create-nanob-geo-kv \\"
@@ -3799,12 +3876,12 @@ run_commands_mode() {
   echo "    --nanob-route-url https://nanob.example.workers.dev"
   echo ""
 
-  echo -e "${BOLD}── 一键换密钥 ──${NC}"
+  section_line "一键换密钥"
   echo ""
   echo "  sudo bash vps/scripts/rotate-keys.sh --yes"
   echo ""
 
-  echo -e "${BOLD}── Bot 配置模板 ──${NC}"
+  section_line "Bot 配置模板"
   echo ""
   echo "  # bot/.env 内容："
   echo "  TELEGRAM_BOT_TOKEN=YOUR_BOT_TOKEN"
@@ -3819,7 +3896,7 @@ run_commands_mode() {
   echo "  cd bot && bash run.sh"
   echo ""
 
-  echo -e "${BOLD}── Web Panel 配置模板 ──${NC}"
+  section_line "Web Panel 配置模板"
   echo ""
   echo "  # web/.env 内容："
   echo "  NANOBK_WEB_TOKEN=YOUR_RANDOM_TOKEN"
@@ -3839,7 +3916,7 @@ run_commands_mode() {
   echo "  ssh -L 8080:127.0.0.1:8080 root@YOUR_VPS_IP"
   echo ""
 
-  echo -e "${BOLD}── 诊断和测试 ──${NC}"
+  section_line "诊断和测试"
   echo ""
   echo "  bash installer/doctor.sh"
   echo "  bash bin/nanobk status"
@@ -4067,11 +4144,18 @@ main() {
   parse_args "$@"
 
   echo ""
-  echo "╔══════════════════════════════════════════════════════════╗"
-  echo "║           NanoBK Proxy Suite Installer v${VERSION}          ║"
-  echo "║                                                          ║"
-  echo "║  VPS 四协议 + Cloudflare 订阅 + Bot + Web Panel         ║"
-  echo "╚══════════════════════════════════════════════════════════╝"
+  if [[ "${NANOBK_PLAIN:-}" == "1" ]] || [[ "${NANOBK_UI:-}" == "0" ]]; then
+    echo "NanoBK Proxy Suite Installer v${VERSION}"
+    echo "VPS + Cloudflare + Bot + Web Panel"
+  elif [[ "${NANOBK_COMPACT:-}" == "1" ]]; then
+    echo "NanoBK Proxy Suite Installer v${VERSION} — VPS + Cloudflare + Bot + Web Panel"
+  else
+    echo "╔══════════════════════════════════════════════════════════╗"
+    echo "║           NanoBK Proxy Suite Installer v${VERSION}          ║"
+    echo "║                                                          ║"
+    echo "║  VPS 四协议 + Cloudflare 订阅 + Bot + Web Panel         ║"
+    echo "╚══════════════════════════════════════════════════════════╝"
+  fi
 
   check_repo
 

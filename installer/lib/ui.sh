@@ -242,6 +242,18 @@ ui_section() {
     return 0
   fi
 
+  # Compact mode: short header with step number
+  if _ui_is_compact; then
+    echo ""
+    if [[ -n "$step_num" ]] && [[ -n "$step_total" ]]; then
+      echo "  [${step_num}/${step_total}] ${title}"
+    else
+      echo "  ${title}"
+    fi
+    echo ""
+    return 0
+  fi
+
   # PLAIN mode: pure ASCII, no Unicode bars
   if [[ "${NANOBK_PLAIN:-}" == "1" ]]; then
     echo ""
@@ -532,7 +544,6 @@ ui_recovery_block() {
     for cmd in "${commands[@]}"; do
       echo "    \$ ${cmd}"
     done
-    echo ""
     return 0
   fi
 
@@ -624,7 +635,6 @@ ui_token_reminder() {
   # Compact mode: single-line safety reminder
   if _ui_is_compact; then
     echo "  安全：token 请当作密码保管；不要截图/发到聊天、issue 或日志；泄露后 revoke/regenerate。"
-    echo ""
     return 0
   fi
 
@@ -681,7 +691,6 @@ ui_dry_run_notice() {
   # Compact mode: shorter but still honest
   if _ui_is_compact; then
     echo "  dry-run：没有执行真实部署。No real deployment was performed."
-    echo ""
     return 0
   fi
 
@@ -729,7 +738,6 @@ ui_stage_card() {
       fi
     done
     echo "  ${compact_line}"
-    echo ""
     return 0
   fi
 

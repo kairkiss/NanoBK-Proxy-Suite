@@ -260,3 +260,24 @@ Use the feedback to decide the next version direction:
 | Both too static | v1.8.15 try dynamic progress / mascot pilot |
 | Output still has complex logs | v1.8.15 or v1.8.16 operation-log low-risk pilot |
 | CLI is sufficient | Pause v1.8, enter v1.9 Telegram Bot menu polish |
+
+## 10. v1.8.14 Acceptance Result and v1.8.15 Fix
+
+### v1.8.14 Acceptance
+
+- **Overall**: BLOCKED
+- **Security**: PASS (no token/secret leakage)
+- **Dry-run honesty**: PASS (planned / dry-run, no real deployment disclaimer)
+- **Fake success guard**: PASS (no status: success)
+- **Default mode**: PASS with polish
+- **Compact mode**: NEEDS POLISH
+- **Plain mode**: BLOCKED — full installer output still contained `╔║╚═✓■□──` characters
+- **UI=0 mode**: NEEDS POLISH — still showed large box banner
+
+### v1.8.15 Fix
+
+- Plain mode full installer output: banner, preflight, tools status, section headers all converted to plain ASCII.
+- UI=0 mode: main banner uses plain text, no box drawing.
+- Compact mode: main banner uses single-line format.
+- All Unicode box drawing, checkmarks, progress bars, and section borders in `installer/install.sh` are now gated by PLAIN/UI=0 mode checks.
+- Added full-output mode boundary tests (`tests/unified-cli-mode-boundaries-v1.8.sh`).

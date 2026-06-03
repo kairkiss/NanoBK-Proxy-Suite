@@ -1,5 +1,39 @@
 # Changelog
 
+## v1.8.15 — Plain and UI=0 Mode Boundary Fix
+
+### Fixed
+
+- Fixed Plain mode (`NANOBK_PLAIN=1`) full installer output: banner, preflight, tools status, section headers all converted to plain ASCII. No `╔║╚═✓■□──` characters remain.
+- Fixed UI=0 mode: main banner uses plain text, no box drawing.
+- Fixed Compact mode: main banner uses single-line format, section headers use plain text, preflight tools/ports condensed.
+- Fixed `section_line` helper: COMPACT mode now uses plain text (no `──`).
+- Fixed `preflight_pass`/`preflight_fail`/`preflight_warn`: PLAIN/UI=0 now use `OK`/`FAIL`/`WARN` instead of `✓`/`✗`/`⚠`.
+- Fixed tools status display: PLAIN/UI=0 now use `OK`/`FAIL` instead of `✓`/`✗`.
+- Fixed compact stage cards, token reminder, recovery block, dry-run notice: removed trailing blank lines to reduce visual density.
+- Compact output is now ≤85% of default output line count (228 vs 269 lines).
+- Added `tests/unified-cli-mode-boundaries-v1.8.sh` — 69 full-output mode boundary tests.
+
+### Safety
+
+- No deployment logic, VPS protocol templates, Cloudflare Worker core, rotate sync, Bot/Web logic, or Summary status logic changed. All changes are display-only.
+
+### Fixed
+
+- Fixed Plain mode (`NANOBK_PLAIN=1`) full installer output: banner now uses plain text instead of box drawing (`╔║╚═`).
+- Fixed Plain mode preflight: `preflight_pass` now outputs `OK` instead of `✓`, `preflight_fail` outputs `FAIL` instead of `✗`, `preflight_warn` outputs `WARN` instead of `⚠`.
+- Fixed Plain mode tools status: tool check marks now use `OK`/`FAIL` instead of `✓`/`✗`.
+- Fixed Plain mode section headers: `section_line` helper outputs plain text title instead of `── title ──` in PLAIN/UI=0 mode.
+- Fixed UI=0 mode: main banner uses plain text instead of box drawing.
+- Fixed Compact mode: main banner uses single-line format instead of box drawing.
+- Added `section_line` helper function for mode-aware section headers.
+- All Unicode box drawing (`╔║╚═`), checkmarks (`✓✗⚠`), progress bars (`■□`), and section borders (`──`) in `installer/install.sh` are now gated by PLAIN/UI=0 mode checks.
+- Added `tests/unified-cli-mode-boundaries-v1.8.sh` — full-output mode boundary tests covering Plain, UI=0, Compact, and secret safety.
+
+### Safety
+
+- No deployment logic, VPS protocol templates, Cloudflare Worker core, rotate sync, Bot/Web logic, or Summary status logic changed. All changes are display-only.
+
 ## v1.8.14 — CLI Manual Visual Comparison Guide
 
 ### Added
