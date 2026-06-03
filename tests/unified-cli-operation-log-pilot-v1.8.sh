@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — v1.8.22 Operation Log Pilot Test
+# NanoBK Proxy Suite — v1.8.23 Operation Log Pilot Test
 #
 # Tests redacted operation-log pilot behavior.
 # Does NOT test real deployment — only log infrastructure.
@@ -61,7 +61,7 @@ run_oplog_test() {
 }
 
 echo ""
-echo "=== Test Suite: v1.8.22 Operation Log Pilot ==="
+echo "=== Test Suite: v1.8.23 Operation Log Pilot ==="
 
 # ── 1: oplog_redact basic secrets ────────────────────────────────────────
 
@@ -294,7 +294,19 @@ assert_not_contains "$default_output" "operation-log pilot enabled" "Default tes
 assert_not_contains "$default_output" "pilot-visible-output" "Default test: no pilot output"
 assert_not_contains "$default_output" "fake-token-for-redaction-test" "Default test: no fake token"
 
-# Test 8b: NANOBK_OPLOG_PILOT=1 triggers pilot
+# Test 8a2: NANOBK_OPLOG_PILOT=1 without --defaults does NOT trigger pilot
+nodefaults_output=$(NANOBK_OPLOG_PILOT=1 \
+  NANOBK_TEST_OVERRIDE_SCRIPT="/usr/bin/true" \
+  bash "${REPO_DIR}/installer/install.sh" --mode test 2>&1 <<'EOF' || true
+5
+EOF
+)
+assert_not_contains "$nodefaults_output" "operation-log pilot enabled" "No-defaults: pilot not triggered"
+assert_not_contains "$nodefaults_output" "operation-log pilot completed" "No-defaults: pilot not completed"
+assert_not_contains "$nodefaults_output" "pilot-visible-output" "No-defaults: no pilot output"
+assert_not_contains "$nodefaults_output" "fake-token-for-redaction-test" "No-defaults: no fake token"
+
+# Test 8b: NANOBK_OPLOG_PILOT=1 + --defaults triggers pilot
 PILOT_DIR=$(mktemp -d)
 pilot_output=$(NANOBK_OPLOG_PILOT=1 NANOBK_OPLOG_DIR="$PILOT_DIR" \
   NANOBK_TEST_OVERRIDE_SCRIPT="/usr/bin/true" \

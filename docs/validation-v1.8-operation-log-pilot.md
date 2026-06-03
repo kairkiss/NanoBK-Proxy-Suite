@@ -90,6 +90,13 @@ The `oplog_redact` function strips:
 - It proves install.sh can initialize operation-log and run a redacted harmless hidden-output command.
 - Full rollout still requires explicit review approval.
 
+## v1.8.23 Defaults Boundary Fix
+
+- v1.8.22 introduced install.sh pilot hook triggered by `NANOBK_OPLOG_PILOT=1`.
+- Audit found it also triggered for `--mode test` without `--defaults` when `NANOBK_OPLOG_PILOT=1`.
+- v1.8.23 restricts pilot to `NANOBK_OPLOG_PILOT=1` + `DEFAULTS=1` (i.e., `--defaults` required).
+- Added regression test: `NANOBK_OPLOG_PILOT=1 --mode test` without `--defaults` does NOT trigger pilot.
+
 ## Next Step Before Full Rollout
 
 Before integrating `oplog_run_hidden` into `run_cmd`:

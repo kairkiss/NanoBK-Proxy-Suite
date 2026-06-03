@@ -1,5 +1,16 @@
 # Changelog
 
+## v1.8.23 — Operation Log Pilot Defaults Boundary Fix
+
+### Fixed
+
+- Fixed `run_operation_log_pilot_check()` to require both `NANOBK_OPLOG_PILOT=1` AND `DEFAULTS=1`. Previously only checked `NANOBK_OPLOG_PILOT=1`, so `--mode test` without `--defaults` could trigger pilot.
+- Added non-defaults no-trigger regression test.
+
+### Safety
+
+- No deployment logic, protocol templates, Worker core, rotate sync, Bot/Web logic, or run_cmd/run_critical_step changes.
+
 ## v1.8.22 — Operation Log Install.sh Pilot Hook
 
 ### Added

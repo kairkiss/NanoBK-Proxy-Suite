@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — Unified Beginner Installer v1.8.22
+# NanoBK Proxy Suite — Unified Beginner Installer v1.8.23
 #
 # Interactive entry point for NanoBK Proxy Suite.
 # Guides users through VPS deployment, Cloudflare setup, Bot, Web Panel.
@@ -27,7 +27,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # ── Constants ───────────────────────────────────────────────────────────────
 
 REPO_URL="https://github.com/kairkiss/NanoBK-Proxy-Suite"
-VERSION="1.8.22"
+VERSION="1.8.23"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -3919,6 +3919,7 @@ run_safe_test() {
 # Does NOT integrate with real run_cmd / run_critical_step
 run_operation_log_pilot_check() {
   [[ "${NANOBK_OPLOG_PILOT:-}" == "1" ]] || return 0
+  [[ "${DEFAULTS:-0}" == "1" ]] || return 0
   if ! command -v bash >/dev/null 2>&1; then
     warn "operation-log pilot skipped: bash not found"
     return 0
