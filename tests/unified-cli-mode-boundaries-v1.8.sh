@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — v1.8.16 CLI Mode Boundaries Test
+# NanoBK Proxy Suite — v1.8.17 CLI Mode Boundaries Test
 #
 # Tests full installer output respects mode boundaries:
 #   PLAIN: no box drawing / emoji / Unicode progress
@@ -58,7 +58,7 @@ count_lines() {
 }
 
 echo ""
-echo "=== Test Suite: v1.8.16 CLI Mode Boundaries ==="
+echo "=== Test Suite: v1.8.17 CLI Mode Boundaries ==="
 
 # ── Test 1: Plain full output ────────────────────────────────────────────
 
@@ -238,10 +238,58 @@ for output_name in "plain" "ui0" "compact" "default"; do
   assert_not_contains "$check_output" "NANOBK_CF_API_TOKEN" "Secret $output_name: no CF_API_TOKEN"
 done
 
-# ── Test 7: Test helper stability ────────────────────────────────────────
+# ── Test 7: Interactive Plain ANSI regression ─────────────────────────────
 
 echo ""
-echo "--- 7: Test helper stability ---"
+echo "--- 7: Interactive Plain ANSI regression ---"
+
+# Test A: Plain + VPS mode with invalid input triggers domain warning
+plain_vps_output=$(env NANOBK_PLAIN=1 NANOBK_TEST_MOCK=1 NANOBK_ASSUME_PORTS_FREE=1 \
+  bash "${REPO_DIR}/installer/install.sh" --mode vps --dry-run --lang zh 2>&1 <<'EOF' || true
+https://proxy.example.com/path
+1
+1
+EOF
+)
+
+assert_contains "$plain_vps_output" "NanoBK" "Interactive Plain VPS: contains NanoBK"
+if has_ansi "$plain_vps_output"; then
+  fail "Interactive Plain VPS: no ANSI escape"
+else
+  pass "Interactive Plain VPS: no ANSI escape"
+fi
+assert_not_contains "$plain_vps_output" "╔" "Interactive Plain VPS: no box drawing"
+assert_not_contains "$plain_vps_output" "✓" "Interactive Plain VPS: no emoji"
+assert_not_contains "$plain_vps_output" "TOKEN=" "Interactive Plain VPS: no TOKEN="
+
+# Test B: UI=0 + VPS mode with invalid input
+ui0_vps_output=$(env NANOBK_UI=0 NANOBK_TEST_MOCK=1 NANOBK_ASSUME_PORTS_FREE=1 \
+  bash "${REPO_DIR}/installer/install.sh" --mode vps --dry-run --lang zh 2>&1 <<'EOF' || true
+https://proxy.example.com/path
+1
+1
+EOF
+)
+
+assert_contains "$ui0_vps_output" "NanoBK" "Interactive UI=0 VPS: contains NanoBK"
+if has_ansi "$ui0_vps_output"; then
+  fail "Interactive UI=0 VPS: no ANSI escape"
+else
+  pass "Interactive UI=0 VPS: no ANSI escape"
+fi
+
+# Test C: Static source guard — count say_yellow usage (should be high)
+say_yellow_count=$(grep -c 'say_yellow' "${REPO_DIR}/installer/install.sh" || echo "0")
+if [[ "$say_yellow_count" -ge 10 ]]; then
+  pass "Source guard: say_yellow used $say_yellow_count times"
+else
+  fail "Source guard: say_yellow only used $say_yellow_count times (expected >= 10)"
+fi
+
+# ── Test 8: Test helper stability ────────────────────────────────────────
+
+echo ""
+echo "--- 8: Test helper stability ---"
 
 filtered_self="$(grep -v 'pipe+grep-q\|pipefail hazard\|pipe pattern\|no printf\|grep -qF.*filtered\|must NOT contain\|must not have' "${SCRIPT_DIR}/unified-cli-mode-boundaries-v1.8.sh" || true)"
 if grep -qF ' | grep -q' <<< "$filtered_self"; then

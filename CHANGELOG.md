@@ -1,5 +1,22 @@
 # Changelog
 
+## v1.8.17 — Interactive Plain ANSI Cleanup
+
+### Fixed
+
+- Cleaned remaining interactive Plain/UI=0 ANSI leakage in `collect_vps_args()`, `collect_cloudflare_args()`, `collect_bot_args()`, `collect_web_args()`.
+- Updated VPS domain warnings (protocol prefix, path, example domain, Let's Encrypt, self-signed typo recovery) to use `say_yellow()`.
+- Updated Cloudflare URL warnings (Worker URL, placeholder, https detection) to use `say_yellow()`.
+- Updated Cloudflare KV warnings (SUB_STORE, NANOB_GEO_CACHE) to use `say_yellow()`.
+- Updated port conflict warning, Preflight summary, select_language prompt, show_menu header, test menu prompt to use `installer_has_color()`.
+- Updated commands-only and root-run warnings to use `say_yellow()`.
+- Added interactive Plain ANSI regression tests (VPS invalid input, UI=0 invalid input).
+- Added static source guard test for remaining unguarded YELLOW echo lines.
+
+### Safety
+
+- All changes are display-only. No input validation, menu options, defaults, status variables, or execution commands changed.
+
 ## v1.8.16 — Plain ANSI Boundary Fix
 
 ### Fixed

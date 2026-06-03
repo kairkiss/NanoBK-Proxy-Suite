@@ -290,3 +290,10 @@ Use the feedback to decide the next version direction:
 - Full-output ANSI boundary tests added for PLAIN/UI=0/CI modes.
 - Compact+Plain combined mode test added.
 - Plain/UI=0/CI full installer output now contains 0 ANSI escapes.
+
+### v1.8.17 Interactive Plain ANSI Cleanup
+
+- v1.8.16 fixed no-ANSI for automated `--defaults` paths, but interactive validation warnings still had direct colored `echo -e`.
+- v1.8.17 gates those interactive warning paths: VPS domain warnings, Cloudflare URL warnings, KV warnings, port conflict, Preflight summary, select_language prompt, show_menu header, test menu prompt.
+- Added interactive Plain ANSI regression tests.
+- Plain/UI=0/CI interactive paths now contain 0 ANSI escapes.

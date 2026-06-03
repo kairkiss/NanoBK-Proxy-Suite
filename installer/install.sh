@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — Unified Beginner Installer v1.8.16
+# NanoBK Proxy Suite — Unified Beginner Installer v1.8.17
 #
 # Interactive entry point for NanoBK Proxy Suite.
 # Guides users through VPS deployment, Cloudflare setup, Bot, Web Panel.
@@ -27,7 +27,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # ── Constants ───────────────────────────────────────────────────────────────
 
 REPO_URL="https://github.com/kairkiss/NanoBK-Proxy-Suite"
-VERSION="1.8.16"
+VERSION="1.8.17"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -1089,7 +1089,11 @@ select_language() {
   echo "  请选择语言 / Choose language:"
   echo "    1) 简体中文"
   echo "    2) English"
-  echo -en "${BOLD}  [1]:${NC} "
+  if installer_has_color; then
+    echo -en "${BOLD}  [1]:${NC} "
+  else
+    printf "  [1]: "
+  fi
   read -r lang_choice
 
   case "${lang_choice:-1}" in
@@ -1221,7 +1225,7 @@ collect_vps_args() {
       suggested="${suggested%%/*}"
       suggested="${suggested%% *}"
       echo ""
-      echo -e "  ${YELLOW}这里需要的是域名本身，例如 example.com，不要带 https:// 或路径。${NC}"
+      say_yellow "这里需要的是域名本身，例如 example.com，不要带 https:// 或路径。"
       echo "  检测到你可能想输入：${suggested}"
       echo ""
       echo "    1) 使用 ${suggested}"
@@ -1236,7 +1240,7 @@ collect_vps_args() {
           # Re-validate: corrected domain must also pass placeholder check
           if [[ "$DRY_RUN" != "1" ]] && [[ "$COMMAND_ONLY" != "1" ]]; then
             if is_placeholder_value "$domain"; then
-              echo -e "  ${YELLOW}真实部署不能使用示例域名。${NC}"
+              say_yellow "真实部署不能使用示例域名。"
               continue
             fi
           fi
@@ -1256,7 +1260,7 @@ collect_vps_args() {
     if [[ "$domain" == *"/"* ]]; then
       local suggested_path="${domain%%/*}"
       echo ""
-      echo -e "  ${YELLOW}域名不应包含路径。${NC}"
+      say_yellow "域名不应包含路径。"
       echo "  检测到你可能想输入：${suggested_path}"
       echo ""
       echo "    1) 使用 ${suggested_path}"
@@ -1271,7 +1275,7 @@ collect_vps_args() {
           # Re-validate: corrected domain must also pass placeholder check
           if [[ "$DRY_RUN" != "1" ]] && [[ "$COMMAND_ONLY" != "1" ]]; then
             if is_placeholder_value "$domain"; then
-              echo -e "  ${YELLOW}真实部署不能使用示例域名。${NC}"
+              say_yellow "真实部署不能使用示例域名。"
               continue
             fi
           fi
@@ -1285,7 +1289,7 @@ collect_vps_args() {
     if [[ "$DRY_RUN" != "1" ]] && [[ "$COMMAND_ONLY" != "1" ]]; then
       if is_placeholder_value "$domain"; then
         echo ""
-        echo -e "  ${YELLOW}真实部署不能使用示例域名。${NC}"
+        say_yellow "真实部署不能使用示例域名。"
         echo "  请输入你自己的域名，例如 proxy.yourdomain.com"
         echo ""
         continue
@@ -1336,7 +1340,7 @@ collect_vps_args() {
         ;;
       3|letsencrypt)
         echo ""
-        echo -e "  ${YELLOW}暂不推荐自动配置 Let's Encrypt。${NC}"
+        say_yellow "暂不推荐自动配置 Let's Encrypt。"
         echo "  请手动申请证书后选择 existing 模式，或先用 self-signed 测试。"
         echo ""
         echo "    1) 改用 self-signed"
@@ -1373,7 +1377,7 @@ collect_vps_args() {
         case "$cert_choice" in
           self-|selfsigned|self_signed)
             echo ""
-            echo -e "  ${YELLOW}你是不是想选择 self-signed？${NC}"
+            say_yellow "你是不是想选择 self-signed？"
             echo "    1) 使用 self-signed"
             echo "    2) 重新选择"
             echo "    3) 退出"
@@ -1479,7 +1483,7 @@ collect_vps_args() {
           ;;
         2)
           VPS_HEALTHCHECK_STATUS="skipped_user"
-          echo -e "  ${YELLOW}已跳过 healthcheck。你可以手动执行：${NC}"
+          say_yellow "已跳过 healthcheck。你可以手动执行："
           echo "    sudo bash /opt/nanobk/bin/healthcheck.sh"
           ;;
         3)
@@ -1509,7 +1513,7 @@ collect_vps_args() {
           ;;
         2)
           VPS_STATUS_CHECK_STATUS="skipped_user"
-          echo -e "  ${YELLOW}已跳过 status。你可以手动执行：${NC}"
+          say_yellow "已跳过 status。你可以手动执行："
           echo "    bash bin/nanobk status"
           ;;
         3)
@@ -1585,21 +1589,21 @@ collect_cloudflare_args() {
 
       # Check for token/subscription URL
       if [[ "$route_url" == *"token="* ]] || [[ "$route_url" == *"/jb"* ]] || [[ "$route_url" == *"/sub"* ]]; then
-        echo -e "  ${YELLOW}这里需要 Worker 根地址，不要粘贴带 token 的订阅链接。${NC}"
+        say_yellow "这里需要 Worker 根地址，不要粘贴带 token 的订阅链接。"
         continue
       fi
 
       # Reject placeholder in real mode
       if [[ "$DRY_RUN" != "1" ]] && [[ "$COMMAND_ONLY" != "1" ]]; then
         if is_placeholder_worker_url "$route_url"; then
-          echo -e "  ${YELLOW}真实部署不能使用示例地址。请输入你自己的 Worker 地址。${NC}"
+          say_yellow "真实部署不能使用示例地址。请输入你自己的 Worker 地址。"
           continue
         fi
       fi
 
       # Check for http://
       if [[ "$route_url" == http://* ]]; then
-        echo -e "  ${YELLOW}Worker URL 必须使用 https://，不支持 http://。${NC}"
+        say_yellow "Worker URL 必须使用 https://，不支持 http://。"
         continue
       fi
 
@@ -1608,7 +1612,7 @@ collect_cloudflare_args() {
         local cleaned="${route_url%%/*}"
         cleaned="${cleaned%%\?*}"
         cleaned="${cleaned%/}"
-        echo -e "  ${YELLOW}检测到未包含 https://${NC}"
+        say_yellow "检测到未包含 https://"
         echo "  是否使用 https://${cleaned} ？"
         echo "    1) 使用 https://${cleaned}"
         echo "    2) 重新输入"
@@ -1629,7 +1633,7 @@ collect_cloudflare_args() {
       route_url="${route_url%/}"
 
       if [[ "$route_url" != https://* ]]; then
-        echo -e "  ${YELLOW}URL 必须以 https:// 开头。${NC}"
+        say_yellow "URL 必须以 https:// 开头。"
         continue
       fi
 
@@ -1648,7 +1652,7 @@ collect_cloudflare_args() {
 
   if [[ -n "$existing_sub_store_id" ]]; then
     echo ""
-    echo -e "  ${YELLOW}检测到你的 Cloudflare 账号里已经有 SUB_STORE${NC}"
+    say_yellow "检测到你的 Cloudflare 账号里已经有 SUB_STORE"
     echo "  id: ${existing_sub_store_id}"
     echo ""
     echo "    1) 复用现有 SUB_STORE"
@@ -1745,21 +1749,21 @@ collect_cloudflare_args() {
 
       # Check for token/subscription URL
       if [[ "$nanob_url" == *"token="* ]] || [[ "$nanob_url" == *"/jb"* ]] || [[ "$nanob_url" == *"/sub"* ]]; then
-        echo -e "  ${YELLOW}这里需要 Worker 根地址，不要粘贴带 token 的订阅链接。${NC}"
+        say_yellow "这里需要 Worker 根地址，不要粘贴带 token 的订阅链接。"
         continue
       fi
 
       # Reject placeholder/example URLs in real deployment mode
       if [[ "$DRY_RUN" != "1" ]] && [[ "$COMMAND_ONLY" != "1" ]]; then
         if is_placeholder_worker_url "$nanob_url"; then
-          echo -e "  ${YELLOW}真实部署不能使用示例地址。请输入你自己的 Worker 地址。${NC}"
+          say_yellow "真实部署不能使用示例地址。请输入你自己的 Worker 地址。"
           continue
         fi
       fi
 
       # Check for http://
       if [[ "$nanob_url" == http://* ]]; then
-        echo -e "  ${YELLOW}Worker URL 必须使用 https://，不支持 http://。${NC}"
+        say_yellow "Worker URL 必须使用 https://，不支持 http://。"
         continue
       fi
 
@@ -1768,7 +1772,7 @@ collect_cloudflare_args() {
         local cleaned_n="${nanob_url%%/*}"
         cleaned_n="${cleaned_n%%\?*}"
         cleaned_n="${cleaned_n%/}"
-        echo -e "  ${YELLOW}检测到未包含 https://${NC}"
+        say_yellow "检测到未包含 https://"
         echo "  是否使用 https://${cleaned_n} ？"
         echo "    1) 使用 https://${cleaned_n}"
         echo "    2) 重新输入"
@@ -1789,7 +1793,7 @@ collect_cloudflare_args() {
       nanob_url="${nanob_url%/}"
 
       if [[ "$nanob_url" != https://* ]]; then
-        echo -e "  ${YELLOW}URL 必须以 https:// 开头。${NC}"
+        say_yellow "URL 必须以 https:// 开头。"
         continue
       fi
 
@@ -1806,7 +1810,7 @@ collect_cloudflare_args() {
 
     if [[ -n "$existing_geo_id" ]]; then
       echo ""
-      echo -e "  ${YELLOW}检测到你的 Cloudflare 账号里已经有 NANOB_GEO_CACHE${NC}"
+      say_yellow "检测到你的 Cloudflare 账号里已经有 NANOB_GEO_CACHE"
       echo "  id: ${existing_geo_id}"
       echo ""
       echo "    1) 复用现有 NANOB_GEO_CACHE"
@@ -2321,7 +2325,7 @@ handle_core_port_conflict() {
   local label="$2"
 
   echo ""
-  echo -e "  ${YELLOW}端口 ${port} (${label}) 已被占用。${NC}"
+  say_yellow "端口 ${port} (${label}) 已被占用。"
   echo ""
   echo "    1) 显示占用进程详情"
   echo "    2) 我已处理，重新检测"
@@ -2656,9 +2660,17 @@ run_unified_preflight() {
       echo "  Preflight: ALL CHECKS PASSED"
     fi
   elif [[ $PREFLIGHT_ERRORS -eq 0 ]]; then
-    echo -e "  ${YELLOW}Preflight: ${PREFLIGHT_WARNINGS} warning(s), no errors.${NC}"
+    if installer_has_color; then
+      echo -e "  ${YELLOW}Preflight: ${PREFLIGHT_WARNINGS} warning(s), no errors.${NC}"
+    else
+      echo "  Preflight: ${PREFLIGHT_WARNINGS} warning(s), no errors."
+    fi
   else
-    echo -e "  ${RED}Preflight: ${PREFLIGHT_ERRORS} error(s), ${PREFLIGHT_WARNINGS} warning(s).${NC}"
+    if installer_has_color; then
+      echo -e "  ${RED}Preflight: ${PREFLIGHT_ERRORS} error(s), ${PREFLIGHT_WARNINGS} warning(s).${NC}"
+    else
+      echo "  Preflight: ${PREFLIGHT_ERRORS} error(s), ${PREFLIGHT_WARNINGS} warning(s)."
+    fi
   fi
   echo ""
 
@@ -3867,7 +3879,7 @@ run_rotate_mode() {
   [[ "$DRY_RUN" == "1" ]] && cmd+=(--dry-run)
 
   echo ""
-  echo -e "  ${YELLOW}提示：此命令需要在 VPS 上以 root 运行。${NC}"
+  say_yellow "提示：此命令需要在 VPS 上以 root 运行。"
 
   run_cmd "一键换密钥" "${cmd[@]}"
 }
@@ -4008,7 +4020,7 @@ run_commands_mode() {
   echo ""
   section_line "命令模板（可复制）"
   echo ""
-  echo -e "  ${YELLOW}注意: commands-only 模式不会验证系统状态。${NC}"
+  say_yellow "注意: commands-only 模式不会验证系统状态。"
   echo -e "  ${YELLOW}Note: Commands-only mode does not validate the system.${NC}"
   echo ""
 
@@ -4280,7 +4292,11 @@ PLAN
 
 show_menu() {
   echo ""
-  echo -e "${BOLD}NanoBK Proxy Suite${NC} v${VERSION}"
+  if installer_has_color; then
+    echo -e "${BOLD}NanoBK Proxy Suite${NC} v${VERSION}"
+  else
+    echo "NanoBK Proxy Suite v${VERSION}"
+  fi
   echo ""
   echo "  请选择安装模式："
   echo ""
@@ -4382,7 +4398,11 @@ main() {
   # Interactive menu
   while true; do
     show_menu
-    echo -en "${BOLD}  请输入选项 [0-9]:${NC} "
+    if installer_has_color; then
+      echo -en "${BOLD}  请输入选项 [0-9]:${NC} "
+    else
+      printf "  请输入选项 [0-9]: "
+    fi
     read -r choice
     handle_menu_choice "$choice" || true
     echo ""
