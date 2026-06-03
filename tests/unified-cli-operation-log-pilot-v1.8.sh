@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — v1.8.26 Operation Log Pilot Test
+# NanoBK Proxy Suite — v1.8.27 Operation Log Pilot Test
 #
 # Tests redacted operation-log pilot behavior.
 # Does NOT test real deployment — only log infrastructure.
@@ -61,7 +61,7 @@ run_oplog_test() {
 }
 
 echo ""
-echo "=== Test Suite: v1.8.26 Operation Log Pilot ==="
+echo "=== Test Suite: v1.8.27 Operation Log Pilot ==="
 
 # ── 1: oplog_redact basic secrets ────────────────────────────────────────
 
@@ -560,7 +560,124 @@ assert_not_contains "$missing_output" "全部通过" "Missing: no fake success"
 # Cleanup
 rm -f "$_harmless_script" "$_failing_script" 2>/dev/null
 
-# ── 10: Test helper stability ────────────────────────────────────────────
+# ── 10: Real command pilot ─────────────────────────────────────────────
+
+echo ""
+echo "--- 10: Real command pilot ---"
+
+# Test 10a: default test mode does NOT trigger real pilot
+default_real=$(bash "${REPO_DIR}/installer/install.sh" --mode test --defaults 2>&1 < /dev/null || true)
+assert_not_contains "$default_real" "operation-log real command pilot enabled" "10a Default: real pilot not triggered"
+assert_not_contains "$default_real" "real command pilot completed" "10a Default: real pilot not completed"
+
+# Test 10b: real pilot triggers with env + defaults
+PILOT_DIR=$(mktemp -d)
+real_pilot_output=$(NANOBK_OPLOG_REAL_PILOT=1 NANOBK_OPLOG_DIR="$PILOT_DIR" \
+  bash "${REPO_DIR}/installer/install.sh" --mode test --defaults 2>&1 < /dev/null || true)
+
+assert_contains "$real_pilot_output" "operation-log real command pilot enabled" "10b Real pilot: enabled"
+assert_contains "$real_pilot_output" "bin/nanobk --version" "10b Real pilot: contains command"
+assert_contains "$real_pilot_output" "operation-log real command pilot completed" "10b Real pilot: completed"
+assert_contains "$real_pilot_output" "Log:" "10b Real pilot: shows log path"
+
+# Check log file exists and permissions
+real_log=$(ls "${PILOT_DIR}"/real-command-version-pilot-*.log 2>/dev/null | head -1 || true)
+if [[ -n "$real_log" ]]; then
+  pass "10b Real pilot: log file exists"
+  real_log_perms=$(stat -f '%Lp' "$real_log" 2>/dev/null || stat -c '%a' "$real_log" 2>/dev/null || echo "unknown")
+  if [[ "$real_log_perms" == "600" ]]; then
+    pass "10b Real pilot: log chmod 600"
+  else
+    fail "10b Real pilot: log chmod 600 (got $real_log_perms)"
+  fi
+  # Log should contain version output
+  log_content=$(cat "$real_log")
+  assert_contains "$log_content" "NanoBK" "10b Real pilot: log contains version output"
+else
+  fail "10b Real pilot: log file not found"
+fi
+rm -rf "$PILOT_DIR" 2>/dev/null
+
+# Test 10c: verbose shows real command output
+PILOT_DIR=$(mktemp -d)
+verbose_real=$(NANOBK_VERBOSE=1 NANOBK_OPLOG_REAL_PILOT=1 NANOBK_OPLOG_DIR="$PILOT_DIR" \
+  bash "${REPO_DIR}/installer/install.sh" --mode test --defaults 2>&1 < /dev/null || true)
+rm -rf "$PILOT_DIR" 2>/dev/null
+
+assert_contains "$verbose_real" "operation-log real command pilot enabled" "10c Verbose: real pilot enabled"
+assert_contains "$verbose_real" "operation-log real command pilot completed" "10c Verbose: real pilot completed"
+assert_contains "$verbose_real" "NanoBK" "10c Verbose: shows version output"
+assert_contains "$verbose_real" "Log:" "10c Verbose: shows log path"
+
+# Test 10d: PLAIN no ANSI
+PILOT_DIR=$(mktemp -d)
+plain_real=$(NANOBK_PLAIN=1 NANOBK_OPLOG_REAL_PILOT=1 NANOBK_OPLOG_DIR="$PILOT_DIR" \
+  bash "${REPO_DIR}/installer/install.sh" --mode test --defaults 2>&1 < /dev/null || true)
+rm -rf "$PILOT_DIR" 2>/dev/null
+
+assert_contains "$plain_real" "operation-log real command pilot enabled" "10d PLAIN: real pilot enabled"
+assert_contains "$plain_real" "operation-log real command pilot completed" "10d PLAIN: real pilot completed"
+assert_contains "$plain_real" "Log:" "10d PLAIN: shows log path"
+# Check ANSI only on pilot-specific lines
+plain_real_pilot_lines=$(grep -E "real command pilot|Log:" <<< "$plain_real" || true)
+if has_ansi "$plain_real_pilot_lines"; then
+  fail "10d PLAIN: no ANSI in pilot output"
+else
+  pass "10d PLAIN: no ANSI in pilot output"
+fi
+
+# Test 10e: full dry-run unaffected
+full_dry_real=$(NANOBK_OPLOG_REAL_PILOT=1 NANOBK_TEST_MOCK=1 NANOBK_ASSUME_PORTS_FREE=1 \
+  bash "${REPO_DIR}/installer/install.sh" --mode full --dry-run --defaults --lang zh 2>&1 < /dev/null || true)
+assert_not_contains "$full_dry_real" "operation-log real command pilot enabled" "10e Full dry-run: real pilot not triggered"
+assert_contains "$full_dry_real" "planned / dry-run" "10e Full dry-run: planned / dry-run preserved"
+
+# Test 10f: non-defaults test mode does NOT trigger
+nondefaults_real=$(NANOBK_OPLOG_REAL_PILOT=1 \
+  bash "${REPO_DIR}/installer/install.sh" --mode test 2>&1 <<'EOF' || true
+5
+EOF
+)
+assert_not_contains "$nondefaults_real" "operation-log real command pilot enabled" "10f Non-defaults: real pilot not triggered"
+
+# Test 10g: failure propagation with fake failing command
+_failing_real_cmd=$(mktemp)
+cat > "$_failing_real_cmd" <<'FAILREAL'
+#!/usr/bin/env bash
+echo "SECRET=real-pilot-failure-secret"
+exit 9
+FAILREAL
+chmod +x "$_failing_real_cmd"
+
+PILOT_DIR=$(mktemp -d)
+real_failure_rc=0
+real_failure_output=$(NANOBK_OPLOG_REAL_PILOT=1 \
+  NANOBK_OPLOG_REAL_PILOT_CMD="$_failing_real_cmd" \
+  NANOBK_OPLOG_DIR="$PILOT_DIR" \
+  bash "${REPO_DIR}/installer/install.sh" --mode test --defaults 2>&1 < /dev/null) || real_failure_rc=$?
+
+if [[ "$real_failure_rc" -ne 0 ]]; then
+  pass "10g Failure: rc is non-zero ($real_failure_rc)"
+else
+  fail "10g Failure: rc is zero (expected non-zero)"
+fi
+assert_contains "$real_failure_output" "operation-log real command pilot failed" "10g Failure: contains failure message"
+assert_not_contains "$real_failure_output" "SECRET=real-pilot-failure-secret" "10g Failure: no raw secret on screen"
+
+# Check log file for failure
+real_failure_log=$(ls "${PILOT_DIR}"/real-command-version-pilot-*.log 2>/dev/null | head -1 || true)
+if [[ -n "$real_failure_log" ]]; then
+  pass "10g Failure: log file exists"
+  real_failure_log_content=$(cat "$real_failure_log")
+  assert_not_contains "$real_failure_log_content" "SECRET=real-pilot-failure-secret" "10g Failure log: no raw secret"
+  assert_contains "$real_failure_log_content" "REDACTED" "10g Failure log: contains REDACTED"
+else
+  fail "10g Failure: log file not found"
+fi
+rm -rf "$PILOT_DIR" 2>/dev/null
+rm -f "$_failing_real_cmd" 2>/dev/null
+
+# ── 11: Test helper stability ────────────────────────────────────────────
 
 echo ""
 echo "--- 10: Test helper stability ---"

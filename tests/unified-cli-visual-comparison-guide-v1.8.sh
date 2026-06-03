@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — v1.8.26 CLI Visual Comparison Guide Coverage Test
+# NanoBK Proxy Suite — v1.8.27 CLI Visual Comparison Guide Coverage Test
 #
 # Checks that docs/validation-v1.8-cli-visual-comparison.md contains
 # required commands, safety rules, and decision matrix content.
@@ -48,7 +48,7 @@ assert_not_contains() {
 }
 
 echo ""
-echo "=== Test Suite: v1.8.26 CLI Visual Comparison Guide Coverage ==="
+echo "=== Test Suite: v1.8.27 CLI Visual Comparison Guide Coverage ==="
 
 # ── Read the guide ────────────────────────────────────────────────────────
 

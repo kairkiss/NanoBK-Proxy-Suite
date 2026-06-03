@@ -200,3 +200,16 @@ If the next round does a real command pilot, it must satisfy:
 - Bot/Web are control plane only.
 - Dry-run is not real deployment.
 - operation-log can hide output, but must never hide failure.
+
+## v1.8.27 update
+
+v1.8.27 implements the first one-command real pilot using `bin/nanobk --version`.
+
+- Wraps only `bin/nanobk --version`.
+- Opt-in only via `NANOBK_OPLOG_REAL_PILOT=1`.
+- Only in `--mode test --defaults`.
+- No deploy path wrapped.
+- No `run_cmd`/`run_critical_step` rollout.
+- Full dry-run unaffected.
+- Real deployment output hiding still not proven.
+- Next rollout requires explicit review.

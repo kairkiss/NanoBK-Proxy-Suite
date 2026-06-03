@@ -114,6 +114,17 @@ The `oplog_redact` function strips:
 - v1.8.25 verifies controlled failing wrapped script causes non-zero installer test result.
 - v1.8.25 verifies failure output/log redaction (no raw secret on screen or in log).
 
+## v1.8.27 One Low-risk Real Command Pilot
+
+- Wraps only `bin/nanobk --version`.
+- Opt-in only via `NANOBK_OPLOG_REAL_PILOT=1`.
+- Only in `--mode test --defaults`.
+- No deploy path wrapped.
+- No `run_cmd`/`run_critical_step` rollout.
+- Full dry-run unaffected.
+- Real deployment output hiding still not proven.
+- Next rollout requires explicit review.
+
 ## Next Step Before Full Rollout
 
 Before integrating `oplog_run_hidden` into `run_cmd`:

@@ -1,5 +1,24 @@
 # Changelog
 
+## v1.8.27 — Operation Log One Low-risk Real Command Pilot
+
+### Added
+
+- Added opt-in operation-log real command pilot for `bin/nanobk --version`.
+- Hidden output by default; verbose shows redacted output.
+- Added PLAIN/UI=0/CI no-ANSI tests for real command pilot.
+- Added failure propagation test with test-only command override.
+- Full dry-run unaffected; non-default test mode unaffected.
+
+### Safety
+
+- No real deployment path changed.
+- No `run_cmd`/`run_critical_step` rollout.
+- No protocol templates changed.
+- No Worker core changed.
+- No rotate sync changed.
+- No Bot/Web business logic changed.
+
 ## v1.8.26 — Operation Log Pilot Acceptance Checkpoint
 
 ### Added

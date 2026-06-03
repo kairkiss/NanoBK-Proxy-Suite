@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — v1.8.26 CLI Static UI Checkpoint Coverage Test
+# NanoBK Proxy Suite — v1.8.27 CLI Static UI Checkpoint Coverage Test
 #
 # Checks that docs/validation-v1.8-cli-static-ui-checkpoint.md contains
 # required acceptance records, fix history, and decision matrix.
@@ -37,7 +37,7 @@ assert_contains() {
 }
 
 echo ""
-echo "=== Test Suite: v1.8.26 CLI Static UI Checkpoint Coverage ==="
+echo "=== Test Suite: v1.8.27 CLI Static UI Checkpoint Coverage ==="
 
 # ── Read the checkpoint ───────────────────────────────────────────────────
 
