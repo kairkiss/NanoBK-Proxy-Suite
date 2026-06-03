@@ -1,5 +1,24 @@
 # Changelog
 
+## v1.8.14 — CLI Manual Visual Comparison Guide
+
+### Added
+
+- New `docs/validation-v1.8-cli-visual-comparison.md` — manual visual comparison guide for default, compact, plain, and UI=0 modes.
+  - Purpose: human visual comparison acceptance, not real deployment.
+  - Safety rules: do NOT input real tokens, do NOT cat env files.
+  - Commands for all four modes with `tee` output capture.
+  - Quick safety grep for token/secret/fake-success detection.
+  - Human review checklist per mode.
+  - PASS / NEEDS POLISH / BLOCKED criteria.
+  - Feedback template with per-mode sections.
+  - Decision matrix for next version direction.
+- New `tests/unified-cli-visual-comparison-guide-v1.8.sh` — verifies comparison guide contains required commands, safety rules, acceptance criteria, and decision matrix.
+
+### Safety
+
+- No install.sh business logic, deployment logic, VPS protocol templates, Cloudflare Worker core, rotate sync, Bot/Web logic, or Summary status logic changed.
+
 ## v1.8.13 — CLI Compact Mode and Visual Density Polish
 
 ### Added
