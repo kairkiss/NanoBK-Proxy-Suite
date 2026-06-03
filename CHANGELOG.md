@@ -1,5 +1,22 @@
 # Changelog
 
+## v1.8.19 — CLI Static UI Acceptance Checkpoint
+
+### Added
+
+- New `docs/validation-v1.8-cli-static-ui-checkpoint.md` — CLI static UI acceptance closure document.
+  - Records v1.8.14 manual visual BLOCKED result and reasons.
+  - Documents v1.8.15–v1.8.18 mode-boundary fix chain.
+  - Records final four-mode status (Default/Compact/Plain/UI=0 all PASS).
+  - Documents remaining limitations.
+  - Provides next-stage decision matrix (operation-log pilot, dynamic progress, Bot polish, Web polish).
+  - Recommends v1.8.20 Operation Log Low-risk Pilot.
+- New `tests/unified-cli-static-ui-checkpoint-v1.8.sh` — verifies checkpoint document contains required records.
+
+### Safety
+
+- No deployment logic, protocol templates, Worker core, rotate sync, Bot/Web logic, or Summary status logic changed.
+
 ## v1.8.18 — UI=0 Summary Boundary Final Fix
 
 ### Fixed
