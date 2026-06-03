@@ -1,0 +1,85 @@
+# NanoBK v1.8 Operation Log Pilot
+
+## Purpose
+
+This document records the v1.8.20 operation-log low-risk pilot.
+
+**This is NOT a full deployment log rollout.**
+**This does NOT prove real VPS/Cloudflare deploy output is hidden.**
+**This only proves redacted operation-log pilot behavior.**
+
+## Scope
+
+### What is tested
+
+- `oplog_redact` strips bot tokens, API tokens, passwords, secrets, workers.dev/pages.dev URLs.
+- `oplog_write` writes redacted content to log file.
+- `oplog_run_hidden` captures command output to log, hides from screen by default.
+- `oplog_run` captures and shows redacted output on screen.
+- `oplog_hint_on_failure` shows log path on failure.
+- Log file permissions are 600.
+- PLAIN/UI=0/CI modes produce no ANSI in pilot output.
+- Verbose mode shows redacted output on screen.
+
+### What is NOT tested
+
+- Real VPS deployment output hiding.
+- Real Cloudflare deploy output hiding.
+- Real Worker verify output hiding.
+- Real rotate sync output hiding.
+- Full `run_cmd` / `run_critical_step` rollout.
+- Real healthcheck / cf verify output hiding.
+
+## Safety Rules
+
+- Do NOT paste real tokens.
+- Do NOT `cat` env files.
+- Do NOT share real VPS IP / workers.dev / subscription URL.
+- Log files use redacted content only.
+- Test secrets are obvious fakes (e.g., `TOKEN=fake-token-for-redaction-test`).
+
+## Redaction Patterns
+
+The `oplog_redact` function strips:
+
+| Pattern | Replacement |
+|---------|-------------|
+| `SUB_TOKEN=...` | `SUB_TOKEN=[REDACTED]` |
+| `ADMIN_TOKEN=...` | `ADMIN_TOKEN=[REDACTED]` |
+| `NANOB_TOKEN=...` | `NANOB_TOKEN=[REDACTED]` |
+| `CF_API_TOKEN=...` | `CF_API_TOKEN=[REDACTED]` |
+| `REALITY_PRIVATE_KEY=...` | `REALITY_PRIVATE_KEY=[REDACTED]` |
+| `PRIVATE_KEY=...` | `PRIVATE_KEY=[REDACTED]` |
+| `SECRET=...` (4+ chars) | `SECRET=[REDACTED]` |
+| `TOKEN=...` (4+ chars) | `TOKEN=[REDACTED]` |
+| `password=...` | `password=[REDACTED]` |
+| `Authorization: Bearer ...` | `Authorization: Bearer [REDACTED]` |
+| `*.workers.dev/...` | `[REDACTED_WORKERS_URL]` |
+| `*.pages.dev/...` | `[REDACTED_PAGES_URL]` |
+| `?token=...` / `&token=...` | `[REDACTED]` |
+| Bot token pattern `123456789:ABC...` | `[REDACTED_BOT_TOKEN]` |
+
+## Pilot Limitations
+
+- Only tested with harmless echo/exit commands.
+- Not integrated into real `run_cmd` or `run_critical_step`.
+- Default user paths do not change behavior.
+- `NANOBK_OPLOG_PILOT=1` is for test use only.
+
+## Environment Variables
+
+| Variable | Purpose |
+|----------|---------|
+| `NANOBK_VERBOSE=1` | Show redacted command output on screen |
+| `NANOBK_OPLOG_DIR=...` | Override log directory for testing |
+| `NANOBK_OPLOG_PILOT=1` | Reserved for future pilot integration |
+
+## Next Step Before Full Rollout
+
+Before integrating `oplog_run_hidden` into `run_cmd`:
+
+1. Prove redaction covers all real command outputs.
+2. Prove failure hints work with real VPS/CF commands.
+3. Prove verbose mode is useful for debugging.
+4. Get explicit review approval for `run_cmd` changes.
+5. Start with one low-risk command path only.

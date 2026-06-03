@@ -1,5 +1,20 @@
 # Changelog
 
+## v1.8.20 — Operation Log Low-risk Pilot
+
+### Added
+
+- Enhanced `installer/lib/operation-log.sh` with `oplog_run_hidden()` — captures command output to log, hides from screen by default. Verbose mode shows redacted output.
+- Enhanced `oplog_redact()`: broadened `TOKEN=` pattern to catch 4+ char values (was 8+).
+- Enhanced `oplog_init()`: log file permissions set to 600.
+- Added `NANOBK_OPLOG_DIR` env var support as alias for `NANOBK_LOG_DIR` (test convenience).
+- New `tests/unified-cli-operation-log-pilot-v1.8.sh` — operation log pilot tests covering redaction, hidden output, failure hints, verbose mode, PLAIN/UI=0/CI safety, log permissions.
+- New `docs/validation-v1.8-operation-log-pilot.md` — pilot documentation with scope, safety rules, redaction patterns, limitations, and next-step guidance.
+
+### Safety
+
+- This is a low-risk pilot only. No `run_cmd` or `run_critical_step` changes. No real deployment output hiding. Default user paths unchanged.
+
 ## v1.8.19 — CLI Static UI Acceptance Checkpoint
 
 ### Added

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — Operation Log Skeleton v1.8.1
+# NanoBK Proxy Suite — Operation Log v1.8.20
 #
 # Provides operation logging for the installer.
 # Default UI shows concise messages; verbose mode shows full output.
@@ -11,6 +11,7 @@
 #   NANOBK_VERBOSE=1    — show detailed command output inline
 #   NANOBK_PLAIN=1      — plainest log format
 #   NANOBK_LOG_DIR      — override log directory
+#   NANOBK_OPLOG_DIR    — alias for NANOBK_LOG_DIR (test convenience)
 #
 # Source this file; do not execute directly.
 
@@ -36,8 +37,10 @@ _oplog_dir=""
 _oplog_current_file=""
 
 _oplog_resolve_dir() {
-  if [[ -n "${NANOBK_LOG_DIR:-}" ]] && [[ -d "$NANOBK_LOG_DIR" ]]; then
-    _oplog_dir="$NANOBK_LOG_DIR"
+  # Check NANOBK_OPLOG_DIR first (test convenience), then NANOBK_LOG_DIR
+  local dir="${NANOBK_OPLOG_DIR:-${NANOBK_LOG_DIR:-}}"
+  if [[ -n "$dir" ]] && [[ -d "$dir" ]]; then
+    _oplog_dir="$dir"
     return 0
   fi
 
@@ -73,8 +76,9 @@ oplog_init() {
 
   _oplog_current_file="${_oplog_dir}/${safe_label}-${timestamp}.log"
 
-  # Create empty file
+  # Create empty file with restrictive permissions
   : > "$_oplog_current_file" 2>/dev/null || true
+  chmod 600 "$_oplog_current_file" 2>/dev/null || true
 
   # Write header
   _oplog_write_raw "# NanoBK Proxy Suite — Operation Log"
@@ -148,7 +152,7 @@ oplog_redact() {
     -e 's/(KEY=)[A-Za-z0-9_-]{8,}/\1[REDACTED]/g' \
     -e "s/(KEY=')[^']*'/\1[REDACTED]'/g" \
     -e 's/(KEY=")[^"]*"/\1[REDACTED]"/g' \
-    -e 's/(TOKEN=)[A-Za-z0-9_-]{8,}/\1[REDACTED]/g' \
+    -e 's/(TOKEN=)[A-Za-z0-9_-]{4,}/\1[REDACTED]/g' \
     -e "s/(TOKEN=')[^']*'/\1[REDACTED]'/g" \
     -e 's/(TOKEN=")[^"]*"/\1[REDACTED]"/g' \
     -e 's/(password=)[^ ]*/\1[REDACTED]/gi' \
@@ -164,20 +168,24 @@ oplog_redact() {
   echo "$text"
 }
 
-# ── Run command with logging ──────────────────────────────────────────────
+# ── Run command with logging (hidden output) ──────────────────────────────
 
-# Captures command output to log. In non-verbose mode, only shows success/failure.
-# In verbose mode, also shows output inline.
+# Captures command output to log. Screen only shows label + success/failure.
+# On failure, shows log path hint.
 #
-# Usage: oplog_run "description" command [args...]
+# Usage: oplog_run_hidden "label" command [args...]
 # Returns: command's exit code
-oplog_run() {
-  local desc="$1"
+oplog_run_hidden() {
+  local label="$1"
   shift
   local cmd=("$@")
 
-  oplog_write "--- ${desc} ---"
-  # Redact the command line itself (may contain tokens as arguments)
+  # Ensure log is initialized
+  if [[ -z "${_oplog_current_file:-}" ]]; then
+    oplog_init "pilot"
+  fi
+
+  oplog_write "--- ${label} ---"
   local cmd_display="${cmd[*]}"
   local cmd_redacted
   cmd_redacted=$(oplog_redact "$cmd_display")
@@ -200,9 +208,53 @@ oplog_run() {
 
   # Display based on verbosity
   if [[ "${NANOBK_VERBOSE:-}" == "1" ]]; then
-    # Show full (redacted) output
+    # Show redacted output
     echo "$redacted"
   fi
+
+  return $rc
+}
+
+# ── Run command with logging (visible output) ─────────────────────────────
+
+# Captures command output to log AND shows it on screen.
+# Output is redacted before display.
+#
+# Usage: oplog_run "description" command [args...]
+# Returns: command's exit code
+oplog_run() {
+  local desc="$1"
+  shift
+  local cmd=("$@")
+
+  # Ensure log is initialized
+  if [[ -z "${_oplog_current_file:-}" ]]; then
+    oplog_init "pilot"
+  fi
+
+  oplog_write "--- ${desc} ---"
+  local cmd_display="${cmd[*]}"
+  local cmd_redacted
+  cmd_redacted=$(oplog_redact "$cmd_display")
+  oplog_write "Command: ${cmd_redacted}"
+  oplog_write ""
+
+  local output=""
+  local rc=0
+
+  # Capture both stdout and stderr
+  output=$("${cmd[@]}" 2>&1) || rc=$?
+
+  # Redact and log
+  local redacted
+  redacted=$(oplog_redact "$output")
+  oplog_write "$redacted"
+  oplog_write ""
+  oplog_write "Exit code: ${rc}"
+  oplog_write ""
+
+  # Always show redacted output (this is the visible variant)
+  echo "$redacted"
 
   return $rc
 }
