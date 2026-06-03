@@ -1,5 +1,23 @@
 # Changelog
 
+## v1.8.12 — CLI Stage Page Cards Polish
+
+### Added
+
+- New `ui_stage_card` generic function in `installer/lib/ui.sh` — displays stage description and bullet items with PLAIN/NO_EMOJI/UI=0/CI fallback.
+- New stage-specific card helpers: `ui_stage_card_vps`, `ui_stage_card_cloudflare`, `ui_stage_card_bot`, `ui_stage_card_web`, `ui_stage_card_summary`.
+- Stage cards inserted in `installer/install.sh` after each `ui_section` call (VPS, Cloudflare, Bot, Web Panel, Summary).
+  - VPS card: HY2/TUIC/Reality/Trojan, systemd, healthcheck, dry-run note.
+  - Cloudflare card: nanok/nanob, KV/Service Binding, verify, dry-run note.
+  - Bot card: control plane, nanobk CLI, token safety.
+  - Web Panel card: control plane, no direct secrets, SSH tunnel, not node-ready.
+  - Summary card: honest status words, dry-run not real deployment.
+- New `tests/unified-cli-stage-cards-v1.8.sh` — stage card snapshot tests covering default, PLAIN, NO_EMOJI, UI=0, dry-run output, secret safety, fake success guard.
+
+### Safety
+
+- All install.sh changes are display-only: added `ui_stage_card_*` calls after existing `ui_section` calls. No if/case/return moved, no variables changed, no status words changed, no commands changed.
+
 ## v1.8.11 — Brand Banner Width and Snapshot Fix
 
 ### Fixed

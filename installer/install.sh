@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — Unified Beginner Installer v1.8.11
+# NanoBK Proxy Suite — Unified Beginner Installer v1.8.12
 #
 # Interactive entry point for NanoBK Proxy Suite.
 # Guides users through VPS deployment, Cloudflare setup, Bot, Web Panel.
@@ -27,7 +27,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # ── Constants ───────────────────────────────────────────────────────────────
 
 REPO_URL="https://github.com/kairkiss/NanoBK-Proxy-Suite"
-VERSION="1.8.11"
+VERSION="1.8.12"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -2868,6 +2868,7 @@ run_full_wizard() {
 
   # Phase 1: VPS (skip if resuming from cloudflare/botweb)
   ui_section "阶段 1：VPS 部署" "1" "5"
+  ui_stage_card_vps
   if [[ "$START_FROM_STAGE" == "cloudflare" ]] || [[ "$START_FROM_STAGE" == "botweb" ]]; then
     echo "  已跳过 VPS 部署（从 ${START_FROM_STAGE} 继续）。"
   elif ask_yes_no_menu "是否配置 VPS 部署？" "y"; then
@@ -2929,6 +2930,7 @@ run_full_wizard() {
 
   # Phase 2: Cloudflare — strict dependency on VPS profile
   ui_section "阶段 2：Cloudflare 部署" "2" "5"
+  ui_stage_card_cloudflare
 
   # Check if profile exists (skip in dry-run) — unconditional dependency check
   local profile_check_path="/etc/nanobk/profile.current.json"
@@ -3063,6 +3065,7 @@ run_full_wizard() {
 
   # Phase 3: Bot
   ui_section "阶段 3：Telegram Bot" "3" "5"
+  ui_stage_card_bot
 
   # Control-plane-only warning if VPS/CF not ready
   if control_plane_only_required; then
@@ -3095,6 +3098,7 @@ run_full_wizard() {
 
   # Phase 4: Web Panel
   ui_section "阶段 4：Web Panel" "4" "5"
+  ui_stage_card_web
 
   # Control-plane-only warning if VPS/CF not ready
   if control_plane_only_required; then
@@ -3140,6 +3144,7 @@ run_full_wizard() {
 print_summary() {
   echo ""
   ui_section "NanoBK Setup Summary" "5" "5"
+  ui_stage_card_summary
 
   # VPS — honest status
   echo "  VPS:"

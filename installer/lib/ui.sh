@@ -653,3 +653,100 @@ ui_dry_run_notice() {
   fi
   echo ""
 }
+
+# ── Stage cards ───────────────────────────────────────────────────────────
+
+# Generic stage card with title, description, and bullet items.
+# Usage: ui_stage_card "title" "description" "item1" "item2" ...
+ui_stage_card() {
+  local title="$1"
+  shift
+  local desc="$1"
+  shift
+  local items=("$@")
+
+  if [[ "${NANOBK_UI:-}" == "0" ]]; then
+    # Legacy bypass: minimal output
+    [[ -n "$desc" ]] && echo "  ${desc}"
+    return 0
+  fi
+
+  if [[ "${NANOBK_PLAIN:-}" == "1" ]]; then
+    # PLAIN: clean text, no box, no emoji, no ANSI
+    [[ -n "$desc" ]] && echo "  ${desc}"
+    if [[ "${#items[@]}" -gt 0 ]]; then
+      for item in "${items[@]}"; do
+        echo "  - ${item}"
+      done
+    fi
+    echo ""
+    return 0
+  fi
+
+  # Default: structured card
+  if [[ "$_ui_has_color" == "1" ]]; then
+    [[ -n "$desc" ]] && echo -e "  ${_ui_c_bold}${desc}${_ui_c_reset}"
+  else
+    [[ -n "$desc" ]] && echo "  ${desc}"
+  fi
+  if [[ "${#items[@]}" -gt 0 ]]; then
+    local bullet
+    bullet=$(_ui_sym "·" "-")
+    for item in "${items[@]}"; do
+      echo "    ${bullet} ${item}"
+    done
+  fi
+  echo ""
+}
+
+# VPS stage card
+ui_stage_card_vps() {
+  ui_stage_card \
+    "VPS" \
+    "本阶段会准备你的 VPS 节点：" \
+    "HY2 / TUIC / Reality / Trojan 四协议" \
+    "systemd 常驻服务" \
+    "healthcheck 健康检查" \
+    "dry-run 不会真实部署"
+}
+
+# Cloudflare stage card
+ui_stage_card_cloudflare() {
+  ui_stage_card \
+    "Cloudflare" \
+    "本阶段会部署 Cloudflare 订阅服务：" \
+    "nanok / nanob Worker 部署" \
+    "KV namespace / Service Binding 配置" \
+    "verify 验证订阅可用性" \
+    "dry-run 不会真实 deploy"
+}
+
+# Telegram Bot stage card
+ui_stage_card_bot() {
+  ui_stage_card \
+    "Telegram Bot" \
+    "本阶段会配置 Telegram Bot 控制端：" \
+    "Bot 通过 nanobk CLI 操作" \
+    "Bot 是控制端，不代表 VPS / CF 已经可用" \
+    "token 请当作密码保管"
+}
+
+# Web Panel stage card
+ui_stage_card_web() {
+  ui_stage_card \
+    "Web Panel" \
+    "本阶段会配置 Web Panel 控制端：" \
+    "Web 是控制端，不直接写 secrets / systemd" \
+    "可通过本地端口或 SSH tunnel 访问" \
+    "不代表节点已经可用"
+}
+
+# Summary stage card
+ui_stage_card_summary() {
+  ui_stage_card \
+    "Summary" \
+    "最终摘要会诚实显示各阶段状态：" \
+    "installed / healthy / verified / skipped / failed" \
+    "planned / dry-run / manual_pending" \
+    "dry-run 不代表真实部署成功"
+}
