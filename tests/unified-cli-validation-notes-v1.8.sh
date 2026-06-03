@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — v1.8.17 CLI Validation Notes Coverage Test
+# NanoBK Proxy Suite — v1.8.18 CLI Validation Notes Coverage Test
 #
 # Checks that docs/validation-v1.8-cli-visual.md contains required
 # Phase 13 acceptance result, follow-up fixes, and decision point content.
@@ -48,7 +48,7 @@ assert_not_contains() {
 }
 
 echo ""
-echo "=== Test Suite: v1.8.17 CLI Validation Notes Coverage ==="
+echo "=== Test Suite: v1.8.18 CLI Validation Notes Coverage ==="
 
 # ── Read the validation guide ─────────────────────────────────────────────
 

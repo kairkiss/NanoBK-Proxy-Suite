@@ -237,7 +237,7 @@ ui_section() {
 
   if [[ "${NANOBK_UI:-}" == "0" ]]; then
     echo ""
-    echo "── $title ──"
+    echo "$title"
     echo ""
     return 0
   fi

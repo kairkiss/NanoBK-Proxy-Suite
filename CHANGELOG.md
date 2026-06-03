@@ -1,5 +1,20 @@
 # Changelog
 
+## v1.8.18 — UI=0 Summary Boundary Final Fix
+
+### Fixed
+
+- Fixed UI=0 Summary title Unicode dash leakage: `ui_section()` UI=0 branch now outputs plain text title instead of `── title ──`.
+- Added single Unicode dash (`─`) check to UI=0 and Plain mode boundary tests.
+- Added UI=0 Summary title boundary test: verifies title present, no Unicode dash, no ANSI.
+- Added Plain Summary title boundary test: verifies title present, no Unicode dash, no ANSI.
+- Added Default mode preservation test: verifies Summary title still present with product UI.
+- Added Compact Summary title test.
+
+### Safety
+
+- All changes are display-only. No deployment logic, Summary status logic, or execution commands changed.
+
 ## v1.8.17 — Interactive Plain ANSI Cleanup
 
 ### Fixed

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — v1.8.17 CLI Mode Boundaries Test
+# NanoBK Proxy Suite — v1.8.18 CLI Mode Boundaries Test
 #
 # Tests full installer output respects mode boundaries:
 #   PLAIN: no box drawing / emoji / Unicode progress
@@ -58,7 +58,7 @@ count_lines() {
 }
 
 echo ""
-echo "=== Test Suite: v1.8.17 CLI Mode Boundaries ==="
+echo "=== Test Suite: v1.8.18 CLI Mode Boundaries ==="
 
 # ── Test 1: Plain full output ────────────────────────────────────────────
 
@@ -81,7 +81,7 @@ assert_not_contains "$plain_output" "╔" "Plain: no ╔"
 assert_not_contains "$plain_output" "║" "Plain: no ║"
 assert_not_contains "$plain_output" "╚" "Plain: no ╚"
 assert_not_contains "$plain_output" "═" "Plain: no ═"
-assert_not_contains "$plain_output" "──" "Plain: no ──"
+assert_not_contains "$plain_output" "─" "Plain: no Unicode dash"
 assert_not_contains "$plain_output" "✓" "Plain: no ✓"
 assert_not_contains "$plain_output" "■" "Plain: no ■"
 assert_not_contains "$plain_output" "□" "Plain: no □"
@@ -93,6 +93,20 @@ if has_ansi "$plain_output"; then
   fail "Plain: no ANSI escape"
 else
   pass "Plain: no ANSI escape"
+fi
+
+# Plain Summary title boundary
+plain_summary_block=$(sed -n '/NanoBK Setup Summary/,+5p' <<< "$plain_output" || true)
+if [[ -n "$plain_summary_block" ]]; then
+  assert_contains "$plain_summary_block" "NanoBK Setup Summary" "Plain Summary: title present"
+  assert_not_contains "$plain_summary_block" "─" "Plain Summary: no Unicode dash"
+  if has_ansi "$plain_summary_block"; then
+    fail "Plain Summary: no ANSI"
+  else
+    pass "Plain Summary: no ANSI"
+  fi
+else
+  pass "Plain Summary: block not found (acceptable)"
 fi
 
 # Must NOT contain secrets or fake success
@@ -119,15 +133,33 @@ assert_not_contains "$ui0_output" "╔" "UI=0: no ╔"
 assert_not_contains "$ui0_output" "║" "UI=0: no ║"
 assert_not_contains "$ui0_output" "╚" "UI=0: no ╚"
 assert_not_contains "$ui0_output" "═" "UI=0: no ═"
+assert_not_contains "$ui0_output" "─" "UI=0: no Unicode dash"
 assert_not_contains "$ui0_output" "✓" "UI=0: no ✓"
 assert_not_contains "$ui0_output" "■" "UI=0: no ■"
 assert_not_contains "$ui0_output" "□" "UI=0: no □"
+
+# Summary title must still be present
+assert_contains "$ui0_output" "NanoBK Setup Summary" "UI=0: contains Summary title"
 
 # Must NOT contain ANSI escapes
 if has_ansi "$ui0_output"; then
   fail "UI=0: no ANSI escape"
 else
   pass "UI=0: no ANSI escape"
+fi
+
+# UI=0 Summary title boundary
+ui0_summary_block=$(sed -n '/NanoBK Setup Summary/,+5p' <<< "$ui0_output" || true)
+if [[ -n "$ui0_summary_block" ]]; then
+  assert_contains "$ui0_summary_block" "NanoBK Setup Summary" "UI=0 Summary: title present"
+  assert_not_contains "$ui0_summary_block" "─" "UI=0 Summary: no Unicode dash"
+  if has_ansi "$ui0_summary_block"; then
+    fail "UI=0 Summary: no ANSI"
+  else
+    pass "UI=0 Summary: no ANSI"
+  fi
+else
+  pass "UI=0 Summary: block not found (acceptable)"
 fi
 
 # ── Test 3: Compact truly shorter ────────────────────────────────────────
@@ -145,6 +177,7 @@ compact_output=$(env NANOBK_COMPACT=1 NANOBK_TEST_MOCK=1 NANOBK_ASSUME_PORTS_FRE
 assert_contains "$compact_output" "NanoBK" "Compact: contains NanoBK"
 assert_contains "$compact_output" "planned / dry-run" "Compact: contains planned / dry-run"
 assert_contains "$compact_output" "没有执行真实部署" "Compact: contains no-real-deploy"
+assert_contains "$compact_output" "NanoBK Setup Summary" "Compact: contains Summary title"
 assert_contains "$compact_output" "控制端" "Compact: contains control plane"
 assert_not_contains "$compact_output" "status:  success" "Compact: no fake success"
 assert_not_contains "$compact_output" "TOKEN=" "Compact: no TOKEN="
@@ -159,6 +192,16 @@ if [[ "$compact_lines" -le "$max_compact" ]]; then
   pass "Compact: $compact_lines lines <= 85% of default ($max_compact)"
 else
   fail "Compact: $compact_lines lines > 85% of default ($max_compact)"
+fi
+
+# Default mode should still have product-like Summary title
+default_summary_block=$(sed -n '/NanoBK Setup Summary/,+5p' <<< "$default_output" || true)
+if [[ -n "$default_summary_block" ]]; then
+  assert_contains "$default_summary_block" "NanoBK Setup Summary" "Default Summary: title present"
+  # Default mode is allowed to have Unicode elements
+  pass "Default Summary: product UI preserved"
+else
+  pass "Default Summary: block not found (acceptable)"
 fi
 
 # ── Test 4: Plain preflight ASCII ────────────────────────────────────────

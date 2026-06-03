@@ -297,3 +297,11 @@ Use the feedback to decide the next version direction:
 - v1.8.17 gates those interactive warning paths: VPS domain warnings, Cloudflare URL warnings, KV warnings, port conflict, Preflight summary, select_language prompt, show_menu header, test menu prompt.
 - Added interactive Plain ANSI regression tests.
 - Plain/UI=0/CI interactive paths now contain 0 ANSI escapes.
+
+### v1.8.18 UI=0 Summary Boundary Final Fix
+
+- v1.8.17 passed Plain mode and ANSI boundaries, but manual UI=0 review still found a Unicode dash (`─`) in the Summary title.
+- v1.8.18 fixes `ui_section()` UI=0 branch to output plain text title instead of `── title ──`.
+- Added single Unicode dash (`─`) check to UI=0 and Plain mode boundary tests.
+- Added Summary title boundary tests for UI=0, Plain, Default, and Compact modes.
+- UI=0 full output now contains 0 Unicode dashes. Default mode still has product-like Unicode elements.
