@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — Unified Beginner Installer v1.8.15
+# NanoBK Proxy Suite — Unified Beginner Installer v1.8.16
 #
 # Interactive entry point for NanoBK Proxy Suite.
 # Guides users through VPS deployment, Cloudflare setup, Bot, Web Panel.
@@ -27,7 +27,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # ── Constants ───────────────────────────────────────────────────────────────
 
 REPO_URL="https://github.com/kairkiss/NanoBK-Proxy-Suite"
-VERSION="1.8.15"
+VERSION="1.8.16"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -64,29 +64,80 @@ INSTALLER_CONFIG=""
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
 
-log()   { echo -e "${BLUE}[INFO]${NC}  $*"; }
-ok()    { echo -e "${GREEN}[OK]${NC}    $*"; }
+# Mode-aware color check: returns 0 if color is allowed, 1 if not
+installer_has_color() {
+  [[ "${NANOBK_PLAIN:-}" != "1" ]] &&
+  [[ "${NANOBK_UI:-}" != "0" ]] &&
+  [[ "${CI:-}" == "" ]]
+}
 
-# Mode-aware section header (PLAIN/UI=0/COMPACT use plain text, default uses ──)
-section_line() {
-  local title="$1"
-  if [[ "${NANOBK_PLAIN:-}" == "1" ]] || [[ "${NANOBK_UI:-}" == "0" ]]; then
-    echo ""
-    echo "${title}"
-    echo ""
-  elif [[ "${NANOBK_COMPACT:-}" == "1" ]]; then
-    echo "${title}"
+log() {
+  if installer_has_color; then
+    echo -e "${BLUE}[INFO]${NC}  $*"
   else
-    echo -e "${BOLD}── ${title} ──${NC}"
+    echo "[INFO]  $*"
   fi
 }
-warn()  { echo -e "${YELLOW}[WARN]${NC}  $*"; }
-err()   { echo -e "${RED}[ERROR]${NC} $*" >&2; }
+ok() {
+  if installer_has_color; then
+    echo -e "${GREEN}[OK]${NC}    $*"
+  else
+    echo "[OK]    $*"
+  fi
+}
+
+# Mode-aware section header (PLAIN/UI=0/CI/COMPACT use plain text, default uses ──)
+section_line() {
+  local title="$1"
+  if [[ "${NANOBK_COMPACT:-}" == "1" ]]; then
+    echo "${title}"
+  elif installer_has_color; then
+    echo -e "${BOLD}── ${title} ──${NC}"
+  else
+    echo ""
+    echo "${title}"
+    echo ""
+  fi
+}
+warn() {
+  if installer_has_color; then
+    echo -e "${YELLOW}[WARN]${NC}  $*"
+  else
+    echo "[WARN]  $*"
+  fi
+}
+err() {
+  if installer_has_color; then
+    echo -e "${RED}[ERROR]${NC} $*" >&2
+  else
+    echo "[ERROR] $*" >&2
+  fi
+}
 die()   { err "$*"; exit 1; }
+
+# Mode-aware colored output helpers
+say_yellow() {
+  if installer_has_color; then
+    echo -e "  ${YELLOW}$*${NC}"
+  else
+    echo "  $*"
+  fi
+}
+say_cyan() {
+  if installer_has_color; then
+    echo -e "  ${CYAN}$*${NC}"
+  else
+    echo "  $*"
+  fi
+}
 
 print_cmd() {
   local cmd=("$@")
-  printf "  ${CYAN}\$${NC} "
+  if installer_has_color; then
+    printf "  ${CYAN}\$${NC} "
+  else
+    printf "  \$ "
+  fi
   printf "%q " "${cmd[@]}"
   printf "\n"
 }
@@ -105,22 +156,38 @@ run_cmd() {
 
   if [[ "$COMMAND_ONLY" == "1" ]]; then
     LAST_RUN_CMD_STATUS="commands_only"
-    echo -e "  ${YELLOW}(仅生成命令，未执行)${NC}"
+    if installer_has_color; then
+      echo -e "  ${YELLOW}(仅生成命令，未执行)${NC}"
+    else
+      echo "  (仅生成命令，未执行)"
+    fi
     return 0
   fi
 
   if [[ "$DRY_RUN" == "1" ]]; then
     LAST_RUN_CMD_STATUS="dry_run"
-    echo -e "  ${CYAN}[DRY-RUN]${NC} 跳过执行"
+    if installer_has_color; then
+      echo -e "  ${CYAN}[DRY-RUN]${NC} 跳过执行"
+    else
+      echo "  [DRY-RUN] 跳过执行"
+    fi
     return 0
   fi
 
   if [[ "$YES" != "1" ]]; then
-    echo -en "${YELLOW}  是否现在执行？[y/N]${NC} "
+    if installer_has_color; then
+      echo -en "${YELLOW}  是否现在执行？[y/N]${NC} "
+    else
+      printf "  是否现在执行？[y/N] "
+    fi
     read -r reply
     if [[ ! "$reply" =~ ^[Yy]$ ]]; then
       LAST_RUN_CMD_STATUS="skipped_user"
-      echo -e "  ${YELLOW}已跳过。你可以手动复制上面的命令执行。${NC}"
+      if installer_has_color; then
+        echo -e "  ${YELLOW}已跳过。你可以手动复制上面的命令执行。${NC}"
+      else
+        echo "  已跳过。你可以手动复制上面的命令执行。"
+      fi
       return 0
     fi
   fi
@@ -148,13 +215,21 @@ run_critical_step() {
 
   if [[ "$COMMAND_ONLY" == "1" ]]; then
     LAST_RUN_CMD_STATUS="commands_only"
-    echo -e "  ${YELLOW}(仅生成命令，未执行)${NC}"
+    if installer_has_color; then
+      echo -e "  ${YELLOW}(仅生成命令，未执行)${NC}"
+    else
+      echo "  (仅生成命令，未执行)"
+    fi
     return 0
   fi
 
   if [[ "$DRY_RUN" == "1" ]]; then
     LAST_RUN_CMD_STATUS="dry_run"
-    echo -e "  ${CYAN}[DRY-RUN]${NC} 跳过执行"
+    if installer_has_color; then
+      echo -e "  ${CYAN}[DRY-RUN]${NC} 跳过执行"
+    else
+      echo "  [DRY-RUN] 跳过执行"
+    fi
     return 0
   fi
 
@@ -179,12 +254,20 @@ run_critical_step() {
       ;;
     2)
       LAST_RUN_CMD_STATUS="skipped_user"
-      echo -e "  ${YELLOW}已取消。${NC}"
+      if installer_has_color; then
+        echo -e "  ${YELLOW}已取消。${NC}"
+      else
+        echo "  已取消。"
+      fi
       return 2
       ;;
     3)
       LAST_RUN_CMD_STATUS="skipped_user"
-      echo -e "  ${YELLOW}已跳过。你可以手动执行上面的命令。${NC}"
+      if installer_has_color; then
+        echo -e "  ${YELLOW}已跳过。你可以手动执行上面的命令。${NC}"
+      else
+        echo "  已跳过。你可以手动执行上面的命令。"
+      fi
       return 0
       ;;
     4|*)
@@ -541,7 +624,11 @@ sys.exit(0)
 # All mock output clearly labeled [MOCK]
 
 mock_log() {
-  echo -e "  ${CYAN}[MOCK]${NC} $*"
+  if installer_has_color; then
+    echo -e "  ${CYAN}[MOCK]${NC} $*"
+  else
+    echo "  [MOCK] $*"
+  fi
 }
 
 mock_deploy_vps() {
@@ -615,11 +702,19 @@ run_one_test() {
   print_cmd "${cmd[@]}"
 
   if [[ "$DRY_RUN" == "1" ]]; then
-    echo -e "  ${CYAN}[DRY-RUN]${NC} 跳过执行"
+    if installer_has_color; then
+      echo -e "  ${CYAN}[DRY-RUN]${NC} 跳过执行"
+    else
+      echo "  [DRY-RUN] 跳过执行"
+    fi
     return 0
   fi
   if [[ "$COMMAND_ONLY" == "1" ]]; then
-    echo -e "  ${YELLOW}(仅生成命令，未执行)${NC}"
+    if installer_has_color; then
+      echo -e "  ${YELLOW}(仅生成命令，未执行)${NC}"
+    else
+      echo "  (仅生成命令，未执行)"
+    fi
     return 0
   fi
 
@@ -643,10 +738,18 @@ prompt() {
     return
   fi
 
-  if [[ -n "$default" ]]; then
-    echo -en "${BOLD}${prompt_text}${NC} [${default}]: "
+  if installer_has_color; then
+    if [[ -n "$default" ]]; then
+      echo -en "${BOLD}${prompt_text}${NC} [${default}]: "
+    else
+      echo -en "${BOLD}${prompt_text}${NC}: "
+    fi
   else
-    echo -en "${BOLD}${prompt_text}${NC}: "
+    if [[ -n "$default" ]]; then
+      printf "%s [%s]: " "$prompt_text" "$default"
+    else
+      printf "%s: " "$prompt_text"
+    fi
   fi
   read -r input
 
@@ -694,10 +797,18 @@ confirm() {
     [[ "$default" == "y" ]] && return 0 || return 1
   fi
 
-  if [[ "$default" == "y" ]]; then
-    echo -en "${BOLD}${prompt_text}${NC} [Y/n]: "
+  if installer_has_color; then
+    if [[ "$default" == "y" ]]; then
+      echo -en "${BOLD}${prompt_text}${NC} [Y/n]: "
+    else
+      echo -en "${BOLD}${prompt_text}${NC} [y/N]: "
+    fi
   else
-    echo -en "${BOLD}${prompt_text}${NC} [y/N]: "
+    if [[ "$default" == "y" ]]; then
+      printf "%s [Y/n]: " "$prompt_text"
+    else
+      printf "%s [y/N]: " "$prompt_text"
+    fi
   fi
   read -r reply
 
@@ -726,10 +837,18 @@ prompt_menu_choice() {
   fi
 
   while true; do
-    if [[ -n "$default" ]]; then
-      echo -en "${BOLD}${prompt_text}${NC} [${default}]: "
+    if installer_has_color; then
+      if [[ -n "$default" ]]; then
+        echo -en "${BOLD}${prompt_text}${NC} [${default}]: "
+      else
+        echo -en "${BOLD}${prompt_text}${NC}: "
+      fi
     else
-      echo -en "${BOLD}${prompt_text}${NC}: "
+      if [[ -n "$default" ]]; then
+        printf "%s [%s]: " "$prompt_text" "$default"
+      else
+        printf "%s: " "$prompt_text"
+      fi
     fi
     read -r input
 
@@ -745,7 +864,11 @@ prompt_menu_choice() {
       return 0
     fi
 
-    echo -e "  ${RED}无效输入：${input}${NC}"
+    if installer_has_color; then
+      echo -e "  ${RED}无效输入：${input}${NC}"
+    else
+      echo "  无效输入：${input}"
+    fi
     echo "  请输入 1 到 ${max} 之间的数字。"
   done
 }
@@ -906,7 +1029,7 @@ detect_environment() {
 
   local tools_status=""
   local tool_ok="✓" tool_fail="✗"
-  if [[ "${NANOBK_PLAIN:-}" == "1" ]] || [[ "${NANOBK_UI:-}" == "0" ]]; then
+  if ! installer_has_color; then
     tool_ok="OK" tool_fail="FAIL"
   fi
   for cmd in curl jq python3 openssl git node npm; do
@@ -920,8 +1043,10 @@ detect_environment() {
   echo ""
   if [[ "${NANOBK_COMPACT:-}" == "1" ]]; then
     echo "  Tools:"
-  else
+  elif installer_has_color; then
     echo -e "${BOLD}  工具状态:${NC}"
+  else
+    echo "  工具状态:"
   fi
   echo -e "$tools_status"
 }
@@ -1870,7 +1995,11 @@ collect_bot_args() {
 
   # Safety warning before token input
   echo ""
-  echo -e "  ${YELLOW}安全提示：${NC}"
+  if installer_has_color; then
+    echo -e "  ${YELLOW}安全提示：${NC}"
+  else
+    echo "  安全提示："
+  fi
   echo "    - Bot Token 是敏感凭证"
   echo "    - 不要截图，不要粘贴到聊天、issue、日志"
   echo "    - 不要执行 cat bot/.env"
@@ -1901,7 +2030,11 @@ collect_bot_args() {
 
   # Bot Review Table
   echo ""
-  echo -e "${BOLD}Telegram Bot 配置确认${NC}"
+  if installer_has_color; then
+    echo -e "${BOLD}Telegram Bot 配置确认${NC}"
+  else
+    echo "Telegram Bot 配置确认"
+  fi
   echo ""
   echo "  1. Bot Token：$([ -n "$bot_token" ] && echo "已填写" || echo "未填写")"
   echo "  2. Owner ID：${owner_id:-未填写}"
@@ -1941,7 +2074,11 @@ EOF
     chmod 600 "$bot_env_dir/.env"
     ok "Bot 配置已保存: bot/.env (mode 600)"
   else
-    echo -e "  ${CYAN}[DRY-RUN]${NC} Would write bot/.env"
+    if installer_has_color; then
+      echo -e "  ${CYAN}[DRY-RUN]${NC} Would write bot/.env"
+    else
+      echo "  [DRY-RUN] Would write bot/.env"
+    fi
   fi
 
   echo ""
@@ -2077,11 +2214,19 @@ EOF
     chmod 600 "$web_env_dir/.env"
     ok "Web Panel 配置已保存: web/.env (mode 600)"
     echo ""
-    echo -e "  ${YELLOW}安全提示：${NC}"
+    if installer_has_color; then
+      echo -e "  ${YELLOW}安全提示：${NC}"
+    else
+      echo "  安全提示："
+    fi
     echo "    - Web token/secret 已写入 web/.env，权限应为 600"
     echo "    - 不要 cat web/.env，不要把内容贴到聊天或日志"
   else
-    echo -e "  ${CYAN}[DRY-RUN]${NC} Would write web/.env"
+    if installer_has_color; then
+      echo -e "  ${CYAN}[DRY-RUN]${NC} Would write web/.env"
+    else
+      echo "  [DRY-RUN] Would write web/.env"
+    fi
   fi
 
   echo ""
@@ -2095,7 +2240,11 @@ EOF
   fi
 
   echo ""
-  echo -e "  ${YELLOW}默认只监听 127.0.0.1，不裸露公网。${NC}"
+  if installer_has_color; then
+    echo -e "  ${YELLOW}默认只监听 127.0.0.1，不裸露公网。${NC}"
+  else
+    echo "  默认只监听 127.0.0.1，不裸露公网。"
+  fi
   echo "  远程访问请用 SSH tunnel:"
   echo "    ssh -L ${web_port}:127.0.0.1:${web_port} root@YOUR_VPS_IP"
   echo "    浏览器打开: http://127.0.0.1:${web_port}"
@@ -2110,25 +2259,25 @@ PREFLIGHT_ERRORS=0
 PREFLIGHT_WARNINGS=0
 
 preflight_pass() {
-  if [[ "${NANOBK_PLAIN:-}" == "1" ]] || [[ "${NANOBK_UI:-}" == "0" ]]; then
-    echo "  OK $*"
-  else
+  if installer_has_color; then
     echo -e "  ${GREEN}✓${NC} $*"
+  else
+    echo "  OK $*"
   fi
 }
 preflight_fail() {
-  if [[ "${NANOBK_PLAIN:-}" == "1" ]] || [[ "${NANOBK_UI:-}" == "0" ]]; then
-    echo "  FAIL $*"
-  else
+  if installer_has_color; then
     echo -e "  ${RED}✗${NC} $*"
+  else
+    echo "  FAIL $*"
   fi
   PREFLIGHT_ERRORS=$((PREFLIGHT_ERRORS + 1))
 }
 preflight_warn() {
-  if [[ "${NANOBK_PLAIN:-}" == "1" ]] || [[ "${NANOBK_UI:-}" == "0" ]]; then
-    echo "  WARN $*"
-  else
+  if installer_has_color; then
     echo -e "  ${YELLOW}⚠${NC} $*"
+  else
+    echo "  WARN $*"
   fi
   PREFLIGHT_WARNINGS=$((PREFLIGHT_WARNINGS + 1))
 }
@@ -2501,7 +2650,11 @@ run_unified_preflight() {
   # Summary
   echo ""
   if [[ $PREFLIGHT_ERRORS -eq 0 ]] && [[ $PREFLIGHT_WARNINGS -eq 0 ]]; then
-    echo -e "  ${GREEN}Preflight: ALL CHECKS PASSED${NC}"
+    if installer_has_color; then
+      echo -e "  ${GREEN}Preflight: ALL CHECKS PASSED${NC}"
+    else
+      echo "  Preflight: ALL CHECKS PASSED"
+    fi
   elif [[ $PREFLIGHT_ERRORS -eq 0 ]]; then
     echo -e "  ${YELLOW}Preflight: ${PREFLIGHT_WARNINGS} warning(s), no errors.${NC}"
   else
@@ -2523,7 +2676,11 @@ vps_review_loop() {
 
   while true; do
     echo ""
-    echo -e "${BOLD}VPS 配置确认${NC}"
+    if installer_has_color; then
+      echo -e "${BOLD}VPS 配置确认${NC}"
+    else
+      echo "VPS 配置确认"
+    fi
     echo ""
     echo "  1. 节点域名：${domain}"
     echo "  2. 证书模式：${cert_mode}"
@@ -2575,7 +2732,11 @@ cloudflare_review_loop() {
 
   while true; do
     echo ""
-    echo -e "${BOLD}Cloudflare 配置确认${NC}"
+    if installer_has_color; then
+      echo -e "${BOLD}Cloudflare 配置确认${NC}"
+    else
+      echo "Cloudflare 配置确认"
+    fi
     echo ""
     echo "  1. 节点配置文件：${profile}"
     echo "  2. nanok 地址：${route_url}"
@@ -2631,7 +2792,11 @@ bot_review_loop() {
 
   while true; do
     echo ""
-    echo -e "${BOLD}Telegram Bot 配置确认${NC}"
+    if installer_has_color; then
+      echo -e "${BOLD}Telegram Bot 配置确认${NC}"
+    else
+      echo "Telegram Bot 配置确认"
+    fi
     echo ""
     echo "  1. Bot Token：$([ -n "$bot_token" ] && echo "已填写" || echo "未填写")"
     echo "  2. Owner ID：${owner_id:-未填写}"
@@ -2685,7 +2850,11 @@ web_review_loop() {
 
   while true; do
     echo ""
-    echo -e "${BOLD}Web Panel 配置确认${NC}"
+    if installer_has_color; then
+      echo -e "${BOLD}Web Panel 配置确认${NC}"
+    else
+      echo "Web Panel 配置确认"
+    fi
     echo ""
     echo "  1. Listen host：${web_host}"
     echo "  2. Listen port：${web_port}"
@@ -3486,13 +3655,23 @@ print_summary() {
 
   # Disclaimers
   if [[ "$DRY_RUN" == "1" ]]; then
-    echo -e "  ${YELLOW}注意: 这是 dry-run 摘要，没有执行真实部署。${NC}"
-    echo -e "  ${YELLOW}Note: This is a dry-run summary. No real deployment was performed.${NC}"
+    if installer_has_color; then
+      echo -e "  ${YELLOW}注意: 这是 dry-run 摘要，没有执行真实部署。${NC}"
+      echo -e "  ${YELLOW}Note: This is a dry-run summary. No real deployment was performed.${NC}"
+    else
+      echo "  注意: 这是 dry-run 摘要，没有执行真实部署。"
+      echo "  Note: This is a dry-run summary. No real deployment was performed."
+    fi
     echo ""
   fi
   if [[ "$COMMAND_ONLY" == "1" ]]; then
-    echo -e "  ${YELLOW}注意: commands-only 模式只输出命令，不代表当前系统已经可用。${NC}"
-    echo -e "  ${YELLOW}Note: Commands-only mode only outputs commands, not system validation.${NC}"
+    if installer_has_color; then
+      echo -e "  ${YELLOW}注意: commands-only 模式只输出命令，不代表当前系统已经可用。${NC}"
+      echo -e "  ${YELLOW}Note: Commands-only mode only outputs commands, not system validation.${NC}"
+    else
+      echo "  注意: commands-only 模式只输出命令，不代表当前系统已经可用。"
+      echo "  Note: Commands-only mode only outputs commands, not system validation."
+    fi
     echo ""
   fi
 }
@@ -4144,17 +4323,17 @@ main() {
   parse_args "$@"
 
   echo ""
-  if [[ "${NANOBK_PLAIN:-}" == "1" ]] || [[ "${NANOBK_UI:-}" == "0" ]]; then
-    echo "NanoBK Proxy Suite Installer v${VERSION}"
-    echo "VPS + Cloudflare + Bot + Web Panel"
-  elif [[ "${NANOBK_COMPACT:-}" == "1" ]]; then
+  if [[ "${NANOBK_COMPACT:-}" == "1" ]]; then
     echo "NanoBK Proxy Suite Installer v${VERSION} — VPS + Cloudflare + Bot + Web Panel"
-  else
+  elif installer_has_color; then
     echo "╔══════════════════════════════════════════════════════════╗"
     echo "║           NanoBK Proxy Suite Installer v${VERSION}          ║"
     echo "║                                                          ║"
     echo "║  VPS 四协议 + Cloudflare 订阅 + Bot + Web Panel         ║"
     echo "╚══════════════════════════════════════════════════════════╝"
+  else
+    echo "NanoBK Proxy Suite Installer v${VERSION}"
+    echo "VPS + Cloudflare + Bot + Web Panel"
   fi
 
   check_repo

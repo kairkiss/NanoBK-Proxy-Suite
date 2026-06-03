@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — v1.8.15 CLI Mode Boundaries Test
+# NanoBK Proxy Suite — v1.8.16 CLI Mode Boundaries Test
 #
 # Tests full installer output respects mode boundaries:
 #   PLAIN: no box drawing / emoji / Unicode progress
@@ -49,12 +49,16 @@ assert_not_contains() {
   fi
 }
 
+has_ansi() {
+  grep -qE $'\x1b\[' <<< "$1"
+}
+
 count_lines() {
   echo "$1" | wc -l | tr -d ' '
 }
 
 echo ""
-echo "=== Test Suite: v1.8.15 CLI Mode Boundaries ==="
+echo "=== Test Suite: v1.8.16 CLI Mode Boundaries ==="
 
 # ── Test 1: Plain full output ────────────────────────────────────────────
 
@@ -84,6 +88,13 @@ assert_not_contains "$plain_output" "□" "Plain: no □"
 assert_not_contains "$plain_output" "╭" "Plain: no ╭"
 assert_not_contains "$plain_output" "╯" "Plain: no ╯"
 
+# Must NOT contain ANSI escapes
+if has_ansi "$plain_output"; then
+  fail "Plain: no ANSI escape"
+else
+  pass "Plain: no ANSI escape"
+fi
+
 # Must NOT contain secrets or fake success
 assert_not_contains "$plain_output" "status:  success" "Plain: no fake success"
 assert_not_contains "$plain_output" "TOKEN=" "Plain: no TOKEN="
@@ -111,6 +122,13 @@ assert_not_contains "$ui0_output" "═" "UI=0: no ═"
 assert_not_contains "$ui0_output" "✓" "UI=0: no ✓"
 assert_not_contains "$ui0_output" "■" "UI=0: no ■"
 assert_not_contains "$ui0_output" "□" "UI=0: no □"
+
+# Must NOT contain ANSI escapes
+if has_ansi "$ui0_output"; then
+  fail "UI=0: no ANSI escape"
+else
+  pass "UI=0: no ANSI escape"
+fi
 
 # ── Test 3: Compact truly shorter ────────────────────────────────────────
 
@@ -158,13 +176,47 @@ else
   pass "Plain preflight: no ✓ in preflight section"
 fi
 
-# ── Test 5: Existing tests continue ──────────────────────────────────────
+# ── Test 5: CI mode ──────────────────────────────────────────────────────
 
 echo ""
-echo "--- 5: Existing function-level tests ---"
-echo "(Run separately; verified in full test suite)"
+echo "--- 5: CI mode ---"
 
-pass "Existing tests: verified in full test suite run"
+ci_output=$(env CI=1 NANOBK_TEST_MOCK=1 NANOBK_ASSUME_PORTS_FREE=1 \
+  bash "${REPO_DIR}/installer/install.sh" --mode full --dry-run --defaults --lang zh 2>&1 || true)
+
+assert_contains "$ci_output" "NanoBK" "CI: contains NanoBK"
+assert_contains "$ci_output" "planned / dry-run" "CI: contains planned / dry-run"
+assert_contains "$ci_output" "没有执行真实部署" "CI: contains no-real-deploy"
+
+if has_ansi "$ci_output"; then
+  fail "CI: no ANSI escape"
+else
+  pass "CI: no ANSI escape"
+fi
+
+assert_not_contains "$ci_output" "TOKEN=" "CI: no TOKEN="
+assert_not_contains "$ci_output" "SECRET=" "CI: no SECRET="
+assert_not_contains "$ci_output" "status:  success" "CI: no fake success"
+
+# ── Test 5b: Compact + Plain combined ────────────────────────────────────
+
+echo ""
+echo "--- 5b: Compact + Plain combined ---"
+
+compact_plain_output=$(env NANOBK_COMPACT=1 NANOBK_PLAIN=1 NANOBK_TEST_MOCK=1 NANOBK_ASSUME_PORTS_FREE=1 \
+  bash "${REPO_DIR}/installer/install.sh" --mode full --dry-run --defaults --lang zh 2>&1 || true)
+
+if has_ansi "$compact_plain_output"; then
+  fail "Compact+Plain: no ANSI escape"
+else
+  pass "Compact+Plain: no ANSI escape"
+fi
+
+assert_not_contains "$compact_plain_output" "╔" "Compact+Plain: no box drawing"
+assert_not_contains "$compact_plain_output" "✓" "Compact+Plain: no emoji"
+assert_not_contains "$compact_plain_output" "■" "Compact+Plain: no progress bar"
+assert_contains "$compact_plain_output" "planned / dry-run" "Compact+Plain: contains planned / dry-run"
+assert_contains "$compact_plain_output" "没有执行真实部署" "Compact+Plain: contains no-real-deploy"
 
 # ── Test 6: Secret safety on all outputs ─────────────────────────────────
 

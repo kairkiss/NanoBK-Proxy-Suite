@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — v1.8.15 CLI Compact Mode Test
+# NanoBK Proxy Suite — v1.8.16 CLI Compact Mode Test
 #
 # Tests NANOBK_COMPACT=1 display mode without real deployment.
 #
@@ -64,7 +64,7 @@ source_ui_and_run() {
 }
 
 echo ""
-echo "=== Test Suite: v1.8.15 CLI Compact Mode ==="
+echo "=== Test Suite: v1.8.16 CLI Compact Mode ==="
 
 # ── 1: Compact banner ────────────────────────────────────────────────────
 
@@ -72,11 +72,11 @@ echo ""
 echo "--- 1: Compact banner ---"
 
 compact_banner=$(source_ui_and_run "NANOBK_COMPACT=1" "
-  ui_banner 'v1.8.15' 'Full Recommended — VPS + Cloudflare + Bot + Web Panel'
+  ui_banner 'v1.8.16' 'Full Recommended — VPS + Cloudflare + Bot + Web Panel'
 ")
 
 assert_contains "$compact_banner" "NanoBK" "Compact banner: product name"
-assert_contains "$compact_banner" "v1.8.15" "Compact banner: version"
+assert_contains "$compact_banner" "v1.8.16" "Compact banner: version"
 assert_contains "$compact_banner" "Full Recommended" "Compact banner: subtitle"
 
 # Compact banner should not have box drawing
@@ -86,7 +86,7 @@ assert_not_contains "$compact_banner" "│" "Compact banner: no box vertical"
 
 # Compact banner should be shorter than default
 default_banner=$(source_ui_and_run "" "
-  ui_banner 'v1.8.15' 'Full Recommended — VPS + Cloudflare + Bot + Web Panel'
+  ui_banner 'v1.8.16' 'Full Recommended — VPS + Cloudflare + Bot + Web Panel'
 ")
 compact_lines=$(count_lines "$compact_banner")
 default_lines=$(count_lines "$default_banner")

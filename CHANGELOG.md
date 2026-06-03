@@ -1,5 +1,28 @@
 # Changelog
 
+## v1.8.16 — Plain ANSI Boundary Fix
+
+### Fixed
+
+- Fixed Plain mode (`NANOBK_PLAIN=1`) ANSI escape leakage: added `installer_has_color()` helper that checks `NANOBK_PLAIN`, `NANOBK_UI`, and `CI` env vars.
+- Updated `log()`, `ok()`, `warn()`, `err()`, `print_cmd()` to use `installer_has_color()`.
+- Updated `preflight_pass()`, `preflight_fail()`, `preflight_warn()` to use `installer_has_color()`.
+- Updated `section_line()` to use `installer_has_color()` (also covers CI mode).
+- Updated `run_cmd()`, `run_critical_step()`, `run_one_test()` dry-run/commands-only messages.
+- Updated `mock_log()` to use `installer_has_color()`.
+- Updated `prompt()`, `confirm()`, `prompt_menu_choice()` prompt display.
+- Updated Summary disclaimers (dry-run, commands-only) to use `installer_has_color()`.
+- Updated configuration confirmation headers (VPS, Cloudflare, Bot, Web) to use `installer_has_color()`.
+- Updated Bot/Web safety warnings to use `installer_has_color()`.
+- Updated main banner to use `installer_has_color()`.
+- Added `say_yellow()`, `say_cyan()` helpers for mode-aware colored output.
+- Added full-output ANSI boundary tests for PLAIN/UI=0/CI modes.
+- Added Compact+Plain combined mode test.
+
+### Safety
+
+- All changes are display-only. No deployment logic, VPS protocol templates, Cloudflare Worker core, rotate sync, Bot/Web logic, or Summary status logic changed.
+
 ## v1.8.15 — Plain and UI=0 Mode Boundary Fix
 
 ### Fixed

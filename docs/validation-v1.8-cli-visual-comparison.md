@@ -281,3 +281,12 @@ Use the feedback to decide the next version direction:
 - Compact mode: main banner uses single-line format.
 - All Unicode box drawing, checkmarks, progress bars, and section borders in `installer/install.sh` are now gated by PLAIN/UI=0 mode checks.
 - Added full-output mode boundary tests (`tests/unified-cli-mode-boundaries-v1.8.sh`).
+
+### v1.8.16 Plain ANSI Boundary Fix
+
+- v1.8.15 fixed visible Unicode mode boundaries but missed ANSI escape checks.
+- v1.8.16 adds `installer_has_color()` helper that checks `NANOBK_PLAIN`, `NANOBK_UI`, and `CI`.
+- All display helpers (`log`, `ok`, `warn`, `err`, `print_cmd`, `preflight_pass/fail/warn`, `section_line`, `mock_log`, `prompt`, `confirm`, `prompt_menu_choice`, Summary disclaimers, config confirmation headers) now use `installer_has_color()`.
+- Full-output ANSI boundary tests added for PLAIN/UI=0/CI modes.
+- Compact+Plain combined mode test added.
+- Plain/UI=0/CI full installer output now contains 0 ANSI escapes.
