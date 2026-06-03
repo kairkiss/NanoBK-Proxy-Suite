@@ -104,8 +104,15 @@ The `oplog_redact` function strips:
 - Full/vps/cloudflare/bot/web modes unchanged.
 - No real deploy command wrapped.
 - No `run_cmd`/`run_critical_step` rollout.
-- Failure propagation tested.
 - Full rollout still requires explicit review.
+
+## v1.8.25 Test Wrapper Failure Proof
+
+- v1.8.24 added single test path wrapper but audit found verbose/PLAIN tests used `NANOBK_TEST_OVERRIDE_SCRIPT`, which bypassed wrapper.
+- v1.8.25 adds `NANOBK_OPLOG_TEST_WRAP_SCRIPT` test-only override for wrapped script.
+- v1.8.25 verifies verbose/PLAIN/UI=0/CI wrapper paths really trigger.
+- v1.8.25 verifies controlled failing wrapped script causes non-zero installer test result.
+- v1.8.25 verifies failure output/log redaction (no raw secret on screen or in log).
 
 ## Next Step Before Full Rollout
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — Unified Beginner Installer v1.8.24
+# NanoBK Proxy Suite — Unified Beginner Installer v1.8.25
 #
 # Interactive entry point for NanoBK Proxy Suite.
 # Guides users through VPS deployment, Cloudflare setup, Bot, Web Panel.
@@ -27,7 +27,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # ── Constants ───────────────────────────────────────────────────────────────
 
 REPO_URL="https://github.com/kairkiss/NanoBK-Proxy-Suite"
-VERSION="1.8.24"
+VERSION="1.8.25"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -4073,7 +4073,11 @@ run_test_mode() {
       run_safe_test "$REPO_DIR/tests/full-wizard-interactive-mock.sh" "interactive mock"
       run_safe_test "$REPO_DIR/tests/unified-full-wizard-review-resume.sh" "review resume"
       # Operation-log test wrapper pilot: wrap output-control-chars when opt-in
-      if ! run_safe_test_logged_pilot "$REPO_DIR/tests/output-control-chars.sh" "output control chars"; then
+      local _oplog_wrap_script="$REPO_DIR/tests/output-control-chars.sh"
+      if [[ -n "${NANOBK_OPLOG_TEST_WRAP_SCRIPT:-}" ]]; then
+        _oplog_wrap_script="$NANOBK_OPLOG_TEST_WRAP_SCRIPT"
+      fi
+      if ! run_safe_test_logged_pilot "$_oplog_wrap_script" "output control chars"; then
         run_safe_test "$REPO_DIR/tests/output-control-chars.sh" "output control chars"
       fi
       run_safe_test "$REPO_DIR/tests/rotate-render-only-tempdir.sh" "rotate tempdir"

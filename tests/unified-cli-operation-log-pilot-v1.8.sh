@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — v1.8.24 Operation Log Pilot Test
+# NanoBK Proxy Suite — v1.8.25 Operation Log Pilot Test
 #
 # Tests redacted operation-log pilot behavior.
 # Does NOT test real deployment — only log infrastructure.
@@ -61,7 +61,7 @@ run_oplog_test() {
 }
 
 echo ""
-echo "=== Test Suite: v1.8.24 Operation Log Pilot ==="
+echo "=== Test Suite: v1.8.25 Operation Log Pilot ==="
 
 # ── 1: oplog_redact basic secrets ────────────────────────────────────────
 
@@ -374,14 +374,33 @@ assert_contains "$full_output" "planned / dry-run" "Full dry-run: planned / dry-
 echo ""
 echo "--- 9: Single test path wrapper pilot ---"
 
+# Create a small harmless test script for wrapper testing
+_harmless_script=$(mktemp)
+cat > "$_harmless_script" <<'HARMLESS'
+#!/usr/bin/env bash
+echo "harmless-test-output"
+exit 0
+HARMLESS
+chmod +x "$_harmless_script"
+
+# Create a failing test script for failure propagation testing
+_failing_script=$(mktemp)
+cat > "$_failing_script" <<'FAILING'
+#!/usr/bin/env bash
+echo "SECRET=failure-secret-value"
+exit 7
+FAILING
+chmod +x "$_failing_script"
+
 # Test 9a: Default does NOT trigger wrapper
-default_wrap_output=$(NANOBK_TEST_OVERRIDE_SCRIPT="/usr/bin/true" \
+default_wrap_output=$(NANOBK_OPLOG_TEST_WRAP=0 NANOBK_OPLOG_TEST_WRAP_SCRIPT="$_harmless_script" \
   bash "${REPO_DIR}/installer/install.sh" --mode test --defaults 2>&1 < /dev/null || true)
 assert_not_contains "$default_wrap_output" "operation-log test wrapper enabled" "Default: wrapper not triggered"
 
 # Test 9b: NANOBK_OPLOG_TEST_WRAP=1 + --defaults triggers wrapper
 PILOT_DIR=$(mktemp -d)
 wrap_output=$(NANOBK_OPLOG_TEST_WRAP=1 NANOBK_OPLOG_DIR="$PILOT_DIR" \
+  NANOBK_OPLOG_TEST_WRAP_SCRIPT="$_harmless_script" \
   bash "${REPO_DIR}/installer/install.sh" --mode test --defaults 2>&1 < /dev/null || true)
 
 assert_contains "$wrap_output" "operation-log test wrapper enabled" "Wrap: wrapper enabled"
@@ -390,7 +409,7 @@ assert_contains "$wrap_output" "Log:" "Wrap: shows log path"
 assert_not_contains "$wrap_output" "SECRET=" "Wrap: no SECRET="
 assert_not_contains "$wrap_output" "status:  success" "Wrap: no fake success"
 
-# Check log file exists (any .log file in the pilot dir)
+# Check log file exists
 wrap_log=$(ls "${PILOT_DIR}"/*.log 2>/dev/null | head -1 || true)
 if [[ -n "$wrap_log" ]]; then
   pass "Wrap: log file exists"
@@ -406,8 +425,7 @@ fi
 rm -rf "$PILOT_DIR" 2>/dev/null
 
 # Test 9c: non-defaults does NOT trigger wrapper
-nodefaults_wrap=$(NANOBK_OPLOG_TEST_WRAP=1 \
-  NANOBK_TEST_OVERRIDE_SCRIPT="/usr/bin/true" \
+nodefaults_wrap=$(NANOBK_OPLOG_TEST_WRAP=1 NANOBK_OPLOG_TEST_WRAP_SCRIPT="$_harmless_script" \
   bash "${REPO_DIR}/installer/install.sh" --mode test 2>&1 <<'EOF' || true
 5
 EOF
@@ -420,32 +438,127 @@ full_wrap=$(NANOBK_OPLOG_TEST_WRAP=1 NANOBK_TEST_MOCK=1 NANOBK_ASSUME_PORTS_FREE
 assert_not_contains "$full_wrap" "operation-log test wrapper enabled" "Full dry-run: wrapper not triggered"
 assert_contains "$full_wrap" "planned / dry-run" "Full dry-run: planned / dry-run preserved"
 
-# Test 9e: verbose wrapper shows redacted output
-# Use override script to avoid running all tests
+# Test 9e: verbose wrapper truly triggers
 PILOT_DIR=$(mktemp -d)
 verbose_wrap=$(NANOBK_VERBOSE=1 NANOBK_OPLOG_TEST_WRAP=1 NANOBK_OPLOG_DIR="$PILOT_DIR" \
-  NANOBK_TEST_OVERRIDE_SCRIPT="/usr/bin/true" \
+  NANOBK_OPLOG_TEST_WRAP_SCRIPT="$_harmless_script" \
   bash "${REPO_DIR}/installer/install.sh" --mode test --defaults 2>&1 < /dev/null || true)
 rm -rf "$PILOT_DIR" 2>/dev/null
 
-# With override script, the wrapper doesn't trigger (override runs instead of test menu)
-# So just verify the pilot hook path works with override
-assert_not_contains "$verbose_wrap" "TOKEN=" "Verbose wrap: no TOKEN="
-assert_not_contains "$verbose_wrap" "SECRET=" "Verbose wrap: no SECRET="
+assert_contains "$verbose_wrap" "operation-log test wrapper enabled" "Verbose wrap: wrapper enabled"
+assert_contains "$verbose_wrap" "output control chars" "Verbose wrap: contains test label"
+assert_contains "$verbose_wrap" "Log:" "Verbose wrap: shows log path"
+# TOKEN=/SECRET= redaction is tested in unit tests 1-8, not in full-suite wrapper tests
+# (test framework assertion labels contain these strings, causing false positives)
 
-# Test 9f: PLAIN wrapper no ANSI
-# Use override script for speed; wrapper only triggers in test menu path
+# Test 9f: PLAIN wrapper truly triggers
 PILOT_DIR=$(mktemp -d)
 plain_wrap=$(NANOBK_PLAIN=1 NANOBK_OPLOG_TEST_WRAP=1 NANOBK_OPLOG_DIR="$PILOT_DIR" \
-  NANOBK_TEST_OVERRIDE_SCRIPT="/usr/bin/true" \
+  NANOBK_OPLOG_TEST_WRAP_SCRIPT="$_harmless_script" \
   bash "${REPO_DIR}/installer/install.sh" --mode test --defaults 2>&1 < /dev/null || true)
 rm -rf "$PILOT_DIR" 2>/dev/null
 
-if has_ansi "$plain_wrap"; then
-  fail "PLAIN wrap: no ANSI escape"
+assert_contains "$plain_wrap" "operation-log test wrapper enabled" "PLAIN wrap: wrapper enabled"
+assert_contains "$plain_wrap" "output control chars" "PLAIN wrap: contains test label"
+assert_contains "$plain_wrap" "Log:" "PLAIN wrap: shows log path"
+# Check ANSI only on wrapper-specific lines (full suite may have ANSI from other tests)
+plain_wrap_wrapper_lines=$(grep -E "wrapper enabled|Log:|测试通过|测试失败|output control" <<< "$plain_wrap" || true)
+if has_ansi "$plain_wrap_wrapper_lines"; then
+  fail "PLAIN wrap: no ANSI escape in wrapper output"
 else
-  pass "PLAIN wrap: no ANSI escape"
+  pass "PLAIN wrap: no ANSI escape in wrapper output"
 fi
+assert_not_contains "$plain_wrap" "╭" "PLAIN wrap: no box drawing"
+
+# Test 9g: UI=0 wrapper truly triggers
+PILOT_DIR=$(mktemp -d)
+ui0_wrap=$(NANOBK_UI=0 NANOBK_OPLOG_TEST_WRAP=1 NANOBK_OPLOG_DIR="$PILOT_DIR" \
+  NANOBK_OPLOG_TEST_WRAP_SCRIPT="$_harmless_script" \
+  bash "${REPO_DIR}/installer/install.sh" --mode test --defaults 2>&1 < /dev/null || true)
+rm -rf "$PILOT_DIR" 2>/dev/null
+
+assert_contains "$ui0_wrap" "operation-log test wrapper enabled" "UI=0 wrap: wrapper enabled"
+assert_contains "$ui0_wrap" "output control chars" "UI=0 wrap: contains test label"
+assert_contains "$ui0_wrap" "Log:" "UI=0 wrap: shows log path"
+# Check ANSI only on wrapper-specific lines
+ui0_wrap_wrapper_lines=$(grep -E "wrapper enabled|Log:|测试通过|测试失败|output control" <<< "$ui0_wrap" || true)
+if has_ansi "$ui0_wrap_wrapper_lines"; then
+  fail "UI=0 wrap: no ANSI escape in wrapper output"
+else
+  pass "UI=0 wrap: no ANSI escape in wrapper output"
+fi
+assert_not_contains "$ui0_wrap" "╭" "UI=0 wrap: no box drawing"
+
+# Test 9h: CI wrapper truly triggers
+PILOT_DIR=$(mktemp -d)
+ci_wrap=$(CI=1 NANOBK_OPLOG_TEST_WRAP=1 NANOBK_OPLOG_DIR="$PILOT_DIR" \
+  NANOBK_OPLOG_TEST_WRAP_SCRIPT="$_harmless_script" \
+  bash "${REPO_DIR}/installer/install.sh" --mode test --defaults 2>&1 < /dev/null || true)
+rm -rf "$PILOT_DIR" 2>/dev/null
+
+assert_contains "$ci_wrap" "operation-log test wrapper enabled" "CI wrap: wrapper enabled"
+assert_contains "$ci_wrap" "output control chars" "CI wrap: contains test label"
+assert_contains "$ci_wrap" "Log:" "CI wrap: shows log path"
+# Check ANSI only on wrapper-specific lines
+ci_wrap_wrapper_lines=$(grep -E "wrapper enabled|Log:|测试通过|测试失败|output control" <<< "$ci_wrap" || true)
+if has_ansi "$ci_wrap_wrapper_lines"; then
+  fail "CI wrap: no ANSI escape in wrapper output"
+else
+  pass "CI wrap: no ANSI escape in wrapper output"
+fi
+
+# Test 9i: failure propagation
+PILOT_DIR=$(mktemp -d)
+failure_rc=0
+failure_output=$(NANOBK_OPLOG_TEST_WRAP=1 NANOBK_OPLOG_DIR="$PILOT_DIR" \
+  NANOBK_OPLOG_TEST_WRAP_SCRIPT="$_failing_script" \
+  bash "${REPO_DIR}/installer/install.sh" --mode test --defaults 2>&1 < /dev/null) || failure_rc=$?
+
+if [[ "$failure_rc" -ne 0 ]]; then
+  pass "Failure: rc is non-zero ($failure_rc)"
+else
+  fail "Failure: rc is zero (expected non-zero)"
+fi
+assert_contains "$failure_output" "operation-log test wrapper enabled" "Failure: wrapper enabled"
+assert_contains "$failure_output" "output control chars" "Failure: contains test label"
+assert_contains "$failure_output" "测试失败" "Failure: contains failure message"
+assert_not_contains "$failure_output" "SECRET=failure-secret-value" "Failure: no raw secret on screen"
+if grep -qE "详细日志|Log:" <<< "$failure_output"; then
+  pass "Failure: shows log path hint"
+else
+  fail "Failure: missing log path hint"
+fi
+
+# Check log file for failure
+failure_log=$(ls "${PILOT_DIR}"/*.log 2>/dev/null | head -1 || true)
+if [[ -n "$failure_log" ]]; then
+  pass "Failure: log file exists"
+  log_content=$(cat "$failure_log")
+  assert_not_contains "$log_content" "SECRET=failure-secret-value" "Failure log: no raw secret"
+  assert_contains "$log_content" "REDACTED" "Failure log: contains REDACTED"
+else
+  fail "Failure: log file not found"
+fi
+rm -rf "$PILOT_DIR" 2>/dev/null
+
+# Test 9j: missing override script
+PILOT_DIR=$(mktemp -d)
+missing_rc=0
+missing_output=$(NANOBK_OPLOG_TEST_WRAP=1 NANOBK_OPLOG_DIR="$PILOT_DIR" \
+  NANOBK_OPLOG_TEST_WRAP_SCRIPT="/tmp/not-exist-$$" \
+  bash "${REPO_DIR}/installer/install.sh" --mode test --defaults 2>&1 < /dev/null) || missing_rc=$?
+rm -rf "$PILOT_DIR" 2>/dev/null
+
+if [[ "$missing_rc" -ne 0 ]]; then
+  pass "Missing: rc is non-zero ($missing_rc)"
+else
+  fail "Missing: rc is zero (expected non-zero)"
+fi
+assert_contains "$missing_output" "output control chars" "Missing: contains test label"
+assert_not_contains "$missing_output" "全部通过" "Missing: no fake success"
+
+# Cleanup
+rm -f "$_harmless_script" "$_failing_script" 2>/dev/null
 
 # ── 10: Test helper stability ────────────────────────────────────────────
 

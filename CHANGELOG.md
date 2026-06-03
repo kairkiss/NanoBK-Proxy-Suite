@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.8.25 — Operation Log Test Wrapper Failure Proof
+
+### Fixed
+
+- Fixed v1.8.24 proof gap: verbose/PLAIN/UI=0/CI wrapper tests used `NANOBK_TEST_OVERRIDE_SCRIPT` which bypassed the wrapper. Now use `NANOBK_OPLOG_TEST_WRAP_SCRIPT` to run a controlled test script through the wrapper.
+- Added `NANOBK_OPLOG_TEST_WRAP_SCRIPT` support to `run_safe_test_logged_pilot()` — test-only override for wrapped script.
+- Added real wrapper trigger tests: verbose, PLAIN, UI=0, CI — all verified to actually invoke wrapper.
+- Added controlled failing script propagation test: verifies non-zero exit, failure label, log redaction, no raw secret on screen/log.
+- Added missing override script test.
+
+### Safety
+
+- Only test-mode paths changed. No real deployment paths, no `run_cmd`/`run_critical_step` integration.
+
 ## v1.8.24 — Operation Log Single Test Path Pilot
 
 ### Added
