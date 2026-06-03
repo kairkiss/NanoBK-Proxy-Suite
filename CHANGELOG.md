@@ -1,5 +1,25 @@
 # Changelog
 
+## v1.8.26 — Operation Log Pilot Acceptance Checkpoint
+
+### Added
+
+- Added operation-log pilot acceptance checkpoint document.
+- Documented v1.8.20–v1.8.25 proof chain.
+- Documented what pilot proved and did not prove.
+- Documented real command pilot risk assessment.
+- Recommended v1.8.27 one low-risk real command pilot.
+- Added checkpoint coverage test.
+
+### Safety
+
+- No real deployment path changed.
+- No `run_cmd`/`run_critical_step` rollout.
+- No protocol templates changed.
+- No Worker core changed.
+- No rotate sync changed.
+- No Bot/Web business logic changed.
+
 ## v1.8.25 — Operation Log Test Wrapper Failure Proof
 
 ### Fixed
