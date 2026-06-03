@@ -1,5 +1,18 @@
 # Changelog
 
+## v1.8.11 — Brand Banner Width and Snapshot Fix
+
+### Fixed
+
+- Fixed `_ui_banner_box` long subtitle overflow: subtitle exceeding inner width is now truncated with `...` instead of breaking the right border.
+- Expanded box inner width range: min 46, max 76 (total line ≤ 80 columns with prefix and borders).
+- Added direct `_ui_banner_box` snapshot test: verifies box drawing characters (`╭╮╰╯│`), product name, version, subtitle, and width ≤ 90 columns.
+- Added long subtitle width guard test: verifies extra-long subtitle is truncated or fits without breaking the box.
+
+### Safety
+
+- No install.sh business logic, deployment logic, VPS protocol templates, Cloudflare Worker core, rotate sync, Bot/Web logic, or Summary status logic changed.
+
 ## v1.8.10 — NanoBK Brand Banner and CLI Identity
 
 ### Added

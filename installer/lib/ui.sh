@@ -98,24 +98,32 @@ _ui_sym() {
 
 # ── Banner / Brand Identity ───────────────────────────────────────────────
 
-# Box-drawing banner for interactive terminals (≤80 cols, 7 lines)
+# Box-drawing banner for interactive terminals
+# Total output line: "  " + "╭" + inner*─ + "╮" = 4 + inner columns
+# Max total: 90 columns → inner max = 86
 _ui_banner_box() {
   local version="${1:-}"
   local subtitle="${2:-}"
   local vdisp="${version:+ ${version}}"
+  local max_inner=76  # total line = 4 + 76 = 80
 
   local line1=" NanoBK Proxy Suite${vdisp}"
   local line2=" 一条命令，完成 VPS 代理部署"
-  local line3=""
-  local line4=" ${subtitle}"
+  local line4=""
+  [[ -n "$subtitle" ]] && line4=" ${subtitle}"
 
-  # Calculate box width (max of content lines, min 46, max 52)
+  # Calculate box width from content (min 46, max max_inner)
   local max_len=${#line1}
   [[ ${#line2} -gt $max_len ]] && max_len=${#line2}
-  [[ -n "$subtitle" ]] && [[ ${#line4} -gt $max_len ]] && max_len=${#line4}
+  [[ -n "$line4" ]] && [[ ${#line4} -gt $max_len ]] && max_len=${#line4}
   local inner=$((max_len + 2))
   [[ $inner -lt 46 ]] && inner=46
-  [[ $inner -gt 52 ]] && inner=52
+  [[ $inner -gt $max_inner ]] && inner=$max_inner
+
+  # Truncate subtitle if it exceeds inner width
+  if [[ -n "$line4" ]] && [[ ${#line4} -gt $inner ]]; then
+    line4="${line4:0:$((inner - 3))}..."
+  fi
 
   # Build horizontal lines
   local top_bot=""
@@ -129,6 +137,14 @@ _ui_banner_box() {
   local diff2=$((inner - ${#line2}))
   for ((i=0; i<diff1; i++)); do pad1+=" "; done
   for ((i=0; i<diff2; i++)); do pad2+=" "; done
+  if [[ -n "$line4" ]]; then
+    local diff4=$((inner - ${#line4}))
+    [[ $diff4 -gt 0 ]] && for ((i=0; i<diff4; i++)); do pad4+=" "; done
+  fi
+
+  # Build ASCII horizontal line for non-color fallback
+  local ascii_hl=""
+  for ((i=0; i<inner; i++)); do ascii_hl+="-"; done
 
   echo ""
   if [[ "$_ui_has_color" == "1" ]]; then
@@ -136,23 +152,19 @@ _ui_banner_box() {
     echo -e "  ${_ui_c_cyan}│${_ui_c_reset}${_ui_c_bold}${line1}${_ui_c_reset}${pad1}${_ui_c_cyan}│${_ui_c_reset}"
     echo -e "  ${_ui_c_cyan}│${_ui_c_reset}${line2}${pad2}${_ui_c_cyan}│${_ui_c_reset}"
     echo -e "  ${_ui_c_cyan}│${_ui_c_reset}${mid}${_ui_c_cyan}│${_ui_c_reset}"
-    if [[ -n "$subtitle" ]]; then
-      local diff4=$((inner - ${#line4}))
-      for ((i=0; i<diff4; i++)); do pad4+=" "; done
+    if [[ -n "$line4" ]]; then
       echo -e "  ${_ui_c_cyan}│${_ui_c_reset}${_ui_c_bold}${line4}${_ui_c_reset}${pad4}${_ui_c_cyan}│${_ui_c_reset}"
     fi
     echo -e "  ${_ui_c_cyan}╰${top_bot}╯${_ui_c_reset}"
   else
-    echo "  +${top_bot}+"
+    echo "  +${ascii_hl}+"
     echo "  |${line1}${pad1}|"
     echo "  |${line2}${pad2}|"
     echo "  |${mid}|"
-    if [[ -n "$subtitle" ]]; then
-      local diff4=$((inner - ${#line4}))
-      for ((i=0; i<diff4; i++)); do pad4+=" "; done
+    if [[ -n "$line4" ]]; then
       echo "  |${line4}${pad4}|"
     fi
-    echo "  +${top_bot}+"
+    echo "  +${ascii_hl}+"
   fi
   echo ""
 }
