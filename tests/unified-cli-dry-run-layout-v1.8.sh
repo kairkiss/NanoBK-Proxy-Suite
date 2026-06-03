@@ -178,8 +178,8 @@ if [[ -n "$skip_vps_block" ]]; then
   # Should NOT show "planned / dry-run" when user explicitly skipped
   assert_not_contains "$skip_vps_block" "planned / dry-run" "VPS block skip: no planned / dry-run"
 else
-  # If no VPS block found (resume menu appeared), that's OK for this test
-  pass "VPS block skip: no VPS block (resume menu or skipped)"
+  # VPS block must exist in Summary — fail if not found
+  fail "VPS block skip: VPS block not found in Summary output"
 fi
 
 # ── Layout 4c: Mock output product wording ───────────────────────────────

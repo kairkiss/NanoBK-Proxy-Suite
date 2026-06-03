@@ -1,5 +1,20 @@
 # Changelog
 
+## v1.8.9 — CLI Visual Polish Checkpoint and Validation Notes
+
+### Added
+
+- Updated `docs/validation-v1.8-cli-visual.md` with Phase 13 acceptance result, v1.8.7/v1.8.8 follow-up fixes documentation, and next-phase decision point.
+- New `tests/unified-cli-validation-notes-v1.8.sh` — verifies validation guide contains Phase 13 result, follow-up fixes, decision point, and no real secrets.
+
+### Changed
+
+- Tightened user-skip VPS dry-run Summary test: now fails if VPS block is not found in Summary output (was passing silently).
+
+### Safety
+
+- No install.sh business logic, deployment logic, VPS protocol templates, Cloudflare Worker core, rotate sync, Bot/Web logic, or Summary status logic changed.
+
 ## v1.8.8 — CLI Dry-run Skip Summary Honesty Fix
 
 ### Fixed

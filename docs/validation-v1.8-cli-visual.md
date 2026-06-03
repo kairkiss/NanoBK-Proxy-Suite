@@ -195,3 +195,98 @@ Possible safety issue:
 Screenshots:
   (Do NOT include tokens, real IPs, real Worker URLs, or env contents.)
 ```
+
+## 8. Phase 13 Acceptance Result
+
+- **Acceptance target**: v1.8.6
+- **Commit**: `797a90bad990159c26105370b7a78dce324c5cfb`
+- **Environment**: Dirty VPS with previous NanoBK deployment retained
+- **No real Cloudflare deploy executed**
+- **No clean install executed**
+- **dry-run safety**: PASS
+- **Test gates**: PASS
+- **Dirty VPS existing deployment / healthcheck / service / port / secret permission**: PASS
+- **CLI visual feel**: NEEDS POLISH
+- **Overall verdict**: PASS WITH POLISH NOTES
+
+### Issues Found in Phase 13
+
+1. **mock/dry-run existing deployment state shows "unknown" without explanation** — when `NANOBK_TEST_MOCK=1` skips real `/etc/nanobk` state detection, the output showed "VPS: unknown" / "Cloudflare: unknown" without explaining why.
+2. **VPS Summary showed `skipped (dry-run)` in defaults dry-run** — defaults dry-run should show `planned / dry-run`, not `skipped (dry-run)`, since the user didn't explicitly skip.
+3. **Mock output had test-log style wording** — `[MOCK] VPS deploy success (simulated)` read like a test harness, not a product wizard.
+4. **Telegram Bot dry-run defaults confirmation may appear twice** — pre-existing interaction flow behavior, not a blocker.
+
+## 9. v1.8.7–v1.8.8 Follow-up Fixes
+
+### v1.8.7 Fixed
+
+- Added mock/dry-run existing-state explanation: "（mock / dry-run 模式，不会读取真实部署状态）" in `wizard_state_print`.
+- Mock output productized from English test-style to Chinese product-style (e.g., "VPS 部署步骤已模拟完成 (dry-run)").
+- Default dry-run VPS Summary changed from `skipped (dry-run)` to `planned / dry-run`.
+
+### v1.8.8 Fixed
+
+- User-skip VPS dry-run Summary preserves `skipped (dry-run)` — added `VPS_STAGE_STATUS == "skipped"` check before global `DRY_RUN` check.
+- Default dry-run VPS Summary continues `planned / dry-run`.
+- Mock/dry-run existing-state explanation has actual output test (creates temp wizard state file).
+- Test narrowed from global `skipped (dry-run)` check to VPS Summary block check.
+
+## 10. Current Decision Point
+
+### A. Operation log integration
+
+- **Pros**: Truly hides complex command output; provides failure diagnostics.
+- **Risks**: Touches `run_cmd` / `run_critical_step` — high-risk core paths.
+- **Recommendation**: Defer until a dedicated high-review version.
+
+### B. Telegram Bot menu polish
+
+- **Pros**: Control-plane experience improvement is visible.
+- **Risks**: Medium; must not bypass `nanobk` CLI architecture.
+- **Recommendation**: Can be a v1.9 or dedicated v1.8 follow-up topic.
+
+### C. Web Panel Apple-style polish
+
+- **Pros**: Matches the final product goal.
+- **Risks**: Large scope.
+- **Recommendation**: Separate phase later, do not mix with CLI polish.
+
+### D. CLI visual polish final pass
+
+- **Pros**: Continue small-step improvements.
+- **Risks**: Low.
+- **Recommendation**: If human visual feel is still unsatisfactory, continue v1.8.10+.
+
+```
+NanoBK v1.8 CLI Visual Feedback
+
+Test command:
+  (paste the command you ran)
+
+Terminal:
+  (e.g., iTerm2, Terminal.app, tmux, SSH)
+
+Mode:
+  default / plain / no-emoji
+
+Overall:
+  PASS / NEEDS POLISH / BLOCKED
+
+Looks good:
+  -
+
+Needs polish:
+  -
+
+Confusing wording:
+  -
+
+Too noisy:
+  -
+
+Possible safety issue:
+  -
+
+Screenshots:
+  (Do NOT include tokens, real IPs, real Worker URLs, or env contents.)
+```
