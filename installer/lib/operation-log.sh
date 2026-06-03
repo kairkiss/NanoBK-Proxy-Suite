@@ -26,6 +26,7 @@ _NANOBK_OPLOG_LOADED=1
 
 _oplog_has_color() {
   [[ "${NANOBK_PLAIN:-}" != "1" ]] &&
+  [[ "${NANOBK_UI:-}" != "0" ]] &&
   [[ "${NO_COLOR:-}" == "" ]] &&
   [[ "${CI:-}" == "" ]] &&
   [[ -t 1 ]]

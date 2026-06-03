@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — v1.8.20 Operation Log Pilot Test
+# NanoBK Proxy Suite — v1.8.21 Operation Log Pilot Test
 #
 # Tests redacted operation-log pilot behavior.
 # Does NOT test real deployment — only log infrastructure.
@@ -61,7 +61,7 @@ run_oplog_test() {
 }
 
 echo ""
-echo "=== Test Suite: v1.8.20 Operation Log Pilot ==="
+echo "=== Test Suite: v1.8.21 Operation Log Pilot ==="
 
 # ── 1: oplog_redact basic secrets ────────────────────────────────────────
 
@@ -241,6 +241,23 @@ if has_ansi "$output"; then
 else
   pass "CI: no ANSI escape"
 fi
+
+# UI=0 no ANSI
+output=$(run_oplog_test "NANOBK_UI=0 NANOBK_OPLOG_DIR=/tmp/nanobk-pilot-test-$$" "
+  oplog_init 'test-ui0' >/dev/null
+  oplog_run_hidden 'ui0 test' bash -c 'echo ui0-output'
+  oplog_hint_on_failure 'ui0 hint'
+  rm -rf /tmp/nanobk-pilot-test-\$\$
+")
+
+if has_ansi "$output"; then
+  fail "UI=0: no ANSI escape"
+else
+  pass "UI=0: no ANSI escape"
+fi
+assert_contains "$output" "详细日志" "UI=0: contains log hint"
+assert_not_contains "$output" "TOKEN=" "UI=0: no TOKEN="
+assert_not_contains "$output" "SECRET=" "UI=0: no SECRET="
 
 # ── 7: Log file permissions ──────────────────────────────────────────────
 

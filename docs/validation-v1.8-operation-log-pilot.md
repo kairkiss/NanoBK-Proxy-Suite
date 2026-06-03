@@ -74,6 +74,13 @@ The `oplog_redact` function strips:
 | `NANOBK_OPLOG_DIR=...` | Override log directory for testing |
 | `NANOBK_OPLOG_PILOT=1` | Reserved for future pilot integration |
 
+## v1.8.21 UI=0 Boundary Fix
+
+- v1.8.20 added operation-log pilot but missed explicit UI=0 no-color handling in `_oplog_has_color()` and tests.
+- v1.8.21 adds `NANOBK_UI != "0"` to `_oplog_has_color()` color gating.
+- Added UI=0 no-ANSI test to pilot test suite with log hint and secret safety assertions.
+- PLAIN/CI no-ANSI behavior preserved.
+
 ## Next Step Before Full Rollout
 
 Before integrating `oplog_run_hidden` into `run_cmd`:

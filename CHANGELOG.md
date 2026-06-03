@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.8.21 — Operation Log UI=0 Boundary Fix
+
+### Fixed
+
+- Fixed `_oplog_has_color()` in `installer/lib/operation-log.sh`: added `NANOBK_UI != "0"` check so UI=0 mode disables color in operation-log output.
+- Added UI=0 no-ANSI test to operation-log pilot test suite.
+- Added UI=0 log hint and secret safety assertions.
+
+### Safety
+
+- No run_cmd / run_critical_step integration. No deployment logic changed. No protocol templates, Worker core, rotate sync, or Bot/Web logic changed.
+
 ## v1.8.20 — Operation Log Low-risk Pilot
 
 ### Added
