@@ -1,5 +1,26 @@
 # Changelog
 
+## v1.8.40 — Status JSON Admin Env Path Test Hook
+
+### Added
+
+- Added `NANOBK_STATUS_TEST_ADMIN_ENV_PATH` test-only status hook.
+- Limited hook to admin env existence check in `cmd_status()`.
+- Preserved default `/root/.nanok-cf-admin.env` behavior.
+- Added focused tests for `adminEnvExists` false/true with mock path.
+- Added systemctl PATH shim test.
+- Verified JSON validity and no real root/etc path leakage.
+
+### Safety
+
+- Did not add `NANOBK_OPLOG_STATUS_PILOT`.
+- Did not add status operation-log wrapper.
+- Did not change status JSON schema.
+- No `install.sh` behavior changed.
+- No `resolve_repo_dir` changes.
+- No `run_cmd`/`run_critical_step` rollout.
+- No real deployment path changed.
+
 ## v1.8.39 — Status JSON Mock Isolation Hook Planning
 
 ### Added

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite - v1.8.39 Status JSON Mock Filesystem Feasibility Coverage Test
+# NanoBK Proxy Suite - v1.8.40 Status JSON Mock Filesystem Feasibility Coverage Test
 #
 # Verifies docs/validation-v1.8-status-json-mock-filesystem-feasibility.md
 # contains the required feasibility gate content.
@@ -17,7 +17,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "${SCRIPT_DIR}/lib/assertions.sh"
 
 echo ""
-echo "=== Test Suite: v1.8.39 Status JSON Mock Filesystem Feasibility ==="
+echo "=== Test Suite: v1.8.40 Status JSON Mock Filesystem Feasibility ==="
 
 DOC="${REPO_DIR}/docs/validation-v1.8-status-json-mock-filesystem-feasibility.md"
 
@@ -80,6 +80,11 @@ assert_contains "$doc_content" "NANOBK_STATUS_TEST_ADMIN_ENV_PATH" "5c: selected
 assert_contains "$doc_content" "no hook implemented yet" "5d: no hook implemented"
 assert_contains "$doc_content" "no real status run" "5e: no real status run"
 assert_contains "$doc_content" "v1.8.40 admin env path test hook" "5f: next step"
+
+echo ""
+echo "--- 6: v1.8.40 admin env path hook note ---"
+
+assert_contains "$doc_content" "v1.8.40 implements the minimal admin env path test hook" "6a: has v1.8.40 implementation note"
 
 echo ""
 echo "=== Results ==="

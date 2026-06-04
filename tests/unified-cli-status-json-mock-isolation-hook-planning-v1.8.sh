@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite - v1.8.39 Status JSON Mock Isolation Hook Planning Coverage Test
+# NanoBK Proxy Suite - v1.8.40 Status JSON Mock Isolation Hook Planning Coverage Test
 #
 # Verifies docs/validation-v1.8-status-json-mock-isolation-hook-planning.md
 # contains the required hook planning checkpoint content.
@@ -17,7 +17,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "${SCRIPT_DIR}/lib/assertions.sh"
 
 echo ""
-echo "=== Test Suite: v1.8.39 Status JSON Mock Isolation Hook Planning ==="
+echo "=== Test Suite: v1.8.40 Status JSON Mock Isolation Hook Planning ==="
 
 DOC="${REPO_DIR}/docs/validation-v1.8-status-json-mock-isolation-hook-planning.md"
 
@@ -79,6 +79,16 @@ assert_contains "$doc_content" "Do NOT change status JSON schema" "5c: forbids s
 assert_contains "$doc_content" "run_cmd" "5d: mentions run_cmd"
 assert_contains "$doc_content" "run_critical_step" "5e: mentions run_critical_step"
 assert_contains "$doc_content" "Do NOT expose raw status JSON in chat" "5f: raw status JSON chat ban"
+
+echo ""
+echo "--- 6: v1.8.40 implementation section ---"
+
+assert_contains "$doc_content" "v1.8.40 Admin Env Path Test Hook" "6a: has v1.8.40 section title"
+assert_contains "$doc_content" "v1.8.40 implements NANOBK_STATUS_TEST_ADMIN_ENV_PATH" "6b: states hook implemented"
+assert_contains "$doc_content" "only affects admin env existence check" "6c: states scope limited"
+assert_contains "$doc_content" "no content sourced" "6d: states no content sourced"
+assert_contains "$doc_content" "no path printed" "6e: states no path printed"
+assert_contains "$doc_content" "no status wrapper" "6f: states no status wrapper"
 
 echo ""
 echo "=== Results ==="

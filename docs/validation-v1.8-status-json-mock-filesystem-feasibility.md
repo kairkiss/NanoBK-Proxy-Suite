@@ -222,3 +222,13 @@ v1.8.39 plans a minimal test-only hook.
 - no real status run.
 - no status pilot.
 - next step is v1.8.40 admin env path test hook if approved.
+
+## 12. v1.8.40 Admin Env Path Hook Implemented
+
+v1.8.40 implements the minimal admin env path test hook required before runtime mock filesystem status prototype.
+
+- `NANOBK_STATUS_TEST_ADMIN_ENV_PATH` is now implemented in `cmd_status()`.
+- Default path remains `/root/.nanok-cf-admin.env`.
+- Tests verify `adminEnvExists` false/true with mock path.
+- No real root path touched when hook is set.
+- Blocker for Route A runtime proof is resolved.

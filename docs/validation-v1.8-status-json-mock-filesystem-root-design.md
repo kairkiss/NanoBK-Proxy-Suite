@@ -274,3 +274,4 @@ v1.8.38 evaluates Route A feasibility.
 - no status pilot.
 - next step depends on feasibility verdict.
 - v1.8.39 plans admin env path isolation before runtime prototype.
+- v1.8.40 implements `NANOBK_STATUS_TEST_ADMIN_ENV_PATH` admin env path test hook.

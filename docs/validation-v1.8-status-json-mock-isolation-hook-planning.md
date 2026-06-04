@@ -236,3 +236,45 @@ Do not proceed directly to full mock filesystem runtime in v1.8.40. The admin en
 - Do NOT full-rollout run_cmd.
 - Do NOT full-rollout run_critical_step.
 - Do NOT expose raw status JSON in chat.
+
+## 12. v1.8.40 Admin Env Path Test Hook
+
+v1.8.40 implements NANOBK_STATUS_TEST_ADMIN_ENV_PATH.
+
+### What changed
+
+- `cmd_status()` admin env existence check now reads path from `status_admin_env_path`.
+- `status_admin_env_path` defaults to `/root/.nanok-cf-admin.env` when `NANOBK_STATUS_TEST_ADMIN_ENV_PATH` is unset.
+- When `NANOBK_STATUS_TEST_ADMIN_ENV_PATH` is set, `cmd_status()` checks that path instead.
+- only affects admin env existence check (`cf_admin_env_exists`).
+- Does not source admin env content (no content sourced).
+- Does not print the path (no path printed).
+- Does not change JSON field name.
+- Does not change `adminEnvExists` semantics.
+- Does not change token fingerprint logic.
+- Does not change `resolve_repo_dir()`.
+- Does not change `--config-dir` parsing.
+- No status wrapper added (no status wrapper).
+
+### Tests
+
+- Source guard verifies `NANOBK_STATUS_TEST_ADMIN_ENV_PATH` and `/root/.nanok-cf-admin.env` in `bin/nanobk`.
+- Mock false case: hook set, no file at mock path → `adminEnvExists=false`.
+- Mock true case: hook set, file at mock path → `adminEnvExists=true`.
+- No real paths, no secrets, no ANSI in output.
+- systemctl PATH shim verified.
+- JSON validity verified.
+- Full dry-run unaffected.
+
+### What was NOT done
+
+- No `NANOBK_OPLOG_STATUS_PILOT`.
+- No status operation-log wrapper.
+- No dirty VPS status.
+- No `resolve_repo_dir` changes.
+- No status JSON schema changes.
+- No `run_cmd`/`run_critical_step` rollout.
+
+### Next step
+
+Next step can be mock filesystem status prototype with operation-log capture only after this hook passes review.

@@ -18,7 +18,7 @@ set -Eeuo pipefail
 
 # ── Version ─────────────────────────────────────────────────────────────────
 
-NANOBK_VERSION="1.8.39"
+NANOBK_VERSION="1.8.40"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -424,8 +424,9 @@ cmd_status() {
     fi
   fi
 
-  # Check admin env separately
-  if [[ -f "/root/.nanok-cf-admin.env" ]]; then
+  # Check admin env separately (test-only hook for mock path isolation)
+  local status_admin_env_path="${NANOBK_STATUS_TEST_ADMIN_ENV_PATH:-/root/.nanok-cf-admin.env}"
+  if [[ -f "$status_admin_env_path" ]]; then
     cf_admin_env_exists="true"
   fi
 
@@ -495,7 +496,7 @@ cmd_status() {
 
     local warnings_json="["
     local first=1
-    for w in "${warnings[@]}"; do
+    for w in "${warnings[@]+"${warnings[@]}"}"; do
       [[ $first -eq 1 ]] && first=0 || warnings_json+=","
       warnings_json+="$(json_escape "$w")"
     done
@@ -624,7 +625,7 @@ EOF
     if [[ ${#warnings[@]} -gt 0 ]]; then
       echo ""
       echo "  Warnings:"
-      for w in "${warnings[@]}"; do
+      for w in "${warnings[@]+"${warnings[@]}"}"; do
         echo "    - ${w}"
       done
     fi

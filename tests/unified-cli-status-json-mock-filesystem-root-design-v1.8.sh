@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite - v1.8.39 Status JSON Mock Filesystem Root Design Coverage Test
+# NanoBK Proxy Suite - v1.8.40 Status JSON Mock Filesystem Root Design Coverage Test
 #
 # Verifies docs/validation-v1.8-status-json-mock-filesystem-root-design.md
 # contains the required design checkpoint content.
@@ -17,7 +17,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "${SCRIPT_DIR}/lib/assertions.sh"
 
 echo ""
-echo "=== Test Suite: v1.8.39 Status JSON Mock Filesystem Root Design ==="
+echo "=== Test Suite: v1.8.40 Status JSON Mock Filesystem Root Design ==="
 
 DOC="${REPO_DIR}/docs/validation-v1.8-status-json-mock-filesystem-root-design.md"
 
@@ -97,6 +97,12 @@ echo "--- 7: v1.8.39 Hook Planning Note ---"
 assert_contains "$doc_content" "v1.8.39" "7a: mentions v1.8.39"
 assert_contains "$doc_content" "admin env path isolation" "7b: plans admin env path isolation"
 assert_contains "$doc_content" "before runtime prototype" "7c: before runtime prototype"
+
+echo ""
+echo "--- 8: v1.8.40 admin env hook implemented ---"
+
+assert_contains "$doc_content" "v1.8.40" "8a: mentions v1.8.40"
+assert_contains "$doc_content" "admin env path test hook" "8b: has admin env path test hook"
 
 echo ""
 echo "=== Results ==="
