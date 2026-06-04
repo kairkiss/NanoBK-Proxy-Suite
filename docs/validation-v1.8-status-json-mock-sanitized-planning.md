@@ -260,3 +260,4 @@ v1.8.37 adds mock filesystem root design.
 - it does not approve dirty VPS status wrapping.
 - it documents path isolation requirements before any real status code-path prototype.
 - next step is v1.8.38 mock filesystem prototype only if path isolation is clear.
+- v1.8.38 adds a feasibility gate before any mock filesystem runtime prototype.

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite - v1.8.37 Status JSON Mock Filesystem Root Design Coverage Test
+# NanoBK Proxy Suite - v1.8.38 Status JSON Mock Filesystem Root Design Coverage Test
 #
 # Verifies docs/validation-v1.8-status-json-mock-filesystem-root-design.md
 # contains the required design checkpoint content.
@@ -17,7 +17,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "${SCRIPT_DIR}/lib/assertions.sh"
 
 echo ""
-echo "=== Test Suite: v1.8.37 Status JSON Mock Filesystem Root Design ==="
+echo "=== Test Suite: v1.8.38 Status JSON Mock Filesystem Root Design ==="
 
 DOC="${REPO_DIR}/docs/validation-v1.8-status-json-mock-filesystem-root-design.md"
 
@@ -79,6 +79,17 @@ assert_contains "$doc_content" "run_cmd" "5d: mentions run_cmd"
 assert_contains "$doc_content" "run_critical_step" "5e: mentions run_critical_step"
 assert_contains "$doc_content" "do not paste raw output" "5f: has raw output rule"
 assert_contains "$doc_content" "do not cat env" "5g: has env cat rule"
+
+echo ""
+echo "--- 6: v1.8.38 Feasibility Gate ---"
+
+assert_contains "$doc_content" "v1.8.38" "6a: mentions v1.8.38"
+assert_contains "$doc_content" "Feasibility Gate" "6b: has Feasibility Gate"
+assert_contains "$doc_content" "Route A feasibility" "6c: mentions Route A feasibility"
+assert_contains "$doc_content" "no mock runner implemented" "6d: no mock runner implemented"
+assert_contains "$doc_content" "no real status runtime proof yet" "6e: no real status runtime proof"
+assert_contains "$doc_content" "no status pilot" "6f: no status pilot"
+assert_contains "$doc_content" "next step depends on feasibility verdict" "6g: next step depends on verdict"
 
 echo ""
 echo "=== Results ==="

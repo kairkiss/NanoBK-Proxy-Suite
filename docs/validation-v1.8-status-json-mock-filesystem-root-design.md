@@ -264,3 +264,12 @@ Do NOT full-rollout run_cmd.
 Do NOT full-rollout run_critical_step.
 
 Do NOT expose raw status JSON in chat.
+
+## 12. v1.8.38 Feasibility Gate
+
+v1.8.38 evaluates Route A feasibility.
+
+- no mock runner implemented.
+- no real status runtime proof yet.
+- no status pilot.
+- next step depends on feasibility verdict.

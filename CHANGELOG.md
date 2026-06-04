@@ -1,5 +1,27 @@
 # Changelog
 
+## v1.8.38 — Status JSON Mock Filesystem Prototype Feasibility Gate
+
+### Added
+
+- Added status JSON mock filesystem feasibility gate.
+- Evaluated `NANOBK_REPO_DIR` + `--config-dir` + PATH systemctl shim route.
+- Documented Route A feasibility verdict.
+- Documented required mock files.
+- Documented runtime guards.
+- Documented proof levels for no real path read.
+- Recommended v1.8.39 next step.
+
+### Safety
+
+- Did not implement mock runner.
+- Did not run real `bin/nanobk --json status`.
+- Did not add `NANOBK_OPLOG_STATUS_PILOT`.
+- No `install.sh` behavior changed.
+- No `cmd_status` changes.
+- No `run_cmd`/`run_critical_step` rollout.
+- No real deployment path changed.
+
 ## v1.8.37 — Status JSON Mock Filesystem Root Design
 
 ### Added
