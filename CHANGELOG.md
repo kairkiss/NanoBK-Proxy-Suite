@@ -1,5 +1,26 @@
 # Changelog
 
+## v1.8.29 — Operation Log Real Command Pilot Checkpoint
+
+### Added
+
+- Added operation-log real command pilot checkpoint document.
+- Documented v1.8.27 one-command real pilot proof.
+- Documented v1.8.28 UI=0/CI coverage fix.
+- Documented what real pilot proved and did not prove.
+- Documented second real command risk assessment.
+- Added real pilot checkpoint coverage test.
+
+### Safety
+
+- No install.sh behavior changed.
+- No real deployment path changed.
+- No `run_cmd`/`run_critical_step` rollout.
+- No protocol templates changed.
+- No Worker core changed.
+- No rotate sync changed.
+- No Bot/Web business logic changed.
+
 ## v1.8.28 — Operation Log Real Pilot UI=0/CI Test Fix
 
 ### Fixed

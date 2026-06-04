@@ -217,3 +217,7 @@ v1.8.27 implements the first one-command real pilot using `bin/nanobk --version`
 ## v1.8.28 update
 
 v1.8.28 adds missing UI=0 and CI no-ANSI regression tests for the real command pilot. No installer behavior changed.
+
+## v1.8.29 update
+
+v1.8.29 adds the real command pilot acceptance checkpoint document and coverage test. No installer behavior changed.
