@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — v1.8.42 Status JSON Admin Env Path Hook Test
+# NanoBK Proxy Suite — v1.8.43 Status JSON Admin Env Path Hook Test
 #
 # Verifies NANOBK_STATUS_TEST_ADMIN_ENV_PATH hook exists, controls
 # adminEnvExists in status JSON, and does not leak real paths/secrets.
@@ -22,7 +22,7 @@ PASS=0
 FAIL=0
 
 echo ""
-echo "=== Test Suite: v1.8.42 Status JSON Admin Env Path Hook ==="
+echo "=== Test Suite: v1.8.43 Status JSON Admin Env Path Hook ==="
 
 # ── Cleanup ─────────────────────────────────────────────────────────────────
 

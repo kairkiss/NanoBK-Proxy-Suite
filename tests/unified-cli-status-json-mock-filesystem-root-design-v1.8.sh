@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite - v1.8.42 Status JSON Mock Filesystem Root Design Coverage Test
+# NanoBK Proxy Suite - v1.8.43 Status JSON Mock Filesystem Root Design Coverage Test
 #
 # Verifies docs/validation-v1.8-status-json-mock-filesystem-root-design.md
 # contains the required design checkpoint content.
@@ -17,7 +17,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "${SCRIPT_DIR}/lib/assertions.sh"
 
 echo ""
-echo "=== Test Suite: v1.8.42 Status JSON Mock Filesystem Root Design ==="
+echo "=== Test Suite: v1.8.43 Status JSON Mock Filesystem Root Design ==="
 
 DOC="${REPO_DIR}/docs/validation-v1.8-status-json-mock-filesystem-root-design.md"
 

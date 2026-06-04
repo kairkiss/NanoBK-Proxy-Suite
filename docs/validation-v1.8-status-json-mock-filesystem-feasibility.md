@@ -252,3 +252,12 @@ v1.8.42 polishes operation-log command path so the full log avoids real repo abs
 - Runner uses `cd "$REPO_DIR"` then `bash bin/nanobk` (relative).
 - Full log now checks absence of real HOME and real repo path.
 - JSON block remains clean and valid.
+
+## 15. v1.8.43 Prototype Checkpoint
+
+v1.8.43 records that v1.8.42 resolved command path leakage in the mock status operation-log prototype.
+
+- Mock status oplog prototype accepted.
+- Dirty VPS status remains unapproved.
+- Production status wrapper remains unapproved.
+- NANOBK_OPLOG_STATUS_PILOT still not added.

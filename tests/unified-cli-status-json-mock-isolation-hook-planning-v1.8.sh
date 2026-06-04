@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite - v1.8.42 Status JSON Mock Isolation Hook Planning Coverage Test
+# NanoBK Proxy Suite - v1.8.43 Status JSON Mock Isolation Hook Planning Coverage Test
 #
 # Verifies docs/validation-v1.8-status-json-mock-isolation-hook-planning.md
 # contains the required hook planning checkpoint content.
@@ -17,7 +17,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "${SCRIPT_DIR}/lib/assertions.sh"
 
 echo ""
-echo "=== Test Suite: v1.8.42 Status JSON Mock Isolation Hook Planning ==="
+echo "=== Test Suite: v1.8.43 Status JSON Mock Isolation Hook Planning ==="
 
 DOC="${REPO_DIR}/docs/validation-v1.8-status-json-mock-isolation-hook-planning.md"
 
@@ -67,7 +67,7 @@ echo ""
 echo "--- 4: Risk and next version ---"
 
 assert_contains "$doc_content" "Risk assessment" "4a: has risk assessment"
-assert_contains "$doc_content" "v1.8.42" "4b: mentions v1.8.42"
+assert_contains "$doc_content" "v1.8.43" "4b: mentions v1.8.43"
 assert_contains "$doc_content" "Status JSON Admin Env Path Test Hook" "4c: has next-step title"
 
 echo ""
@@ -91,7 +91,7 @@ assert_contains "$doc_content" "no path printed" "6e: states no path printed"
 assert_contains "$doc_content" "no status wrapper" "6f: states no status wrapper"
 
 echo ""
-echo "--- 7: v1.8.42 oplog prototype section ---"
+echo "--- 7: v1.8.43 oplog prototype section ---"
 
 assert_contains "$doc_content" "v1.8.41 Mock Filesystem Operation-Log Prototype" "7a: has v1.8.41 section title"
 assert_contains "$doc_content" "v1.8.41 uses NANOBK_STATUS_TEST_ADMIN_ENV_PATH" "7b: states uses v1.8.40 hook"
@@ -108,6 +108,14 @@ echo "--- 8: v1.8.42 command path polish ---"
 assert_contains "$doc_content" "v1.8.42 Command Path Polish" "8a: has v1.8.42 section"
 assert_contains "$doc_content" "bash bin/nanobk" "8b: uses relative path"
 assert_contains "$doc_content" "no longer records real repo absolute path" "8c: no absolute path in log"
+
+echo ""
+echo "--- 9: v1.8.43 prototype checkpoint ---"
+
+assert_contains "$doc_content" "v1.8.43 Prototype Checkpoint" "9a: has v1.8.43 section"
+assert_contains "$doc_content" "mock status oplog prototype acceptance" "9b: records acceptance"
+assert_contains "$doc_content" "No status pilot" "9c: no status pilot"
+assert_contains "$doc_content" "No dirty VPS" "9d: no dirty VPS"
 
 echo ""
 echo "=== Results ==="

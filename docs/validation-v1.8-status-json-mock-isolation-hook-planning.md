@@ -325,3 +325,14 @@ v1.8.42 keeps v1.8.41 mock status operation-log prototype.
 - No NANOBK_OPLOG_STATUS_PILOT.
 - No status wrapper.
 - No cmd_status/schema/resolve_repo_dir change.
+
+## 15. v1.8.43 Prototype Checkpoint
+
+v1.8.43 records mock status oplog prototype acceptance.
+
+- Accepted v1.8.34–v1.8.42 proof chain.
+- Mock filesystem status oplog prototype passes.
+- No status pilot.
+- No dirty VPS.
+- No production wrapper.
+- Next recommendation is broader v1.8 CLI/operation-log checkpoint (Option C) or status pilot planning (Option A).

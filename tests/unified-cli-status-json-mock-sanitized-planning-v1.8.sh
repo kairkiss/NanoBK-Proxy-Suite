@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite - v1.8.42 Status JSON Mock/Sanitized Planning Coverage Test
+# NanoBK Proxy Suite - v1.8.43 Status JSON Mock/Sanitized Planning Coverage Test
 #
 # Verifies docs/validation-v1.8-status-json-mock-sanitized-planning.md exists
 # and contains the required planning checkpoint content.
@@ -15,7 +15,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "${SCRIPT_DIR}/lib/assertions.sh"
 
 echo ""
-echo "=== Test Suite: v1.8.42 Status JSON Mock/Sanitized Planning ==="
+echo "=== Test Suite: v1.8.43 Status JSON Mock/Sanitized Planning ==="
 
 DOC="${REPO_DIR}/docs/validation-v1.8-status-json-mock-sanitized-planning.md"
 

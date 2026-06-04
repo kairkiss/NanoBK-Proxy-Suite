@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — v1.8.42 Status JSON Mock Filesystem Operation-Log Prototype
+# NanoBK Proxy Suite — v1.8.43 Status JSON Mock Filesystem Operation-Log Prototype
 #
 # Uses operation-log to capture mock filesystem bin/nanobk --json status output.
 # Proves: default hidden, verbose sanitized, log JSON valid, PLAIN/UI=0/CI no ANSI,
@@ -23,7 +23,7 @@ PASS=0
 FAIL=0
 
 echo ""
-echo "=== Test Suite: v1.8.42 Status JSON Mock Oplog Prototype ==="
+echo "=== Test Suite: v1.8.43 Status JSON Mock Oplog Prototype ==="
 
 # ── Forbidden patterns helper ─────────────────────────────────────────────
 

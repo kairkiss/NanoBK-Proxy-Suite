@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — v1.8.42 Operation Log Help Fast Test
+# NanoBK Proxy Suite — v1.8.43 Operation Log Help Fast Test
 #
 # Focused fast test for NANOBK_OPLOG_HELP_PILOT=1 (bin/nanobk --help).
 # Uses NANOBK_TEST_OVERRIDE_SCRIPT to avoid running All safe tests.

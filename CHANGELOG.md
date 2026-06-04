@@ -1,5 +1,26 @@
 # Changelog
 
+## v1.8.43 — Status Mock Oplog Prototype Checkpoint
+
+### Added
+
+- Added status mock operation-log prototype checkpoint.
+- Recorded v1.8.34–v1.8.42 status JSON proof chain.
+- Accepted mock filesystem status operation-log prototype.
+- Documented that dirty VPS status remains unapproved.
+- Documented that production status wrapper remains unapproved.
+- Documented that `NANOBK_OPLOG_STATUS_PILOT` is still not added.
+- Documented security proof summary.
+- Recommended next step toward broader v1.8 CLI/operation-log checkpoint.
+
+### Safety
+
+- No `install.sh` behavior changed.
+- No `bin/nanobk` behavior changed except version.
+- No status wrapper.
+- No `run_cmd`/`run_critical_step` rollout.
+- No real deployment path changed.
+
 ## v1.8.42 — Status Mock Oplog Command Path Polish
 
 ### Fixed
