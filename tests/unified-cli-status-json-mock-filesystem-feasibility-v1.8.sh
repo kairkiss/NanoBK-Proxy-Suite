@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite - v1.8.38 Status JSON Mock Filesystem Feasibility Coverage Test
+# NanoBK Proxy Suite - v1.8.39 Status JSON Mock Filesystem Feasibility Coverage Test
 #
 # Verifies docs/validation-v1.8-status-json-mock-filesystem-feasibility.md
 # contains the required feasibility gate content.
@@ -17,7 +17,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "${SCRIPT_DIR}/lib/assertions.sh"
 
 echo ""
-echo "=== Test Suite: v1.8.38 Status JSON Mock Filesystem Feasibility ==="
+echo "=== Test Suite: v1.8.39 Status JSON Mock Filesystem Feasibility ==="
 
 DOC="${REPO_DIR}/docs/validation-v1.8-status-json-mock-filesystem-feasibility.md"
 
@@ -70,6 +70,16 @@ assert_contains "$doc_content" 'Do NOT read `/root/.nanok-cf-admin.env`' "4d: fo
 assert_contains "$doc_content" "run_cmd" "4e: mentions run_cmd"
 assert_contains "$doc_content" "run_critical_step" "4f: mentions run_critical_step"
 assert_contains "$doc_content" "do not expose raw status JSON in chat" "4g: raw status JSON chat ban"
+
+echo ""
+echo "--- 5: v1.8.39 Mock Isolation Hook Planning ---"
+
+assert_contains "$doc_content" "v1.8.39" "5a: mentions v1.8.39"
+assert_contains "$doc_content" "Mock Isolation Hook Planning" "5b: has hook planning note"
+assert_contains "$doc_content" "NANOBK_STATUS_TEST_ADMIN_ENV_PATH" "5c: selected hook"
+assert_contains "$doc_content" "no hook implemented yet" "5d: no hook implemented"
+assert_contains "$doc_content" "no real status run" "5e: no real status run"
+assert_contains "$doc_content" "v1.8.40 admin env path test hook" "5f: next step"
 
 echo ""
 echo "=== Results ==="

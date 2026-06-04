@@ -1,5 +1,28 @@
 # Changelog
 
+## v1.8.39 — Status JSON Mock Isolation Hook Planning
+
+### Added
+
+- Added status JSON mock isolation hook planning.
+- Compared broad `NANOBK_STATUS_MOCK_ROOT` vs narrow admin env path override.
+- Recommended `NANOBK_STATUS_TEST_ADMIN_ENV_PATH` as the minimal test-only hook.
+- Documented implementation sketch.
+- Documented future hook tests.
+- Documented risk controls.
+- Recommended v1.8.40 admin env path test hook.
+
+### Safety
+
+- Did not implement hook.
+- Did not run real `bin/nanobk --json status`.
+- Did not add `NANOBK_OPLOG_STATUS_PILOT`.
+- No `install.sh` behavior changed.
+- No `cmd_status` changes.
+- No `resolve_repo_dir` changes.
+- No `run_cmd`/`run_critical_step` rollout.
+- No real deployment path changed.
+
 ## v1.8.38 — Status JSON Mock Filesystem Prototype Feasibility Gate
 
 ### Added

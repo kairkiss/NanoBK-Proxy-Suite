@@ -273,3 +273,4 @@ v1.8.38 evaluates Route A feasibility.
 - no real status runtime proof yet.
 - no status pilot.
 - next step depends on feasibility verdict.
+- v1.8.39 plans admin env path isolation before runtime prototype.

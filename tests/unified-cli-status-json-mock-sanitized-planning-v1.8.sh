@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite - v1.8.38 Status JSON Mock/Sanitized Planning Coverage Test
+# NanoBK Proxy Suite - v1.8.39 Status JSON Mock/Sanitized Planning Coverage Test
 #
 # Verifies docs/validation-v1.8-status-json-mock-sanitized-planning.md exists
 # and contains the required planning checkpoint content.
@@ -15,7 +15,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "${SCRIPT_DIR}/lib/assertions.sh"
 
 echo ""
-echo "=== Test Suite: v1.8.38 Status JSON Mock/Sanitized Planning ==="
+echo "=== Test Suite: v1.8.39 Status JSON Mock/Sanitized Planning ==="
 
 DOC="${REPO_DIR}/docs/validation-v1.8-status-json-mock-sanitized-planning.md"
 
@@ -110,6 +110,13 @@ echo "--- 9: v1.8.38 Feasibility Gate ---"
 
 assert_contains "$doc_content" "feasibility gate" "9a: mentions feasibility gate"
 assert_contains "$doc_content" "before any mock filesystem runtime prototype" "9b: gate before runtime prototype"
+
+echo ""
+echo "--- 10: v1.8.39 Hook Planning Note ---"
+
+assert_contains "$doc_content" "v1.8.39" "10a: mentions v1.8.39"
+assert_contains "$doc_content" "dirty VPS status out of scope" "10b: keeps dirty VPS out of scope"
+assert_contains "$doc_content" "minimal test-only admin env path hook" "10c: plans minimal admin env hook"
 
 echo ""
 echo "=== Results ==="

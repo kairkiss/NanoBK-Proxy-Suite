@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — v1.8.38 Operation Log Help Fast Test
+# NanoBK Proxy Suite — v1.8.39 Operation Log Help Fast Test
 #
 # Focused fast test for NANOBK_OPLOG_HELP_PILOT=1 (bin/nanobk --help).
 # Uses NANOBK_TEST_OVERRIDE_SCRIPT to avoid running All safe tests.
@@ -17,7 +17,7 @@ source "${SCRIPT_DIR}/lib/assertions.sh"
 trap cleanup_temp EXIT
 
 echo ""
-echo "=== Test Suite: v1.8.38 Help Fast Test ==="
+echo "=== Test Suite: v1.8.39 Help Fast Test ==="
 
 # ── Helper: create override script ─────────────────────────────────────
 make_override_script

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — v1.8.38 Status JSON Sanitized Fixture Test
+# NanoBK Proxy Suite — v1.8.39 Status JSON Sanitized Fixture Test
 #
 # Validates the sanitized status JSON fixture for JSON validity,
 # redaction policy, operation-log capture, hidden output, verbose,
@@ -22,7 +22,7 @@ trap cleanup_temp EXIT
 FIXTURE="${REPO_DIR}/tests/fixtures/status-json-sanitized-v1.8.json"
 
 echo ""
-echo "=== Test Suite: v1.8.38 Status JSON Sanitized Fixture ==="
+echo "=== Test Suite: v1.8.39 Status JSON Sanitized Fixture ==="
 
 # ── Test 1: fixture exists ────────────────────────────────────────────────
 

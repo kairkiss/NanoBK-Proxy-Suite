@@ -212,3 +212,13 @@ Scope:
 - Do NOT full-rollout run_critical_step.
 - Do NOT expose raw status JSON in chat.
 - do not expose raw status JSON in chat.
+
+## 11. v1.8.39 Mock Isolation Hook Planning
+
+v1.8.39 plans a minimal test-only hook.
+
+- selected hook is `NANOBK_STATUS_TEST_ADMIN_ENV_PATH`.
+- no hook implemented yet.
+- no real status run.
+- no status pilot.
+- next step is v1.8.40 admin env path test hook if approved.
