@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — v1.8.44 v1.8 CLI and Operation Log Checkpoint Coverage Test
+# NanoBK Proxy Suite — v1.8.45 v1.8 CLI and Operation Log Checkpoint Coverage Test
 #
 # Verifies docs/validation-v1.8-cli-operation-log-checkpoint.md
 # contains the required checkpoint content.
@@ -18,7 +18,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "${SCRIPT_DIR}/lib/assertions.sh"
 
 echo ""
-echo "=== Test Suite: v1.8.44 v1.8 CLI and Operation Log Checkpoint ==="
+echo "=== Test Suite: v1.8.45 v1.8 CLI and Operation Log Checkpoint ==="
 
 DOC="${REPO_DIR}/docs/validation-v1.8-cli-operation-log-checkpoint.md"
 

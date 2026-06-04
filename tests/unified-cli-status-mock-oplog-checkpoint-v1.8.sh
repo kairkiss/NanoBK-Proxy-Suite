@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — v1.8.44 Status Mock Oplog Prototype Checkpoint Coverage Test
+# NanoBK Proxy Suite — v1.8.45 Status Mock Oplog Prototype Checkpoint Coverage Test
 #
 # Verifies docs/validation-v1.8-status-mock-oplog-prototype-checkpoint.md
 # contains the required checkpoint content.
@@ -18,7 +18,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "${SCRIPT_DIR}/lib/assertions.sh"
 
 echo ""
-echo "=== Test Suite: v1.8.44 Status Mock Oplog Checkpoint ==="
+echo "=== Test Suite: v1.8.45 Status Mock Oplog Checkpoint ==="
 
 DOC="${REPO_DIR}/docs/validation-v1.8-status-mock-oplog-prototype-checkpoint.md"
 
@@ -92,7 +92,7 @@ echo "--- 5: Testing strategy ---"
 
 assert_contains "$doc_content" "full operation-log pilot suite is not required every cycle" "5a: full suite not required"
 assert_contains "$doc_content" "Recommended next step" "5b: has recommendation"
-assert_contains "$doc_content" "v1.8.44" "5c: mentions v1.8.44"
+assert_contains "$doc_content" "v1.8.45" "5c: mentions v1.8.45"
 
 echo ""
 echo "--- 6: Still forbidden ---"

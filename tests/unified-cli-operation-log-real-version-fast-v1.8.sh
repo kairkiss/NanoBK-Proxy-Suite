@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — v1.8.44 Operation Log Real Version Fast Test
+# NanoBK Proxy Suite — v1.8.45 Operation Log Real Version Fast Test
 #
 # Focused fast test for NANOBK_OPLOG_REAL_PILOT=1 (bin/nanobk --version).
 # Uses NANOBK_TEST_OVERRIDE_SCRIPT to avoid running All safe tests.
@@ -17,7 +17,7 @@ source "${SCRIPT_DIR}/lib/assertions.sh"
 trap cleanup_temp EXIT
 
 echo ""
-echo "=== Test Suite: v1.8.44 Real Version Fast Test ==="
+echo "=== Test Suite: v1.8.45 Real Version Fast Test ==="
 
 # ── Helper: create override script ─────────────────────────────────────
 make_override_script

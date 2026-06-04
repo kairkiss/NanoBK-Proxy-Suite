@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite - v1.8.44 Status JSON Mock Isolation Hook Planning Coverage Test
+# NanoBK Proxy Suite - v1.8.45 Status JSON Mock Isolation Hook Planning Coverage Test
 #
 # Verifies docs/validation-v1.8-status-json-mock-isolation-hook-planning.md
 # contains the required hook planning checkpoint content.
@@ -17,7 +17,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "${SCRIPT_DIR}/lib/assertions.sh"
 
 echo ""
-echo "=== Test Suite: v1.8.44 Status JSON Mock Isolation Hook Planning ==="
+echo "=== Test Suite: v1.8.45 Status JSON Mock Isolation Hook Planning ==="
 
 DOC="${REPO_DIR}/docs/validation-v1.8-status-json-mock-isolation-hook-planning.md"
 
@@ -91,7 +91,7 @@ assert_contains "$doc_content" "no path printed" "6e: states no path printed"
 assert_contains "$doc_content" "no status wrapper" "6f: states no status wrapper"
 
 echo ""
-echo "--- 7: v1.8.44 oplog prototype section ---"
+echo "--- 7: v1.8.45 oplog prototype section ---"
 
 assert_contains "$doc_content" "v1.8.41 Mock Filesystem Operation-Log Prototype" "7a: has v1.8.41 section title"
 assert_contains "$doc_content" "v1.8.41 uses NANOBK_STATUS_TEST_ADMIN_ENV_PATH" "7b: states uses v1.8.40 hook"

@@ -211,3 +211,11 @@ v1.9 should likely focus on control-plane productization:
 This checkpoint is not a release tag recommendation.
 
 Tagging requires explicit approval and likely a broader manual review.
+
+## 12. v1.8.45 Closeout Decision
+
+v1.8.45 records closeout decision.
+
+- recommends stopping v1.8 feature development after v1.8.45.
+- no release tag approval.
+- next recommended line is v1.9 Bot/Web control-plane productization planning.

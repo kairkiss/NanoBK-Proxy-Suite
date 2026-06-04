@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite - v1.8.44 Status JSON Mock Filesystem Feasibility Coverage Test
+# NanoBK Proxy Suite - v1.8.45 Status JSON Mock Filesystem Feasibility Coverage Test
 #
 # Verifies docs/validation-v1.8-status-json-mock-filesystem-feasibility.md
 # contains the required feasibility gate content.
@@ -17,7 +17,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "${SCRIPT_DIR}/lib/assertions.sh"
 
 echo ""
-echo "=== Test Suite: v1.8.44 Status JSON Mock Filesystem Feasibility ==="
+echo "=== Test Suite: v1.8.45 Status JSON Mock Filesystem Feasibility ==="
 
 DOC="${REPO_DIR}/docs/validation-v1.8-status-json-mock-filesystem-feasibility.md"
 

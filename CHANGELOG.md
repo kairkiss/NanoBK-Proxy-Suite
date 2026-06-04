@@ -1,5 +1,25 @@
 # Changelog
 
+## v1.8.45 — v1.8 Closeout Decision
+
+### Added
+
+- Added v1.8 closeout decision.
+- Recommended stopping v1.8 feature development after v1.8.45.
+- Confirmed v1.8 status as CLI UI + operation-log groundwork.
+- Documented optional final manual review before any tag/release.
+- Documented v1.9 Bot/Web control-plane productization recommendation.
+- Documented that this is not a release tag recommendation.
+
+### Safety
+
+- No `install.sh` behavior changed.
+- No `bin/nanobk` behavior changed except version.
+- No status wrapper.
+- No `NANOBK_OPLOG_STATUS_PILOT`.
+- No `run_cmd`/`run_critical_step` rollout.
+- No real deployment path changed.
+
 ## v1.8.44 — v1.8 CLI and Operation Log Checkpoint
 
 ### Added
