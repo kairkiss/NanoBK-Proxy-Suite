@@ -278,3 +278,34 @@ v1.8.40 implements NANOBK_STATUS_TEST_ADMIN_ENV_PATH.
 ### Next step
 
 Next step can be mock filesystem status prototype with operation-log capture only after this hook passes review.
+
+## 13. v1.8.41 Mock Filesystem Operation-Log Prototype
+
+v1.8.41 uses NANOBK_STATUS_TEST_ADMIN_ENV_PATH from v1.8.40.
+
+### What was done
+
+- Runs real status code path only against mock config/repo/admin env path.
+- Captures output with operation-log (`oplog_run_hidden`).
+- Default mode hides JSON (screen shows only Log: path).
+- Verbose mode shows sanitized JSON (no secrets, no real paths).
+- PLAIN/UI=0/CI modes verified no ANSI.
+- systemctl PATH shim verified (log proves `is-active` called).
+- failure propagation verified (non-zero rc, raw secret redacted, exit code logged).
+- JSON validity verified in log extraction.
+- No dirty VPS status.
+- No NANOBK_OPLOG_STATUS_PILOT.
+- No production status wrapper added.
+- No run_cmd/run_critical_step rollout.
+
+### What was NOT done
+
+- No `NANOBK_OPLOG_STATUS_PILOT` added.
+- No production status wrapper.
+- No dirty VPS status.
+- No `cmd_status` schema changes.
+- No `resolve_repo_dir` changes.
+
+### Next step
+
+Next step can be status mock prototype checkpoint or carefully planned status pilot gate.

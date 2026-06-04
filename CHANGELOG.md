@@ -1,5 +1,30 @@
 # Changelog
 
+## v1.8.41 — Status JSON Mock Filesystem Operation-Log Prototype
+
+### Added
+
+- Added status JSON mock filesystem operation-log prototype.
+- Used `NANOBK_STATUS_TEST_ADMIN_ENV_PATH` with mock admin env path.
+- Captured mock-root `bin/nanobk --json status --config-dir <tmp/config>` via operation-log.
+- Verified default hidden output.
+- Verified verbose sanitized output.
+- Verified log JSON validity.
+- Verified PLAIN/UI=0/CI no-ANSI boundaries.
+- Verified systemctl PATH shim usage.
+- Verified failure propagation with redaction.
+
+### Safety
+
+- Did not add `NANOBK_OPLOG_STATUS_PILOT`.
+- Did not run dirty VPS status.
+- Did not add production status wrapper.
+- No `install.sh` behavior changed.
+- No `cmd_status` schema changes.
+- No `resolve_repo_dir` changes.
+- No `run_cmd`/`run_critical_step` rollout.
+- No real deployment path changed.
+
 ## v1.8.40 — Status JSON Admin Env Path Test Hook
 
 ### Added

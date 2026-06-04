@@ -232,3 +232,15 @@ v1.8.40 implements the minimal admin env path test hook required before runtime 
 - Tests verify `adminEnvExists` false/true with mock path.
 - No real root path touched when hook is set.
 - Blocker for Route A runtime proof is resolved.
+
+## 13. v1.8.41 Mock Filesystem Operation-Log Prototype
+
+v1.8.41 proves mock filesystem status output can be captured by operation-log without dirty VPS status.
+
+- Real `bin/nanobk --json status --config-dir <tmp/config>` runs against mock filesystem.
+- Output captured via `oplog_run_hidden`.
+- Default hidden, verbose sanitized, log JSON valid.
+- PLAIN/UI=0/CI no ANSI verified.
+- systemctl shim proof (is-active logged).
+- Failure propagation with redaction verified.
+- No dirty VPS, no NANOBK_OPLOG_STATUS_PILOT, no production wrapper.

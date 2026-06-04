@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite - v1.8.40 Status JSON Mock Isolation Hook Planning Coverage Test
+# NanoBK Proxy Suite - v1.8.41 Status JSON Mock Isolation Hook Planning Coverage Test
 #
 # Verifies docs/validation-v1.8-status-json-mock-isolation-hook-planning.md
 # contains the required hook planning checkpoint content.
@@ -17,7 +17,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "${SCRIPT_DIR}/lib/assertions.sh"
 
 echo ""
-echo "=== Test Suite: v1.8.40 Status JSON Mock Isolation Hook Planning ==="
+echo "=== Test Suite: v1.8.41 Status JSON Mock Isolation Hook Planning ==="
 
 DOC="${REPO_DIR}/docs/validation-v1.8-status-json-mock-isolation-hook-planning.md"
 
@@ -67,7 +67,7 @@ echo ""
 echo "--- 4: Risk and next version ---"
 
 assert_contains "$doc_content" "Risk assessment" "4a: has risk assessment"
-assert_contains "$doc_content" "v1.8.40" "4b: mentions v1.8.40"
+assert_contains "$doc_content" "v1.8.41" "4b: mentions v1.8.41"
 assert_contains "$doc_content" "Status JSON Admin Env Path Test Hook" "4c: has next-step title"
 
 echo ""
@@ -89,6 +89,18 @@ assert_contains "$doc_content" "only affects admin env existence check" "6c: sta
 assert_contains "$doc_content" "no content sourced" "6d: states no content sourced"
 assert_contains "$doc_content" "no path printed" "6e: states no path printed"
 assert_contains "$doc_content" "no status wrapper" "6f: states no status wrapper"
+
+echo ""
+echo "--- 7: v1.8.41 oplog prototype section ---"
+
+assert_contains "$doc_content" "v1.8.41 Mock Filesystem Operation-Log Prototype" "7a: has v1.8.41 section title"
+assert_contains "$doc_content" "v1.8.41 uses NANOBK_STATUS_TEST_ADMIN_ENV_PATH" "7b: states uses v1.8.40 hook"
+assert_contains "$doc_content" "mock config/repo/admin env path" "7c: states mock paths"
+assert_contains "$doc_content" "operation-log" "7d: mentions operation-log"
+assert_contains "$doc_content" "systemctl PATH shim" "7e: mentions systemctl shim"
+assert_contains "$doc_content" "failure propagation" "7f: mentions failure propagation"
+assert_contains "$doc_content" "No dirty VPS status" "7g: no dirty VPS status"
+assert_contains "$doc_content" "No NANOBK_OPLOG_STATUS_PILOT" "7h: no status pilot"
 
 echo ""
 echo "=== Results ==="
