@@ -1,5 +1,26 @@
 # Changelog
 
+## v1.8.42 — Status Mock Oplog Command Path Polish
+
+### Fixed
+
+- Polished status mock operation-log command path.
+- Runner now uses relative `bash bin/nanobk` after `cd "$REPO_DIR"`.
+- Full log now checks absence of real HOME and real repo absolute path.
+- Preserved mock-root status operation-log prototype.
+- Preserved JSON block validity and forbidden pattern checks.
+
+### Safety
+
+- Did not add `NANOBK_OPLOG_STATUS_PILOT`.
+- Did not run dirty VPS status.
+- Did not add production status wrapper.
+- No `install.sh` behavior changed.
+- No `cmd_status` schema changes.
+- No `resolve_repo_dir` changes.
+- No `run_cmd`/`run_critical_step` rollout.
+- No real deployment path changed.
+
 ## v1.8.41 — Status JSON Mock Filesystem Operation-Log Prototype
 
 ### Added

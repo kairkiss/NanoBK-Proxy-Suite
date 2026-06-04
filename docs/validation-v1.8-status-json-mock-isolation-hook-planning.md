@@ -309,3 +309,19 @@ v1.8.41 uses NANOBK_STATUS_TEST_ADMIN_ENV_PATH from v1.8.40.
 ### Next step
 
 Next step can be status mock prototype checkpoint or carefully planned status pilot gate.
+
+## 14. v1.8.42 Command Path Polish
+
+v1.8.42 keeps v1.8.41 mock status operation-log prototype.
+
+### What changed
+
+- Runner now `cd`s into repo and calls `bash bin/nanobk` (relative path).
+- Operation-log command header no longer records real repo absolute path.
+- Full log checks now include real HOME and real repo path absence.
+- JSON block remains clean.
+- Source guard verifies relative path usage in runners.
+- No dirty VPS status.
+- No NANOBK_OPLOG_STATUS_PILOT.
+- No status wrapper.
+- No cmd_status/schema/resolve_repo_dir change.

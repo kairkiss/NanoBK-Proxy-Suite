@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — v1.8.41 Status JSON Mock Filesystem Operation-Log Prototype
+# NanoBK Proxy Suite — v1.8.42 Status JSON Mock Filesystem Operation-Log Prototype
 #
 # Uses operation-log to capture mock filesystem bin/nanobk --json status output.
 # Proves: default hidden, verbose sanitized, log JSON valid, PLAIN/UI=0/CI no ANSI,
@@ -23,7 +23,7 @@ PASS=0
 FAIL=0
 
 echo ""
-echo "=== Test Suite: v1.8.41 Status JSON Mock Oplog Prototype ==="
+echo "=== Test Suite: v1.8.42 Status JSON Mock Oplog Prototype ==="
 
 # ── Forbidden patterns helper ─────────────────────────────────────────────
 
@@ -93,6 +93,14 @@ assert_contains "$nanobk_src" "NANOBK_STATUS_TEST_ADMIN_ENV_PATH" \
   "1a: bin/nanobk contains NANOBK_STATUS_TEST_ADMIN_ENV_PATH"
 assert_not_contains "$nanobk_src" "NANOBK_OPLOG_STATUS_PILOT" \
   "1b: bin/nanobk does NOT contain NANOBK_OPLOG_STATUS_PILOT"
+
+# Verify this test file uses relative path for nanobk in oplog runners
+test_self_src=$(cat "$0")
+assert_contains "$test_self_src" 'bash bin/nanobk' \
+  "1c: runner uses relative bash bin/nanobk"
+# Verify cd into repo dir before oplog calls
+assert_contains "$test_self_src" 'cd "${REPO_DIR}"' \
+  "1d: runner cds into REPO_DIR before oplog"
 
 # ═════════════════════════════════════════════════════════════════════════════
 # Setup mock filesystem
@@ -192,7 +200,9 @@ cat > "$TMP_ROOT/run_status_oplog.sh" <<RUNNER
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-source "${REPO_DIR}/installer/lib/operation-log.sh"
+cd "${REPO_DIR}"
+
+source installer/lib/operation-log.sh
 
 export NANOBK_OPLOG_DIR="$TMP_ROOT/logs"
 export NANOBK_REPO_DIR="$TMP_ROOT/repo"
@@ -204,7 +214,7 @@ oplog_init "status-json-mock" >/dev/null
 echo "Log: \$_oplog_current_file"
 
 oplog_run_hidden "status json mock filesystem" \\
-  bash "${REPO_DIR}/bin/nanobk" --json status --config-dir "$TMP_ROOT/config"
+  bash bin/nanobk --json status --config-dir "$TMP_ROOT/config"
 RUNNER
 chmod +x "$TMP_ROOT/run_status_oplog.sh"
 
@@ -214,7 +224,9 @@ cat > "$TMP_ROOT/run_status_fail.sh" <<FAILRUNNER
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-source "${REPO_DIR}/installer/lib/operation-log.sh"
+cd "${REPO_DIR}"
+
+source installer/lib/operation-log.sh
 
 export NANOBK_OPLOG_DIR="$TMP_ROOT/logs"
 export NANOBK_REPO_DIR="$TMP_ROOT/repo"
@@ -310,7 +322,7 @@ if [[ -f "$log_path" ]]; then
     fail "3c: could not extract JSON block from log"
   fi
 
-  # Full log forbidden patterns (excluding HOME check — log header records command path)
+  # Full log forbidden patterns
   for pat in "${FORBIDDEN_PATTERNS[@]}"; do
     if grep -Fq "$pat" <<< "$log_content"; then
       fail "3k: full log must NOT contain '${pat}'"
@@ -324,6 +336,20 @@ if [[ -f "$log_path" ]]; then
     pass "3k: full log no raw IPv4"
   else
     fail "3k: full log raw IPv4: $ipv4_log"
+  fi
+  # Real HOME in full log
+  if [[ -n "${HOME:-}" ]]; then
+    if grep -qF "$HOME" <<< "$log_content"; then
+      fail "3l: full log must NOT contain real HOME ($HOME)"
+    else
+      pass "3l: full log does not contain real HOME"
+    fi
+  fi
+  # Real repo absolute path in full log
+  if grep -qF "$REPO_DIR" <<< "$log_content"; then
+    fail "3m: full log must NOT contain real repo path ($REPO_DIR)"
+  else
+    pass "3m: full log does not contain real repo path"
   fi
 fi
 

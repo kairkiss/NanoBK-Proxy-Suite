@@ -244,3 +244,11 @@ v1.8.41 proves mock filesystem status output can be captured by operation-log wi
 - systemctl shim proof (is-active logged).
 - Failure propagation with redaction verified.
 - No dirty VPS, no NANOBK_OPLOG_STATUS_PILOT, no production wrapper.
+
+## 14. v1.8.42 Command Path Polish
+
+v1.8.42 polishes operation-log command path so the full log avoids real repo absolute path.
+
+- Runner uses `cd "$REPO_DIR"` then `bash bin/nanobk` (relative).
+- Full log now checks absence of real HOME and real repo path.
+- JSON block remains clean and valid.
