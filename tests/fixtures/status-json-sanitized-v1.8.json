@@ -1,0 +1,56 @@
+{
+  "ok": true,
+  "configDir": "[REDACTED_CONFIG_DIR]",
+  "domain": "[REDACTED_DOMAIN]",
+  "vpsIp": "[REDACTED_IP]",
+  "geo": "test-region",
+  "profile": {
+    "exists": true,
+    "updatedAt": "[REDACTED_UPDATED_AT]",
+    "hy2": true,
+    "tuic": true,
+    "reality": true,
+    "trojan": true
+  },
+  "services": {
+    "hy2": "active",
+    "tuic": "active",
+    "reality": "active",
+    "trojan": "active"
+  },
+  "security": {
+    "secretsExists": true,
+    "secretsMode": "600",
+    "secretsModeOk": true
+  },
+  "cloudflare": {
+    "nanok": {
+      "envExists": true,
+      "workerName": "[REDACTED_WORKER]",
+      "routeUrl": "[REDACTED_URL]",
+      "subPath": "[REDACTED_SUB_PATH]",
+      "deployStatus": "deployed",
+      "profileUploadStatus": "uploaded",
+      "verifyStatus": "verified",
+      "subTokenPresent": true,
+      "subTokenFingerprint": "[REDACTED_FINGERPRINT]",
+      "adminTokenPresent": true,
+      "adminTokenFingerprint": "[REDACTED_FINGERPRINT]",
+      "kvNamespacePresent": true,
+      "adminEnvExists": true
+    },
+    "nanob": {
+      "envExists": true,
+      "workerName": "[REDACTED_WORKER]",
+      "routeUrl": "[REDACTED_URL]",
+      "path": "[REDACTED_NANOB_PATH]",
+      "deployStatus": "deployed",
+      "verifyStatus": "verified",
+      "tokenPresent": true,
+      "tokenFingerprint": "[REDACTED_FINGERPRINT]",
+      "geoKvNamespacePresent": true,
+      "edgeHostConfigured": true
+    }
+  },
+  "warnings": []
+}

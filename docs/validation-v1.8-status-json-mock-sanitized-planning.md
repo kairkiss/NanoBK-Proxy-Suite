@@ -197,3 +197,34 @@ Requirements:
 - start with sanitized fixture or mock filesystem.
 - prove JSON validity and redaction policy.
 - keep focused fast tests.
+
+## 12. v1.8.35 Sanitized Fixture Prototype
+
+v1.8.35 adds a static sanitized status JSON fixture:
+
+- `tests/fixtures/status-json-sanitized-v1.8.json`
+- fixture mirrors current status JSON schema structure.
+- fixture contains only JSON-safe placeholders (`[REDACTED_IP]`, `[REDACTED_DOMAIN]`, `[REDACTED_URL]`, `[REDACTED_FINGERPRINT]`, etc.).
+- fixture does not contain real IP, domain, workers.dev URL, subscription URL, admin URL, or raw token fingerprints.
+- fixture does not contain `TOKEN=`, `SECRET=`, `sha256:`, `/etc/nanobk`, `/root/`, or any RFC test IP.
+
+Operation-log capture verified:
+
+- `oplog_run_hidden` captures fixture output to log file.
+- default mode hides JSON content from screen.
+- verbose mode (`NANOBK_VERBOSE=1`) shows sanitized JSON on screen.
+- PLAIN/UI=0/CI modes produce no ANSI escape sequences.
+- log file has chmod 600 permissions.
+- log file contains valid JSON after extraction.
+- log file does not contain forbidden patterns.
+- failure propagation tested: non-zero exit code propagates, raw secrets are redacted from both screen and log.
+
+What this does NOT do:
+
+- this still does not run real `bin/nanobk --json status`.
+- this still does not approve dirty VPS status wrapping.
+- this does not add a third real command pilot.
+- this does not modify `cmd_status` or status JSON schema.
+- this does not change `install.sh` behavior.
+
+Next step should be mock filesystem root design (Option B from section 7), not real dirty VPS status.

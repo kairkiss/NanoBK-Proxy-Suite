@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite - v1.8.34 Status JSON Mock/Sanitized Planning Coverage Test
+# NanoBK Proxy Suite - v1.8.35 Status JSON Mock/Sanitized Planning Coverage Test
 #
 # Verifies docs/validation-v1.8-status-json-mock-sanitized-planning.md exists
 # and contains the required planning checkpoint content.
@@ -15,7 +15,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "${SCRIPT_DIR}/lib/assertions.sh"
 
 echo ""
-echo "=== Test Suite: v1.8.34 Status JSON Mock/Sanitized Planning ==="
+echo "=== Test Suite: v1.8.35 Status JSON Mock/Sanitized Planning ==="
 
 DOC="${REPO_DIR}/docs/validation-v1.8-status-json-mock-sanitized-planning.md"
 
@@ -72,6 +72,17 @@ echo ""
 echo "--- 5: Next version ---"
 
 assert_contains "$doc_content" "v1.8.35" "5a: has v1.8.35 recommendation"
+
+echo ""
+echo "--- 6: v1.8.35 Sanitized Fixture Prototype ---"
+
+assert_contains "$doc_content" "v1.8.35 Sanitized Fixture Prototype" "6a: has section title"
+assert_contains "$doc_content" "static sanitized status JSON fixture" "6b: has fixture description"
+assert_contains "$doc_content" "does not run real" "6c: does not run real status"
+assert_contains "$doc_content" "default mode hides JSON" "6d: default mode hides JSON"
+assert_contains "$doc_content" "verbose mode" "6e: verbose mode shows sanitized JSON"
+assert_contains "$doc_content" "mock filesystem root design" "6f: next step is mock filesystem"
+assert_contains "$doc_content" "not real dirty VPS status" "6g: not real dirty VPS status"
 
 echo ""
 echo "=== Results ==="

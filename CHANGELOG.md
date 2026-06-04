@@ -1,5 +1,29 @@
 # Changelog
 
+## v1.8.35 — Status JSON Sanitized Fixture Prototype
+
+### Added
+
+- Added sanitized status JSON fixture (`tests/fixtures/status-json-sanitized-v1.8.json`).
+- Added operation-log fixture capture test (`tests/unified-cli-status-json-sanitized-fixture-v1.8.sh`).
+- Verified raw fixture JSON validity.
+- Verified log JSON validity after operation-log capture.
+- Verified default hidden output (JSON not shown on screen).
+- Verified verbose sanitized output (JSON shown on screen, no secrets).
+- Verified PLAIN/UI=0/CI no-ANSI boundaries.
+- Verified failure propagation with redaction (non-zero exit, raw secret redacted).
+- Added v1.8.35 section to status JSON planning document.
+- Updated planning coverage test with v1.8.35 assertions.
+
+### Safety
+
+- Did not run real `bin/nanobk --json status`.
+- Did not add status wrapper.
+- Did not add third real command pilot.
+- No `install.sh` behavior changed.
+- No `run_cmd`/`run_critical_step` rollout.
+- No real deployment path changed.
+
 ## v1.8.34 — Status JSON Mock/Sanitized Planning
 
 ### Added
