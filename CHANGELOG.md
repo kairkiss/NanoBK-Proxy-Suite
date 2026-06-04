@@ -1,5 +1,25 @@
 # Changelog
 
+## v1.8.34 — Status JSON Mock/Sanitized Planning
+
+### Added
+
+- Added status JSON mock/sanitized planning.
+- Documented correct status JSON command: `bin/nanobk --json status`.
+- Documented risks of real installed status on dirty VPS.
+- Documented sensitive and semi-sensitive status output map.
+- Documented JSON validity gates.
+- Documented dirty VPS validation policy.
+- Added focused documentation coverage test for the planning checkpoint.
+
+### Safety
+
+- No status wrapper implemented.
+- No third command pilot added.
+- No install.sh behavior changed.
+- No `run_cmd`/`run_critical_step` rollout.
+- No real deployment path changed.
+
 ## v1.8.33 — Focused Test No-Trigger Speed Polish
 
 ### Fixed
