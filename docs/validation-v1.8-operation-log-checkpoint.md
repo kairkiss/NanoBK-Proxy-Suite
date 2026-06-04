@@ -213,3 +213,7 @@ v1.8.27 implements the first one-command real pilot using `bin/nanobk --version`
 - Full dry-run unaffected.
 - Real deployment output hiding still not proven.
 - Next rollout requires explicit review.
+
+## v1.8.28 update
+
+v1.8.28 adds missing UI=0 and CI no-ANSI regression tests for the real command pilot. No installer behavior changed.

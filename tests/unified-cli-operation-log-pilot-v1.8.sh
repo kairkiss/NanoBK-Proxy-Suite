@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — v1.8.27 Operation Log Pilot Test
+# NanoBK Proxy Suite — v1.8.28 Operation Log Pilot Test
 #
 # Tests redacted operation-log pilot behavior.
 # Does NOT test real deployment — only log infrastructure.
@@ -61,7 +61,7 @@ run_oplog_test() {
 }
 
 echo ""
-echo "=== Test Suite: v1.8.27 Operation Log Pilot ==="
+echo "=== Test Suite: v1.8.28 Operation Log Pilot ==="
 
 # ── 1: oplog_redact basic secrets ────────────────────────────────────────
 
@@ -624,6 +624,45 @@ if has_ansi "$plain_real_pilot_lines"; then
   fail "10d PLAIN: no ANSI in pilot output"
 else
   pass "10d PLAIN: no ANSI in pilot output"
+fi
+
+# Test 10d-UI0: UI=0 no ANSI
+PILOT_DIR=$(mktemp -d)
+ui0_real=$(NANOBK_UI=0 NANOBK_OPLOG_REAL_PILOT=1 NANOBK_OPLOG_DIR="$PILOT_DIR" \
+  bash "${REPO_DIR}/installer/install.sh" --mode test --defaults 2>&1 < /dev/null || true)
+rm -rf "$PILOT_DIR" 2>/dev/null
+
+assert_contains "$ui0_real" "operation-log real command pilot enabled" "10d-UI0: real pilot enabled"
+assert_contains "$ui0_real" "operation-log real command pilot completed" "10d-UI0: real pilot completed"
+assert_contains "$ui0_real" "Log:" "10d-UI0: shows log path"
+# Check ANSI and box drawing only on pilot-specific lines
+ui0_real_pilot_lines=$(grep -E "real command pilot|Log:" <<< "$ui0_real" || true)
+if has_ansi "$ui0_real_pilot_lines"; then
+  fail "10d-UI0: no ANSI in pilot output"
+else
+  pass "10d-UI0: no ANSI in pilot output"
+fi
+if grep -qF '╭' <<< "$ui0_real_pilot_lines"; then
+  fail "10d-UI0: no box drawing in pilot output"
+else
+  pass "10d-UI0: no box drawing in pilot output"
+fi
+
+# Test 10d-CI: CI no ANSI
+PILOT_DIR=$(mktemp -d)
+ci_real=$(CI=1 NANOBK_OPLOG_REAL_PILOT=1 NANOBK_OPLOG_DIR="$PILOT_DIR" \
+  bash "${REPO_DIR}/installer/install.sh" --mode test --defaults 2>&1 < /dev/null || true)
+rm -rf "$PILOT_DIR" 2>/dev/null
+
+assert_contains "$ci_real" "operation-log real command pilot enabled" "10d-CI: real pilot enabled"
+assert_contains "$ci_real" "operation-log real command pilot completed" "10d-CI: real pilot completed"
+assert_contains "$ci_real" "Log:" "10d-CI: shows log path"
+# Check ANSI only on pilot-specific lines
+ci_real_pilot_lines=$(grep -E "real command pilot|Log:" <<< "$ci_real" || true)
+if has_ansi "$ci_real_pilot_lines"; then
+  fail "10d-CI: no ANSI in pilot output"
+else
+  pass "10d-CI: no ANSI in pilot output"
 fi
 
 # Test 10e: full dry-run unaffected

@@ -1,5 +1,18 @@
 # Changelog
 
+## v1.8.28 — Operation Log Real Pilot UI=0/CI Test Fix
+
+### Fixed
+
+- Added missing UI=0 and CI no-ANSI regression tests for real command pilot.
+- Corrected v1.8.27 test coverage gap (PLAIN was tested, UI=0/CI were not).
+
+### Safety
+
+- No installer behavior changed.
+- No `run_cmd`/`run_critical_step` rollout.
+- No real deployment path changed.
+
 ## v1.8.27 — Operation Log One Low-risk Real Command Pilot
 
 ### Added

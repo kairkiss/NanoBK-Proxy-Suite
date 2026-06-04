@@ -125,6 +125,12 @@ The `oplog_redact` function strips:
 - Real deployment output hiding still not proven.
 - Next rollout requires explicit review.
 
+## v1.8.28 Real Pilot UI=0/CI Test Fix
+
+- v1.8.27 added the one-command real pilot.
+- Audit found only PLAIN no-ANSI was tested in the real pilot section.
+- v1.8.28 adds explicit UI=0 and CI no-ANSI coverage.
+
 ## Next Step Before Full Rollout
 
 Before integrating `oplog_run_hidden` into `run_cmd`:

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — v1.8.27 Operation Log Checkpoint Coverage Test
+# NanoBK Proxy Suite — v1.8.28 Operation Log Checkpoint Coverage Test
 #
 # Checks that docs/validation-v1.8-operation-log-checkpoint.md contains
 # required acceptance checkpoint content.
@@ -48,7 +48,7 @@ assert_not_contains() {
 }
 
 echo ""
-echo "=== Test Suite: v1.8.27 Operation Log Checkpoint Coverage ==="
+echo "=== Test Suite: v1.8.28 Operation Log Checkpoint Coverage ==="
 
 # ── Read the checkpoint doc ─────────────────────────────────────────────
 
@@ -109,7 +109,7 @@ assert_contains "$doc" "run_critical_step" "Doc: mentions run_critical_step"
 echo ""
 echo "--- 6: Next step ---"
 
-assert_contains "$doc" "v1.8.27" "Doc: mentions v1.8.27"
+assert_contains "$doc" "v1.8.28" "Doc: mentions v1.8.28"
 assert_contains "$doc" "One Low-risk Real Command Pilot" "Doc: mentions One Low-risk Real Command Pilot"
 assert_contains "$doc" "bin/nanobk --version" "Doc: mentions bin/nanobk --version"
 
