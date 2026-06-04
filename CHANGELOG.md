@@ -1,5 +1,28 @@
 # Changelog
 
+## v1.8.30 — Operation Log Second Real Command Planning
+
+### Added
+
+- Added operation-log second real command planning.
+- Compared `bin/nanobk --help` and `bin/nanobk status --json`.
+- Documented status --json risks.
+- Documented gates before wrapping --help.
+- Documented gates before wrapping status --json.
+- Recommended next step based on code inspection.
+- Added second-command planning coverage test.
+
+### Safety
+
+- No install.sh behavior changed.
+- No second command wrapper implemented.
+- No real deployment path changed.
+- No `run_cmd`/`run_critical_step` rollout.
+- No protocol templates changed.
+- No Worker core changed.
+- No rotate sync changed.
+- No Bot/Web business logic changed.
+
 ## v1.8.29 — Operation Log Real Command Pilot Checkpoint
 
 ### Added
