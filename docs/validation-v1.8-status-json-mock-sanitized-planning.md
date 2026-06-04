@@ -250,3 +250,13 @@ What this does NOT do:
 - this still does not run real `bin/nanobk --json status`.
 - this still does not approve dirty VPS status wrapping.
 - next step remains mock filesystem root design, not dirty VPS status wrapping.
+
+## 14. v1.8.37 Mock Filesystem Root Design
+
+v1.8.37 adds mock filesystem root design.
+
+- it does not implement mock runner.
+- it does not run real status.
+- it does not approve dirty VPS status wrapping.
+- it documents path isolation requirements before any real status code-path prototype.
+- next step is v1.8.38 mock filesystem prototype only if path isolation is clear.

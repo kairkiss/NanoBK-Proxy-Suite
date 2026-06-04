@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite - v1.8.36 Status JSON Mock/Sanitized Planning Coverage Test
+# NanoBK Proxy Suite - v1.8.37 Status JSON Mock/Sanitized Planning Coverage Test
 #
 # Verifies docs/validation-v1.8-status-json-mock-sanitized-planning.md exists
 # and contains the required planning checkpoint content.
@@ -15,7 +15,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "${SCRIPT_DIR}/lib/assertions.sh"
 
 echo ""
-echo "=== Test Suite: v1.8.36 Status JSON Mock/Sanitized Planning ==="
+echo "=== Test Suite: v1.8.37 Status JSON Mock/Sanitized Planning ==="
 
 DOC="${REPO_DIR}/docs/validation-v1.8-status-json-mock-sanitized-planning.md"
 
@@ -94,6 +94,16 @@ assert_contains "$doc_content" "here-string" "7d: mentions here-string"
 assert_contains "$doc_content" "register_cleanup" "7e: mentions register_cleanup for temp cleanup"
 assert_contains "$doc_content" "does not run real" "7f: does not run real status"
 assert_contains "$doc_content" "mock filesystem root design" "7g: next step is mock filesystem"
+
+echo ""
+echo "--- 8: v1.8.37 Mock Filesystem Root Design ---"
+
+assert_contains "$doc_content" "v1.8.37" "8a: has v1.8.37"
+assert_contains "$doc_content" "Mock Filesystem Root Design" "8b: has Mock Filesystem Root Design"
+assert_contains "$doc_content" "does not implement mock runner" "8c: does not implement mock runner"
+assert_contains "$doc_content" "does not run real status" "8d: does not run real status"
+assert_contains "$doc_content" "path isolation" "8e: mentions path isolation"
+assert_contains "$doc_content" "v1.8.38" "8f: mentions v1.8.38"
 
 echo ""
 echo "=== Results ==="

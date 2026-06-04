@@ -1,5 +1,26 @@
 # Changelog
 
+## v1.8.37 — Status JSON Mock Filesystem Root Design
+
+### Added
+
+- Added status JSON mock filesystem root design.
+- Documented current `cmd_status` path reads.
+- Documented proposed mock config/repo/root layout.
+- Documented path isolation requirements.
+- Documented systemctl/service status strategy.
+- Documented JSON validity and redaction gates.
+- Recommended v1.8.38 mock filesystem prototype.
+
+### Safety
+
+- Did not run real `bin/nanobk --json status`.
+- Did not add status wrapper.
+- Did not add `NANOBK_OPLOG_STATUS_PILOT`.
+- No `install.sh` behavior changed.
+- No `run_cmd`/`run_critical_step` rollout.
+- No real deployment path changed.
+
 ## v1.8.36 — Status JSON Fixture Test Polish
 
 ### Fixed
