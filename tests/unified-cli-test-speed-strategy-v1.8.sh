@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — v1.8.43 Test Speed Strategy Coverage Test
+# NanoBK Proxy Suite — v1.8.44 Test Speed Strategy Coverage Test
 #
 # Verifies docs/validation-v1.8-test-speed-strategy.md exists and
 # contains required sections.
@@ -37,7 +37,7 @@ assert_contains() {
 }
 
 echo ""
-echo "=== Test Suite: v1.8.43 Test Speed Strategy Coverage ==="
+echo "=== Test Suite: v1.8.44 Test Speed Strategy Coverage ==="
 
 DOC="${REPO_DIR}/docs/validation-v1.8-test-speed-strategy.md"
 

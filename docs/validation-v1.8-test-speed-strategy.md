@@ -122,3 +122,7 @@ Run full regression only when:
 - Only run full regression if requested or if Tier 1 fails.
 - if full regression is skipped, say so honestly
 - operation-log can hide output, but must never hide failure.
+
+## 8. v1.8.44 Checkpoint Note
+
+v1.8.44 confirms focused tests remain preferred for v1.8 operation-log work.

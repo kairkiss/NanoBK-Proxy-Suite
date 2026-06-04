@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — v1.8.43 Status Mock Oplog Prototype Checkpoint Coverage Test
+# NanoBK Proxy Suite — v1.8.44 Status Mock Oplog Prototype Checkpoint Coverage Test
 #
 # Verifies docs/validation-v1.8-status-mock-oplog-prototype-checkpoint.md
 # contains the required checkpoint content.
@@ -18,7 +18,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "${SCRIPT_DIR}/lib/assertions.sh"
 
 echo ""
-echo "=== Test Suite: v1.8.43 Status Mock Oplog Checkpoint ==="
+echo "=== Test Suite: v1.8.44 Status Mock Oplog Checkpoint ==="
 
 DOC="${REPO_DIR}/docs/validation-v1.8-status-mock-oplog-prototype-checkpoint.md"
 

@@ -226,3 +226,12 @@ Do NOT expose raw status JSON in chat.
 Do NOT full-rollout run_cmd.
 Do NOT full-rollout run_critical_step.
 Do NOT wrap deploy/healthcheck/cf verify/rotate/Bot/Web yet.
+
+## 10. v1.8.44 Broader Checkpoint
+
+v1.8.44 broadens checkpoint from status mock/oplog to whole v1.8 CLI/operation-log groundwork.
+
+- no status pilot.
+- no dirty VPS.
+- no production wrapper.
+- recommended next step is closeout decision (v1.8.45).

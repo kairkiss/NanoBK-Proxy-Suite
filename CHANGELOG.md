@@ -1,5 +1,28 @@
 # Changelog
 
+## v1.8.44 — v1.8 CLI and Operation Log Checkpoint
+
+### Added
+
+- Added v1.8 CLI and operation-log checkpoint.
+- Summarized v1.8 CLI UI productization.
+- Summarized operation-log low-risk groundwork.
+- Summarized focused test speed strategy.
+- Summarized status mock/oplog proof chain.
+- Recorded overall status: PASS FOR CLI UI + OPERATION-LOG GROUNDWORK.
+- Documented that production status wrapper remains unapproved.
+- Documented that dirty VPS status remains unapproved.
+- Documented that `run_cmd`/`run_critical_step` rollout remains unapproved.
+- Recommended v1.8.45 closeout decision.
+
+### Safety
+
+- No `install.sh` behavior changed.
+- No `bin/nanobk` behavior changed except version.
+- No status wrapper.
+- No `NANOBK_OPLOG_STATUS_PILOT`.
+- No real deployment path changed.
+
 ## v1.8.43 — Status Mock Oplog Prototype Checkpoint
 
 ### Added
