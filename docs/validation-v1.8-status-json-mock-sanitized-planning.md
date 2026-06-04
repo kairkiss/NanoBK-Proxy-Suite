@@ -228,3 +228,25 @@ What this does NOT do:
 - this does not change `install.sh` behavior.
 
 Next step should be mock filesystem root design (Option B from section 7), not real dirty VPS status.
+
+## 13. v1.8.36 Fixture Test Polish
+
+v1.8.36 does not change the fixture schema.
+
+v1.8.36 does not run real `bin/nanobk --json status`.
+
+Test polish applied:
+
+- fixed placeholder checks to use fixed-string matching (`grep -Fq`) instead of regex matching, preventing `[REDACTED_IP]` from being interpreted as a character class.
+- replaced `echo "$x" | grep -q` patterns with here-string (`grep -qF "pattern" <<< "$x"`) where practical.
+- replaced multiple `trap "rm -rf ..." EXIT` overrides with `register_cleanup` from `tests/lib/assertions.sh`.
+- removed unused variables (`json_in_log`, `log_json_errors`, `log_json_rc`).
+- used `has_ansi` helper from assertions library for ANSI detection in PLAIN/UI=0/CI tests.
+- improved source guard to read only the test body (before the guard section) to avoid self-referencing false positives.
+- preserved all operation-log hidden/verbose/PLAIN/UI=0/CI/failure propagation checks.
+
+What this does NOT do:
+
+- this still does not run real `bin/nanobk --json status`.
+- this still does not approve dirty VPS status wrapping.
+- next step remains mock filesystem root design, not dirty VPS status wrapping.

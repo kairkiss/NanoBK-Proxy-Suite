@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite - v1.8.35 Status JSON Mock/Sanitized Planning Coverage Test
+# NanoBK Proxy Suite - v1.8.36 Status JSON Mock/Sanitized Planning Coverage Test
 #
 # Verifies docs/validation-v1.8-status-json-mock-sanitized-planning.md exists
 # and contains the required planning checkpoint content.
@@ -15,7 +15,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "${SCRIPT_DIR}/lib/assertions.sh"
 
 echo ""
-echo "=== Test Suite: v1.8.35 Status JSON Mock/Sanitized Planning ==="
+echo "=== Test Suite: v1.8.36 Status JSON Mock/Sanitized Planning ==="
 
 DOC="${REPO_DIR}/docs/validation-v1.8-status-json-mock-sanitized-planning.md"
 
@@ -83,6 +83,17 @@ assert_contains "$doc_content" "default mode hides JSON" "6d: default mode hides
 assert_contains "$doc_content" "verbose mode" "6e: verbose mode shows sanitized JSON"
 assert_contains "$doc_content" "mock filesystem root design" "6f: next step is mock filesystem"
 assert_contains "$doc_content" "not real dirty VPS status" "6g: not real dirty VPS status"
+
+echo ""
+echo "--- 7: v1.8.36 Fixture Test Polish ---"
+
+assert_contains "$doc_content" "v1.8.36" "7a: has v1.8.36"
+assert_contains "$doc_content" "Fixture Test Polish" "7b: has Fixture Test Polish title"
+assert_contains "$doc_content" "fixed-string matching" "7c: mentions fixed-string matching"
+assert_contains "$doc_content" "here-string" "7d: mentions here-string"
+assert_contains "$doc_content" "register_cleanup" "7e: mentions register_cleanup for temp cleanup"
+assert_contains "$doc_content" "does not run real" "7f: does not run real status"
+assert_contains "$doc_content" "mock filesystem root design" "7g: next step is mock filesystem"
 
 echo ""
 echo "=== Results ==="

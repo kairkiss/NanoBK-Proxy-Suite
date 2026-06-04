@@ -1,5 +1,27 @@
 # Changelog
 
+## v1.8.36 — Status JSON Fixture Test Polish
+
+### Fixed
+
+- Polished status JSON sanitized fixture test.
+- Replaced placeholder `grep` checks with fixed-string matching (`grep -Fq`) to prevent regex interpretation of `[REDACTED_...]`.
+- Replaced `echo | grep` patterns with here-string (`<<<`) checks where practical.
+- Improved temporary directory cleanup using `register_cleanup` instead of multiple `trap` overrides.
+- Removed unused variables from fixture test.
+- Used `has_ansi` helper for ANSI detection in mode boundary tests.
+- Improved source guard to avoid self-referencing false positives.
+
+### Safety
+
+- Preserved fixture JSON validity, hidden output, verbose output, PLAIN/UI=0/CI, and failure propagation checks.
+- Did not run real `bin/nanobk --json status`.
+- Did not add status wrapper.
+- Did not add third real command pilot.
+- No `install.sh` behavior changed.
+- No `run_cmd`/`run_critical_step` rollout.
+- No real deployment path changed.
+
 ## v1.8.35 — Status JSON Sanitized Fixture Prototype
 
 ### Added

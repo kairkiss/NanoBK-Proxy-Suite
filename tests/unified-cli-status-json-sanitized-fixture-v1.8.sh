@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — v1.8.35 Status JSON Sanitized Fixture Test
+# NanoBK Proxy Suite — v1.8.36 Status JSON Sanitized Fixture Test
 #
 # Validates the sanitized status JSON fixture for JSON validity,
 # redaction policy, operation-log capture, hidden output, verbose,
@@ -17,10 +17,12 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 source "${SCRIPT_DIR}/lib/assertions.sh"
 
+trap cleanup_temp EXIT
+
 FIXTURE="${REPO_DIR}/tests/fixtures/status-json-sanitized-v1.8.json"
 
 echo ""
-echo "=== Test Suite: v1.8.35 Status JSON Sanitized Fixture ==="
+echo "=== Test Suite: v1.8.36 Status JSON Sanitized Fixture ==="
 
 # ── Test 1: fixture exists ────────────────────────────────────────────────
 
@@ -89,7 +91,7 @@ if [[ -f "$FIXTURE" ]]; then
   )
 
   for pat in "${forbidden_patterns[@]}"; do
-    if grep -q "$pat" "$FIXTURE"; then
+    if grep -Fq "$pat" "$FIXTURE"; then
       fail "4: fixture must NOT contain '$pat'"
     else
       pass "4: fixture does not contain '$pat'"
@@ -116,7 +118,7 @@ if [[ -f "$FIXTURE" ]]; then
   _oplog_dir=""
 
   tmpdir5=$(mktemp -d)
-  trap "rm -rf '$tmpdir5'" EXIT
+  register_cleanup "$tmpdir5"
 
   export NANOBK_OPLOG_DIR="$tmpdir5"
   export NANOBK_VERBOSE=""
@@ -159,19 +161,13 @@ if [[ -f "$FIXTURE" ]]; then
 
   # Log file should contain JSON content
   if [[ -f "$log_file" ]]; then
-    if grep -q '"ok"' "$log_file"; then
+    if grep -Fq '"ok"' "$log_file"; then
       pass "5f: log file contains JSON content"
     else
       fail "5f: log file does NOT contain JSON content"
     fi
 
-    # Extract JSON from log (skip header lines starting with #)
-    json_in_log=$(sed -n '/^{/,$ p' "$log_file" | head -1)
-    log_json_errors=$(python3 -c "import json; json.loads(open('$log_file').read().split('---\n', 2)[-1].split('\nExit code')[0].strip())" 2>&1) && log_json_rc=0 || log_json_rc=$?
-
-    # Try to validate JSON from log more carefully
-    # The log has header lines, then the fixture content, then footer
-    # Find the JSON object in the log
+    # Extract JSON block from log (skip header lines starting with #)
     log_json_block=$(awk '/^\{/{found=1} found{print} /^\}/{if(found)exit}' "$log_file")
     if [[ -n "$log_json_block" ]]; then
       echo "$log_json_block" | python3 -m json.tool > /dev/null 2>&1 && log_json_valid=0 || log_json_valid=$?
@@ -183,7 +179,7 @@ if [[ -f "$FIXTURE" ]]; then
 
       # Check log JSON for forbidden patterns
       for pat in "${forbidden_patterns[@]}"; do
-        if echo "$log_json_block" | grep -q "$pat"; then
+        if grep -Fq "$pat" <<< "$log_json_block"; then
           fail "5: log JSON must NOT contain '$pat'"
         else
           pass "5: log JSON does not contain '$pat'"
@@ -191,7 +187,7 @@ if [[ -f "$FIXTURE" ]]; then
       done
 
       # Check log JSON for placeholders
-      if echo "$log_json_block" | grep -q "[REDACTED_IP]"; then
+      if grep -Fq "[REDACTED_IP]" <<< "$log_json_block"; then
         pass "5h: log JSON contains [REDACTED_IP]"
       else
         fail "5h: log JSON missing [REDACTED_IP]"
@@ -214,7 +210,7 @@ if [[ -f "$FIXTURE" ]]; then
   _oplog_dir=""
 
   tmpdir6=$(mktemp -d)
-  trap "rm -rf '$tmpdir6'" EXIT
+  register_cleanup "$tmpdir6"
 
   export NANOBK_OPLOG_DIR="$tmpdir6"
   export NANOBK_VERBOSE=1
@@ -269,7 +265,7 @@ if [[ -f "$FIXTURE" ]]; then
     _oplog_dir=""
 
     tmpdir7=$(mktemp -d)
-    trap "rm -rf '$tmpdir7'" EXIT
+    register_cleanup "$tmpdir7"
 
     export NANOBK_OPLOG_DIR="$tmpdir7"
     export NANOBK_VERBOSE=""
@@ -288,7 +284,7 @@ if [[ -f "$FIXTURE" ]]; then
     mode_screen=$(oplog_run_hidden "status json mode fixture" cat "$FIXTURE" 2>&1) && mode_rc=0 || mode_rc=$?
 
     # No ANSI escape sequences in output
-    if echo "$mode_screen" | grep -qP '\x1b\[' 2>/dev/null || echo "$mode_screen" | grep -q $'\033' 2>/dev/null; then
+    if has_ansi "$mode_screen"; then
       fail "7: $mode_label screen must NOT contain ANSI escapes"
     else
       pass "7: $mode_label screen has no ANSI escapes"
@@ -313,12 +309,12 @@ if [[ -f "$FIXTURE" ]]; then
         fi
 
         # No forbidden patterns
-        if echo "$log_json_block7" | grep -q "TOKEN="; then
+        if grep -Fq "TOKEN=" <<< "$log_json_block7"; then
           fail "7: $mode_label log must NOT contain TOKEN="
         else
           pass "7: $mode_label log no TOKEN="
         fi
-        if echo "$log_json_block7" | grep -q "SECRET="; then
+        if grep -Fq "SECRET=" <<< "$log_json_block7"; then
           fail "7: $mode_label log must NOT contain SECRET="
         else
           pass "7: $mode_label log no SECRET="
@@ -342,7 +338,7 @@ _oplog_current_file=""
 _oplog_dir=""
 
 tmpdir8=$(mktemp -d)
-trap "rm -rf '$tmpdir8'" EXIT
+register_cleanup "$tmpdir8"
 
 export NANOBK_OPLOG_DIR="$tmpdir8"
 export NANOBK_VERBOSE=""
@@ -383,14 +379,14 @@ if [[ -f "$log_file8" ]]; then
   assert_not_contains "$(cat "$log_file8")" "status-fixture-failure-secret" "8c: log does not contain raw secret"
 
   # Log should contain REDACTED
-  if grep -q "REDACTED" "$log_file8"; then
+  if grep -Fq "REDACTED" "$log_file8"; then
     pass "8d: log contains REDACTED"
   else
     fail "8d: log must contain REDACTED after redaction"
   fi
 
   # Failure should not be hidden (exit code should be in log)
-  if grep -q "Exit code: 12" "$log_file8"; then
+  if grep -Fq "Exit code: 12" "$log_file8"; then
     pass "8e: log records failure exit code"
   else
     fail "8e: log must record failure exit code"
@@ -409,19 +405,25 @@ fi
 echo ""
 echo "--- 9: do not run real status ---"
 
-# Source code guard: this test file must not contain NANOBK_OPLOG_STATUS_PILOT
-# Exclude the assertion lines themselves from the check
-test_self=$(cat "$0")
-test_self_filtered=$(echo "$test_self" | grep -v 'NANOBK_OPLOG_STATUS_PILOT')
-if echo "$test_self_filtered" | grep -q 'NANOBK_OPLOG_STATUS_PILOT'; then
-  fail "9a: test references NANOBK_OPLOG_STATUS_PILOT outside assertions"
+# Source code guard: this test must not enable the status pilot or execute real status.
+# Read only the test body (before this guard section) to avoid self-referencing.
+test_body=$(sed -n '1,/^# ── Test 9:/p' "$0")
+
+# Check for status pilot enable (should never appear as assignment in test body)
+if grep -qF 'NANOBK_OPLOG_STATUS_PILOT=1' <<< "$test_body"; then
+  fail "9a: test must NOT enable NANOBK_OPLOG_STATUS_PILOT"
 else
-  pass "9a: test does not reference NANOBK_OPLOG_STATUS_PILOT"
+  pass "9a: test does not enable NANOBK_OPLOG_STATUS_PILOT"
 fi
 
-# This test should not invoke bin/nanobk --json status as an executable command
-# Exclude comment lines and assertion/label lines
-executable_lines=$(grep -n 'bin/nanobk.*--json.*status' "$0" | grep -v '^[0-9]*:#' | grep -v 'assert_' | grep -v 'do not' | grep -v 'does not' | grep -v 'must NOT' | grep -v '# Source' | grep -v 'echo.*9b' || true)
+# Check for executable bin/nanobk --json status in test body (not comments or labels)
+executable_lines=$(grep -n 'bin/nanobk.*--json.*status' <<< "$test_body" \
+  | grep -v '^[0-9]*:[[:space:]]*#' \
+  | grep -v 'assert_' \
+  | grep -v 'echo' \
+  | grep -v 'fail ' \
+  | grep -v 'pass ' \
+  || true)
 if [[ -n "$executable_lines" ]]; then
   fail "9b: test must NOT execute bin/nanobk --json status"
 else
