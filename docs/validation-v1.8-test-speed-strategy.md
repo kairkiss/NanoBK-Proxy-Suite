@@ -24,6 +24,13 @@ This document defines focused fast tests, related regression tests, and full reg
 - Do not use it to prove test-wrapper behavior (which runs inside the test battery).
 - Full regression still exists and must be run at checkpoints.
 
+### v1.8.33 no-trigger speed polish
+
+- v1.8.32 introduced fast tests but default no-trigger checks still invoked `--mode test --defaults` without override, which could enter All safe tests.
+- v1.8.33 updates no-trigger checks to use `NANOBK_TEST_OVERRIDE_SCRIPT` as well.
+- Version/help focused fast tests now avoid All safe tests in both no-trigger and trigger paths.
+- Full regression remains available but full regression is not run by default.
+
 ## 4. Test tiers
 
 ### Tier 0 — Static review
@@ -40,7 +47,8 @@ This document defines focused fast tests, related regression tests, and full reg
 - Version fast test: `tests/unified-cli-operation-log-real-version-fast-v1.8.sh`
 - Help fast test: `tests/unified-cli-operation-log-help-fast-v1.8.sh`
 - Docs coverage tests: `tests/unified-cli-test-speed-strategy-v1.8.sh`
-- Each runs in under 60 seconds.
+- Focused tests should run much faster than the full operation-log pilot suite.
+- Exact runtime depends on host performance.
 
 ### Tier 2 — Related regression
 

@@ -28,9 +28,11 @@ register_cleanup "$OVERRIDE_SCRIPT"
 echo ""
 echo "--- 1: default no-trigger ---"
 
-default_out=$(bash "${REPO_DIR}/installer/install.sh" --mode test --defaults 2>&1 < /dev/null || true)
+default_out=$(NANOBK_TEST_OVERRIDE_SCRIPT="$OVERRIDE_SCRIPT" \
+  bash "${REPO_DIR}/installer/install.sh" --mode test --defaults 2>&1 < /dev/null || true)
 assert_not_contains "$default_out" "operation-log real command pilot enabled" "1a Default: pilot not triggered"
 assert_not_contains "$default_out" "operation-log real command pilot completed" "1a Default: pilot not completed"
+assert_contains "$default_out" "override test ran" "1a Default: override test ran (no All safe tests)"
 
 # ── 2: real pilot triggers with override (fast) ────────────────────────
 

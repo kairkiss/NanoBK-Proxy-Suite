@@ -1,5 +1,21 @@
 # Changelog
 
+## v1.8.33 — Focused Test No-Trigger Speed Polish
+
+### Fixed
+
+- Polished focused fast tests so default no-trigger checks also use `NANOBK_TEST_OVERRIDE_SCRIPT`.
+- Avoided All safe tests in version/help fast test no-trigger paths.
+- Updated test speed strategy documentation with v1.8.33 no-trigger polish note.
+
+### Safety
+
+- No install.sh behavior changed.
+- No third command wrapper added.
+- No `status --json` wrapping.
+- No `run_cmd`/`run_critical_step` rollout.
+- No real deployment path changed.
+
 ## v1.8.32 — Operation Log Focused Test Speed Split
 
 ### Added

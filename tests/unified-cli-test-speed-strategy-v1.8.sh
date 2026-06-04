@@ -89,6 +89,17 @@ assert_contains "$doc_content" "run_operation_log_help_command_pilot" "3d: menti
 assert_contains "$doc_content" "FAST PASS" "3e: mentions FAST PASS"
 assert_contains "$doc_content" "operation-log can hide output, but must never hide failure" "3f: has safety rule"
 
+# ── 3b: v1.8.33 no-trigger polish ──────────────────────────────────────
+
+echo ""
+echo "--- 3b: v1.8.33 no-trigger polish ---"
+
+assert_contains "$doc_content" "v1.8.33" "3g: mentions v1.8.33"
+assert_contains "$doc_content" "no-trigger" "3h: mentions no-trigger"
+assert_contains "$doc_content" "avoid All safe tests" "3i: mentions avoid All safe tests"
+assert_contains "$doc_content" "Full regression remains available" "3j: full regression remains available"
+assert_contains "$doc_content" "full regression is not run by default" "3k: full regression not run by default"
+
 # ── 4: Safety rules ────────────────────────────────────────────────────
 
 echo ""
