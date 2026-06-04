@@ -1,5 +1,25 @@
 # Changelog
 
+## v1.8.32 — Operation Log Focused Test Speed Split
+
+### Added
+
+- Added operation-log focused fast tests for `bin/nanobk --version` pilot.
+- Added operation-log focused fast tests for `bin/nanobk --help` pilot.
+- Added v1.8 test speed strategy document.
+- Documented Tier 0 / Tier 1 / Tier 2 / Tier 3 test policy.
+- Documented when real VPS/Cloudflare tests are needed.
+- Added shared test assertion helper (`tests/lib/assertions.sh`).
+- Added test speed strategy coverage test.
+
+### Safety
+
+- No install.sh behavior changed.
+- No third command wrapper added.
+- No `status --json` wrapping.
+- No `run_cmd`/`run_critical_step` rollout.
+- No real deployment path changed.
+
 ## v1.8.31 — Operation Log Second Real Command Pilot: bin/nanobk --help
 
 ### Added
