@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — v1.8.30 Operation Log Pilot Test
+# NanoBK Proxy Suite — v1.8.31 Operation Log Pilot Test
 #
 # Tests redacted operation-log pilot behavior.
 # Does NOT test real deployment — only log infrastructure.
@@ -61,7 +61,7 @@ run_oplog_test() {
 }
 
 echo ""
-echo "=== Test Suite: v1.8.30 Operation Log Pilot ==="
+echo "=== Test Suite: v1.8.31 Operation Log Pilot ==="
 
 # ── 1: oplog_redact basic secrets ────────────────────────────────────────
 
@@ -716,10 +716,189 @@ fi
 rm -rf "$PILOT_DIR" 2>/dev/null
 rm -f "$_failing_real_cmd" 2>/dev/null
 
-# ── 11: Test helper stability ────────────────────────────────────────────
+# ── 11: Help command pilot ─────────────────────────────────────────────
 
 echo ""
-echo "--- 10: Test helper stability ---"
+echo "--- 11: Help command pilot ---"
+
+# Test 11a: default test mode does NOT trigger help pilot
+default_help=$(bash "${REPO_DIR}/installer/install.sh" --mode test --defaults 2>&1 < /dev/null || true)
+assert_not_contains "$default_help" "operation-log help command pilot enabled" "11a Default: help pilot not triggered"
+assert_not_contains "$default_help" "operation-log help command pilot completed" "11a Default: help pilot not completed"
+
+# Test 11b: help pilot triggers with env + defaults
+PILOT_DIR=$(mktemp -d)
+help_pilot_output=$(NANOBK_OPLOG_HELP_PILOT=1 NANOBK_OPLOG_DIR="$PILOT_DIR" \
+  bash "${REPO_DIR}/installer/install.sh" --mode test --defaults 2>&1 < /dev/null || true)
+
+assert_contains "$help_pilot_output" "operation-log help command pilot enabled" "11b Help pilot: enabled"
+assert_contains "$help_pilot_output" "bin/nanobk --help" "11b Help pilot: contains command"
+assert_contains "$help_pilot_output" "operation-log help command pilot completed" "11b Help pilot: completed"
+assert_contains "$help_pilot_output" "Log:" "11b Help pilot: shows log path"
+
+# Screen should NOT contain raw help output (hidden output works)
+assert_not_contains "$help_pilot_output" "用法:" "11b Help pilot: no raw 用法 on screen"
+assert_not_contains "$help_pilot_output" "命令:" "11b Help pilot: no raw 命令 on screen"
+assert_not_contains "$help_pilot_output" "全局选项:" "11b Help pilot: no raw 全局选项 on screen"
+
+# Check log file exists and permissions
+help_log=$(ls "${PILOT_DIR}"/real-command-help-pilot-*.log 2>/dev/null | head -1 || true)
+if [[ -n "$help_log" ]]; then
+  pass "11b Help pilot: log file exists"
+  help_log_perms=$(stat -f '%Lp' "$help_log" 2>/dev/null || stat -c '%a' "$help_log" 2>/dev/null || echo "unknown")
+  if [[ "$help_log_perms" == "600" ]]; then
+    pass "11b Help pilot: log chmod 600"
+  else
+    fail "11b Help pilot: log chmod 600 (got $help_log_perms)"
+  fi
+  help_log_content=$(cat "$help_log")
+  assert_contains "$help_log_content" "用法:" "11b Help pilot: log contains 用法"
+  assert_contains "$help_log_content" "命令:" "11b Help pilot: log contains 命令"
+else
+  fail "11b Help pilot: log file not found"
+fi
+assert_not_contains "$help_pilot_output" "SECRET=" "11b Help pilot: no SECRET= on screen"
+assert_not_contains "$help_pilot_output" "status: success" "11b Help pilot: no status: success"
+rm -rf "$PILOT_DIR" 2>/dev/null
+
+# Test 11c: verbose shows redacted help output
+PILOT_DIR=$(mktemp -d)
+verbose_help=$(NANOBK_VERBOSE=1 NANOBK_OPLOG_HELP_PILOT=1 NANOBK_OPLOG_DIR="$PILOT_DIR" \
+  bash "${REPO_DIR}/installer/install.sh" --mode test --defaults 2>&1 < /dev/null || true)
+rm -rf "$PILOT_DIR" 2>/dev/null
+
+assert_contains "$verbose_help" "operation-log help command pilot enabled" "11c Verbose: help pilot enabled"
+assert_contains "$verbose_help" "operation-log help command pilot completed" "11c Verbose: help pilot completed"
+assert_contains "$verbose_help" "用法:" "11c Verbose: shows help output"
+assert_contains "$verbose_help" "命令:" "11c Verbose: shows 命令"
+assert_contains "$verbose_help" "Log:" "11c Verbose: shows log path"
+assert_not_contains "$verbose_help" "SECRET=" "11c Verbose: no SECRET="
+
+# Test 11d: PLAIN no ANSI
+PILOT_DIR=$(mktemp -d)
+plain_help=$(NANOBK_PLAIN=1 NANOBK_OPLOG_HELP_PILOT=1 NANOBK_OPLOG_DIR="$PILOT_DIR" \
+  bash "${REPO_DIR}/installer/install.sh" --mode test --defaults 2>&1 < /dev/null || true)
+rm -rf "$PILOT_DIR" 2>/dev/null
+
+assert_contains "$plain_help" "operation-log help command pilot enabled" "11d PLAIN: help pilot enabled"
+assert_contains "$plain_help" "operation-log help command pilot completed" "11d PLAIN: help pilot completed"
+assert_contains "$plain_help" "Log:" "11d PLAIN: shows log path"
+plain_help_pilot_lines=$(grep -E "help command pilot|Log:" <<< "$plain_help" || true)
+if has_ansi "$plain_help_pilot_lines"; then
+  fail "11d PLAIN: no ANSI in pilot output"
+else
+  pass "11d PLAIN: no ANSI in pilot output"
+fi
+assert_not_contains "$plain_help" "SECRET=" "11d PLAIN: no SECRET="
+
+# Test 11e: UI=0 no ANSI
+PILOT_DIR=$(mktemp -d)
+ui0_help=$(NANOBK_UI=0 NANOBK_OPLOG_HELP_PILOT=1 NANOBK_OPLOG_DIR="$PILOT_DIR" \
+  bash "${REPO_DIR}/installer/install.sh" --mode test --defaults 2>&1 < /dev/null || true)
+rm -rf "$PILOT_DIR" 2>/dev/null
+
+assert_contains "$ui0_help" "operation-log help command pilot enabled" "11e UI=0: help pilot enabled"
+assert_contains "$ui0_help" "operation-log help command pilot completed" "11e UI=0: help pilot completed"
+assert_contains "$ui0_help" "Log:" "11e UI=0: shows log path"
+ui0_help_pilot_lines=$(grep -E "help command pilot|Log:" <<< "$ui0_help" || true)
+if has_ansi "$ui0_help_pilot_lines"; then
+  fail "11e UI=0: no ANSI in pilot output"
+else
+  pass "11e UI=0: no ANSI in pilot output"
+fi
+if grep -qF '╭' <<< "$ui0_help_pilot_lines"; then
+  fail "11e UI=0: no box drawing in pilot output"
+else
+  pass "11e UI=0: no box drawing in pilot output"
+fi
+assert_not_contains "$ui0_help" "SECRET=" "11e UI=0: no SECRET="
+
+# Test 11f: CI no ANSI
+PILOT_DIR=$(mktemp -d)
+ci_help=$(CI=1 NANOBK_OPLOG_HELP_PILOT=1 NANOBK_OPLOG_DIR="$PILOT_DIR" \
+  bash "${REPO_DIR}/installer/install.sh" --mode test --defaults 2>&1 < /dev/null || true)
+rm -rf "$PILOT_DIR" 2>/dev/null
+
+assert_contains "$ci_help" "operation-log help command pilot enabled" "11f CI: help pilot enabled"
+assert_contains "$ci_help" "operation-log help command pilot completed" "11f CI: help pilot completed"
+assert_contains "$ci_help" "Log:" "11f CI: shows log path"
+ci_help_pilot_lines=$(grep -E "help command pilot|Log:" <<< "$ci_help" || true)
+if has_ansi "$ci_help_pilot_lines"; then
+  fail "11f CI: no ANSI in pilot output"
+else
+  pass "11f CI: no ANSI in pilot output"
+fi
+assert_not_contains "$ci_help" "SECRET=" "11f CI: no SECRET="
+
+# Test 11g: full dry-run unaffected
+full_dry_help=$(NANOBK_OPLOG_HELP_PILOT=1 NANOBK_TEST_MOCK=1 NANOBK_ASSUME_PORTS_FREE=1 \
+  bash "${REPO_DIR}/installer/install.sh" --mode full --dry-run --defaults --lang zh 2>&1 < /dev/null || true)
+assert_not_contains "$full_dry_help" "operation-log help command pilot enabled" "11g Full dry-run: help pilot not triggered"
+assert_contains "$full_dry_help" "planned / dry-run" "11g Full dry-run: planned / dry-run preserved"
+assert_not_contains "$full_dry_help" "status: success" "11g Full dry-run: no status: success"
+
+# Test 11h: non-defaults test mode does NOT trigger
+nondefaults_help=$(NANOBK_OPLOG_HELP_PILOT=1 \
+  bash "${REPO_DIR}/installer/install.sh" --mode test 2>&1 <<'EOF' || true
+5
+EOF
+)
+assert_not_contains "$nondefaults_help" "operation-log help command pilot enabled" "11h Non-defaults: help pilot not triggered"
+assert_not_contains "$nondefaults_help" "operation-log help command pilot completed" "11h Non-defaults: help pilot not completed"
+
+# Test 11i: failure propagation with fake help command override
+_failing_help_cmd=$(mktemp)
+cat > "$_failing_help_cmd" <<'FAILHELP'
+#!/usr/bin/env bash
+echo "SECRET=help-pilot-failure-secret"
+exit 11
+FAILHELP
+chmod +x "$_failing_help_cmd"
+
+PILOT_DIR=$(mktemp -d)
+help_failure_rc=0
+help_failure_output=$(NANOBK_OPLOG_HELP_PILOT=1 \
+  NANOBK_OPLOG_HELP_PILOT_CMD="$_failing_help_cmd" \
+  NANOBK_OPLOG_DIR="$PILOT_DIR" \
+  bash "${REPO_DIR}/installer/install.sh" --mode test --defaults 2>&1 < /dev/null) || help_failure_rc=$?
+
+if [[ "$help_failure_rc" -ne 0 ]]; then
+  pass "11i Failure: rc is non-zero ($help_failure_rc)"
+else
+  fail "11i Failure: rc is zero (expected non-zero)"
+fi
+assert_contains "$help_failure_output" "operation-log help command pilot failed" "11i Failure: contains failure message"
+assert_not_contains "$help_failure_output" "SECRET=help-pilot-failure-secret" "11i Failure: no raw secret on screen"
+
+# Check log file for failure
+help_failure_log=$(ls "${PILOT_DIR}"/real-command-help-pilot-*.log 2>/dev/null | head -1 || true)
+if [[ -n "$help_failure_log" ]]; then
+  pass "11i Failure: log file exists"
+  help_failure_log_content=$(cat "$help_failure_log")
+  assert_not_contains "$help_failure_log_content" "SECRET=help-pilot-failure-secret" "11i Failure log: no raw secret"
+  assert_contains "$help_failure_log_content" "REDACTED" "11i Failure log: contains REDACTED"
+else
+  fail "11i Failure: log file not found"
+fi
+rm -rf "$PILOT_DIR" 2>/dev/null
+rm -f "$_failing_help_cmd" 2>/dev/null
+
+# Test 11j: real pilot and help pilot independent (both enabled)
+PILOT_DIR=$(mktemp -d)
+both_pilot_output=$(NANOBK_OPLOG_REAL_PILOT=1 NANOBK_OPLOG_HELP_PILOT=1 NANOBK_OPLOG_DIR="$PILOT_DIR" \
+  bash "${REPO_DIR}/installer/install.sh" --mode test --defaults 2>&1 < /dev/null || true)
+rm -rf "$PILOT_DIR" 2>/dev/null
+
+assert_contains "$both_pilot_output" "operation-log real command pilot enabled" "11j Both: version pilot enabled"
+assert_contains "$both_pilot_output" "operation-log real command pilot completed" "11j Both: version pilot completed"
+assert_contains "$both_pilot_output" "operation-log help command pilot enabled" "11j Both: help pilot enabled"
+assert_contains "$both_pilot_output" "operation-log help command pilot completed" "11j Both: help pilot completed"
+assert_not_contains "$both_pilot_output" "SECRET=" "11j Both: no raw secret"
+
+# ── 12: Test helper stability ────────────────────────────────────────────
+
+echo ""
+echo "--- 12: Test helper stability ---"
 
 filtered_self="$(grep -v 'pipe+grep-q\|pipefail hazard\|pipe pattern\|no printf\|grep -qF.*filtered\|must NOT contain\|must not have' "${SCRIPT_DIR}/unified-cli-operation-log-pilot-v1.8.sh" || true)"
 if grep -qF ' | grep -q' <<< "$filtered_self"; then

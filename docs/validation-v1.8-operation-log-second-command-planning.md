@@ -188,3 +188,7 @@ Do NOT wrap real installed status on dirty VPS.
 - Dry-run is not real deployment.
 - operation-log can hide output, but must never hide failure.
 - planning does not approve implementation.
+
+## 11. Implementation status
+
+v1.8.31 implements the recommended `bin/nanobk --help` second real command pilot, while keeping `status --json` out of scope.

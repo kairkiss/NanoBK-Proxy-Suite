@@ -1,5 +1,27 @@
 # Changelog
 
+## v1.8.31 — Operation Log Second Real Command Pilot: bin/nanobk --help
+
+### Added
+
+- Added opt-in operation-log help command pilot for `bin/nanobk --help`.
+- Hidden output by default; verbose shows redacted help output.
+- Added PLAIN/UI=0/CI no-ANSI tests for help command pilot.
+- Added failure propagation test with test-only command override (`NANOBK_OPLOG_HELP_PILOT_CMD`).
+- Added real pilot + help pilot independence test.
+- Full dry-run unaffected; non-default test mode unaffected.
+
+### Safety
+
+- Only wraps `bin/nanobk --help` under explicit opt-in (`NANOBK_OPLOG_HELP_PILOT=1`).
+- No `status --json` wrapping.
+- No real deployment path changed.
+- No `run_cmd`/`run_critical_step` rollout.
+- No protocol templates changed.
+- No Worker core changed.
+- No rotate sync changed.
+- No Bot/Web business logic changed.
+
 ## v1.8.30 — Operation Log Second Real Command Planning
 
 ### Added

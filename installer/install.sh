@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — Unified Beginner Installer v1.8.30
+# NanoBK Proxy Suite — Unified Beginner Installer v1.8.31
 #
 # Interactive entry point for NanoBK Proxy Suite.
 # Guides users through VPS deployment, Cloudflare setup, Bot, Web Panel.
@@ -27,7 +27,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # ── Constants ───────────────────────────────────────────────────────────────
 
 REPO_URL="https://github.com/kairkiss/NanoBK-Proxy-Suite"
-VERSION="1.8.30"
+VERSION="1.8.31"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -3979,6 +3979,45 @@ run_operation_log_real_command_pilot() {
   return 0
 }
 
+# Operation-log help command pilot — wraps bin/nanobk --help with hidden output
+# Only runs when NANOBK_OPLOG_HELP_PILOT=1 + DEFAULTS=1 + MODE=test
+# Does NOT integrate with run_cmd / run_critical_step
+# Does NOT wrap VPS deploy / Cloudflare deploy / rotate sync / Bot/Web
+# Does NOT wrap status --json
+run_operation_log_help_command_pilot() {
+  [[ "${NANOBK_OPLOG_HELP_PILOT:-}" == "1" ]] || return 0
+  [[ "${DEFAULTS:-0}" == "1" ]] || return 0
+
+  local label="nanobk help real command pilot"
+  local cmd_to_run="bash"
+  local cmd_args=("$REPO_DIR/bin/nanobk" "--help")
+
+  # Test-only override for failure propagation testing
+  if [[ -n "${NANOBK_OPLOG_HELP_PILOT_CMD:-}" ]]; then
+    cmd_to_run="bash"
+    cmd_args=("$NANOBK_OPLOG_HELP_PILOT_CMD")
+  fi
+
+  log "operation-log help command pilot enabled: bin/nanobk --help"
+  oplog_init "real-command-help-pilot" >/dev/null
+
+  local rc=0
+  oplog_run_hidden "$label" "$cmd_to_run" "${cmd_args[@]}" || rc=$?
+
+  if [[ "$rc" -eq 0 ]]; then
+    ok "operation-log help command pilot completed"
+    echo "  Log: $(oplog_path)"
+  else
+    err "operation-log help command pilot failed"
+    oplog_hint_on_failure "operation-log help command pilot failed"
+    TEST_FAILURES=$((TEST_FAILURES + 1))
+    TEST_FAILED_NAMES+=("${label} (rc=${rc})")
+    return "$rc"
+  fi
+
+  return 0
+}
+
 # Operation-log test wrapper pilot — wraps one safe test script with hidden output
 # Only runs when NANOBK_OPLOG_TEST_WRAP=1 + DEFAULTS=1 + MODE=test
 # Does NOT integrate with real run_cmd / run_critical_step
@@ -4028,6 +4067,9 @@ run_test_mode() {
 
   # Operation-log real command pilot (opt-in only, wraps bin/nanobk --version)
   run_operation_log_real_command_pilot
+
+  # Operation-log help command pilot (opt-in only, wraps bin/nanobk --help)
+  run_operation_log_help_command_pilot
 
   # Test override hook (for test harness only)
   if [[ -n "${NANOBK_TEST_OVERRIDE_SCRIPT:-}" ]]; then

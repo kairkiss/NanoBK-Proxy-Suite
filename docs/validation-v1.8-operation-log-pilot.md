@@ -131,6 +131,23 @@ The `oplog_redact` function strips:
 - Audit found only PLAIN no-ANSI was tested in the real pilot section.
 - v1.8.28 adds explicit UI=0 and CI no-ANSI coverage.
 
+## v1.8.31 Help Command Pilot
+
+- Wraps only `bin/nanobk --help`.
+- Opt-in only via `NANOBK_OPLOG_HELP_PILOT=1`.
+- Only in `--mode test --defaults`.
+- Default test mode does not trigger.
+- Full dry-run does not trigger.
+- Non-default test mode does not trigger.
+- No deployment path wrapped.
+- No `run_cmd`/`run_critical_step` rollout.
+- Hidden output by default.
+- Verbose shows redacted help output.
+- PLAIN/UI=0/CI no-ANSI.
+- Failure propagation tested with `NANOBK_OPLOG_HELP_PILOT_CMD`.
+- Real pilot + help pilot independence verified.
+- `status --json` is still not wrapped.
+
 ## Next Step Before Full Rollout
 
 Before integrating `oplog_run_hidden` into `run_cmd`:
