@@ -1,5 +1,29 @@
 # Changelog
 
+## v1.9.12 — Raw JSON / Advanced Diagnostics Policy Planning
+
+### Added
+
+- Added Raw JSON / Advanced Diagnostics policy planning document.
+- Defined user layer strategy: L1 Beginner, L2 Advanced, L3 Owner.
+- Defined Bot `/status_json` policy: keep available, hide from main `/help`, add warning.
+- Defined Web Raw JSON details policy: keep visible, add warning, plan future advanced toggle.
+- Defined advanced mode design options for Bot (`/advanced on/off`) and Web (session flag/toggle).
+- Provided safe Chinese/English warning copy for diagnostic outputs.
+- Defined Raw JSON content rules and copy/paste support policy.
+- Defined testing strategy for future implementation.
+- Recommended v1.9.13 Bot `/status_json` Warning and Help Classification as next step.
+
+### Safety
+
+- Planning/documentation only.
+- No Bot runtime behavior changed.
+- No Web runtime behavior changed.
+- No `install.sh` behavior changed.
+- No `bin/nanobk` behavior changed.
+- No deployment core, protocol template, Worker, rotate sync, status wrapper, or operation-log rollout changed.
+- No tag/release.
+
 ## v1.9.11 — Web Safe Status Cards Minimal Implementation
 
 ### Changed
