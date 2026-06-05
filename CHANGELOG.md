@@ -1,5 +1,32 @@
 # Changelog
 
+## v1.9.19 — Raw JSON Gating Policy Planning
+
+### Added
+
+- Added Raw JSON Gating Policy planning document.
+- Defined why Raw JSON gating is desirable (not beginner UI, reduces accidental exposure).
+- Defined gating principles: gate visibility not redaction, advanced mode never disables redaction.
+- Compared Bot `/status_json` gating options; recommended soft gate.
+- Compared Web Raw JSON details gating options; recommended soft gate in Status page.
+- Defined future Bot behavior: off = instructions only, on = redacted JSON with warning.
+- Defined future Web behavior: off = locked panel + enable form, on = redacted Raw JSON details.
+- Defined `/api/status` policy: do NOT gate in v1.9.x, already returns redacted JSON.
+- Provided Chinese/English warning and fallback copy for Bot and Web.
+- Defined testing strategy for future implementation.
+- Recommended staged route: v1.9.20 Bot soft gate, v1.9.21 Web soft gate, v1.9.22 checkpoint.
+- Readiness decision: READY FOR BOT RAW JSON SOFT GATE MINIMAL IMPLEMENTATION (narrow scope).
+
+### Safety
+
+- Planning/documentation only.
+- No Bot runtime behavior changed.
+- No Web runtime behavior changed.
+- No `install.sh` behavior changed.
+- No `bin/nanobk` behavior changed.
+- No deployment core, protocol template, Worker, rotate sync, status wrapper, or operation-log rollout changed.
+- No tag/release.
+
 ## v1.9.18 — Advanced Diagnostics Mode Checkpoint
 
 ### Added
