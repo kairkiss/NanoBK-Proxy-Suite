@@ -1,5 +1,31 @@
 # Changelog
 
+## v1.9.39 — Limited Real Bot/Web Doctor Smoke Retest Plan
+
+### Added
+
+- Added limited real Bot/Web Doctor smoke retest planning document.
+- Defined safe control-plane-only retest scope: Bot /doctor and Web /doctor summary behavior only.
+- Defined Bot Doctor retest checklist (18 steps): summary-only advanced OFF, summary + redacted full diagnostics advanced ON, existing gates sanity.
+- Defined Web Doctor retest checklist (19 steps): summary cards advanced OFF, collapsed full diagnostics advanced ON, /api/status redaction sanity.
+- Defined leak checklist with P0/P1/P2 severity levels for forbidden observations.
+- Defined copy-paste-safe user report template with no raw values.
+- Defined failure handling: stop on raw secret, redacted reporting only.
+- Readiness decision: READY FOR USER-RUN LIMITED REAL BOT/WEB DOCTOR SMOKE RETEST AFTER CHATGPT REVIEW.
+- Recommended user run the retest and report redacted PASS/FAIL.
+
+### Safety
+
+- Planning/documentation only.
+- No Bot runtime behavior changed.
+- No Web runtime behavior changed.
+- No CLI behavior changed.
+- No `install.sh` behavior changed.
+- No `bin/nanobk` behavior changed.
+- No real doctor executed.
+- No deployment core, protocol template, Worker, rotate sync, status wrapper, or operation-log rollout changed.
+- No tag/release.
+
 ## v1.9.38 — Doctor Output Checkpoint
 
 ### Added
