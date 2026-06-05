@@ -1,5 +1,28 @@
 # Changelog
 
+## v1.9.32 — Bot/Web i18n Checkpoint
+
+### Added
+
+- Added Bot/Web i18n checkpoint validation document.
+- Added Bot/Web i18n consistency test (167 checks).
+- Verified Bot and Web i18n implementations are consistent in language normalization, fallback behavior, translation coverage, and safety boundaries.
+- Verified neither implementation weakens redaction, Raw JSON gating, advanced mode, rotate safety, or /api/status compatibility.
+- Verified v1.9.31 did not weaken Bot i18n test safety assertions.
+- Explicitly inspected `web/app.py` (omitted from v1.9.31 report's Files changed list).
+- Readiness decision: READY FOR DOCTOR OUTPUT PRODUCTIZATION PLANNING.
+- Recommended v1.9.33 Doctor Output Productization Planning as next step.
+
+### Safety
+
+- Checkpoint/validation only.
+- No Bot runtime behavior changed.
+- No Web runtime behavior changed.
+- No `install.sh` behavior changed.
+- No `bin/nanobk` behavior changed.
+- No deployment core, protocol template, Worker, rotate sync, status wrapper, or operation-log rollout changed.
+- No tag/release.
+
 ## v1.9.31 — Web i18n Minimal Implementation
 
 ### Changed
