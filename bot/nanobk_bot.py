@@ -21,6 +21,17 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
+# ── Shared redaction helper import ───────────────────────────────────────────
+# Compute repo root and import shared helper for address-class redaction.
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
+from lib.nanobk_redaction import (
+    strip_ansi as _shared_strip_ansi,
+    redact_text as _shared_redact_text,
+)
+
 try:
     from dotenv import load_dotenv
 except ImportError:
@@ -105,30 +116,17 @@ def run_nanobk(config: BotConfig, args: list[str], timeout: int | None = None) -
         )
 
 # ── Output safety ───────────────────────────────────────────────────────────
-
-_ANSI_RE = re.compile(r'\x1b\[[0-9;?]*[ -/]*[@-~]')
+# Delegates to shared redaction helper from lib/nanobk_redaction.py
+# for address-class redaction (IPv4, IPv6, domain, URL, workers.dev,
+# subscription path) plus existing token/secret patterns.
 
 def strip_ansi(text: str) -> str:
     """Remove ANSI escape codes (color, cursor, etc.)."""
-    return _ANSI_RE.sub('', text)
-
-_REDACT_PATTERNS = [
-    # Telegram bot token: 123456:ABC-DEF...
-    (re.compile(r'\b\d{6,}:[A-Za-z0-9_-]{20,}\b'), '[BOT_TOKEN_REDACTED]'),
-    # Generic token/password/key=value or key: value
-    (re.compile(r'(?i)(token|password|private[_ -]?key|secret)\s*[:=]\s*\S+'), lambda m: f'{m.group(1)}=[REDACTED]'),
-    # Long hex/base64 strings (potential secrets)
-    (re.compile(r'\b[A-Za-z0-9+/]{40,}={0,2}\b'), '[REDACTED_B64]'),
-]
+    return _shared_strip_ansi(text)
 
 def redact_text(text: str) -> str:
-    """Redact sensitive patterns from text."""
-    for pattern, replacement in _REDACT_PATTERNS:
-        if callable(replacement):
-            text = pattern.sub(replacement, text)
-        else:
-            text = pattern.sub(replacement, text)
-    return text
+    """Redact sensitive patterns from text (delegates to shared helper)."""
+    return _shared_redact_text(text)
 
 def limit_text(text: str, max_len: int = 3500) -> str:
     """Truncate text to Telegram message limits."""
@@ -323,6 +321,36 @@ def run_self_test() -> bool:
     # 14. safe_output strips ANSI and redacts
     safe_secret = safe_output("\x1b[0;32mpassword=SuperSecret123\x1b[0m")
     check("safe_output strips ANSI and redacts", "SuperSecret123" not in safe_secret and "\x1b[" not in safe_secret)
+
+    # 15. Address-class redaction: safe_output removes raw domain/IP from status
+    test_status_addr = {
+        "ok": True, "domain": "node.example.invalid", "vpsIp": "203.0.113.10", "geo": "JP",
+        "services": {"hy2": "active", "tuic": "active", "reality": "active", "trojan": "active"},
+        "security": {"secretsMode": "600"},
+        "cloudflare": {"nanok": {"envExists": True}, "nanob": {"envExists": False}},
+        "warnings": []
+    }
+    formatted_addr = format_status(test_status_addr)
+    safe_addr = safe_output(formatted_addr)
+    check("safe_output redacts raw domain from status",
+          "node.example.invalid" not in safe_addr)
+    check("safe_output redacts raw IPv4 from status",
+          "203.0.113.10" not in safe_addr)
+    check("safe_output preserves service words in status",
+          "active" in safe_addr and "JP" in safe_addr and "600" in safe_addr)
+
+    # 16. Address-class redaction: safe_output removes IPv6, URL, workers.dev, subscription path
+    test_addr_text = "IPv6: 2001:db8::10 URL: https://worker.example.invalid/sub/fake-sub-path-12345 workers.dev: nanobk-test.example.invalid.workers.dev"
+    safe_addr2 = safe_output(test_addr_text)
+    check("safe_output redacts raw IPv6", "2001:db8::10" not in safe_addr2)
+    check("safe_output redacts raw URL", "https://worker.example.invalid" not in safe_addr2)
+    check("safe_output redacts raw workers.dev", "nanobk-test.example.invalid.workers.dev" not in safe_addr2)
+    check("safe_output redacts raw subscription path", "fake-sub-path-12345" not in safe_addr2)
+
+    # 17. Idempotency: redacting already-redacted output is stable
+    safe_once = safe_output(test_addr_text)
+    safe_twice = safe_output(safe_once)
+    check("safe_output is idempotent", safe_once == safe_twice)
 
     print(f"\n=== {passed} passed, {failed} failed ===")
     return failed == 0

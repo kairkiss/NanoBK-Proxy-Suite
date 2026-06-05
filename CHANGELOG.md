@@ -1,5 +1,27 @@
 # Changelog
 
+## v1.9.7 — Bot Redaction Helper Integration
+
+### Changed
+
+- Integrated shared redaction helper `lib/nanobk_redaction.py` into Bot output path.
+- Bot `strip_ansi()` now delegates to shared helper.
+- Bot `redact_text()` now delegates to shared helper with address-class redaction.
+- Bot `/status`, `/status_json`, `/doctor`, failure output now redact IPv4, IPv6, domain, URL, workers.dev, subscription path.
+- Bot self-test expanded from 20 to 28 tests with address-class redaction verification.
+- Added integration test `tests/bot-redaction-helper-integration-v1.9.7.py` (57 tests).
+- Added validation document `docs/validation-v1.9.7-bot-redaction-helper-integration.md`.
+- Recommended v1.9.8 Web Redaction Helper Integration as next step.
+
+### Safety
+
+- Bot-only redaction integration.
+- No Web runtime behavior changed.
+- No `install.sh` behavior changed.
+- No `bin/nanobk` behavior changed.
+- No deployment core, protocol template, Worker, rotate sync, status wrapper, or operation-log rollout changed.
+- No tag/release.
+
 ## v1.9.6 — Shared Redaction Helper Design / Prototype Review
 
 ### Added
