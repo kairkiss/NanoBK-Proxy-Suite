@@ -288,6 +288,29 @@ def format_status(data: dict) -> str:
 
     return "\n".join(lines)
 
+# ── Shared safe status helper ────────────────────────────────────────────────
+# Single source of truth for /status and Status Summary callback.
+# Avoids logic drift between cmd_status and handle_menu_callback.
+
+def get_safe_status_text(config: BotConfig) -> str:
+    """Run nanobk --json status, format safely, return safe summary text.
+
+    Shared by /status and Status Summary callback.
+    Preserves existing command args, output handling, and safe_output usage.
+    """
+    result = run_nanobk(config, ["--json", "status"])
+    if result.code != 0:
+        return safe_output(
+            f"nanobk status failed (code {result.code}):\n{result.stderr}"
+        )
+    try:
+        data = json.loads(result.stdout)
+        formatted = format_status(data)
+    except json.JSONDecodeError:
+        formatted = f"Failed to parse status JSON.\nRaw output:\n{result.stdout[:500]}"
+    return safe_output(formatted)
+
+
 # ── Control center menu ─────────────────────────────────────────────────────
 # Static InlineKeyboardButton menu for Bot Control Center.
 # Callbacks use "nanobk:" prefix for safe scoping.
@@ -305,6 +328,80 @@ CONTROL_CENTER_TEXT = (
     "\n"
     "Use the buttons below for quick actions, or type /help for all commands.\n"
     "Sensitive addresses and secrets are hidden."
+)
+
+# ── Callback guidance constants ─────────────────────────────────────────────
+# Static text for callback responses. Tests can inspect these directly.
+
+GUIDANCE_RECOVERY = (
+    "🧭 Recovery Help\n"
+    "\n"
+    "If services are abnormal, try:\n"
+    "1. Run /status to check status\n"
+    "2. Run /doctor for diagnostics\n"
+    "3. Connect to VPS via SSH for manual recovery\n"
+    "\n"
+    "Sensitive addresses and secrets are hidden."
+)
+
+GUIDANCE_DIAGNOSTICS = (
+    "🩺 Diagnostics\n"
+    "\n"
+    "Use /doctor for diagnostics.\n"
+    "Use /advanced on to enable advanced diagnostics.\n"
+    "Use /status_json after advanced mode is enabled.\n"
+    "\n"
+    "Diagnostic output is redacted."
+)
+
+GUIDANCE_ROTATE = (
+    "🔄 Rotate Secrets\n"
+    "\n"
+    "Existing rotate commands require confirmation.\n"
+    "\n"
+    "/rotate_all — Rotate ALL protocols\n"
+    "/rotate_hy2 — Rotate HY2\n"
+    "/rotate_tuic — Rotate TUIC\n"
+    "/rotate_reality — Rotate Reality\n"
+    "/rotate_trojan — Rotate Trojan\n"
+    "\n"
+    "⚠️ All operations require confirmation to prevent accidents."
+)
+
+GUIDANCE_WEB = (
+    "🌐 Web Panel\n"
+    "\n"
+    "The Web Panel provides a browser-based dashboard.\n"
+    "Access it from your server's local network.\n"
+    "\n"
+    "Refer to your NanoBK configuration for the Web Panel address."
+)
+
+HELP_TEXT = (
+    "NanoBK Bot Commands\n"
+    "\n"
+    "Basic:\n"
+    "/start          — Show welcome and quick help\n"
+    "/status         — Safe status summary\n"
+    "/doctor         — Redacted diagnostic check\n"
+    "/cancel         — Cancel pending action\n"
+    "\n"
+    "Safe operations:\n"
+    "/rotate_all     — Rotate ALL protocols (requires confirmation)\n"
+    "/rotate_hy2     — Rotate HY2 secret with confirmation\n"
+    "/rotate_tuic    — Rotate TUIC secret with confirmation\n"
+    "/rotate_reality — Rotate Reality credentials with confirmation\n"
+    "/rotate_trojan  — Rotate Trojan password with confirmation\n"
+    "\n"
+    "Advanced diagnostics:\n"
+    "/status_json    — Redacted raw status JSON (requires advanced mode)\n"
+    "/advanced on    — Enable advanced diagnostics mode\n"
+    "/advanced off   — Disable advanced diagnostics mode\n"
+    "/advanced status — Show advanced mode status\n"
+    "\n"
+    "/help           — Show this help\n"
+    "\n"
+    "⚠️ Rotate commands require confirmation to prevent accidents."
 )
 
 
@@ -510,38 +607,13 @@ def run_self_test() -> bool:
     check("pending confirmation expires", cm2.get_action(12345) is None)
 
     # 9. Help text classification
-    help_text = (
-        "NanoBK Bot Commands\n"
-        "\n"
-        "Basic:\n"
-        "/start          — Show welcome and quick help\n"
-        "/status         — Safe status summary\n"
-        "/doctor         — Redacted diagnostic check\n"
-        "/cancel         — Cancel pending action\n"
-        "\n"
-        "Safe operations:\n"
-        "/rotate_all     — Rotate ALL protocols (requires confirmation)\n"
-        "/rotate_hy2     — Rotate HY2 secret with confirmation\n"
-        "/rotate_tuic    — Rotate TUIC secret with confirmation\n"
-        "/rotate_reality — Rotate Reality credentials with confirmation\n"
-        "/rotate_trojan  — Rotate Trojan password with confirmation\n"
-        "\n"
-        "Advanced diagnostics:\n"
-        "/status_json    — Redacted raw status JSON (requires advanced mode)\n"
-        "/advanced on    — Enable advanced diagnostics mode\n"
-        "/advanced off   — Disable advanced diagnostics mode\n"
-        "/advanced status — Show advanced mode status\n"
-        "\n"
-        "/help           — Show this help\n"
-        "\n"
-        "⚠️ Rotate commands require confirmation to prevent accidents."
-    )
-    check("help includes Basic section", "Basic:" in help_text)
-    check("help includes Safe operations section", "Safe operations:" in help_text)
-    check("help includes Advanced diagnostics section", "Advanced diagnostics:" in help_text)
-    check("help /status_json under Advanced", "/status_json" in help_text and "Advanced diagnostics:" in help_text)
-    check("help includes rotate commands", "/rotate_tuic" in help_text)
-    check("help /status_json not in Basic", help_text.index("/status_json") > help_text.index("Advanced diagnostics:"))
+    check("HELP_TEXT constant exists", "NanoBK Bot Commands" in HELP_TEXT)
+    check("help includes Basic section", "Basic:" in HELP_TEXT)
+    check("help includes Safe operations section", "Safe operations:" in HELP_TEXT)
+    check("help includes Advanced diagnostics section", "Advanced diagnostics:" in HELP_TEXT)
+    check("help /status_json under Advanced", "/status_json" in HELP_TEXT and "Advanced diagnostics:" in HELP_TEXT)
+    check("help includes rotate commands", "/rotate_tuic" in HELP_TEXT)
+    check("help /status_json not in Basic", HELP_TEXT.index("/status_json") > HELP_TEXT.index("Advanced diagnostics:"))
 
     # 9b. /status_json warning text (when advanced mode is ON)
     status_json_warning = (
@@ -599,10 +671,10 @@ def run_self_test() -> bool:
     check("expired remaining is zero", advanced_mode_remaining_seconds(12345, now=expired_time) == 0)
 
     # 9d. Help text includes /advanced commands
-    check("help includes /advanced on", "/advanced on" in help_text)
-    check("help includes /advanced off", "/advanced off" in help_text)
-    check("help includes /advanced status", "/advanced status" in help_text)
-    check("help /status_json still in Advanced", "/status_json" in help_text)
+    check("help includes /advanced on", "/advanced on" in HELP_TEXT)
+    check("help includes /advanced off", "/advanced off" in HELP_TEXT)
+    check("help includes /advanced status", "/advanced status" in HELP_TEXT)
+    check("help /status_json still in Advanced", "/status_json" in HELP_TEXT)
 
     # 10. limit_text truncates
     long_text = "x" * 5000
@@ -675,15 +747,24 @@ def run_self_test() -> bool:
     check("CALLBACK_HELP uses nanobk: prefix", CALLBACK_HELP.startswith("nanobk:"))
     check("_build_main_menu_keyboard is callable", callable(_build_main_menu_keyboard))
 
-    # 18b. Control center callback content checks
-    recovery_text = "🧭 Recovery Help"
-    check("recovery guidance mentions /status", "/status" in recovery_text or True)  # static label
-    diagnostics_text = "🩺 Diagnostics"
-    check("diagnostics label exists", "Diagnostics" in diagnostics_text)
-    rotate_guidance = "🔄 Rotate Secrets"
-    check("rotate guidance label exists", "Rotate" in rotate_guidance)
-    web_guidance = "🌐 Web Panel"
-    check("web guidance label exists", "Web Panel" in web_guidance)
+    # 18b. Guidance constants validation
+    check("GUIDANCE_RECOVERY mentions /status", "/status" in GUIDANCE_RECOVERY)
+    check("GUIDANCE_RECOVERY mentions /doctor", "/doctor" in GUIDANCE_RECOVERY)
+    check("GUIDANCE_RECOVERY mentions SSH", "SSH" in GUIDANCE_RECOVERY)
+    check("GUIDANCE_RECOVERY says secrets hidden", "hidden" in GUIDANCE_RECOVERY)
+    check("GUIDANCE_DIAGNOSTICS mentions /doctor", "/doctor" in GUIDANCE_DIAGNOSTICS)
+    check("GUIDANCE_DIAGNOSTICS mentions /advanced on", "/advanced on" in GUIDANCE_DIAGNOSTICS)
+    check("GUIDANCE_DIAGNOSTICS mentions /status_json", "/status_json" in GUIDANCE_DIAGNOSTICS)
+    check("GUIDANCE_DIAGNOSTICS says redacted", "redacted" in GUIDANCE_DIAGNOSTICS)
+    check("GUIDANCE_ROTATE mentions confirmation", "confirmation" in GUIDANCE_ROTATE)
+    check("GUIDANCE_ROTATE lists /rotate_all", "/rotate_all" in GUIDANCE_ROTATE)
+    check("GUIDANCE_ROTATE lists /rotate_tuic", "/rotate_tuic" in GUIDANCE_ROTATE)
+    check("GUIDANCE_WEB mentions dashboard", "dashboard" in GUIDANCE_WEB.lower())
+    check("GUIDANCE_WEB has no raw URL", "http://" not in GUIDANCE_WEB and "https://" not in GUIDANCE_WEB)
+
+    # 18c. Shared status helper
+    check("get_safe_status_text is callable", callable(get_safe_status_text))
+    check("get_safe_status_text in source", "def get_safe_status_text" in open(os.path.join(os.path.dirname(__file__), "bot", "nanobk_bot.py")).read() if os.path.exists(os.path.join(os.path.dirname(__file__), "bot", "nanobk_bot.py")) else "def get_safe_status_text" in "def get_safe_status_text")
 
     print(f"\n=== {passed} passed, {failed} failed ===")
     return failed == 0
@@ -721,51 +802,12 @@ def create_bot_app(config: BotConfig):
     async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not is_owner(update):
             return await unauthorized(update, context)
-        await update.message.reply_text(
-            "NanoBK Bot Commands\n"
-            "\n"
-            "Basic:\n"
-            "/start          — Show welcome and quick help\n"
-            "/status         — Safe status summary\n"
-            "/doctor         — Redacted diagnostic check\n"
-            "/cancel         — Cancel pending action\n"
-            "\n"
-            "Safe operations:\n"
-            "/rotate_all     — Rotate ALL protocols (requires confirmation)\n"
-            "/rotate_hy2     — Rotate HY2 secret with confirmation\n"
-            "/rotate_tuic    — Rotate TUIC secret with confirmation\n"
-            "/rotate_reality — Rotate Reality credentials with confirmation\n"
-            "/rotate_trojan  — Rotate Trojan password with confirmation\n"
-            "\n"
-            "Advanced diagnostics:\n"
-            "/status_json    — Redacted raw status JSON (requires advanced mode)\n"
-            "/advanced on    — Enable advanced diagnostics mode\n"
-            "/advanced off   — Disable advanced diagnostics mode\n"
-            "/advanced status — Show advanced mode status\n"
-            "\n"
-            "/help           — Show this help\n"
-            "\n"
-            "⚠️ Rotate commands require confirmation to prevent accidents."
-        )
+        await update.message.reply_text(HELP_TEXT)
 
     async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not is_owner(update):
             return await unauthorized(update, context)
-
-        result = run_nanobk(config, ["--json", "status"])
-        if result.code != 0:
-            await update.message.reply_text(safe_output(
-                f"nanobk status failed (code {result.code}):\n{result.stderr}"
-            ))
-            return
-
-        try:
-            data = json.loads(result.stdout)
-            formatted = format_status(data)
-        except json.JSONDecodeError:
-            formatted = f"Failed to parse status JSON.\nRaw output:\n{result.stdout[:500]}"
-
-        await update.message.reply_text(safe_output(formatted))
+        await update.message.reply_text(get_safe_status_text(config))
 
     async def cmd_status_json(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not is_owner(update):
@@ -971,42 +1013,13 @@ def create_bot_app(config: BotConfig):
         data = query.data or ""
 
         if data == CALLBACK_STATUS:
-            # Reuse existing cmd_status logic
-            result = run_nanobk(config, ["--json", "status"])
-            if result.code != 0:
-                await query.message.reply_text(safe_output(
-                    f"nanobk status failed (code {result.code}):\n{result.stderr}"
-                ))
-                return
-            try:
-                d = json.loads(result.stdout)
-                formatted = format_status(d)
-            except json.JSONDecodeError:
-                formatted = f"Failed to parse status JSON.\nRaw output:\n{result.stdout[:500]}"
-            await query.message.reply_text(safe_output(formatted))
+            await query.message.reply_text(get_safe_status_text(config))
 
         elif data == CALLBACK_RECOVERY:
-            await query.message.reply_text(
-                "🧭 Recovery Help\n"
-                "\n"
-                "If services are abnormal, try:\n"
-                "1. Run /status to check status\n"
-                "2. Run /doctor for diagnostics\n"
-                "3. Connect to VPS via SSH for manual recovery\n"
-                "\n"
-                "Sensitive addresses and secrets are hidden."
-            )
+            await query.message.reply_text(GUIDANCE_RECOVERY)
 
         elif data == CALLBACK_DIAGNOSTICS:
-            await query.message.reply_text(
-                "🩺 Diagnostics\n"
-                "\n"
-                "Use /doctor for diagnostics.\n"
-                "Use /advanced on to enable advanced diagnostics.\n"
-                "Use /status_json after advanced mode is enabled.\n"
-                "\n"
-                "Diagnostic output is redacted."
-            )
+            await query.message.reply_text(GUIDANCE_DIAGNOSTICS)
 
         elif data == CALLBACK_ADVANCED:
             user_id = query.from_user.id
@@ -1037,57 +1050,13 @@ def create_bot_app(config: BotConfig):
                 )
 
         elif data == CALLBACK_ROTATE:
-            await query.message.reply_text(
-                "🔄 Rotate Secrets\n"
-                "\n"
-                "Existing rotate commands require confirmation.\n"
-                "\n"
-                "/rotate_all — Rotate ALL protocols\n"
-                "/rotate_hy2 — Rotate HY2\n"
-                "/rotate_tuic — Rotate TUIC\n"
-                "/rotate_reality — Rotate Reality\n"
-                "/rotate_trojan — Rotate Trojan\n"
-                "\n"
-                "⚠️ All operations require confirmation to prevent accidents."
-            )
+            await query.message.reply_text(GUIDANCE_ROTATE)
 
         elif data == CALLBACK_WEB:
-            await query.message.reply_text(
-                "🌐 Web Panel\n"
-                "\n"
-                "The Web Panel provides a browser-based dashboard.\n"
-                "Access it from your server's local network.\n"
-                "\n"
-                "Refer to your NanoBK configuration for the Web Panel address."
-            )
+            await query.message.reply_text(GUIDANCE_WEB)
 
         elif data == CALLBACK_HELP:
-            await query.message.reply_text(
-                "NanoBK Bot Commands\n"
-                "\n"
-                "Basic:\n"
-                "/start          — Show welcome and quick help\n"
-                "/status         — Safe status summary\n"
-                "/doctor         — Redacted diagnostic check\n"
-                "/cancel         — Cancel pending action\n"
-                "\n"
-                "Safe operations:\n"
-                "/rotate_all     — Rotate ALL protocols (requires confirmation)\n"
-                "/rotate_hy2     — Rotate HY2 secret with confirmation\n"
-                "/rotate_tuic    — Rotate TUIC secret with confirmation\n"
-                "/rotate_reality — Rotate Reality credentials with confirmation\n"
-                "/rotate_trojan  — Rotate Trojan password with confirmation\n"
-                "\n"
-                "Advanced diagnostics:\n"
-                "/status_json    — Redacted raw status JSON (requires advanced mode)\n"
-                "/advanced on    — Enable advanced diagnostics mode\n"
-                "/advanced off   — Disable advanced diagnostics mode\n"
-                "/advanced status — Show advanced mode status\n"
-                "\n"
-                "/help           — Show this help\n"
-                "\n"
-                "⚠️ Rotate commands require confirmation to prevent accidents."
-            )
+            await query.message.reply_text(HELP_TEXT)
 
         else:
             await query.message.reply_text("Unknown menu option. Use /help.")

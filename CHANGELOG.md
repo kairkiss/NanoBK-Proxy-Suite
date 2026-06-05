@@ -1,5 +1,34 @@
 # Changelog
 
+## v1.9.25 — Bot Control Center Callback Polish
+
+### Changed
+
+- Extracted shared `get_safe_status_text(config)` helper to eliminate logic drift between `/status` and Status Summary callback.
+- Both `/status` and Status Summary callback now use the same safe status path.
+- Extracted callback guidance constants: `GUIDANCE_RECOVERY`, `GUIDANCE_DIAGNOSTICS`, `GUIDANCE_ROTATE`, `GUIDANCE_WEB`, `HELP_TEXT`.
+- Callbacks now reference constants instead of inline strings, improving testability.
+- Strengthened Bot self-test: removed weak `or True` checks, added 15 new guidance constant validations.
+- Bot self-test expanded from 81 to 93 tests.
+- Added test `tests/bot-control-center-callback-polish-v1.9.25.py` (50 tests).
+- Added validation document `docs/validation-v1.9.25-bot-control-center-callback-polish.md`.
+- Recommended v1.9.26 Bot Control Center Checkpoint as next step.
+
+### Safety
+
+- Bot-only callback polish.
+- No Web runtime behavior changed.
+- No `install.sh` behavior changed.
+- No `bin/nanobk` behavior changed.
+- Callbacks remain owner-only.
+- Rotate callback remains guidance-only.
+- Web Panel callback does not expose raw URL.
+- `/status_json` soft gate unchanged.
+- Advanced mode unchanged.
+- Redaction unchanged.
+- No deployment core, protocol template, Worker, rotate sync, status wrapper, or operation-log rollout changed.
+- No tag/release.
+
 ## v1.9.24 — Bot Control Center Static Menu Minimal Implementation
 
 ### Changed
