@@ -1,5 +1,27 @@
 # Changelog
 
+## v1.9.18 — Advanced Diagnostics Mode Checkpoint
+
+### Added
+
+- Added Advanced Diagnostics Mode checkpoint validation document.
+- Added Bot/Web advanced diagnostics mode consistency test (80 checks).
+- Verified Bot and Web advanced mode implementations are consistent in safety, temporality, non-persistence, and warning protection.
+- Verified neither implementation bypasses redaction or alters high-risk operations.
+- Confirmed TTL, enable/disable/status semantics, auth requirements, and session/memory storage match.
+- Readiness decision: READY FOR RAW JSON GATING PLANNING (narrow scope).
+- Recommended v1.9.19 Raw JSON Gating Policy Planning as next step.
+
+### Safety
+
+- Checkpoint/validation only.
+- No Bot runtime behavior changed.
+- No Web runtime behavior changed.
+- No `install.sh` behavior changed.
+- No `bin/nanobk` behavior changed.
+- No deployment core, protocol template, Worker, rotate sync, status wrapper, or operation-log rollout changed.
+- No tag/release.
+
 ## v1.9.17 — Web Advanced Mode Minimal Implementation
 
 ### Changed
