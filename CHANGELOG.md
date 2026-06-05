@@ -1,5 +1,35 @@
 # Changelog
 
+## v1.9.2 — Telegram Bot UX/Menu Spec
+
+### Added
+
+- Added Telegram Bot UX/Menu specification document.
+- Defined Bot design principles: phone control center, beginner-first, honest status, redaction-first.
+- Defined three-tier user model: Beginner (L1), Advanced (L2), Owner (L3).
+- Designed `/start` homepage with InlineKeyboardButton groups.
+- Designed full menu tree with status, operations, and help sections.
+- Mapped current commands to future menu items with risk levels.
+- Specified status overview card format with honest status categories.
+- Specified VPS, Cloudflare, and subscription status card formats.
+- Specified Doctor UX as medium-risk with beginner/advanced view split.
+- Specified Rotate UX with two-step button confirmation.
+- Defined `/status_json` policy: hidden by default, advanced-only.
+- Defined future redaction requirements (IPv4/IPv6/domain/URL/workers.dev/subscription path).
+- Defined action risk classification: read-only / medium / high.
+- Defined Bot copywriting rules and message templates.
+- Defined future test requirements for Bot UX implementation.
+- Recommended v1.9.3 Web Dashboard UX Spec as next step.
+
+### Safety
+
+- Documentation/spec only.
+- No `install.sh` behavior changed.
+- No `bin/nanobk` behavior changed.
+- No Bot/Web code changed.
+- No deployment core, protocol template, Worker, rotate sync, status wrapper, or operation-log rollout changed.
+- No tag/release.
+
 ## v1.9.1 — Bot/Web Current-State Safety Audit
 
 ### Added
