@@ -5,41 +5,36 @@
 
 {% if status %}
 <div class="card">
-  <p><strong>OK:</strong> {{ status.ok }}</p>
-  <p><strong>Domain:</strong> {{ status.domain }}</p>
-  <p><strong>VPS IP:</strong> {{ status.vps_ip }}</p>
-  <p><strong>Geo:</strong> {{ status.geo }}</p>
+  <h2>Overall Status</h2>
+  <p><strong>Overall:</strong> {{ status.cards.overall }}</p>
+  <p><strong>VPS:</strong> {{ status.cards.vps }}</p>
 
-  <h3>Services</h3>
+  <h3>Protocols</h3>
   <ul>
-    {% for name, svc_status in status.services.items() %}
-    <li>{{ name|upper }}: {{ svc_status }}</li>
+    {% for name, svc in status.cards.services.items() %}
+    <li>{{ name|upper }}: {{ svc }}</li>
     {% endfor %}
-  </ul>
-
-  <h3>Security</h3>
-  <ul>
-    <li>secrets mode: {{ status.security.secretsMode|default("unknown") }}</li>
   </ul>
 
   <h3>Cloudflare</h3>
   <ul>
-    <li>nanok: {{ "configured" if status.cloudflare.nanok.envExists|default(false) else "missing" }}</li>
-    <li>nanob: {{ "configured" if status.cloudflare.nanob.envExists|default(false) else "missing" }}</li>
+    <li>nanok: {{ status.cards.cf_nanok }}</li>
+    <li>nanob: {{ status.cards.cf_nanob }}</li>
   </ul>
 
-  {% if status.warnings %}
-  <h3>Warnings</h3>
+  <h3>Other</h3>
   <ul>
-    {% for w in status.warnings %}
-    <li>{{ w }}</li>
-    {% endfor %}
+    <li>Subscription: {{ status.cards.subscription }}</li>
+    <li>Secrets: {{ status.cards.secrets }}</li>
+    <li>Profile: {{ status.cards.profile }}</li>
   </ul>
-  {% endif %}
+
+  <p><strong>Next step:</strong> {{ status.cards.next_step }}</p>
+  <p class="muted">Status from nanobk CLI. Sensitive addresses are hidden.</p>
 </div>
 
 <details>
-  <summary>Raw JSON</summary>
+  <summary>Raw JSON (advanced diagnostics)</summary>
   <pre>{{ status.raw_json }}</pre>
 </details>
 {% elif raw_output %}

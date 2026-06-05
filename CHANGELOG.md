@@ -1,5 +1,34 @@
 # Changelog
 
+## v1.9.11 — Web Safe Status Cards Minimal Implementation
+
+### Changed
+
+- Rewrote Web `format_status()` from address-heavy dict to safe card-oriented structure.
+- Web Dashboard/Status normal views no longer show Domain/VPS IP/geo labels or raw values.
+- Web cards now show: Overall, VPS, Protocols, Cloudflare, Subscription, Secrets, Profile, Next step.
+- Honest status categories preserved: healthy/verified/active/failed/unknown/partial/incomplete/missing.
+- Missing fields produce "unknown" rather than success.
+- Next-step hints generated based on status (SSH recovery, Cloudflare verification, no action needed).
+- Raw JSON details still visible in Status page `<details>` block (values redacted via shared helper).
+- `/api/status` unchanged — returns redacted JSON.
+- Updated `index.html` and `status.html` templates for safe card display.
+- Added `.muted` CSS class for footer hints.
+- Web self-test updated from 42 to 48 tests.
+- Added test `tests/web-safe-status-cards-v1.9.11.py` (82 tests).
+- Added validation document `docs/validation-v1.9.11-web-safe-status-cards.md`.
+- Recommended v1.9.12 Raw JSON / Advanced Diagnostics Policy Planning as next step.
+
+### Safety
+
+- Web-only status card formatting change.
+- No Bot runtime behavior changed.
+- No `install.sh` behavior changed.
+- No `bin/nanobk` behavior changed.
+- Raw JSON details still visible (not hidden).
+- No deployment core, protocol template, Worker, rotate sync, status wrapper, or operation-log rollout changed.
+- No tag/release.
+
 ## v1.9.10 — Bot Safe Status Summary Minimal Implementation
 
 ### Changed

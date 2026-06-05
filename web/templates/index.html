@@ -9,25 +9,28 @@
 
 {% if status %}
 <div class="card">
-  <h2>Status</h2>
-  <p><strong>OK:</strong> {{ status.ok }}</p>
-  <p><strong>Domain:</strong> {{ status.domain }}</p>
-  <p><strong>VPS IP:</strong> {{ status.vps_ip }}</p>
-  <p><strong>Geo:</strong> {{ status.geo }}</p>
-  <h3>Services</h3>
+  <h2>Overall Status</h2>
+  <p><strong>Overall:</strong> {{ status.cards.overall }}</p>
+  <p><strong>VPS:</strong> {{ status.cards.vps }}</p>
+  <h3>Protocols</h3>
   <ul>
-    {% for name, svc_status in status.services.items() %}
-    <li>{{ name|upper }}: {{ svc_status }}</li>
+    {% for name, svc in status.cards.services.items() %}
+    <li>{{ name|upper }}: {{ svc }}</li>
     {% endfor %}
   </ul>
-  {% if status.warnings %}
-  <h3>Warnings</h3>
+  <h3>Cloudflare</h3>
   <ul>
-    {% for w in status.warnings %}
-    <li>{{ w }}</li>
-    {% endfor %}
+    <li>nanok: {{ status.cards.cf_nanok }}</li>
+    <li>nanob: {{ status.cards.cf_nanob }}</li>
   </ul>
-  {% endif %}
+  <h3>Other</h3>
+  <ul>
+    <li>Subscription: {{ status.cards.subscription }}</li>
+    <li>Secrets: {{ status.cards.secrets }}</li>
+    <li>Profile: {{ status.cards.profile }}</li>
+  </ul>
+  <p><strong>Next step:</strong> {{ status.cards.next_step }}</p>
+  <p class="muted">Status from nanobk CLI. Sensitive addresses are hidden.</p>
 </div>
 {% else %}
 <div class="card">
