@@ -1,5 +1,32 @@
 # Changelog
 
+## v1.9.45 — Limited Real Doctor Field Compatibility Retest Plan
+
+### Added
+
+- Added limited real Doctor field compatibility retest planning document.
+- Defined safe control-plane-only retest scope: Bot /doctor and Web /doctor Profile/Config field verification only.
+- Defined Bot Doctor retest checklist (18 steps): Profile/Config present verification, Advanced OFF summary-only, Advanced ON summary + redacted full diagnostics, existing gates sanity.
+- Defined Web Doctor retest checklist (19 steps): Profile/Config present verification, Advanced OFF summary cards, Advanced ON collapsed full diagnostics, Raw JSON gate sanity.
+- Defined leak checklist with P0/P1 severity levels for forbidden observations.
+- Defined copy-paste-safe user report template with no raw values.
+- Defined failure handling: stop on raw secret, redacted reporting only.
+- Readiness decision: READY FOR USER-RUN LIMITED REAL DOCTOR FIELD COMPATIBILITY RETEST AFTER CHATGPT REVIEW.
+- Recommended user run the retest and report redacted PASS/FAIL.
+
+### Safety
+
+- Planning/documentation only.
+- No Bot runtime behavior changed.
+- No Web runtime behavior changed.
+- No CLI behavior changed.
+- No `install.sh` behavior changed.
+- No `bin/nanobk` behavior changed.
+- No real status executed.
+- No real doctor executed.
+- No deployment core, protocol template, Worker, rotate sync, status wrapper, or operation-log rollout changed.
+- No tag/release.
+
 ## v1.9.44 — Doctor Summary Field Compatibility Checkpoint
 
 ### Added
