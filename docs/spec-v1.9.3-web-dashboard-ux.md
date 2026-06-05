@@ -1321,9 +1321,9 @@ exit code: {code}
 
 ### 实现顺序建议
 
-1. v1.9.5 Redaction 层先就位（地址类脱敏）
-2. v1.9.4 Allowlist 先定义（命令白名单）
-3. 然后才能开始 Bot/Web UX 实现
+1. v1.9.4 Allowlist 定义 + 静态测试（命令白名单，执行安全边界）
+2. v1.9.5 Redaction 层就位（地址类脱敏，显示安全边界）
+3. 两者都通过后：Bot/Web UX 小步实现
 4. 实现应小步、可 review、可回滚
 
 ---

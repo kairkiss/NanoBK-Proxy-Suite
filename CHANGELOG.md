@@ -1,5 +1,28 @@
 # Changelog
 
+## v1.9.4 — Bot/Web Command Allowlist Spec and Static Tests
+
+### Added
+
+- Added Bot/Web Command Allowlist specification document.
+- Defined command risk levels: L0 safe read-only, L1 medium-risk diagnostic, L2 high-risk mutating, L3 blocked.
+- Documented current Bot command inventory with risk levels and allowlist status.
+- Documented current Web command inventory with risk levels and allowlist status.
+- Proposed allowlist table for all nanobk CLI commands.
+- Defined hard-denied categories: shell=True, os.system, systemctl, direct file writes, direct env reads, direct CF writes.
+- Added static guard test `tests/bot-web-command-allowlist-v1.9.4.sh` with 11 checks.
+- Clarified v1.9.3 implementation ordering: v1.9.4 (allowlist) and v1.9.5 (redaction) are parallel safety gates.
+- Recommended v1.9.5 Redaction Layer Audit and Address-Class Redaction Tests as next step.
+
+### Safety
+
+- Documentation + static test only.
+- No `install.sh` behavior changed.
+- No `bin/nanobk` behavior changed.
+- No Bot/Web code changed.
+- No deployment core, protocol template, Worker, rotate sync, status wrapper, or operation-log rollout changed.
+- No tag/release.
+
 ## v1.9.3 — Web Dashboard UX Spec
 
 ### Added
