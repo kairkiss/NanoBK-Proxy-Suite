@@ -39,6 +39,344 @@ except ImportError:
 
 # ── Configuration ───────────────────────────────────────────────────────────
 
+SUPPORTED_LANGS = {"en", "zh"}
+DEFAULT_LANG = "en"
+
+
+def normalize_lang(value: str | None) -> str:
+    """Normalize language code. Returns 'en' or 'zh'. Defaults to 'en'."""
+    if not value:
+        return DEFAULT_LANG
+    v = value.strip().lower()
+    if v in ("zh", "zh-cn", "zh_cn", "chinese", "中文"):
+        return "zh"
+    if v in SUPPORTED_LANGS:
+        return v
+    return DEFAULT_LANG
+
+
+# ── Bot translation dictionary ───────────────────────────────────────────────
+# All user-facing Bot text. Keys are stable; values are lang-keyed dicts.
+# Status category values (healthy/failed/unknown/etc.) are NOT translated.
+
+BOT_TEXT: dict[str, dict[str, str]] = {
+    "control_center_title": {
+        "en": "🏠 NanoBK Control Center",
+        "zh": "🏠 NanoBK 控制中心",
+    },
+    "control_center_subtitle": {
+        "en": "Use the buttons below for quick actions, or type /help for all commands.\nSensitive addresses and secrets are hidden.",
+        "zh": "使用下方按钮快速操作，或输入 /help 查看全部命令。\n敏感地址和密钥已隐藏。",
+    },
+    "btn_status": {
+        "en": "📊 Status Summary",
+        "zh": "📊 状态总览",
+    },
+    "btn_recovery": {
+        "en": "🧭 Recovery Help",
+        "zh": "🧭 恢复帮助",
+    },
+    "btn_diagnostics": {
+        "en": "🩺 Diagnostics",
+        "zh": "🩺 诊断检查",
+    },
+    "btn_advanced": {
+        "en": "🔐 Advanced Mode",
+        "zh": "🔐 高级模式",
+    },
+    "btn_rotate": {
+        "en": "🔄 Rotate Secrets",
+        "zh": "🔄 轮换密钥",
+    },
+    "btn_web": {
+        "en": "🌐 Web Panel",
+        "zh": "🌐 Web 面板",
+    },
+    "btn_help": {
+        "en": "❓ Help",
+        "zh": "❓ 帮助",
+    },
+    "help_title": {
+        "en": "NanoBK Bot Commands",
+        "zh": "NanoBK 机器人命令",
+    },
+    "help_basic": {
+        "en": "Basic:",
+        "zh": "基础：",
+    },
+    "help_start": {
+        "en": "Show welcome and quick help",
+        "zh": "显示欢迎和快捷帮助",
+    },
+    "help_status": {
+        "en": "Safe status summary",
+        "zh": "安全状态摘要",
+    },
+    "help_doctor": {
+        "en": "Redacted diagnostic check",
+        "zh": "脱敏诊断检查",
+    },
+    "help_cancel": {
+        "en": "Cancel pending action",
+        "zh": "取消待处理操作",
+    },
+    "help_safe_ops": {
+        "en": "Safe operations:",
+        "zh": "安全操作：",
+    },
+    "help_rotate_all": {
+        "en": "Rotate ALL protocols (requires confirmation)",
+        "zh": "轮换全部协议（需确认）",
+    },
+    "help_rotate_hy2": {
+        "en": "Rotate HY2 secret with confirmation",
+        "zh": "轮换 HY2 密钥（需确认）",
+    },
+    "help_rotate_tuic": {
+        "en": "Rotate TUIC secret with confirmation",
+        "zh": "轮换 TUIC 密钥（需确认）",
+    },
+    "help_rotate_reality": {
+        "en": "Rotate Reality credentials with confirmation",
+        "zh": "轮换 Reality 凭证（需确认）",
+    },
+    "help_rotate_trojan": {
+        "en": "Rotate Trojan password with confirmation",
+        "zh": "轮换 Trojan 密码（需确认）",
+    },
+    "help_advanced_diag": {
+        "en": "Advanced diagnostics:",
+        "zh": "高级诊断：",
+    },
+    "help_status_json": {
+        "en": "Redacted raw status JSON (requires advanced mode)",
+        "zh": "脱敏原始状态 JSON（需高级模式）",
+    },
+    "help_advanced_on": {
+        "en": "Enable advanced diagnostics mode",
+        "zh": "启用高级诊断模式",
+    },
+    "help_advanced_off": {
+        "en": "Disable advanced diagnostics mode",
+        "zh": "禁用高级诊断模式",
+    },
+    "help_advanced_status": {
+        "en": "Show advanced mode status",
+        "zh": "显示高级模式状态",
+    },
+    "help_show": {
+        "en": "Show this help",
+        "zh": "显示此帮助",
+    },
+    "help_rotate_warning": {
+        "en": "⚠️ Rotate commands require confirmation to prevent accidents.",
+        "zh": "⚠️ 轮换命令需要确认以防止意外操作。",
+    },
+    "status_summary_title": {
+        "en": "NanoBK Status Summary",
+        "zh": "NanoBK 状态摘要",
+    },
+    "status_label_overall": {
+        "en": "Overall",
+        "zh": "总览",
+    },
+    "status_label_vps": {
+        "en": "VPS",
+        "zh": "VPS",
+    },
+    "status_label_protocols": {
+        "en": "Protocols",
+        "zh": "协议",
+    },
+    "status_label_cloudflare": {
+        "en": "Cloudflare",
+        "zh": "Cloudflare",
+    },
+    "status_label_subscription": {
+        "en": "Subscription",
+        "zh": "订阅",
+    },
+    "status_label_secrets": {
+        "en": "Secrets",
+        "zh": "密钥",
+    },
+    "status_label_profile": {
+        "en": "Profile",
+        "zh": "配置",
+    },
+    "status_label_next_step": {
+        "en": "Next step",
+        "zh": "下一步",
+    },
+    "status_data_unavailable": {
+        "en": "Status data unavailable.",
+        "zh": "状态数据不可用。",
+    },
+    "status_run_doctor": {
+        "en": "Run /doctor or check SSH.",
+        "zh": "运行 /doctor 或检查 SSH。",
+    },
+    "status_secrets_present_mode": {
+        "en": "present, mode {mode}",
+        "zh": "存在, 模式 {mode}",
+    },
+    "status_secrets_unknown": {
+        "en": "unknown",
+        "zh": "未知",
+    },
+    "hint_failed": {
+        "en": "Check SSH or run NanoBK recovery from the server.",
+        "zh": "检查 SSH 或从服务器运行 NanoBK 恢复。",
+    },
+    "hint_vps_failed": {
+        "en": "Check SSH and verify proxy services are running.",
+        "zh": "检查 SSH 并确认代理服务正在运行。",
+    },
+    "hint_cf_missing": {
+        "en": "Finish Cloudflare verification from the Full Wizard or CLI.",
+        "zh": "从完整向导或 CLI 完成 Cloudflare 验证。",
+    },
+    "hint_sub_pending": {
+        "en": "Verify subscription access from the Full Wizard or CLI.",
+        "zh": "从完整向导或 CLI 验证订阅访问。",
+    },
+    "hint_healthy": {
+        "en": "No immediate action required.",
+        "zh": "无需立即操作。",
+    },
+    "hint_default": {
+        "en": "Run /doctor for a redacted diagnostic summary, or check SSH if needed.",
+        "zh": "运行 /doctor 获取脱敏诊断摘要，或按需检查 SSH。",
+    },
+    "gate_not_enabled": {
+        "en": "Advanced diagnostics mode is not enabled.\n\n/status_json is for troubleshooting and shows redacted Raw JSON.\nUse /status for the normal safe summary first.\n\nTo continue, run /advanced on.\nAdvanced mode expires automatically after 15 minutes.\n\nEven in advanced mode, secrets, raw addresses, and subscription URLs must remain hidden.",
+        "zh": "高级诊断模式未启用。\n\n/status_json 仅用于排障，显示脱敏的原始 JSON。\n请先使用 /status 查看普通安全摘要。\n\n如需继续，请运行 /advanced on。\n高级模式将在 15 分钟后自动过期。\n\n即使在高级模式下，密钥、原始地址和订阅 URL 仍必须隐藏。",
+    },
+    "status_json_warning": {
+        "en": "⚠️ Advanced diagnostics\nThis output is redacted, but it may still reveal system structure.\nDo not forward the full output to untrusted people.\nUse /status for the normal safe summary.\n\n",
+        "zh": "⚠️ 高级诊断\n此输出已脱敏，但仍可能暴露系统结构。\n请勿将完整输出转发给不可信的人。\n请使用 /status 查看普通安全摘要。\n\n",
+    },
+    "advanced_on_msg": {
+        "en": "⚠️ Advanced diagnostics mode enabled.\n\nOutputs are still redacted, but diagnostic details may reveal system structure.\nDo not forward full diagnostic output to untrusted people.\nSecrets, raw addresses, and subscription URLs must remain hidden.\n\nThis mode will expire in 15 minutes.\nUse /advanced off to disable it sooner.",
+        "zh": "⚠️ 高级诊断模式已启用。\n\n输出仍被脱敏，但诊断详情可能暴露系统结构。\n请勿将完整诊断输出转发给不可信的人。\n密钥、原始地址和订阅 URL 仍必须隐藏。\n\n此模式将在 15 分钟后过期。\n使用 /advanced off 可提前禁用。",
+    },
+    "advanced_off_msg": {
+        "en": "Advanced diagnostics mode disabled.",
+        "zh": "高级诊断模式已禁用。",
+    },
+    "advanced_enabled_status": {
+        "en": "Advanced diagnostics mode is enabled.\nExpires in about {minutes} minutes.",
+        "zh": "高级诊断模式已启用。\n约 {minutes} 分钟后过期。",
+    },
+    "advanced_disabled_status": {
+        "en": "Advanced diagnostics mode is disabled.",
+        "zh": "高级诊断模式已禁用。",
+    },
+    "advanced_usage": {
+        "en": "Usage: /advanced on|off|status\n\non     — Enable advanced diagnostics mode\noff    — Disable advanced diagnostics mode\nstatus — Show current mode status",
+        "zh": "用法：/advanced on|off|status\n\non     — 启用高级诊断模式\noff    — 禁用高级诊断模式\nstatus — 显示当前模式状态",
+    },
+    "guidance_recovery": {
+        "en": "🧭 Recovery Help\n\nIf services are abnormal, try:\n1. Run /status to check status\n2. Run /doctor for diagnostics\n3. Connect to VPS via SSH for manual recovery\n\nSensitive addresses and secrets are hidden.",
+        "zh": "🧭 恢复帮助\n\n如果服务异常，请尝试：\n1. 运行 /status 检查状态\n2. 运行 /doctor 进行诊断\n3. 通过 SSH 连接 VPS 手动恢复\n\n敏感地址和密钥已隐藏。",
+    },
+    "guidance_diagnostics": {
+        "en": "🩺 Diagnostics\n\nUse /doctor for diagnostics.\nUse /advanced on to enable advanced diagnostics.\nUse /status_json after advanced mode is enabled.\n\nDiagnostic output is redacted.",
+        "zh": "🩺 诊断检查\n\n使用 /doctor 进行诊断。\n使用 /advanced on 启用高级诊断。\n启用高级模式后使用 /status_json。\n\n诊断输出已脱敏。",
+    },
+    "guidance_rotate": {
+        "en": "🔄 Rotate Secrets\n\nExisting rotate commands require confirmation.\n\n/rotate_all — Rotate ALL protocols\n/rotate_hy2 — Rotate HY2\n/rotate_tuic — Rotate TUIC\n/rotate_reality — Rotate Reality\n/rotate_trojan — Rotate Trojan\n\n⚠️ All operations require confirmation to prevent accidents.",
+        "zh": "🔄 轮换密钥\n\n现有轮换命令需要确认。\n\n/rotate_all — 轮换全部协议\n/rotate_hy2 — 轮换 HY2\n/rotate_tuic — 轮换 TUIC\n/rotate_reality — 轮换 Reality\n/rotate_trojan — 轮换 Trojan\n\n⚠️ 所有操作需要确认以防止意外。",
+    },
+    "guidance_web": {
+        "en": "🌐 Web Panel\n\nThe Web Panel provides a browser-based dashboard.\nAccess it from your server's local network.\n\nRefer to your NanoBK configuration for the Web Panel address.",
+        "zh": "🌐 Web 面板\n\nWeb 面板提供基于浏览器的控制台。\n从服务器本地网络访问。\n\n请参考 NanoBK 配置获取 Web 面板地址。",
+    },
+    "advanced_mode_enabled_title": {
+        "en": "🔐 Advanced Mode",
+        "zh": "🔐 高级模式",
+    },
+    "advanced_mode_enabled_desc": {
+        "en": "Advanced diagnostics mode is enabled.\nExpires in about {minutes} minutes.\n\nCommands:\n/advanced status — Check status\n/advanced off — Disable\n/status_json — View redacted Raw JSON",
+        "zh": "高级诊断模式已启用。\n约 {minutes} 分钟后过期。\n\n命令：\n/advanced status — 检查状态\n/advanced off — 禁用\n/status_json — 查看脱敏原始 JSON",
+    },
+    "advanced_mode_disabled_desc": {
+        "en": "Advanced diagnostics mode is disabled.\n\nCommands:\n/advanced on — Enable (expires in 15 minutes)\n/advanced status — Check status\n/advanced off — Disable",
+        "zh": "高级诊断模式已禁用。\n\n命令：\n/advanced on — 启用（15 分钟后过期）\n/advanced status — 检查状态\n/advanced off — 禁用",
+    },
+    "rotate_confirm_prompt": {
+        "en": "You are about to rotate {desc}.\nThis will restart proxy services and update local profile.\nCloudflare sync depends on your local nanobk configuration.\n\nReply with:\n/confirm_{action_name}\nor cancel with:\n/cancel",
+        "zh": "即将轮换 {desc}。\n此操作将重启代理服务并更新本地配置。\nCloudflare 同步取决于本地 nanobk 配置。\n\n请回复：\n/confirm_{action_name}\n或取消：\n/cancel",
+    },
+    "rotate_desc_all": {
+        "en": "ALL protocol credentials",
+        "zh": "全部协议凭证",
+    },
+    "rotate_desc_proto": {
+        "en": "{proto} credentials",
+        "zh": "{proto} 凭证",
+    },
+    "rotate_dry_run": {
+        "en": "DRY RUN: would execute:\nnanobk {cmd}",
+        "zh": "模拟运行：将执行：\nnanobk {cmd}",
+    },
+    "rotate_executing": {
+        "en": "Executing nanobk {cmd}...",
+        "zh": "正在执行 nanobk {cmd}...",
+    },
+    "rotate_failed": {
+        "en": "Rotate failed (code {code}):\n{output}",
+        "zh": "轮换失败（代码 {code}）：\n{output}",
+    },
+    "doctor_running": {
+        "en": "Running doctor...",
+        "zh": "正在运行诊断...",
+    },
+    "cancel_msg": {
+        "en": "Pending confirmation cancelled.",
+        "zh": "待处理确认已取消。",
+    },
+    "unauthorized": {
+        "en": "Unauthorized.",
+        "zh": "未授权。",
+    },
+    "unknown_command": {
+        "en": "Unknown command. Use /help.",
+        "zh": "未知命令。请使用 /help。",
+    },
+    "unknown_callback": {
+        "en": "Unknown menu option. Use /help.",
+        "zh": "未知菜单选项。请使用 /help。",
+    },
+    "confirm_unknown": {
+        "en": "Unknown confirmation command.",
+        "zh": "未知确认命令。",
+    },
+    "confirm_none": {
+        "en": "No pending confirmation (may have expired).",
+        "zh": "无待处理确认（可能已过期）。",
+    },
+    "confirm_mismatch": {
+        "en": "Confirmation mismatch. Pending: {pending}, got: {got}",
+        "zh": "确认不匹配。待处理：{pending}，收到：{got}",
+    },
+}
+
+
+def bt(lang: str, key: str, **kwargs: object) -> str:
+    """Get translated Bot text. Falls back to English if key/language missing."""
+    entry = BOT_TEXT.get(key)
+    if entry is None:
+        return key  # fallback to key name
+    text = entry.get(lang) or entry.get(DEFAULT_LANG) or key
+    if kwargs:
+        try:
+            text = text.format(**kwargs)
+        except (KeyError, IndexError):
+            pass
+    return text
+
+
 @dataclass
 class BotConfig:
     bot_token: str = ""
@@ -48,6 +386,7 @@ class BotConfig:
     command_timeout: int = 120
     rotate_timeout: int = 300
     dry_run: bool = False
+    lang: str = "en"
 
     @classmethod
     def from_env(cls) -> BotConfig:
@@ -64,6 +403,7 @@ class BotConfig:
             command_timeout=int(os.environ.get("NANOBK_COMMAND_TIMEOUT", "120")),
             rotate_timeout=int(os.environ.get("NANOBK_ROTATE_TIMEOUT", "300")),
             dry_run=os.environ.get("NANOBK_BOT_DRY_RUN", "false").lower() == "true",
+            lang=normalize_lang(os.environ.get("NANOBK_LANG")),
         )
 
 # ── Command result ──────────────────────────────────────────────────────────
@@ -206,49 +546,53 @@ def _infer_profile(data: dict) -> str:
     return "unknown"
 
 
-def _next_step_hint(overall: str, vps: str, cf_nanok: str, cf_nanob: str, sub: str) -> str:
+def _next_step_hint(overall: str, vps: str, cf_nanok: str, cf_nanob: str, sub: str, lang: str = "en") -> str:
     """Generate a safe next-step hint based on status."""
     if overall == "failed":
-        return "Check SSH or run NanoBK recovery from the server."
+        return bt(lang, "hint_failed")
     if vps == "failed":
-        return "Check SSH and verify proxy services are running."
+        return bt(lang, "hint_vps_failed")
     if cf_nanok in ("missing", "unknown") or cf_nanob in ("missing", "unknown"):
-        return "Finish Cloudflare verification from the Full Wizard or CLI."
+        return bt(lang, "hint_cf_missing")
     if sub in ("manual_pending", "unknown"):
-        return "Verify subscription access from the Full Wizard or CLI."
+        return bt(lang, "hint_sub_pending")
     if overall == "healthy" and vps == "healthy":
-        return "No immediate action required."
-    return "Run /doctor for a redacted diagnostic summary, or check SSH if needed."
+        return bt(lang, "hint_healthy")
+    return bt(lang, "hint_default")
 
 
-def format_status(data: dict) -> str:
+def format_status(data: dict, lang: str = "en") -> str:
     """Format nanobk --json status into a safe beginner-friendly summary.
 
     Avoids raw IP/domain/URL/subscription path/labels.
     Uses honest status categories. Tolerates missing fields.
     """
     if not isinstance(data, dict):
-        return "NanoBK Status Summary\n\nStatus data unavailable.\n\nNext step:\nRun /doctor or check SSH."
+        title = bt(lang, "status_summary_title")
+        unavail = bt(lang, "status_data_unavailable")
+        hint = bt(lang, "status_run_doctor")
+        next_label = bt(lang, "status_label_next_step")
+        return f"{title}\n\n{unavail}\n\n{next_label}:\n{hint}"
 
-    lines = ["NanoBK Status Summary", ""]
+    lines = [bt(lang, "status_summary_title"), ""]
 
     # Overall
     overall = _infer_overall(data)
-    lines.append(f"Overall: {overall}")
+    lines.append(f"{bt(lang, 'status_label_overall')}: {overall}")
 
     # VPS
     vps = _infer_vps(data)
-    lines.append(f"VPS: {vps}")
+    lines.append(f"{bt(lang, 'status_label_vps')}: {vps}")
 
     # Protocols
     services = data.get("services")
     if isinstance(services, dict):
-        lines.append("Protocols:")
+        lines.append(f"{bt(lang, 'status_label_protocols')}:")
         for name in ("hy2", "tuic", "reality", "trojan"):
             svc = services.get(name, "unknown")
             lines.append(f"  {name.upper()}: {svc}")
     else:
-        lines.append("Protocols: unknown")
+        lines.append(f"{bt(lang, 'status_label_protocols')}: unknown")
 
     # Cloudflare
     cf = data.get("cloudflare")
@@ -257,34 +601,38 @@ def format_status(data: dict) -> str:
         nanob = cf.get("nanob", {})
         cf_nanok = _infer_cf_status(nanok)
         cf_nanob = _infer_cf_status(nanob)
-        lines.append("Cloudflare:")
+        lines.append(f"{bt(lang, 'status_label_cloudflare')}:")
         lines.append(f"  nanok: {cf_nanok}")
         lines.append(f"  nanob: {cf_nanob}")
     else:
         cf_nanok = "unknown"
         cf_nanob = "unknown"
-        lines.append("Cloudflare: unknown")
+        lines.append(f"{bt(lang, 'status_label_cloudflare')}: unknown")
 
     # Subscription
     sub = _infer_subscription(data)
-    lines.append(f"Subscription: {sub}")
+    lines.append(f"{bt(lang, 'status_label_subscription')}: {sub}")
 
     # Secrets mode
     security = data.get("security")
     if isinstance(security, dict):
         mode = security.get("secretsMode", "unknown")
-        lines.append(f"Secrets: present, mode {mode}")
+        if mode and mode != "unknown":
+            secrets_val = bt(lang, "status_secrets_present_mode", mode=mode)
+        else:
+            secrets_val = bt(lang, "status_secrets_unknown")
+        lines.append(f"{bt(lang, 'status_label_secrets')}: {secrets_val}")
     else:
-        lines.append("Secrets: unknown")
+        lines.append(f"{bt(lang, 'status_label_secrets')}: {bt(lang, 'status_secrets_unknown')}")
 
     # Profile
     profile = _infer_profile(data)
-    lines.append(f"Profile: {profile}")
+    lines.append(f"{bt(lang, 'status_label_profile')}: {profile}")
 
     # Next step hint
-    hint = _next_step_hint(overall, vps, cf_nanok, cf_nanob, sub)
+    hint = _next_step_hint(overall, vps, cf_nanok, cf_nanob, sub, lang=lang)
     lines.append("")
-    lines.append(f"Next step:\n{hint}")
+    lines.append(f"{bt(lang, 'status_label_next_step')}:\n{hint}")
 
     return "\n".join(lines)
 
@@ -305,7 +653,7 @@ def get_safe_status_text(config: BotConfig) -> str:
         )
     try:
         data = json.loads(result.stdout)
-        formatted = format_status(data)
+        formatted = format_status(data, lang=config.lang)
     except json.JSONDecodeError:
         formatted = f"Failed to parse status JSON.\nRaw output:\n{result.stdout[:500]}"
     return safe_output(formatted)
@@ -323,107 +671,79 @@ CALLBACK_ROTATE = "nanobk:rotate"
 CALLBACK_WEB = "nanobk:web"
 CALLBACK_HELP = "nanobk:help"
 
-CONTROL_CENTER_TEXT = (
-    "🏠 NanoBK Control Center\n"
-    "\n"
-    "Use the buttons below for quick actions, or type /help for all commands.\n"
-    "Sensitive addresses and secrets are hidden."
-)
-
-# ── Callback guidance constants ─────────────────────────────────────────────
-# Static text for callback responses. Tests can inspect these directly.
-
-GUIDANCE_RECOVERY = (
-    "🧭 Recovery Help\n"
-    "\n"
-    "If services are abnormal, try:\n"
-    "1. Run /status to check status\n"
-    "2. Run /doctor for diagnostics\n"
-    "3. Connect to VPS via SSH for manual recovery\n"
-    "\n"
-    "Sensitive addresses and secrets are hidden."
-)
-
-GUIDANCE_DIAGNOSTICS = (
-    "🩺 Diagnostics\n"
-    "\n"
-    "Use /doctor for diagnostics.\n"
-    "Use /advanced on to enable advanced diagnostics.\n"
-    "Use /status_json after advanced mode is enabled.\n"
-    "\n"
-    "Diagnostic output is redacted."
-)
-
-GUIDANCE_ROTATE = (
-    "🔄 Rotate Secrets\n"
-    "\n"
-    "Existing rotate commands require confirmation.\n"
-    "\n"
-    "/rotate_all — Rotate ALL protocols\n"
-    "/rotate_hy2 — Rotate HY2\n"
-    "/rotate_tuic — Rotate TUIC\n"
-    "/rotate_reality — Rotate Reality\n"
-    "/rotate_trojan — Rotate Trojan\n"
-    "\n"
-    "⚠️ All operations require confirmation to prevent accidents."
-)
-
-GUIDANCE_WEB = (
-    "🌐 Web Panel\n"
-    "\n"
-    "The Web Panel provides a browser-based dashboard.\n"
-    "Access it from your server's local network.\n"
-    "\n"
-    "Refer to your NanoBK configuration for the Web Panel address."
-)
-
-HELP_TEXT = (
-    "NanoBK Bot Commands\n"
-    "\n"
-    "Basic:\n"
-    "/start          — Show welcome and quick help\n"
-    "/status         — Safe status summary\n"
-    "/doctor         — Redacted diagnostic check\n"
-    "/cancel         — Cancel pending action\n"
-    "\n"
-    "Safe operations:\n"
-    "/rotate_all     — Rotate ALL protocols (requires confirmation)\n"
-    "/rotate_hy2     — Rotate HY2 secret with confirmation\n"
-    "/rotate_tuic    — Rotate TUIC secret with confirmation\n"
-    "/rotate_reality — Rotate Reality credentials with confirmation\n"
-    "/rotate_trojan  — Rotate Trojan password with confirmation\n"
-    "\n"
-    "Advanced diagnostics:\n"
-    "/status_json    — Redacted raw status JSON (requires advanced mode)\n"
-    "/advanced on    — Enable advanced diagnostics mode\n"
-    "/advanced off   — Disable advanced diagnostics mode\n"
-    "/advanced status — Show advanced mode status\n"
-    "\n"
-    "/help           — Show this help\n"
-    "\n"
-    "⚠️ Rotate commands require confirmation to prevent accidents."
-)
+# ── Callback guidance builders ───────────────────────────────────────────────
+# Build localized text on demand. Tests can call these directly.
 
 
-def _build_main_menu_keyboard():
+def build_control_center_text(lang: str = "en") -> str:
+    title = bt(lang, "control_center_title")
+    subtitle = bt(lang, "control_center_subtitle")
+    return f"{title}\n\n{subtitle}"
+
+
+def build_guidance_recovery(lang: str = "en") -> str:
+    return bt(lang, "guidance_recovery")
+
+
+def build_guidance_diagnostics(lang: str = "en") -> str:
+    return bt(lang, "guidance_diagnostics")
+
+
+def build_guidance_rotate(lang: str = "en") -> str:
+    return bt(lang, "guidance_rotate")
+
+
+def build_guidance_web(lang: str = "en") -> str:
+    return bt(lang, "guidance_web")
+
+
+def build_help_text(lang: str = "en") -> str:
+    """Build the /help text in the given language."""
+    lines = [bt(lang, "help_title"), ""]
+    lines.append(f"{bt(lang, 'help_basic')}")
+    lines.append(f"/start          — {bt(lang, 'help_start')}")
+    lines.append(f"/status         — {bt(lang, 'help_status')}")
+    lines.append(f"/doctor         — {bt(lang, 'help_doctor')}")
+    lines.append(f"/cancel         — {bt(lang, 'help_cancel')}")
+    lines.append("")
+    lines.append(f"{bt(lang, 'help_safe_ops')}")
+    lines.append(f"/rotate_all     — {bt(lang, 'help_rotate_all')}")
+    lines.append(f"/rotate_hy2     — {bt(lang, 'help_rotate_hy2')}")
+    lines.append(f"/rotate_tuic    — {bt(lang, 'help_rotate_tuic')}")
+    lines.append(f"/rotate_reality — {bt(lang, 'help_rotate_reality')}")
+    lines.append(f"/rotate_trojan  — {bt(lang, 'help_rotate_trojan')}")
+    lines.append("")
+    lines.append(f"{bt(lang, 'help_advanced_diag')}")
+    lines.append(f"/status_json    — {bt(lang, 'help_status_json')}")
+    lines.append(f"/advanced on    — {bt(lang, 'help_advanced_on')}")
+    lines.append(f"/advanced off   — {bt(lang, 'help_advanced_off')}")
+    lines.append(f"/advanced status — {bt(lang, 'help_advanced_status')}")
+    lines.append("")
+    lines.append(f"/help           — {bt(lang, 'help_show')}")
+    lines.append("")
+    lines.append(bt(lang, "help_rotate_warning"))
+    return "\n".join(lines)
+
+
+def _build_main_menu_keyboard(lang: str = "en"):
     """Build the main menu InlineKeyboardMarkup."""
     from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
     keyboard = [
         [
-            InlineKeyboardButton("📊 Status Summary", callback_data=CALLBACK_STATUS),
-            InlineKeyboardButton("🧭 Recovery Help", callback_data=CALLBACK_RECOVERY),
+            InlineKeyboardButton(bt(lang, "btn_status"), callback_data=CALLBACK_STATUS),
+            InlineKeyboardButton(bt(lang, "btn_recovery"), callback_data=CALLBACK_RECOVERY),
         ],
         [
-            InlineKeyboardButton("🩺 Diagnostics", callback_data=CALLBACK_DIAGNOSTICS),
-            InlineKeyboardButton("🔐 Advanced Mode", callback_data=CALLBACK_ADVANCED),
+            InlineKeyboardButton(bt(lang, "btn_diagnostics"), callback_data=CALLBACK_DIAGNOSTICS),
+            InlineKeyboardButton(bt(lang, "btn_advanced"), callback_data=CALLBACK_ADVANCED),
         ],
         [
-            InlineKeyboardButton("🔄 Rotate Secrets", callback_data=CALLBACK_ROTATE),
-            InlineKeyboardButton("🌐 Web Panel", callback_data=CALLBACK_WEB),
+            InlineKeyboardButton(bt(lang, "btn_rotate"), callback_data=CALLBACK_ROTATE),
+            InlineKeyboardButton(bt(lang, "btn_web"), callback_data=CALLBACK_WEB),
         ],
         [
-            InlineKeyboardButton("❓ Help", callback_data=CALLBACK_HELP),
+            InlineKeyboardButton(bt(lang, "btn_help"), callback_data=CALLBACK_HELP),
         ],
     ]
     return InlineKeyboardMarkup(keyboard)
@@ -606,45 +926,53 @@ def run_self_test() -> bool:
     time.sleep(0.01)
     check("pending confirmation expires", cm2.get_action(12345) is None)
 
-    # 9. Help text classification
-    check("HELP_TEXT constant exists", "NanoBK Bot Commands" in HELP_TEXT)
-    check("help includes Basic section", "Basic:" in HELP_TEXT)
-    check("help includes Safe operations section", "Safe operations:" in HELP_TEXT)
-    check("help includes Advanced diagnostics section", "Advanced diagnostics:" in HELP_TEXT)
-    check("help /status_json under Advanced", "/status_json" in HELP_TEXT and "Advanced diagnostics:" in HELP_TEXT)
-    check("help includes rotate commands", "/rotate_tuic" in HELP_TEXT)
-    check("help /status_json not in Basic", HELP_TEXT.index("/status_json") > HELP_TEXT.index("Advanced diagnostics:"))
+    # 9. Help text classification (English)
+    help_en = build_help_text("en")
+    check("en help title exists", "NanoBK Bot Commands" in help_en)
+    check("en help includes Basic", "Basic:" in help_en)
+    check("en help includes Safe operations", "Safe operations:" in help_en)
+    check("en help includes Advanced diagnostics", "Advanced diagnostics:" in help_en)
+    check("en help /status_json under Advanced", "/status_json" in help_en and "Advanced diagnostics:" in help_en)
+    check("en help includes rotate commands", "/rotate_tuic" in help_en)
+    check("en help /status_json not in Basic", help_en.index("/status_json") > help_en.index("Advanced diagnostics:"))
 
-    # 9b. /status_json warning text (when advanced mode is ON)
-    status_json_warning = (
-        "⚠️ Advanced diagnostics\n"
-        "This output is redacted, but it may still reveal system structure.\n"
-        "Do not forward the full output to untrusted people.\n"
-        "Use /status for the normal safe summary.\n"
-        "\n"
-    )
-    check("status_json warning present", "Advanced diagnostics" in status_json_warning)
-    check("status_json warning says redacted", "redacted" in status_json_warning)
-    check("status_json warning says do not forward", "Do not forward" in status_json_warning)
-    check("status_json warning recommends /status", "/status" in status_json_warning)
+    # 9z. Help text classification (Chinese)
+    help_zh = build_help_text("zh")
+    check("zh help title exists", "NanoBK 机器人命令" in help_zh)
+    check("zh help includes Basic", "基础：" in help_zh)
+    check("zh help includes Safe operations", "安全操作：" in help_zh)
+    check("zh help includes Advanced diagnostics", "高级诊断：" in help_zh)
+    check("zh help /status_json under Advanced", "/status_json" in help_zh and "高级诊断：" in help_zh)
+    check("zh help includes rotate commands", "/rotate_tuic" in help_zh)
 
-    # 9b2. /status_json soft gate copy (when advanced mode is OFF)
-    status_json_gate_copy = (
-        "Advanced diagnostics mode is not enabled.\n"
-        "\n"
-        "/status_json is for troubleshooting and shows redacted Raw JSON.\n"
-        "Use /status for the normal safe summary first.\n"
-        "\n"
-        "To continue, run /advanced on.\n"
-        "Advanced mode expires automatically after 15 minutes.\n"
-        "\n"
-        "Even in advanced mode, secrets, raw addresses, and subscription URLs must remain hidden."
-    )
-    check("gate copy mentions advanced mode required", "not enabled" in status_json_gate_copy)
-    check("gate copy mentions /advanced on", "/advanced on" in status_json_gate_copy)
-    check("gate copy mentions /status", "/status" in status_json_gate_copy)
-    check("gate copy mentions 15 minutes", "15 minutes" in status_json_gate_copy)
-    check("gate copy says secrets remain hidden", "secrets" in status_json_gate_copy and "remain hidden" in status_json_gate_copy)
+    # 9b. /status_json warning text (English, when advanced mode is ON)
+    warn_en = bt("en", "status_json_warning")
+    check("en status_json warning present", "Advanced diagnostics" in warn_en)
+    check("en status_json warning says redacted", "redacted" in warn_en)
+    check("en status_json warning says do not forward", "Do not forward" in warn_en)
+    check("en status_json warning recommends /status", "/status" in warn_en)
+
+    # 9bz. /status_json warning text (Chinese, when advanced mode is ON)
+    warn_zh = bt("zh", "status_json_warning")
+    check("zh status_json warning present", "高级诊断" in warn_zh)
+    check("zh status_json warning says redacted", "脱敏" in warn_zh)
+    check("zh status_json warning says do not forward", "请勿" in warn_zh)
+    check("zh status_json warning recommends /status", "/status" in warn_zh)
+
+    # 9b2. /status_json soft gate copy (English, when advanced mode is OFF)
+    gate_en = bt("en", "gate_not_enabled")
+    check("en gate mentions not enabled", "not enabled" in gate_en)
+    check("en gate mentions /advanced on", "/advanced on" in gate_en)
+    check("en gate mentions /status", "/status" in gate_en)
+    check("en gate mentions 15 minutes", "15 minutes" in gate_en)
+    check("en gate says secrets remain hidden", "secrets" in gate_en and "remain hidden" in gate_en)
+
+    # 9b2z. /status_json soft gate copy (Chinese, when advanced mode is OFF)
+    gate_zh = bt("zh", "gate_not_enabled")
+    check("zh gate mentions not enabled", "未启用" in gate_zh)
+    check("zh gate mentions /advanced on", "/advanced on" in gate_zh)
+    check("zh gate mentions /status", "/status" in gate_zh)
+    check("zh gate mentions 15 minutes", "15" in gate_zh)
 
     # 9c. Advanced mode helpers
     # Disabled by default
@@ -671,10 +999,10 @@ def run_self_test() -> bool:
     check("expired remaining is zero", advanced_mode_remaining_seconds(12345, now=expired_time) == 0)
 
     # 9d. Help text includes /advanced commands
-    check("help includes /advanced on", "/advanced on" in HELP_TEXT)
-    check("help includes /advanced off", "/advanced off" in HELP_TEXT)
-    check("help includes /advanced status", "/advanced status" in HELP_TEXT)
-    check("help /status_json still in Advanced", "/status_json" in HELP_TEXT)
+    check("en help includes /advanced on", "/advanced on" in help_en)
+    check("en help includes /advanced off", "/advanced off" in help_en)
+    check("en help includes /advanced status", "/advanced status" in help_en)
+    check("en help /status_json still in Advanced", "/status_json" in help_en)
 
     # 10. limit_text truncates
     long_text = "x" * 5000
@@ -735,9 +1063,14 @@ def run_self_test() -> bool:
     check("safe_output is idempotent", safe_once == safe_twice)
 
     # 18. Control center menu
-    check("CONTROL_CENTER_TEXT exists", "NanoBK Control Center" in CONTROL_CENTER_TEXT)
-    check("CONTROL_CENTER_TEXT mentions /help", "/help" in CONTROL_CENTER_TEXT)
-    check("CONTROL_CENTER_TEXT says secrets hidden", "hidden" in CONTROL_CENTER_TEXT)
+    cc_en = build_control_center_text("en")
+    check("en control center title", "NanoBK Control Center" in cc_en)
+    check("en control center mentions /help", "/help" in cc_en)
+    check("en control center says secrets hidden", "hidden" in cc_en)
+    cc_zh = build_control_center_text("zh")
+    check("zh control center title", "NanoBK 控制中心" in cc_zh)
+    check("zh control center mentions /help", "/help" in cc_zh)
+    check("zh control center says secrets hidden", "隐藏" in cc_zh)
     check("CALLBACK_STATUS uses nanobk: prefix", CALLBACK_STATUS.startswith("nanobk:"))
     check("CALLBACK_RECOVERY uses nanobk: prefix", CALLBACK_RECOVERY.startswith("nanobk:"))
     check("CALLBACK_DIAGNOSTICS uses nanobk: prefix", CALLBACK_DIAGNOSTICS.startswith("nanobk:"))
@@ -747,24 +1080,43 @@ def run_self_test() -> bool:
     check("CALLBACK_HELP uses nanobk: prefix", CALLBACK_HELP.startswith("nanobk:"))
     check("_build_main_menu_keyboard is callable", callable(_build_main_menu_keyboard))
 
-    # 18b. Guidance constants validation
-    check("GUIDANCE_RECOVERY mentions /status", "/status" in GUIDANCE_RECOVERY)
-    check("GUIDANCE_RECOVERY mentions /doctor", "/doctor" in GUIDANCE_RECOVERY)
-    check("GUIDANCE_RECOVERY mentions SSH", "SSH" in GUIDANCE_RECOVERY)
-    check("GUIDANCE_RECOVERY says secrets hidden", "hidden" in GUIDANCE_RECOVERY)
-    check("GUIDANCE_DIAGNOSTICS mentions /doctor", "/doctor" in GUIDANCE_DIAGNOSTICS)
-    check("GUIDANCE_DIAGNOSTICS mentions /advanced on", "/advanced on" in GUIDANCE_DIAGNOSTICS)
-    check("GUIDANCE_DIAGNOSTICS mentions /status_json", "/status_json" in GUIDANCE_DIAGNOSTICS)
-    check("GUIDANCE_DIAGNOSTICS says redacted", "redacted" in GUIDANCE_DIAGNOSTICS)
-    check("GUIDANCE_ROTATE mentions confirmation", "confirmation" in GUIDANCE_ROTATE)
-    check("GUIDANCE_ROTATE lists /rotate_all", "/rotate_all" in GUIDANCE_ROTATE)
-    check("GUIDANCE_ROTATE lists /rotate_tuic", "/rotate_tuic" in GUIDANCE_ROTATE)
-    check("GUIDANCE_WEB mentions dashboard", "dashboard" in GUIDANCE_WEB.lower())
-    check("GUIDANCE_WEB has no raw URL", "http://" not in GUIDANCE_WEB and "https://" not in GUIDANCE_WEB)
+    # 18b. Guidance constants validation (English)
+    rec_en = build_guidance_recovery("en")
+    check("en recovery mentions /status", "/status" in rec_en)
+    check("en recovery mentions /doctor", "/doctor" in rec_en)
+    check("en recovery mentions SSH", "SSH" in rec_en)
+    check("en recovery says secrets hidden", "hidden" in rec_en)
+    diag_en = build_guidance_diagnostics("en")
+    check("en diagnostics mentions /doctor", "/doctor" in diag_en)
+    check("en diagnostics mentions /advanced on", "/advanced on" in diag_en)
+    check("en diagnostics mentions /status_json", "/status_json" in diag_en)
+    check("en diagnostics says redacted", "redacted" in diag_en)
+    rot_en = build_guidance_rotate("en")
+    check("en rotate mentions confirmation", "confirmation" in rot_en)
+    check("en rotate lists /rotate_all", "/rotate_all" in rot_en)
+    check("en rotate lists /rotate_tuic", "/rotate_tuic" in rot_en)
+    web_en = build_guidance_web("en")
+    check("en web mentions dashboard", "dashboard" in web_en.lower())
+    check("en web has no raw URL", "http://" not in web_en and "https://" not in web_en)
 
-    # 18c. Shared status helper
+    # 18bz. Guidance constants validation (Chinese)
+    rec_zh = build_guidance_recovery("zh")
+    check("zh recovery mentions /status", "/status" in rec_zh)
+    check("zh recovery mentions /doctor", "/doctor" in rec_zh)
+    diag_zh = build_guidance_diagnostics("zh")
+    check("zh diagnostics mentions /doctor", "/doctor" in diag_zh)
+    rot_zh = build_guidance_rotate("zh")
+    check("zh rotate mentions confirmation", "确认" in rot_zh)
+    web_zh = build_guidance_web("zh")
+    check("zh web has no raw URL", "http://" not in web_zh and "https://" not in web_zh)
+
+    # 18c. Translation helper
+    check("bt() is callable", callable(bt))
+    check("bt en fallback works", bt("en", "nonexistent_key") == "nonexistent_key")
+    check("bt zh works", "控制中心" in bt("zh", "control_center_title"))
+
+    # 18d. Shared status helper
     check("get_safe_status_text is callable", callable(get_safe_status_text))
-    check("get_safe_status_text in source", "def get_safe_status_text" in open(os.path.join(os.path.dirname(__file__), "bot", "nanobk_bot.py")).read() if os.path.exists(os.path.join(os.path.dirname(__file__), "bot", "nanobk_bot.py")) else "def get_safe_status_text" in "def get_safe_status_text")
 
     print(f"\n=== {passed} passed, {failed} failed ===")
     return failed == 0
@@ -789,20 +1141,20 @@ def create_bot_app(config: BotConfig):
         return update.effective_user is not None and update.effective_user.id == config.owner_id
 
     async def unauthorized(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        await update.message.reply_text("Unauthorized.")
+        await update.message.reply_text(bt(config.lang, "unauthorized"))
 
     async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not is_owner(update):
             return await unauthorized(update, context)
         await update.message.reply_text(
-            CONTROL_CENTER_TEXT,
-            reply_markup=_build_main_menu_keyboard()
+            build_control_center_text(config.lang),
+            reply_markup=_build_main_menu_keyboard(config.lang)
         )
 
     async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not is_owner(update):
             return await unauthorized(update, context)
-        await update.message.reply_text(HELP_TEXT)
+        await update.message.reply_text(build_help_text(config.lang))
 
     async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not is_owner(update):
@@ -817,17 +1169,7 @@ def create_bot_app(config: BotConfig):
 
         # Soft gate: require advanced mode
         if not is_advanced_mode_enabled(user_id):
-            await update.message.reply_text(
-                "Advanced diagnostics mode is not enabled.\n"
-                "\n"
-                "/status_json is for troubleshooting and shows redacted Raw JSON.\n"
-                "Use /status for the normal safe summary first.\n"
-                "\n"
-                "To continue, run /advanced on.\n"
-                "Advanced mode expires automatically after 15 minutes.\n"
-                "\n"
-                "Even in advanced mode, secrets, raw addresses, and subscription URLs must remain hidden."
-            )
+            await update.message.reply_text(bt(config.lang, "gate_not_enabled"))
             return
 
         result = run_nanobk(config, ["--json", "status"])
@@ -837,20 +1179,14 @@ def create_bot_app(config: BotConfig):
             ))
             return
 
-        warning = (
-            "⚠️ Advanced diagnostics\n"
-            "This output is redacted, but it may still reveal system structure.\n"
-            "Do not forward the full output to untrusted people.\n"
-            "Use /status for the normal safe summary.\n"
-            "\n"
-        )
+        warning = bt(config.lang, "status_json_warning")
         await update.message.reply_text(warning + safe_output(result.stdout))
 
     async def cmd_doctor(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not is_owner(update):
             return await unauthorized(update, context)
 
-        await update.message.reply_text("Running doctor...")
+        await update.message.reply_text(bt(config.lang, "doctor_running"))
         result = run_nanobk(config, ["doctor"], timeout=config.command_timeout)
 
         output = result.stdout or result.stderr
@@ -864,7 +1200,7 @@ def create_bot_app(config: BotConfig):
             return await unauthorized(update, context)
 
         confirmations.clear(update.effective_user.id)
-        await update.message.reply_text("Pending confirmation cancelled.")
+        await update.message.reply_text(bt(config.lang, "cancel_msg"))
 
     async def cmd_advanced(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not is_owner(update):
@@ -876,37 +1212,21 @@ def create_bot_app(config: BotConfig):
 
         if subcommand == "on":
             enable_advanced_mode(user_id)
-            await update.message.reply_text(
-                "⚠️ Advanced diagnostics mode enabled.\n"
-                "\n"
-                "Outputs are still redacted, but diagnostic details may reveal system structure.\n"
-                "Do not forward full diagnostic output to untrusted people.\n"
-                "Secrets, raw addresses, and subscription URLs must remain hidden.\n"
-                "\n"
-                "This mode will expire in 15 minutes.\n"
-                "Use /advanced off to disable it sooner."
-            )
+            await update.message.reply_text(bt(config.lang, "advanced_on_msg"))
         elif subcommand == "off":
             disable_advanced_mode(user_id)
-            await update.message.reply_text("Advanced diagnostics mode disabled.")
+            await update.message.reply_text(bt(config.lang, "advanced_off_msg"))
         elif subcommand == "status":
             remaining = advanced_mode_remaining_seconds(user_id)
             if remaining > 0:
                 minutes = remaining // 60
                 await update.message.reply_text(
-                    f"Advanced diagnostics mode is enabled.\n"
-                    f"Expires in about {minutes} minutes."
+                    bt(config.lang, "advanced_enabled_status", minutes=minutes)
                 )
             else:
-                await update.message.reply_text("Advanced diagnostics mode is disabled.")
+                await update.message.reply_text(bt(config.lang, "advanced_disabled_status"))
         else:
-            await update.message.reply_text(
-                "Usage: /advanced on|off|status\n"
-                "\n"
-                "on     — Enable advanced diagnostics mode\n"
-                "off    — Disable advanced diagnostics mode\n"
-                "status — Show current mode status"
-            )
+            await update.message.reply_text(bt(config.lang, "advanced_usage"))
 
     # ── Rotate handlers ─────────────────────────────────────────────────
 
@@ -937,18 +1257,13 @@ def create_bot_app(config: BotConfig):
 
             proto = proto_args[0]
             if proto == "all":
-                desc = "ALL protocol credentials"
+                desc = bt(config.lang, "rotate_desc_all")
             else:
-                desc = f"{proto.upper()} credentials"
+                desc = bt(config.lang, "rotate_desc_proto", proto=proto.upper())
 
-            await update.message.reply_text(
-                f"You are about to rotate {desc}.\n"
-                "This will restart proxy services and update local profile.\n"
-                "Cloudflare sync depends on your local nanobk configuration.\n"
-                "\n"
-                f"Reply with:\n/confirm_{action_name}\n"
-                "or cancel with:\n/cancel"
-            )
+            prompt = bt(config.lang, "rotate_confirm_prompt",
+                        desc=desc, action_name=action_name)
+            await update.message.reply_text(prompt)
         return handler
 
     async def cmd_confirm_rotate(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -960,17 +1275,17 @@ def create_bot_app(config: BotConfig):
         action = CONFIRM_COMMANDS.get(cmd_name)
 
         if action is None:
-            await update.message.reply_text("Unknown confirmation command.")
+            await update.message.reply_text(bt(config.lang, "confirm_unknown"))
             return
 
         pending = confirmations.get(update.effective_user.id)
         if pending is None:
-            await update.message.reply_text("No pending confirmation (may have expired).")
+            await update.message.reply_text(bt(config.lang, "confirm_none"))
             return
 
         if pending.action != action:
             await update.message.reply_text(
-                f"Confirmation mismatch. Pending: {pending.action}, got: {action}"
+                bt(config.lang, "confirm_mismatch", pending=pending.action, got=action)
             )
             return
 
@@ -981,17 +1296,16 @@ def create_bot_app(config: BotConfig):
         if config.dry_run:
             cmd_str = " ".join(pending.command)
             await update.message.reply_text(
-                f"DRY RUN: would execute:\n"
-                f"nanobk {cmd_str}"
+                bt(config.lang, "rotate_dry_run", cmd=cmd_str)
             )
             return
 
-        await update.message.reply_text(f"Executing nanobk {' '.join(pending.command)}...")
+        await update.message.reply_text(bt(config.lang, "rotate_executing", cmd=" ".join(pending.command)))
         result = run_nanobk(config, pending.command, timeout=config.rotate_timeout)
 
         output = result.stdout or result.stderr
         if result.code != 0:
-            output = f"Rotate failed (code {result.code}):\n{output}"
+            output = bt(config.lang, "rotate_failed", code=result.code, output=output)
 
         await update.message.reply_text(safe_output(output))
 
@@ -1005,7 +1319,7 @@ def create_bot_app(config: BotConfig):
 
         # Owner-only check
         if query.from_user is None or query.from_user.id != config.owner_id:
-            await query.answer("Unauthorized.")
+            await query.answer(bt(config.lang, "unauthorized"))
             return
 
         await query.answer()  # Acknowledge the callback
@@ -1016,50 +1330,35 @@ def create_bot_app(config: BotConfig):
             await query.message.reply_text(get_safe_status_text(config))
 
         elif data == CALLBACK_RECOVERY:
-            await query.message.reply_text(GUIDANCE_RECOVERY)
+            await query.message.reply_text(build_guidance_recovery(config.lang))
 
         elif data == CALLBACK_DIAGNOSTICS:
-            await query.message.reply_text(GUIDANCE_DIAGNOSTICS)
+            await query.message.reply_text(build_guidance_diagnostics(config.lang))
 
         elif data == CALLBACK_ADVANCED:
             user_id = query.from_user.id
             remaining = advanced_mode_remaining_seconds(user_id)
             if remaining > 0:
                 minutes = remaining // 60
-                await query.message.reply_text(
-                    f"🔐 Advanced Mode\n"
-                    f"\n"
-                    f"Advanced diagnostics mode is enabled.\n"
-                    f"Expires in about {minutes} minutes.\n"
-                    f"\n"
-                    f"Commands:\n"
-                    f"/advanced status — Check status\n"
-                    f"/advanced off — Disable\n"
-                    f"/status_json — View redacted Raw JSON"
-                )
+                title = bt(config.lang, "advanced_mode_enabled_title")
+                desc = bt(config.lang, "advanced_mode_enabled_desc", minutes=minutes)
+                await query.message.reply_text(f"{title}\n\n{desc}")
             else:
-                await query.message.reply_text(
-                    "🔐 Advanced Mode\n"
-                    "\n"
-                    "Advanced diagnostics mode is disabled.\n"
-                    "\n"
-                    "Commands:\n"
-                    "/advanced on — Enable (expires in 15 minutes)\n"
-                    "/advanced status — Check status\n"
-                    "/advanced off — Disable"
-                )
+                title = bt(config.lang, "advanced_mode_enabled_title")
+                desc = bt(config.lang, "advanced_mode_disabled_desc")
+                await query.message.reply_text(f"{title}\n\n{desc}")
 
         elif data == CALLBACK_ROTATE:
-            await query.message.reply_text(GUIDANCE_ROTATE)
+            await query.message.reply_text(build_guidance_rotate(config.lang))
 
         elif data == CALLBACK_WEB:
-            await query.message.reply_text(GUIDANCE_WEB)
+            await query.message.reply_text(build_guidance_web(config.lang))
 
         elif data == CALLBACK_HELP:
-            await query.message.reply_text(HELP_TEXT)
+            await query.message.reply_text(build_help_text(config.lang))
 
         else:
-            await query.message.reply_text("Unknown menu option. Use /help.")
+            await query.message.reply_text(bt(config.lang, "unknown_callback"))
 
     # ── Build application ───────────────────────────────────────────────
 
@@ -1089,7 +1388,7 @@ def create_bot_app(config: BotConfig):
     async def cmd_unknown(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not is_owner(update):
             return await unauthorized(update, context)
-        await update.message.reply_text("Unknown command. Use /help.")
+        await update.message.reply_text(bt(config.lang, "unknown_command"))
 
     app.add_handler(MessageHandler(filters.COMMAND, cmd_unknown))
 

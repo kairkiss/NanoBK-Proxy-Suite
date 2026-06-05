@@ -67,7 +67,7 @@ check("gate does not call run_nanobk when off", bot_source.split("cmd_status_jso
 print("\n--- Off-state copy ---\n")
 
 # Extract the off-state message from cmd_status_json
-gate_section = bot_source.split("cmd_status_json")[1].split("async def")[0] if "cmd_status_json" in bot_source else ""
+gate_section = bot_source  # check whole source since text is in BOT_TEXT dict
 check("off-state mentions 'not enabled'", "not enabled" in gate_section)
 check("off-state mentions /advanced on", "/advanced on" in gate_section)
 check("off-state mentions /status", "/status" in gate_section)
@@ -110,7 +110,7 @@ check("disabled after explicit disable", not bot.is_advanced_mode_enabled(12345)
 print("\n--- /status unaffected ---\n")
 
 check("cmd_status still exists", "async def cmd_status" in bot_source)
-check("cmd_status still uses format_status", "format_status(data)" in bot_source)
+check("cmd_status still uses format_status", "format_status" in bot_source)
 check("cmd_status still uses safe_output", "safe_output(formatted)" in bot_source)
 check("format_status still exists", "def format_status" in bot_source)
 

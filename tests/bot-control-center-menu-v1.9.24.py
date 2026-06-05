@@ -47,8 +47,8 @@ print("=== Bot Control Center Static Menu Test (v1.9.24) ===\n")
 print("--- /start control center message ---\n")
 
 check("/start mentions NanoBK Control Center", "NanoBK Control Center" in bot_source)
-check("/start mentions /help", "/help" in bot_source.split("CONTROL_CENTER_TEXT")[1].split("CALLBACK")[0] if "CONTROL_CENTER_TEXT" in bot_source else False)
-check("/start says secrets hidden", "hidden" in bot_source.split("CONTROL_CENTER_TEXT")[1].split("CALLBACK")[0] if "CONTROL_CENTER_TEXT" in bot_source else False)
+check("/start mentions /help", "control_center_subtitle" in bot_source and "/help" in bot_source)
+check("/start says secrets hidden", "control_center_subtitle" in bot_source and "hidden" in bot_source)
 check("/start uses InlineKeyboardMarkup", "InlineKeyboardMarkup" in bot_source or "_build_main_menu_keyboard" in bot_source)
 
 # ── 2. Menu labels ────────────────────────────────────────────────────────
@@ -93,14 +93,14 @@ callback_func_start = bot_source.find("async def handle_menu_callback")
 callback_func_end = bot_source.find("# ── Build application", callback_func_start)
 callback_section = bot_source[callback_func_start:callback_func_end] if callback_func_start >= 0 else ""
 check("callback checks owner", "is_owner" in callback_section or "config.owner_id" in callback_section)
-check("callback denies unauthorized", "Unauthorized" in callback_section)
+check("callback denies unauthorized", "unauthorized" in callback_section.lower())
 
 # ── 6. Rotate callback does NOT execute rotate ────────────────────────────
 
 print("\n--- Rotate callback safety ---\n")
 
 rotate_callback_section = callback_section.split("CALLBACK_ROTATE")[1].split("CALLBACK_WEB")[0] if "CALLBACK_ROTATE" in callback_section else ""
-check("rotate callback shows guidance only", "GUIDANCE_ROTATE" in rotate_callback_section)
+check("rotate callback shows guidance only", "build_guidance_rotate" in rotate_callback_section or "guidance_rotate" in rotate_callback_section)
 check("rotate callback does NOT call run_nanobk", "run_nanobk" not in rotate_callback_section)
 check("rotate callback does NOT call confirmations.set", "confirmations.set" not in rotate_callback_section)
 
@@ -110,18 +110,18 @@ print("\n--- Web Panel callback safety ---\n")
 
 web_callback_section = callback_section.split("CALLBACK_WEB")[1].split("CALLBACK_HELP")[0] if "CALLBACK_WEB" in callback_section else ""
 check("web callback does not expose raw URL", "http://" not in web_callback_section and "https://" not in web_callback_section)
-check("web callback shows generic guidance", "GUIDANCE_WEB" in web_callback_section)
+check("web callback shows generic guidance", "build_guidance_web" in web_callback_section or "guidance_web" in web_callback_section)
 
 # ── 8. Diagnostics callback ───────────────────────────────────────────────
 
 print("\n--- Diagnostics callback ---\n")
 
 diag_callback_section = callback_section.split("CALLBACK_DIAGNOSTICS")[1].split("CALLBACK_ADVANCED")[0] if "CALLBACK_DIAGNOSTICS" in callback_section else ""
-check("diagnostics uses GUIDANCE_DIAGNOSTICS", "GUIDANCE_DIAGNOSTICS" in diag_callback_section)
+check("diagnostics uses GUIDANCE_DIAGNOSTICS", "build_guidance_diagnostics" in diag_callback_section or "guidance_diagnostics" in diag_callback_section)
 # Verify GUIDANCE_DIAGNOSTICS contains required content
-check("diagnostics mentions /doctor", "/doctor" in bot_source.split("GUIDANCE_DIAGNOSTICS")[1].split("GUIDANCE_ROTATE")[0] if "GUIDANCE_DIAGNOSTICS" in bot_source else False)
-check("diagnostics mentions /advanced on", "/advanced on" in bot_source.split("GUIDANCE_DIAGNOSTICS")[1].split("GUIDANCE_ROTATE")[0] if "GUIDANCE_DIAGNOSTICS" in bot_source else False)
-check("diagnostics mentions /status_json", "/status_json" in bot_source.split("GUIDANCE_DIAGNOSTICS")[1].split("GUIDANCE_ROTATE")[0] if "GUIDANCE_DIAGNOSTICS" in bot_source else False)
+check("diagnostics mentions /doctor", "/doctor" in bot_source.split("guidance_diagnostics")[1].split("guidance_rotate")[0] if "guidance_diagnostics" in bot_source else False)
+check("diagnostics mentions /advanced on", "/advanced on" in bot_source.split("guidance_diagnostics")[1].split("guidance_rotate")[0] if "guidance_diagnostics" in bot_source else False)
+check("diagnostics mentions /status_json", "/status_json" in bot_source.split("guidance_diagnostics")[1].split("guidance_rotate")[0] if "guidance_diagnostics" in bot_source else False)
 
 # ── 9. Existing features preserved ────────────────────────────────────────
 

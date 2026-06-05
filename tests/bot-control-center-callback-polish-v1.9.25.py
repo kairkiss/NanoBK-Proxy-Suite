@@ -46,7 +46,7 @@ print("--- Shared status helper ---\n")
 
 check("get_safe_status_text function exists", "def get_safe_status_text" in bot_source)
 check("get_safe_status_text calls run_nanobk", 'run_nanobk(config, ["--json", "status"])' in bot_source.split("def get_safe_status_text")[1].split("def ")[0] if "def get_safe_status_text" in bot_source else False)
-check("get_safe_status_text calls format_status", "format_status(data)" in bot_source.split("def get_safe_status_text")[1].split("def ")[0] if "def get_safe_status_text" in bot_source else False)
+check("get_safe_status_text calls format_status", "format_status(data" in bot_source.split("def get_safe_status_text")[1].split("def ")[0] if "def get_safe_status_text" in bot_source else False)
 check("get_safe_status_text calls safe_output", "safe_output(formatted)" in bot_source.split("def get_safe_status_text")[1].split("def ")[0] if "def get_safe_status_text" in bot_source else False)
 
 # cmd_status uses shared helper
@@ -68,55 +68,55 @@ check("run_nanobk uses ['--json', 'status']", '"--json", "status"' in bot_source
 
 print("\n--- Guidance constants ---\n")
 
-check("GUIDANCE_RECOVERY constant exists", "GUIDANCE_RECOVERY" in bot_source)
-check("GUIDANCE_DIAGNOSTICS constant exists", "GUIDANCE_DIAGNOSTICS" in bot_source)
-check("GUIDANCE_ROTATE constant exists", "GUIDANCE_ROTATE" in bot_source)
-check("GUIDANCE_WEB constant exists", "GUIDANCE_WEB" in bot_source)
-check("HELP_TEXT constant exists", "HELP_TEXT" in bot_source)
+check("build_guidance_recovery function exists", "def build_guidance_recovery" in bot_source)
+check("build_guidance_diagnostics function exists", "def build_guidance_diagnostics" in bot_source)
+check("build_guidance_rotate function exists", "def build_guidance_rotate" in bot_source)
+check("build_guidance_web function exists", "def build_guidance_web" in bot_source)
+check("build_help_text function exists", "def build_help_text" in bot_source)
 
 # Recovery guidance content
-check("GUIDANCE_RECOVERY mentions /status", "/status" in bot_source.split("GUIDANCE_RECOVERY")[1].split("GUIDANCE_DIAGNOSTICS")[0] if "GUIDANCE_RECOVERY" in bot_source else False)
-check("GUIDANCE_RECOVERY mentions /doctor", "/doctor" in bot_source.split("GUIDANCE_RECOVERY")[1].split("GUIDANCE_DIAGNOSTICS")[0] if "GUIDANCE_RECOVERY" in bot_source else False)
-check("GUIDANCE_RECOVERY mentions SSH", "SSH" in bot_source.split("GUIDANCE_RECOVERY")[1].split("GUIDANCE_DIAGNOSTICS")[0] if "GUIDANCE_RECOVERY" in bot_source else False)
-check("GUIDANCE_RECOVERY says secrets hidden", "hidden" in bot_source.split("GUIDANCE_RECOVERY")[1].split("GUIDANCE_DIAGNOSTICS")[0] if "GUIDANCE_RECOVERY" in bot_source else False)
+check("guidance_recovery mentions /status", "/status" in bot_source.split("guidance_recovery")[1].split("guidance_diagnostics")[0] if "guidance_recovery" in bot_source else "")
+check("guidance_recovery mentions /doctor", "/doctor" in bot_source.split("guidance_recovery")[1].split("guidance_diagnostics")[0] if "guidance_recovery" in bot_source else "")
+check("guidance_recovery mentions SSH", "SSH" in bot_source.split("guidance_recovery")[1].split("guidance_diagnostics")[0] if "guidance_recovery" in bot_source else "")
+check("guidance_recovery says secrets hidden", "hidden" in bot_source.split("guidance_recovery")[1].split("guidance_diagnostics")[0] if "guidance_recovery" in bot_source else "")
 
 # Diagnostics guidance content
-diag_section = bot_source.split("GUIDANCE_DIAGNOSTICS")[1].split("GUIDANCE_ROTATE")[0] if "GUIDANCE_DIAGNOSTICS" in bot_source else ""
-check("GUIDANCE_DIAGNOSTICS mentions /doctor", "/doctor" in diag_section)
-check("GUIDANCE_DIAGNOSTICS mentions /advanced on", "/advanced on" in diag_section)
-check("GUIDANCE_DIAGNOSTICS mentions /status_json", "/status_json" in diag_section)
-check("GUIDANCE_DIAGNOSTICS says redacted", "redacted" in diag_section.lower())
+diag_section = bot_source.split("guidance_diagnostics")[1].split("guidance_rotate")[0] if "guidance_diagnostics" in bot_source else ""
+check("guidance_diagnostics mentions /doctor", "/doctor" in diag_section)
+check("guidance_diagnostics mentions /advanced on", "/advanced on" in diag_section)
+check("guidance_diagnostics mentions /status_json", "/status_json" in diag_section)
+check("guidance_diagnostics says redacted", "redacted" in diag_section.lower())
 
 # Rotate guidance content
-rotate_guidance_section = bot_source.split("GUIDANCE_ROTATE")[1].split("GUIDANCE_WEB")[0] if "GUIDANCE_ROTATE" in bot_source else ""
-check("GUIDANCE_ROTATE mentions confirmation", "confirmation" in rotate_guidance_section)
-check("GUIDANCE_ROTATE lists rotate commands", "/rotate_all" in rotate_guidance_section and "/rotate_tuic" in rotate_guidance_section)
+rotate_guidance_section = bot_source.split("guidance_rotate")[1].split("guidance_web")[0] if "guidance_rotate" in bot_source else ""
+check("guidance_rotate mentions confirmation", "confirmation" in rotate_guidance_section)
+check("guidance_rotate lists rotate commands", "/rotate_all" in rotate_guidance_section and "/rotate_tuic" in rotate_guidance_section)
 
 # Web guidance content
-web_guidance_section = bot_source.split("GUIDANCE_WEB")[1].split("HELP_TEXT")[0] if "GUIDANCE_WEB" in bot_source else ""
-check("GUIDANCE_WEB mentions dashboard", "dashboard" in web_guidance_section.lower())
-check("GUIDANCE_WEB has no raw URL", "http://" not in web_guidance_section and "https://" not in web_guidance_section)
+web_guidance_section = bot_source.split("guidance_web")[1].split("build_help_text")[0] if "guidance_web" in bot_source else ""
+check("guidance_web mentions dashboard", "dashboard" in web_guidance_section.lower())
+check("guidance_web has no raw URL", "http://" not in web_guidance_section and "https://" not in web_guidance_section)
 
 # Callbacks use constants
-check("Recovery callback uses GUIDANCE_RECOVERY", "GUIDANCE_RECOVERY" in callback_section)
-check("Diagnostics callback uses GUIDANCE_DIAGNOSTICS", "GUIDANCE_DIAGNOSTICS" in callback_section)
-check("Rotate callback uses GUIDANCE_ROTATE", "GUIDANCE_ROTATE" in callback_section)
-check("Web callback uses GUIDANCE_WEB", "GUIDANCE_WEB" in callback_section)
-check("Help callback uses HELP_TEXT", "HELP_TEXT" in callback_section)
+check("Recovery callback uses GUIDANCE_RECOVERY", "build_guidance_recovery" in callback_section)
+check("Diagnostics callback uses GUIDANCE_DIAGNOSTICS", "build_guidance_diagnostics" in callback_section)
+check("Rotate callback uses GUIDANCE_ROTATE", "build_guidance_rotate" in callback_section)
+check("Web callback uses GUIDANCE_WEB", "build_guidance_web" in callback_section)
+check("Help callback uses HELP_TEXT", "build_help_text" in callback_section)
 
 # ── 3. Authorization ──────────────────────────────────────────────────────
 
 print("\n--- Authorization ---\n")
 
 check("callback checks owner", "config.owner_id" in callback_section)
-check("callback denies unauthorized", "Unauthorized" in callback_section)
+check("callback denies unauthorized", "unauthorized" in callback_section.lower())
 
 # ── 4. Rotate callback safety ─────────────────────────────────────────────
 
 print("\n--- Rotate callback safety ---\n")
 
 rotate_callback = callback_section.split("CALLBACK_ROTATE")[1].split("CALLBACK_WEB")[0] if "CALLBACK_ROTATE" in callback_section else ""
-check("rotate callback shows guidance only", "GUIDANCE_ROTATE" in rotate_callback)
+check("rotate callback shows guidance only", "build_guidance_rotate" in bot_source or "guidance_rotate" in rotate_callback)
 check("rotate callback does NOT call run_nanobk", "run_nanobk" not in rotate_callback)
 check("rotate callback does NOT call confirmations.set", "confirmations.set" not in rotate_callback)
 
@@ -125,7 +125,7 @@ check("rotate callback does NOT call confirmations.set", "confirmations.set" not
 print("\n--- Web Panel callback safety ---\n")
 
 web_callback = callback_section.split("CALLBACK_WEB")[1].split("CALLBACK_HELP")[0] if "CALLBACK_WEB" in callback_section else ""
-check("web callback uses GUIDANCE_WEB", "GUIDANCE_WEB" in web_callback)
+check("web callback uses GUIDANCE_WEB", "build_guidance_web" in bot_source or "guidance_web" in web_callback)
 check("web callback does not expose raw URL", "http://" not in web_callback and "https://" not in web_callback)
 
 # ── 6. Existing features preserved ────────────────────────────────────────

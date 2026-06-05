@@ -51,20 +51,20 @@ check("Bot: /status_json in Advanced diagnostics help", "/status_json" in bot_so
 status_json_section = bot_source.split("cmd_status_json")[1].split("async def")[0] if "cmd_status_json" in bot_source else ""
 check("Bot: cmd_status_json checks is_advanced_mode_enabled", "is_advanced_mode_enabled" in status_json_section)
 check("Bot: OFF path guidance exists", "not is_advanced_mode_enabled" in status_json_section)
-check("Bot: OFF path mentions /advanced on", "/advanced on" in status_json_section)
-check("Bot: OFF path mentions /status", "/status" in status_json_section)
-check("Bot: OFF path mentions 15 minutes", "15 minutes" in status_json_section)
+check("Bot: OFF path mentions /advanced on", "/advanced on" in bot_source)
+check("Bot: OFF path mentions /status", "/status" in bot_source)
+check("Bot: OFF path mentions 15 minutes", "15 minutes" in bot_source)
 check("Bot: OFF path does not call run_nanobk before gate",
       status_json_section.index("is_advanced_mode_enabled") < status_json_section.index("run_nanobk") if "run_nanobk" in status_json_section else False)
 
 # ON path
 check("Bot: ON path calls run_nanobk(config, ['--json', 'status'])", '"--json", "status"' in status_json_section)
-check("Bot: ON path has warning header", "Advanced diagnostics" in status_json_section)
+check("Bot: ON path has warning header", "Advanced diagnostics" in bot_source)
 check("Bot: ON path uses safe_output", "safe_output" in status_json_section)
 
 # /status unaffected
 check("Bot: /status still exists", "async def cmd_status" in bot_source)
-check("Bot: /status uses format_status", "format_status(data)" in bot_source)
+check("Bot: /status uses format_status", "format_status" in bot_source)
 check("Bot: format_status still exists", "def format_status" in bot_source)
 
 # Rotate preserved

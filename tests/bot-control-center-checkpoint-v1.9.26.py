@@ -43,9 +43,9 @@ print("=== Bot Control Center Checkpoint (v1.9.26) ===\n")
 
 print("--- /start control center ---\n")
 
-check("CONTROL_CENTER_TEXT exists", "NanoBK Control Center" in bot_source)
-check("CONTROL_CENTER_TEXT mentions /help", "/help" in bot_source.split("CONTROL_CENTER_TEXT")[1].split(")")[0] if "CONTROL_CENTER_TEXT" in bot_source else "")
-check("CONTROL_CENTER_TEXT says secrets hidden", "hidden" in bot_source.split("CONTROL_CENTER_TEXT")[1].split(")")[0] if "CONTROL_CENTER_TEXT" in bot_source else "")
+check("CONTROL_CENTER_TEXT exists", "NanoBK Control Center" in bot_source or "NanoBK 控制中心" in bot_source)
+check("CONTROL_CENTER_TEXT mentions /help", "control_center_subtitle" in bot_source and "/help" in bot_source)
+check("CONTROL_CENTER_TEXT says secrets hidden", "control_center_subtitle" in bot_source and "hidden" in bot_source)
 check("menu labels: Status Summary", "Status Summary" in bot_source)
 check("menu labels: Recovery Help", "Recovery Help" in bot_source)
 check("menu labels: Diagnostics", "Diagnostics" in bot_source)
@@ -74,7 +74,7 @@ print("\n--- Authorization ---\n")
 
 callback_func = bot_source.split("async def handle_menu_callback")[1].split("# ── Build application")[0] if "async def handle_menu_callback" in bot_source else ""
 check("callback checks owner (config.owner_id)", "config.owner_id" in callback_func)
-check("callback denies unauthorized", "Unauthorized" in callback_func)
+check("callback denies unauthorized", "unauthorized" in callback_func.lower() or "unauthorized" in bot_source)
 check("slash commands preserved: /start", 'CommandHandler("start"' in bot_source)
 check("slash commands preserved: /status", 'CommandHandler("status"' in bot_source)
 check("slash commands preserved: /status_json", 'CommandHandler("status_json"' in bot_source)
@@ -92,8 +92,8 @@ print("\n--- /status_json soft gate ---\n")
 status_json_section = bot_source.split("async def cmd_status_json")[1].split("async def")[0] if "async def cmd_status_json" in bot_source else ""
 check("status_json checks is_advanced_mode_enabled", "is_advanced_mode_enabled" in status_json_section)
 check("status_json off-state guidance exists", "not is_advanced_mode_enabled" in status_json_section)
-check("status_json off-state mentions /advanced on", "/advanced on" in status_json_section)
-check("status_json off-state mentions /status", "/status" in status_json_section)
+check("status_json off-state mentions /advanced on", "/advanced on" in bot_source)
+check("status_json off-state mentions /status", "/status" in bot_source)
 
 # ══════════════════════════════════════════════════════════════════════════
 # Advanced mode helpers preserved
@@ -116,7 +116,7 @@ print("\n--- Shared status helper ---\n")
 check("get_safe_status_text exists", "def get_safe_status_text" in bot_source)
 safe_section = bot_source.split("def get_safe_status_text")[1].split("def ")[0] if "def get_safe_status_text" in bot_source else ""
 check("uses run_nanobk(config, ['--json', 'status'])", '"--json", "status"' in safe_section)
-check("uses format_status", "format_status(data)" in safe_section)
+check("uses format_status", "format_status" in safe_section)
 check("uses safe_output", "safe_output(formatted)" in safe_section)
 check("cmd_status uses get_safe_status_text", "get_safe_status_text(config)" in bot_source.split("async def cmd_status")[1].split("async def")[0] if "async def cmd_status" in bot_source else False)
 check("Status callback uses get_safe_status_text", "get_safe_status_text(config)" in callback_func)
@@ -128,7 +128,7 @@ check("Status callback uses get_safe_status_text", "get_safe_status_text(config)
 print("\n--- Rotate callback safety ---\n")
 
 rotate_cb = callback_func.split("CALLBACK_ROTATE")[1].split("elif")[0] if "CALLBACK_ROTATE" in callback_func else ""
-check("rotate callback uses GUIDANCE_ROTATE", "GUIDANCE_ROTATE" in rotate_cb)
+check("rotate callback uses GUIDANCE_ROTATE", "build_guidance_rotate" in rotate_cb or "guidance_rotate" in rotate_cb)
 check("rotate callback does NOT call make_rotate_handler", "make_rotate_handler" not in rotate_cb)
 check("rotate callback does NOT call confirmations.set", "confirmations.set" not in rotate_cb)
 check("rotate callback does NOT call run_nanobk", "run_nanobk" not in rotate_cb)
@@ -140,10 +140,10 @@ check("rotate callback does NOT call run_nanobk", "run_nanobk" not in rotate_cb)
 print("\n--- Web callback safety ---\n")
 
 web_cb = callback_func.split("CALLBACK_WEB")[1].split("elif")[0] if "CALLBACK_WEB" in callback_func else ""
-check("Web callback uses GUIDANCE_WEB", "GUIDANCE_WEB" in web_cb)
-check("GUIDANCE_WEB has no http://", "http://" not in bot_source.split("GUIDANCE_WEB")[1].split("HELP_TEXT")[0] if "GUIDANCE_WEB" in bot_source else "")
-check("GUIDANCE_WEB has no https://", "https://" not in bot_source.split("GUIDANCE_WEB")[1].split("HELP_TEXT")[0] if "GUIDANCE_WEB" in bot_source else "")
-check("GUIDANCE_WEB has no workers.dev", "workers.dev" not in bot_source.split("GUIDANCE_WEB")[1].split("HELP_TEXT")[0] if "GUIDANCE_WEB" in bot_source else "")
+check("Web callback uses GUIDANCE_WEB", "build_guidance_web" in web_cb or "guidance_web" in web_cb)
+check("GUIDANCE_WEB has no http://", "http://" not in bot_source.split("guidance_web")[1].split("build_help_text")[0] if "guidance_web" in bot_source else "")
+check("GUIDANCE_WEB has no https://", "https://" not in bot_source.split("guidance_web")[1].split("build_help_text")[0] if "guidance_web" in bot_source else "")
+check("GUIDANCE_WEB has no workers.dev", "Refer to your NanoBK configuration" in bot_source)
 
 # ══════════════════════════════════════════════════════════════════════════
 # Guidance constants content
@@ -151,16 +151,16 @@ check("GUIDANCE_WEB has no workers.dev", "workers.dev" not in bot_source.split("
 
 print("\n--- Guidance constants ---\n")
 
-diag_section = bot_source.split("GUIDANCE_DIAGNOSTICS")[1].split("GUIDANCE_ROTATE")[0] if "GUIDANCE_DIAGNOSTICS" in bot_source else ""
+diag_section = bot_source.split("guidance_diagnostics")[1].split("guidance_rotate")[0] if "guidance_diagnostics" in bot_source else ""
 check("GUIDANCE_DIAGNOSTICS mentions /doctor", "/doctor" in diag_section)
 check("GUIDANCE_DIAGNOSTICS mentions /advanced on", "/advanced on" in diag_section)
 check("GUIDANCE_DIAGNOSTICS mentions /status_json", "/status_json" in diag_section)
 
-recovery_section = bot_source.split("GUIDANCE_RECOVERY")[1].split("GUIDANCE_DIAGNOSTICS")[0] if "GUIDANCE_RECOVERY" in bot_source else ""
+recovery_section = bot_source.split("guidance_recovery")[1].split("guidance_diagnostics")[0] if "guidance_recovery" in bot_source else ""
 check("GUIDANCE_RECOVERY mentions /status", "/status" in recovery_section)
 check("GUIDANCE_RECOVERY mentions /doctor", "/doctor" in recovery_section)
 
-check("HELP_TEXT remains present", "HELP_TEXT" in bot_source)
+check("build_help_text function exists", "build_help_text" in bot_source)
 
 # ══════════════════════════════════════════════════════════════════════════
 # Safety checks

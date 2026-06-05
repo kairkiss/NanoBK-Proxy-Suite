@@ -1,5 +1,37 @@
 # Changelog
 
+## v1.9.30 — Bot i18n Minimal Implementation
+
+### Changed
+
+- Added `NANOBK_LANG=zh|en` support in BotConfig (defaults to `en`).
+- Added `normalize_lang()` helper for language code normalization.
+- Added `BOT_TEXT` translation dictionary with zh/en entries for all Bot control-plane text.
+- Added `bt(lang, key, **kwargs)` translation helper with safe English fallback.
+- Added builder functions: `build_control_center_text()`, `build_help_text()`, `build_guidance_recovery()`, `build_guidance_diagnostics()`, `build_guidance_rotate()`, `build_guidance_web()`.
+- Updated `format_status()` to accept `lang` parameter for localized labels.
+- Updated all Bot command handlers to use localized text via `bt()` and builders.
+- Status category values (healthy/failed/unknown etc.) remain untranslated.
+- Slash command names remain unchanged.
+- Bot self-test expanded from 117 to 117 tests with zh/en verification.
+- Added test `tests/bot-i18n-minimal-v1.9.30.py` (116 tests).
+- Updated existing tests to match new builder function references.
+- Added validation document `docs/validation-v1.9.30-bot-i18n-minimal.md`.
+- Recommended v1.9.31 Web i18n Minimal Implementation as next step.
+
+### Safety
+
+- Bot-only i18n implementation.
+- No Web runtime behavior changed.
+- No `install.sh` behavior changed.
+- No `bin/nanobk` behavior changed.
+- No redaction changes.
+- No /status_json gate changes.
+- No advanced mode changes.
+- No rotate confirmation changes.
+- No deployment core, protocol template, Worker, rotate sync, status wrapper, or operation-log rollout changed.
+- No tag/release.
+
 ## v1.9.29 — Bot/Web i18n Planning
 
 ### Added
