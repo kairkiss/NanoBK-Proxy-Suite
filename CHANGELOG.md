@@ -1,5 +1,29 @@
 # Changelog
 
+## v1.9.1 — Bot/Web Current-State Safety Audit
+
+### Added
+
+- Added Bot/Web current-state safety audit document.
+- Audited Bot command structure, CLI calls, confirmation flows, and redaction coverage.
+- Audited Web route structure, API endpoints, CSRF/auth, and redaction coverage.
+- Confirmed Bot/Web have no direct-write paths to configs/systemd/secrets/env.
+- Confirmed all CLI calls use list-form subprocess with `shell=False`.
+- Identified address-class redaction gap (IP/domain/URL/workers.dev/subscription path).
+- Identified `/status_json` and Raw JSON exposure as medium risk.
+- Confirmed rotate confirmation flow is complete (two-step + expiry + CSRF).
+- Confirmed `bot-cli-mock.sh` and `web-panel-mock.sh` both pass.
+- Recommended v1.9.2 Bot UX/Menu Spec can proceed.
+
+### Safety
+
+- Documentation/audit only.
+- No `install.sh` behavior changed.
+- No `bin/nanobk` behavior changed.
+- No Bot/Web code changed.
+- No deployment core, protocol template, Worker, rotate sync, status wrapper, or operation-log rollout changed.
+- No tag/release.
+
 ## v1.9.0-planning — Bot/Web Control Plane Productization Scope Proposal
 
 ### Added
