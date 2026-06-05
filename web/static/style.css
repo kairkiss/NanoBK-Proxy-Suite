@@ -172,3 +172,15 @@ details { margin-top: 12px; }
 details summary { cursor: pointer; color: #58a6ff; }
 
 .muted { color: #8b949e; font-size: 13px; font-style: italic; }
+
+.warning-box {
+  background: #2d1f00;
+  border: 1px solid #d29922;
+  border-radius: 6px;
+  padding: 12px;
+  margin-top: 16px;
+  margin-bottom: 4px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #e0e0e0;
+}

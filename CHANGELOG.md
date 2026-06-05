@@ -1,5 +1,29 @@
 # Changelog
 
+## v1.9.14 — Web Raw JSON Warning Copy Minimal Implementation
+
+### Changed
+
+- Added safety warning copy before Raw JSON `<details>` block on Web Status page.
+- Warning text: "Advanced diagnostics — Raw JSON is redacted and intended for troubleshooting only. It is not the normal status view and should not be shared as subscription information. Use the status cards above for the normal safe summary."
+- Added `.warning-box` CSS class for warning styling.
+- Raw JSON details remain visible (not hidden), collapsed by default.
+- Raw JSON values remain redacted through existing shared redaction helper.
+- `/api/status` unchanged.
+- Added test `tests/web-raw-json-warning-v1.9.14.py` (33 tests).
+- Added validation document `docs/validation-v1.9.14-web-raw-json-warning.md`.
+- Recommended v1.9.15 Advanced Diagnostics Mode Planning as next step.
+
+### Safety
+
+- Web-only warning copy change.
+- No Bot runtime behavior changed.
+- No `install.sh` behavior changed.
+- No `bin/nanobk` behavior changed.
+- Raw JSON details still visible (not hidden).
+- No deployment core, protocol template, Worker, rotate sync, status wrapper, or operation-log rollout changed.
+- No tag/release.
+
 ## v1.9.13 — Bot /status_json Warning and Help Classification
 
 ### Changed
