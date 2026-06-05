@@ -1,5 +1,31 @@
 # Changelog
 
+## v1.9.29 — Bot/Web i18n Planning
+
+### Added
+
+- Added Bot/Web zh/en i18n planning document.
+- Defined language source strategy: explicit NANOBK_LANG=zh|en env variable.
+- Defined Bot i18n design: central translation dictionary, safe fallback to English, command names unchanged.
+- Defined Web i18n design: template translation helper, zh/en Dashboard/Status/Raw JSON warning/advanced controls.
+- Recommended shared lib/nanobk_i18n.py if import path is simple; otherwise separate dictionaries.
+- Defined safety requirements: i18n must not change redaction, no raw secrets in translations.
+- Provided Bot and Web text inventory tables for future implementation.
+- Defined staged implementation route: v1.9.30 Bot i18n, v1.9.31 Web i18n, v1.9.32 i18n checkpoint.
+- Defined testing strategy for future implementation.
+- Applied typo fix in v1.9.28 validation doc: v1.9.18 → v1.9.28.
+- Readiness decision: READY FOR BOT I18N MINIMAL IMPLEMENTATION AFTER CHATGPT REVIEW.
+
+### Safety
+
+- Planning/documentation only + typo fix.
+- No Bot runtime behavior changed.
+- No Web runtime behavior changed.
+- No `install.sh` behavior changed.
+- No `bin/nanobk` behavior changed.
+- No deployment core, protocol template, Worker, rotate sync, status wrapper, or operation-log rollout changed.
+- No tag/release.
+
 ## v1.9.28 — Real Bot/Web Smoke Test Validation
 
 ### Added
