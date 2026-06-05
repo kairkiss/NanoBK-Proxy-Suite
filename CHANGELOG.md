@@ -1,5 +1,31 @@
 # Changelog
 
+## v1.9.41 — Doctor Summary Real Status Field Compatibility Fix Planning
+
+### Added
+
+- Added Doctor Summary field compatibility fix planning document.
+- Audited Bot and Web Doctor Summary builder profile/config inference logic.
+- Identified root cause: real `nanobk --json status` uses `profile.exists` (boolean) and `security.secretsExists` (boolean), but builders only check `profile.currentPath`/`profile.domain`.
+- Defined safe compatibility mapping: `profile.exists == true` → present, `configDir` non-empty or `security.secretsExists == true` → config present.
+- Defined honesty rules: unknown stays unknown without evidence, missing beats inferred present, no raw paths displayed.
+- Defined fixture/test plan for v1.9.42: 6 new realistic status fixtures, 7 test cases.
+- Recommended v1.9.42 Doctor Summary Field Compatibility Fixture Tests as next step.
+- Readiness decision: READY FOR FIELD COMPATIBILITY FIXTURE TESTS.
+
+### Safety
+
+- Planning/documentation only.
+- No Bot runtime behavior changed.
+- No Web runtime behavior changed.
+- No CLI behavior changed.
+- No `install.sh` behavior changed.
+- No `bin/nanobk` behavior changed.
+- No real status executed.
+- No real doctor executed.
+- No deployment core, protocol template, Worker, rotate sync, status wrapper, or operation-log rollout changed.
+- No tag/release.
+
 ## v1.9.40 — Real Doctor Smoke Retest Validation
 
 ### Added
