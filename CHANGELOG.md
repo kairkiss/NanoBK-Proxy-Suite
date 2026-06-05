@@ -1,5 +1,24 @@
 # Changelog
 
+## v1.9.0-planning — Bot/Web Control Plane Productization Scope Proposal
+
+### Added
+
+- Added v1.9.0 Bot/Web control-plane productization scope proposal.
+- Defined Bot/Web as safe productized control planes that call `nanobk` CLI only.
+- Documented Bot and Web current-state audit findings from repo inspection.
+- Proposed safe status categories, confirmation levels, command allowlist principles, redaction policy, and tiered testing strategy.
+- Proposed a small-step v1.9 roadmap before any implementation.
+
+### Safety
+
+- Planning/documentation only.
+- No `install.sh` behavior changed.
+- No `bin/nanobk` behavior changed.
+- No Bot/Web code changed.
+- No deployment core, protocol template, Worker, rotate sync, status wrapper, or operation-log rollout changed.
+- No tag/release recommendation.
+
 ## v1.8.45 — v1.8 Closeout Decision
 
 ### Added
