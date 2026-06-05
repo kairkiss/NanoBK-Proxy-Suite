@@ -1,5 +1,28 @@
 # Changelog
 
+## v1.9.28 — Real Bot/Web Smoke Test Validation
+
+### Added
+
+- Added real Bot/Web smoke test validation document.
+- Recorded user-run v1.9.27 limited real Bot/Web smoke test result: PASS WITH POLISH.
+- Web control plane passed: login, Dashboard, Status, API, Doctor, Rotate dry-run, safe cards, Raw JSON gating, advanced mode.
+- Bot control plane passed: /start, /help, /status, /status_json OFF/ON, /advanced on/off, /doctor, all buttons.
+- Security result: no observed leakage of raw IPv4/IPv6/domain/workers.dev/subscription URL/token/private key/env content.
+- Documented issue matrix: CLI version display, Bot/Web systemd, i18n, /doctor output, fingerprint redaction policy.
+- Documented token exposure follow-up: exposed token must be revoked/regenerated.
+- Recommended v1.9.29 Bot/Web i18n Planning as next step.
+
+### Safety
+
+- Documentation only.
+- No Bot runtime behavior changed.
+- No Web runtime behavior changed.
+- No `install.sh` behavior changed.
+- No `bin/nanobk` behavior changed.
+- No deployment core, protocol template, Worker, rotate sync, status wrapper, or operation-log rollout changed.
+- No tag/release.
+
 ## v1.9.27 — Limited Real Bot/Web Smoke Test Plan
 
 ### Added
