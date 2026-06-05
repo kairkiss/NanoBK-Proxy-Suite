@@ -1,5 +1,32 @@
 # Changelog
 
+## v1.9.15 — Advanced Diagnostics Mode Planning
+
+### Added
+
+- Added Advanced Diagnostics Mode planning document.
+- Defined what advanced diagnostics mode is (temporary redacted debugging) and is not (secret viewer/deployment mode).
+- Defined user/permission model: L1 Beginner, L2 Advanced diagnostics, L3 Owner.
+- Compared Bot advanced mode options; recommended `/advanced on/off` with in-memory state and auto-expiration.
+- Compared Web advanced mode options; recommended session-level toggle with warning confirmation.
+- Defined expiration/persistence policy: Bot in-memory 10-15 min, Web session-only.
+- Provided Chinese/English warning copy for Bot and Web advanced mode enablement.
+- Defined advanced mode visibility rules (what it may and may not reveal).
+- Defined interaction with existing commands/pages.
+- Defined testing strategy for future implementation.
+- Recommended v1.9.16 Bot Advanced Mode Minimal Implementation as next step.
+- Readiness decision: READY FOR BOT ADVANCED MODE MINIMAL IMPLEMENTATION (narrow scope).
+
+### Safety
+
+- Planning/documentation only.
+- No Bot runtime behavior changed.
+- No Web runtime behavior changed.
+- No `install.sh` behavior changed.
+- No `bin/nanobk` behavior changed.
+- No deployment core, protocol template, Worker, rotate sync, status wrapper, or operation-log rollout changed.
+- No tag/release.
+
 ## v1.9.14 — Web Raw JSON Warning Copy Minimal Implementation
 
 ### Changed
