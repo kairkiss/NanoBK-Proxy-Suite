@@ -1,5 +1,29 @@
 # Changelog
 
+## v1.9.27 — Limited Real Bot/Web Smoke Test Plan
+
+### Added
+
+- Added limited real Bot/Web smoke test planning document.
+- Defined safe smoke test scope: control-plane only, no redeploy, no Cloudflare mutation, no rotate execution.
+- Provided user-facing absolute safety rules (no secret sharing, no raw IP/domain/token/URL pasting).
+- Provided 20-step Bot smoke test checklist with expected safe results.
+- Provided 16-step Web smoke test checklist with expected safe results.
+- Defined redaction observation rules for safe reporting.
+- Defined failure handling: stop on secret exposure, report redacted PASS/FAIL only.
+- Provided copyable redacted test report template.
+- Readiness decision: READY FOR USER-RUN LIMITED REAL BOT/WEB SMOKE TEST AFTER CHATGPT REVIEW.
+
+### Safety
+
+- Planning/documentation only.
+- No Bot runtime behavior changed.
+- No Web runtime behavior changed.
+- No `install.sh` behavior changed.
+- No `bin/nanobk` behavior changed.
+- No deployment core, protocol template, Worker, rotate sync, status wrapper, or operation-log rollout changed.
+- No tag/release.
+
 ## v1.9.26 — Bot Control Center Checkpoint
 
 ### Added
