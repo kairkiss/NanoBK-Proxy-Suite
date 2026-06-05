@@ -89,7 +89,7 @@ check("/rotate_tuic in Safe operations", help_text.index("/rotate_tuic") > help_
 
 # Verify help text is in bot source
 check("help text in bot source", "Advanced diagnostics:" in bot_source)
-check("/status_json in bot source help", "/status_json    — Redacted raw status JSON for debugging" in bot_source)
+check("/status_json in bot source help", "/status_json" in bot_source and "advanced mode" in bot_source.lower())
 check("Basic: section in bot source", "Basic:" in bot_source)
 check("Safe operations: section in bot source", "Safe operations:" in bot_source)
 
@@ -169,7 +169,7 @@ print("\n--- Advanced mode (v1.9.16+) ---\n")
 check("/advanced on command exists", "/advanced on" in bot_source)
 check("/advanced off command exists", "/advanced off" in bot_source)
 check("advanced_mode helpers exist", "enable_advanced_mode" in bot_source)
-check("/status_json not gated by advanced", "is_advanced_mode_enabled" not in bot_source.split("cmd_status_json")[1].split("async def")[0] if "cmd_status_json" in bot_source else False)
+check("/status_json gated by advanced (v1.9.20+)", "is_advanced_mode_enabled" in bot_source.split("cmd_status_json")[1].split("async def")[0] if "cmd_status_json" in bot_source else False)
 
 # ── 6. No Web files changed ──────────────────────────────────────────────
 

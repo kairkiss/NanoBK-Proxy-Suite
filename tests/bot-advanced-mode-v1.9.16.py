@@ -140,7 +140,7 @@ print("\n--- /status_json boundary ---\n")
 
 check("/status_json still registered", 'CommandHandler("status_json"' in bot_source)
 check("cmd_status_json still exists", "async def cmd_status_json" in bot_source)
-check("/status_json not gated by advanced", "is_advanced_mode_enabled" not in bot_source.split("cmd_status_json")[1].split("async def")[0] if "cmd_status_json" in bot_source else False)
+check("/status_json gated by advanced (v1.9.20+)", "is_advanced_mode_enabled" in bot_source.split("cmd_status_json")[1].split("async def")[0] if "cmd_status_json" in bot_source else False)
 check("/status_json warning still present", "Advanced diagnostics" in bot_source.split("cmd_status_json")[1].split("async def")[0] if "cmd_status_json" in bot_source else False)
 
 # ── 6. No Web changes ────────────────────────────────────────────────────

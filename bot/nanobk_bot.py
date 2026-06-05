@@ -483,7 +483,7 @@ def run_self_test() -> bool:
         "/rotate_trojan  — Rotate Trojan password with confirmation\n"
         "\n"
         "Advanced diagnostics:\n"
-        "/status_json    — Redacted raw status JSON for debugging\n"
+        "/status_json    — Redacted raw status JSON (requires advanced mode)\n"
         "/advanced on    — Enable advanced diagnostics mode\n"
         "/advanced off   — Disable advanced diagnostics mode\n"
         "/advanced status — Show advanced mode status\n"
@@ -499,7 +499,7 @@ def run_self_test() -> bool:
     check("help includes rotate commands", "/rotate_tuic" in help_text)
     check("help /status_json not in Basic", help_text.index("/status_json") > help_text.index("Advanced diagnostics:"))
 
-    # 9b. /status_json warning text
+    # 9b. /status_json warning text (when advanced mode is ON)
     status_json_warning = (
         "⚠️ Advanced diagnostics\n"
         "This output is redacted, but it may still reveal system structure.\n"
@@ -511,6 +511,24 @@ def run_self_test() -> bool:
     check("status_json warning says redacted", "redacted" in status_json_warning)
     check("status_json warning says do not forward", "Do not forward" in status_json_warning)
     check("status_json warning recommends /status", "/status" in status_json_warning)
+
+    # 9b2. /status_json soft gate copy (when advanced mode is OFF)
+    status_json_gate_copy = (
+        "Advanced diagnostics mode is not enabled.\n"
+        "\n"
+        "/status_json is for troubleshooting and shows redacted Raw JSON.\n"
+        "Use /status for the normal safe summary first.\n"
+        "\n"
+        "To continue, run /advanced on.\n"
+        "Advanced mode expires automatically after 15 minutes.\n"
+        "\n"
+        "Even in advanced mode, secrets, raw addresses, and subscription URLs must remain hidden."
+    )
+    check("gate copy mentions advanced mode required", "not enabled" in status_json_gate_copy)
+    check("gate copy mentions /advanced on", "/advanced on" in status_json_gate_copy)
+    check("gate copy mentions /status", "/status" in status_json_gate_copy)
+    check("gate copy mentions 15 minutes", "15 minutes" in status_json_gate_copy)
+    check("gate copy says secrets remain hidden", "secrets" in status_json_gate_copy and "remain hidden" in status_json_gate_copy)
 
     # 9c. Advanced mode helpers
     # Disabled by default
@@ -653,7 +671,7 @@ def create_bot_app(config: BotConfig):
             "/rotate_trojan  — Rotate Trojan password with confirmation\n"
             "\n"
             "Advanced diagnostics:\n"
-            "/status_json    — Redacted raw status JSON for debugging\n"
+            "/status_json    — Redacted raw status JSON (requires advanced mode)\n"
             "/advanced on    — Enable advanced diagnostics mode\n"
             "/advanced off   — Disable advanced diagnostics mode\n"
             "/advanced status — Show advanced mode status\n"
@@ -685,6 +703,23 @@ def create_bot_app(config: BotConfig):
     async def cmd_status_json(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not is_owner(update):
             return await unauthorized(update, context)
+
+        user_id = update.effective_user.id
+
+        # Soft gate: require advanced mode
+        if not is_advanced_mode_enabled(user_id):
+            await update.message.reply_text(
+                "Advanced diagnostics mode is not enabled.\n"
+                "\n"
+                "/status_json is for troubleshooting and shows redacted Raw JSON.\n"
+                "Use /status for the normal safe summary first.\n"
+                "\n"
+                "To continue, run /advanced on.\n"
+                "Advanced mode expires automatically after 15 minutes.\n"
+                "\n"
+                "Even in advanced mode, secrets, raw addresses, and subscription URLs must remain hidden."
+            )
+            return
 
         result = run_nanobk(config, ["--json", "status"])
         if result.code != 0:

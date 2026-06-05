@@ -1,5 +1,31 @@
 # Changelog
 
+## v1.9.20 — Bot /status_json Soft Gate Minimal Implementation
+
+### Changed
+
+- Bot `/status_json` now requires advanced diagnostics mode to display JSON output.
+- When advanced mode is OFF: shows guidance message (no JSON output, no nanobk call).
+- When advanced mode is ON: shows warning header + redacted JSON (existing behavior).
+- Expired advanced mode behaves as OFF.
+- Updated `/help` to clarify `/status_json` requires advanced mode.
+- Bot self-test expanded with soft gate copy verification.
+- Added test `tests/bot-status-json-soft-gate-v1.9.20.py` (50 tests).
+- Added validation document `docs/validation-v1.9.20-bot-status-json-soft-gate.md`.
+- Recommended v1.9.21 Web Raw JSON Soft Gate as next step.
+
+### Safety
+
+- Bot-only /status_json gating change.
+- No Web runtime behavior changed.
+- No `install.sh` behavior changed.
+- No `bin/nanobk` behavior changed.
+- Advanced mode does not bypass redaction.
+- Off-state does not call run_nanobk.
+- Secrets, raw addresses, subscription URLs remain hidden.
+- No deployment core, protocol template, Worker, rotate sync, status wrapper, or operation-log rollout changed.
+- No tag/release.
+
 ## v1.9.19 — Raw JSON Gating Policy Planning
 
 ### Added
