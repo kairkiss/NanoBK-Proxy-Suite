@@ -1,5 +1,30 @@
 # Changelog
 
+## v1.9.38 — Doctor Output Checkpoint
+
+### Added
+
+- Added Doctor Output checkpoint validation document.
+- Added Bot/Web Doctor Output consistency test (208 checks).
+- Verified Bot and Web Doctor Summary implementations are consistent in contract schema, summary values, display policy flags, advanced mode gating, and safety boundaries.
+- Verified neither implementation weakens redaction, Raw JSON gating, advanced mode, rotate safety, or /api/status compatibility.
+- Verified v1.9.36 Bot and v1.9.37 Web both use `--json status` for summary and gate full diagnostics behind advanced mode.
+- Readiness decision: READY FOR LIMITED REAL BOT/WEB DOCTOR SMOKE RETEST PLANNING.
+- Recommended v1.9.39 Limited Real Bot/Web Doctor Smoke Retest Plan as next step.
+
+### Safety
+
+- Checkpoint/validation only.
+- No Bot runtime behavior changed.
+- No Web runtime behavior changed.
+- No CLI behavior changed.
+- No `install.sh` behavior changed.
+- No `bin/nanobk` behavior changed.
+- No `installer/doctor.sh` behavior changed.
+- No real doctor executed.
+- No deployment core, protocol template, Worker, rotate sync, status wrapper, or operation-log rollout changed.
+- No tag/release.
+
 ## v1.9.37 — Web Doctor Summary Minimal Implementation
 
 ### Changed
