@@ -88,7 +88,7 @@ check("Bot: ADVANCED_MODE_TTL_SECONDS is 900", "ADVANCED_MODE_TTL_SECONDS = 15 *
 print("\n--- Web: Raw JSON gating ---\n")
 
 # Template checks
-check("Web: Raw JSON section still exists/discoverable", "Raw JSON" in status_template)
+check("Web: Raw JSON section still exists/discoverable", "raw_json_details_label" in status_template)
 check("Web: template branches on advanced_mode_enabled", "advanced_mode_enabled" in status_template)
 
 # OFF branch: find the locked-panel section (the else block that contains locked-panel)
@@ -122,9 +122,9 @@ check("Web: /api/status uses redact_json", "redact_json(data)" in api_section)
 check("Web: /api/status not gated by advanced", "is_advanced_mode_enabled" not in api_section)
 
 # Status cards unchanged
-check("Web: Overall Status card exists", "Overall Status" in status_template)
+check("Web: Overall Status card exists", "status_overall" in status_template)
 check("Web: status.cards.overall rendered", "status.cards.overall" in status_template)
-check("Web: Sensitive addresses hidden note", "Sensitive addresses are hidden" in status_template)
+check("Web: Sensitive addresses hidden note", "status_footer" in status_template)
 
 # Login/session/CSRF/rotate
 check("Web: login route exists", '"/login"' in web_source)

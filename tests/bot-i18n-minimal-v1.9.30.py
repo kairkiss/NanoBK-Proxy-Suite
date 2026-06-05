@@ -238,7 +238,7 @@ with open(web_path) as f:
 check("web /api/status still exists", '"/api/status"' in web_source)
 check("web login route still exists", '"/login"' in web_source)
 check("web validate_csrf still exists", "def validate_csrf" in web_source)
-check("web no NANOBK_LANG changes", "NANOBK_LANG" not in web_source)
+check("web has NANOBK_LANG support", "NANOBK_LANG" in web_source)
 
 # ── Summary ───────────────────────────────────────────────────────────────
 

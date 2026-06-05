@@ -194,7 +194,7 @@ check("Web: no URL query bypass", "request.args" not in web_source.split("advanc
 print("\n--- Web: Raw JSON / API boundary ---\n")
 
 check("Web: Raw JSON details in template", "<details>" in status_template)
-check("Web: Raw JSON summary in template", "Raw JSON" in status_template)
+check("Web: Raw JSON summary in template", "raw_json_details_label" in status_template)
 check("Web: raw_json rendered", "status.raw_json" in status_template)
 check("Web: Raw JSON not gated by advanced", "advanced_mode" not in status_template.split("<details>")[1].split("</details>")[0] if "<details>" in status_template else False)
 check("Web: /api/status route exists", '"/api/status"' in web_source)
@@ -210,7 +210,7 @@ check("TTL: Bot == Web", bot.ADVANCED_MODE_TTL_SECONDS == web.ADVANCED_MODE_TTL_
 check("Both have enable/disable/status semantics", all(hasattr(bot, f) for f in ["enable_advanced_mode", "disable_advanced_mode", "is_advanced_mode_enabled"]) and all(hasattr(web, f) for f in ["enable_advanced_mode", "disable_advanced_mode", "is_advanced_mode_enabled"]))
 check("Both do not change redaction", "from lib.nanobk_redaction import" in bot_source and "from lib.nanobk_redaction import" in web_source)
 check("Bot gates /status_json with advanced mode (v1.9.20+)", "is_advanced_mode_enabled" in bot_source.split("cmd_status_json")[1].split("async def")[0] if "cmd_status_json" in bot_source else False)
-check("Both have warning copy", "redacted" in bot_source and "redacted" in status_template)
+check("Both have warning copy", "redacted" in bot_source and "raw_json_warning_text" in status_template)
 check("Both have no shell=True", "shell=True" not in bot_source and "shell=True" not in web_source)
 check("Both do not reference env files for advanced state", ".env" not in bot_source.split("_ADVANCED_MODE_EXPIRES_AT")[1].split("class ")[0] if "_ADVANCED_MODE_EXPIRES_AT" in bot_source else True)
 check("Both do not persist advanced state to files", "open(" not in bot_source.split("_ADVANCED_MODE_EXPIRES_AT")[1].split("class ")[0] if "_ADVANCED_MODE_EXPIRES_AT" in bot_source else True)

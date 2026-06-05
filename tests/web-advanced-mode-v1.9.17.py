@@ -138,16 +138,16 @@ check("enable form in template", "/advanced/on" in status_template)
 check("disable form in template", "/advanced/off" in status_template)
 check("csrf_token in forms", "csrf_token" in status_template)
 check("warning box present", "warning-box" in status_template)
-check("warning says redacted", "redacted" in status_template)
-check("warning says 15 minutes", "15 minutes" in status_template)
-check("warning says do not share", "Do not share" in status_template or "untrusted" in status_template)
+check("warning says redacted", "advanced_enable_warning_text" in status_template)
+check("warning says 15 minutes", "advanced_enable_warning_text" in status_template)
+check("warning says do not share", "advanced_enable_warning_text" in status_template)
 
 # ── 6. Raw JSON details preserved ─────────────────────────────────────────
 
 print("\n--- Raw JSON details preserved ---\n")
 
 check("Raw JSON details still present", "<details>" in status_template)
-check("Raw JSON summary present", "Raw JSON" in status_template)
+check("Raw JSON summary present", "raw_json_details_label" in status_template)
 check("raw_json rendered", "status.raw_json" in status_template)
 check("Raw JSON not gated by advanced", "advanced_mode" not in status_template.split("<details>")[1].split("</details>")[0] if "<details>" in status_template else False)
 

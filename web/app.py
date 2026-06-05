@@ -35,6 +35,8 @@ from lib.nanobk_redaction import (
     redact_json_obj as _shared_redact_json_obj,
 )
 
+from web.i18n import normalize_lang, wt
+
 try:
     from dotenv import load_dotenv
 except ImportError:
@@ -53,6 +55,7 @@ class WebConfig:
     rotate_timeout: int = 300
     dry_run: bool = True
     secret_key: str = ""
+    lang: str = "en"
 
     @classmethod
     def from_env(cls) -> WebConfig:
@@ -71,6 +74,7 @@ class WebConfig:
             rotate_timeout=int(os.environ.get("NANOBK_ROTATE_TIMEOUT", "300")),
             dry_run=os.environ.get("NANOBK_WEB_DRY_RUN", "true").lower() == "true",
             secret_key=os.environ.get("NANOBK_WEB_SECRET_KEY", ""),
+            lang=normalize_lang(os.environ.get("NANOBK_LANG")),
         )
 
     def validate(self) -> list[str]:
@@ -609,6 +613,21 @@ def run_self_test() -> bool:
     check("is_advanced_mode_enabled is callable", callable(is_advanced_mode_enabled))
     check("advanced_mode_remaining_seconds is callable", callable(advanced_mode_remaining_seconds))
 
+    # 26. i18n support
+    check("normalize_lang exists", callable(normalize_lang))
+    check("normalize_lang(None) == en", normalize_lang(None) == "en")
+    check("normalize_lang('') == en", normalize_lang("") == "en")
+    check("normalize_lang('zh') == zh", normalize_lang("zh") == "zh")
+    check("normalize_lang('zh-cn') == zh", normalize_lang("zh-cn") == "zh")
+    check("normalize_lang('invalid') == en", normalize_lang("invalid") == "en")
+    check("wt() exists", callable(wt))
+    check("wt en login title", "NanoBK Web Panel" in wt("en", "login_title"))
+    check("wt zh login title", "NanoBK Web 面板" in wt("zh", "login_title"))
+    check("wt fallback for missing key", wt("en", "nonexistent_xyz") == "nonexistent_xyz")
+    check("wt fallback for missing lang", "NanoBK" in wt("invalid_lang", "login_title"))
+    check("WebConfig has lang field", hasattr(config, "lang"))
+    check("WebConfig default lang is en", config.lang == "en")
+
     print(f"\n=== {passed} passed, {failed} failed ===")
     return failed == 0
 
@@ -639,6 +658,14 @@ def create_app(config: WebConfig):
     def inject_csrf_token():
         return {"csrf_token": get_csrf_token()}
 
+    @app.context_processor
+    def inject_i18n():
+        lang = config.lang
+        return {
+            "t": lambda key, **kwargs: wt(lang, key, **kwargs),
+            "lang": lang,
+        }
+
     def is_logged_in() -> bool:
         return session.get("authenticated") is True
 
@@ -667,7 +694,7 @@ def create_app(config: WebConfig):
                 session["authenticated"] = True
                 session["csrf_token"] = secrets.token_urlsafe(32)
                 return redirect(url_for("dashboard"))
-            error = "Invalid token."
+            error = wt(config.lang, "login_error_invalid")
 
         return render_template("login.html", error=error)
 
@@ -675,7 +702,7 @@ def create_app(config: WebConfig):
     @require_login
     def logout():
         if not validate_csrf():
-            abort(403, "CSRF validation failed.")
+            abort(403, wt(config.lang, "csrf_error"))
         session.clear()
         return redirect(url_for("login"))
 
@@ -742,7 +769,7 @@ def create_app(config: WebConfig):
         output = None
         if request.method == "POST":
             if not validate_csrf():
-                abort(403, "CSRF validation failed.")
+                abort(403, wt(config.lang, "csrf_error"))
             result = run_nanobk(config, ["doctor"], timeout=config.command_timeout)
             output = safe_output(result.stdout or result.stderr)
             if result.code != 0:
@@ -765,12 +792,12 @@ def create_app(config: WebConfig):
     @require_login
     def rotate_request():
         if not validate_csrf():
-            abort(403, "CSRF validation failed.")
+            abort(403, wt(config.lang, "csrf_error"))
 
         protocol = request.form.get("protocol", "")
         if not validate_protocol(protocol):
             return render_template("rotate.html",
-                                   error=f"Invalid protocol: {protocol}",
+                                   error=wt(config.lang, "rotate_invalid_protocol", protocol=protocol),
                                    pending=None,
                                    dry_run=config.dry_run,
                                    protocols=sorted(VALID_PROTOCOLS))
@@ -787,12 +814,12 @@ def create_app(config: WebConfig):
     @require_login
     def rotate_confirm():
         if not validate_csrf():
-            abort(403, "CSRF validation failed.")
+            abort(403, wt(config.lang, "csrf_error"))
 
         pending = get_pending_rotate(session)
         if pending is None:
             return render_template("rotate.html",
-                                   error="No pending confirmation (may have expired).",
+                                   error=wt(config.lang, "rotate_expired_error"),
                                    pending=None,
                                    dry_run=config.dry_run,
                                    protocols=sorted(VALID_PROTOCOLS))
@@ -812,7 +839,7 @@ def create_app(config: WebConfig):
         result = run_nanobk(config, ["rotate", protocol, "--yes"], timeout=config.rotate_timeout)
         output = safe_output(result.stdout or result.stderr)
         if result.code != 0:
-            output = f"Rotate failed (code {result.code}):\n{output}"
+            output = wt(config.lang, "rotate_failed", code=result.code) + "\n" + output
 
         return render_template("rotate.html",
                                rotate_result=output,
@@ -824,7 +851,7 @@ def create_app(config: WebConfig):
     @require_login
     def rotate_cancel():
         if not validate_csrf():
-            abort(403, "CSRF validation failed.")
+            abort(403, wt(config.lang, "csrf_error"))
         clear_pending_rotate(session)
         return redirect(url_for("rotate"))
 
@@ -834,7 +861,7 @@ def create_app(config: WebConfig):
     @require_login
     def advanced_on():
         if not validate_csrf():
-            abort(403, "CSRF validation failed.")
+            abort(403, wt(config.lang, "csrf_error"))
         enable_advanced_mode(session)
         return redirect(url_for("status"))
 
@@ -842,7 +869,7 @@ def create_app(config: WebConfig):
     @require_login
     def advanced_off():
         if not validate_csrf():
-            abort(403, "CSRF validation failed.")
+            abort(403, wt(config.lang, "csrf_error"))
         disable_advanced_mode(session)
         return redirect(url_for("status"))
 

@@ -49,12 +49,12 @@ print("=== Web Raw JSON Warning Test (v1.9.14) ===\n")
 
 print("--- Warning text ---\n")
 
-check("warning has Advanced diagnostics", "Advanced diagnostics" in status_html)
-check("warning says redacted", "redacted" in status_html)
-check("warning says troubleshooting", "troubleshooting" in status_html)
-check("warning says not shared as subscription", "subscription information" in status_html)
-check("warning recommends status cards", "status cards above" in status_html)
-check("warning has emoji", "⚠️" in status_html)
+check("warning has Advanced diagnostics key", "raw_json_warning_title" in status_html)
+check("warning has raw_json_warning_text key", "raw_json_warning_text" in status_html)
+check("warning has raw_json_warning_text key (troubleshooting)", "raw_json_warning_text" in status_html)
+check("warning has raw_json_warning_text key (subscription)", "raw_json_warning_text" in status_html)
+check("warning has raw_json_warning_text key (cards)", "raw_json_warning_text" in status_html)
+check("warning has raw_json_warning_title key (emoji)", "raw_json_warning_title" in status_html)
 
 # ── 2. Raw JSON details preserved ────────────────────────────────────────
 
@@ -62,7 +62,7 @@ print("\n--- Raw JSON details preserved ---\n")
 
 check("<details> block present", "<details>" in status_html)
 check("<summary> present", "<summary>" in status_html)
-check("Raw JSON label in summary", "Raw JSON" in status_html)
+check("Raw JSON label in summary", "raw_json_details_label" in status_html)
 check("status.raw_json rendered", "status.raw_json" in status_html)
 check("<pre> for raw_json", "<pre>{{ status.raw_json }}</pre>" in status_html)
 
@@ -97,7 +97,7 @@ check("cards.overall in index.html", "status.cards.overall" in open(os.path.join
 check("cards.overall in status.html", "status.cards.overall" in status_html)
 check("no Domain label in status cards", "Domain:" not in status_html)
 check("no VPS IP label in status cards", "VPS IP:" not in status_html)
-check("muted footer text present", "Sensitive addresses are hidden" in status_html)
+check("muted footer text present", "status_footer" in status_html)
 
 # ── 7. Redaction helper import ───────────────────────────────────────────
 

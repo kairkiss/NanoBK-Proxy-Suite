@@ -1,91 +1,86 @@
 {% extends "layout.html" %}
-{% block title %}Status — NanoBK{% endblock %}
+{% block title %}{{ t('nav_status') }} — NanoBK{% endblock %}
 {% block content %}
-<h1>Status</h1>
+<h1>{{ t('nav_status') }}</h1>
 
 {% if status %}
 <div class="card">
-  <h2>Overall Status</h2>
-  <p><strong>Overall:</strong> {{ status.cards.overall }}</p>
-  <p><strong>VPS:</strong> {{ status.cards.vps }}</p>
+  <h2>{{ t('status_overall') }}</h2>
+  <p><strong>{{ t('status_label_overall') }}:</strong> {{ status.cards.overall }}</p>
+  <p><strong>{{ t('status_label_vps') }}:</strong> {{ status.cards.vps }}</p>
 
-  <h3>Protocols</h3>
+  <h3>{{ t('status_protocols') }}</h3>
   <ul>
     {% for name, svc in status.cards.services.items() %}
     <li>{{ name|upper }}: {{ svc }}</li>
     {% endfor %}
   </ul>
 
-  <h3>Cloudflare</h3>
+  <h3>{{ t('status_cloudflare') }}</h3>
   <ul>
     <li>nanok: {{ status.cards.cf_nanok }}</li>
     <li>nanob: {{ status.cards.cf_nanob }}</li>
   </ul>
 
-  <h3>Other</h3>
+  <h3>{{ t('status_other') }}</h3>
   <ul>
-    <li>Subscription: {{ status.cards.subscription }}</li>
-    <li>Secrets: {{ status.cards.secrets }}</li>
-    <li>Profile: {{ status.cards.profile }}</li>
+    <li>{{ t('status_subscription') }}: {{ status.cards.subscription }}</li>
+    <li>{{ t('status_secrets') }}: {{ status.cards.secrets }}</li>
+    <li>{{ t('status_profile') }}: {{ status.cards.profile }}</li>
   </ul>
 
-  <p><strong>Next step:</strong> {{ status.cards.next_step }}</p>
-  <p class="muted">Status from nanobk CLI. Sensitive addresses are hidden.</p>
+  <p><strong>{{ t('status_next_step') }}:</strong> {{ status.cards.next_step }}</p>
+  <p class="muted">{{ t('status_footer') }}</p>
 </div>
 
 <div class="card">
-  <h2>Advanced Diagnostics</h2>
+  <h2>{{ t('advanced_title') }}</h2>
   {% if advanced_mode_enabled %}
-  <p class="badge badge-ok">Enabled — expires in ~{{ advanced_mode_remaining // 60 }} minutes</p>
+  <p class="badge badge-ok">{{ t('advanced_enabled_badge', minutes=advanced_mode_remaining // 60) }}</p>
   <form method="POST" action="/advanced/off" style="display:inline">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <button type="submit" class="button">Disable advanced mode</button>
+    <button type="submit" class="button">{{ t('advanced_disable_button') }}</button>
   </form>
   {% else %}
-  <p class="muted">Advanced diagnostics mode is disabled.</p>
+  <p class="muted">{{ t('advanced_disabled_note') }}</p>
   <div class="warning-box">
-    <strong>⚠️ Enable advanced diagnostics?</strong><br>
-    Advanced diagnostics remain redacted, but may reveal system structure.<br>
-    Do not share full diagnostic output with untrusted people.<br>
-    Secrets, raw addresses, and subscription URLs must remain hidden.<br>
-    This mode expires in 15 minutes.
+    <strong>{{ t('advanced_enable_warning_title') }}</strong><br>
+    {{ t('advanced_enable_warning_text')|replace('\n', '<br>')|safe }}
   </div>
   <form method="POST" action="/advanced/on">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <button type="submit" class="button button-warn">Enable advanced mode</button>
+    <button type="submit" class="button button-warn">{{ t('advanced_enable_button') }}</button>
   </form>
   {% endif %}
 </div>
 
 {% if advanced_mode_enabled %}
 <div class="warning-box">
-  <strong>⚠️ Advanced diagnostics</strong><br>
-  Raw JSON is redacted and intended for troubleshooting only.<br>
-  It is not the normal status view and should not be shared as subscription information.<br>
-  Use the status cards above for the normal safe summary.
+  <strong>{{ t('raw_json_warning_title') }}</strong><br>
+  {{ t('raw_json_warning_text')|replace('\n', '<br>')|safe }}
 </div>
 
 <details>
-  <summary>Raw JSON (advanced diagnostics)</summary>
+  <summary>{{ t('raw_json_details_label') }}</summary>
   <pre>{{ status.raw_json }}</pre>
 </details>
 {% else %}
 <div class="card locked-panel">
-  <h2>🔒 Raw JSON (Advanced Diagnostics)</h2>
-  <p class="muted">Raw JSON belongs to advanced diagnostics and is currently locked.</p>
-  <p>Use the status cards above for the normal safe summary.</p>
-  <p>Enable advanced diagnostics mode to view redacted Raw JSON. This mode expires automatically after 15 minutes.</p>
-  <p class="muted">Even in advanced mode, secrets, raw addresses, and subscription URLs must remain hidden.</p>
+  <h2>{{ t('raw_json_locked_title') }}</h2>
+  <p class="muted">{{ t('raw_json_locked_desc') }}</p>
+  <p>{{ t('raw_json_locked_use_cards') }}</p>
+  <p>{{ t('raw_json_locked_enable_hint') }}</p>
+  <p class="muted">{{ t('raw_json_locked_secrets_note') }}</p>
 </div>
 {% endif %}
 {% elif raw_output %}
 <div class="card">
-  <h3>Output</h3>
+  <h3>{{ t('doctor_output_title') }}</h3>
   <pre>{{ raw_output }}</pre>
 </div>
 {% else %}
 <div class="card">
-  <p>No status data available.</p>
+  <p>{{ t('status_no_data') }}</p>
 </div>
 {% endif %}
 {% endblock %}

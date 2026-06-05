@@ -1,18 +1,18 @@
 {% extends "layout.html" %}
-{% block title %}Doctor — NanoBK{% endblock %}
+{% block title %}{{ t('doctor_title') }} — NanoBK{% endblock %}
 {% block content %}
-<h1>Doctor</h1>
+<h1>{{ t('doctor_title') }}</h1>
 
 <div class="card">
   <form method="POST" action="/doctor">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <button type="submit" class="button">Run Doctor</button>
+    <button type="submit" class="button">{{ t('doctor_run_button') }}</button>
   </form>
 </div>
 
 {% if output is not none %}
 <div class="card">
-  <h3>Output</h3>
+  <h3>{{ t('doctor_output_title') }}</h3>
   <pre>{{ output }}</pre>
 </div>
 {% endif %}

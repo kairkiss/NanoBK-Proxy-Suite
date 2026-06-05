@@ -44,11 +44,11 @@ print("=== Web Raw JSON Soft Gate Test (v1.9.21) ===\n")
 print("--- OFF state: locked panel ---\n")
 
 check("locked panel exists in template", "locked-panel" in status_tpl)
-check("locked panel mentions advanced diagnostics", "Advanced Diagnostics" in status_tpl or "advanced diagnostics" in status_tpl)
+check("locked panel mentions advanced diagnostics", "raw_json_locked_title" in status_tpl)
 check("locked panel mentions locked", "locked" in status_tpl.lower())
-check("locked panel recommends status cards", "status cards above" in status_tpl)
-check("locked panel mentions 15 minutes", "15 minutes" in status_tpl)
-check("locked panel mentions secrets remain hidden", "remain hidden" in status_tpl)
+check("locked panel recommends status cards", "raw_json_locked_use_cards" in status_tpl)
+check("locked panel mentions 15 minutes", "raw_json_locked_enable_hint" in status_tpl)
+check("locked panel mentions secrets remain hidden", "raw_json_locked_secrets_note" in status_tpl)
 check("locked panel CSS class exists", ".locked-panel" in css_source)
 
 # ── 2. OFF state: no raw_json rendered ────────────────────────────────────
@@ -84,8 +84,8 @@ check("ON state has warning box", "warning-box" in raw_json_block)
 check("ON state has Raw JSON details", "<details>" in raw_json_block)
 check("ON state has raw_json pre", "<pre>{{ status.raw_json }}</pre>" in raw_json_block)
 check("ON state has summary", "<summary>" in raw_json_block)
-check("ON state mentions redacted", "redacted" in raw_json_block)
-check("ON state mentions not for subscription", "subscription" in raw_json_block.lower())
+check("ON state mentions redacted", "raw_json_warning_text" in status_tpl)
+check("ON state mentions not for subscription", "raw_json_warning_text" in status_tpl)
 check("ON state has disable form", "/advanced/off" in status_tpl)
 
 # ── 4. Advanced mode toggle card ──────────────────────────────────────────
@@ -102,12 +102,12 @@ check("advanced_mode_remaining used", "advanced_mode_remaining" in status_tpl)
 
 print("\n--- Normal status cards unaffected ---\n")
 
-check("Overall Status card exists", "Overall Status" in status_tpl)
+check("Overall Status card exists", "status_overall" in status_tpl)
 check("VPS card exists", "status.cards.vps" in status_tpl)
 check("Protocols section exists", "status.cards.services" in status_tpl)
 check("Cloudflare section exists", "status.cards.cf_nanok" in status_tpl)
 check("Next step exists", "status.cards.next_step" in status_tpl)
-check("Sensitive addresses hidden note", "Sensitive addresses are hidden" in status_tpl)
+check("Sensitive addresses hidden note", "status_footer" in status_tpl)
 
 # ── 6. /api/status not gated ──────────────────────────────────────────────
 

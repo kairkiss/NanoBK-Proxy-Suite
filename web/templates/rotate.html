@@ -1,10 +1,10 @@
 {% extends "layout.html" %}
-{% block title %}Rotate — NanoBK{% endblock %}
+{% block title %}{{ t('rotate_title') }} — NanoBK{% endblock %}
 {% block content %}
-<h1>Rotate Keys</h1>
+<h1>{{ t('rotate_title') }}</h1>
 
 {% if dry_run %}
-<div class="badge badge-warn">DRY-RUN MODE — rotate will show command but not execute</div>
+<div class="badge badge-warn">{{ t('rotate_dry_run_badge') }}</div>
 {% endif %}
 
 {% if error %}
@@ -15,55 +15,55 @@
 
 {% if confirming and pending %}
 <div class="card confirm-card">
-  <h2>Confirm Rotation</h2>
-  <p>You are about to rotate <strong>{{ pending.protocol|upper }}</strong> credentials.</p>
-  <p>This will restart proxy services and update local profile.</p>
-  <p>Cloudflare sync depends on your local nanobk configuration.</p>
+  <h2>{{ t('rotate_confirm_title') }}</h2>
+  <p>{{ t('rotate_confirm_desc', protocol=pending.protocol|upper) }}</p>
+  <p>{{ t('rotate_confirm_restart_note') }}</p>
+  <p>{{ t('rotate_confirm_cf_note') }}</p>
   <div class="button-group">
     <form method="POST" action="/rotate/confirm" style="display:inline">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <button type="submit" class="button button-danger">Confirm Rotate {{ pending.protocol|upper }}</button>
+      <button type="submit" class="button button-danger">{{ t('rotate_confirm_button', protocol=pending.protocol|upper) }}</button>
     </form>
     <form method="POST" action="/rotate/cancel" style="display:inline">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <button type="submit" class="button">Cancel</button>
+      <button type="submit" class="button">{{ t('rotate_cancel_button') }}</button>
     </form>
   </div>
 </div>
 {% elif pending %}
 <div class="card">
-  <p>Pending: {{ pending.protocol|upper }} (will expire in ~120s)</p>
+  <p>{{ t('rotate_pending_note', protocol=pending.protocol|upper) }}</p>
   <div class="button-group">
     <form method="POST" action="/rotate/confirm" style="display:inline">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <button type="submit" class="button button-danger">Confirm</button>
+      <button type="submit" class="button button-danger">{{ t('rotate_confirm_short') }}</button>
     </form>
     <form method="POST" action="/rotate/cancel" style="display:inline">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <button type="submit" class="button">Cancel</button>
+      <button type="submit" class="button">{{ t('rotate_cancel_button') }}</button>
     </form>
   </div>
 </div>
 {% elif dry_run_result %}
 <div class="card">
-  <h3>Dry-Run Result</h3>
+  <h3>{{ t('rotate_dry_run_result_title') }}</h3>
   <pre>{{ dry_run_result }}</pre>
 </div>
 {% elif rotate_result %}
 <div class="card">
-  <h3>Rotation Result</h3>
+  <h3>{{ t('rotate_result_title') }}</h3>
   <pre>{{ rotate_result }}</pre>
 </div>
 {% else %}
 <div class="card">
-  <h2>Select Protocol</h2>
-  <p>Choose which protocol to rotate. Confirmation required.</p>
+  <h2>{{ t('rotate_select_title') }}</h2>
+  <p>{{ t('rotate_select_desc') }}</p>
   <div class="button-group">
     {% for proto in protocols %}
     <form method="POST" action="/rotate/request" style="display:inline">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <input type="hidden" name="protocol" value="{{ proto }}">
-      <button type="submit" class="button button-danger">Rotate {{ proto|upper }}</button>
+      <button type="submit" class="button button-danger">{{ t('rotate_button_label', protocol=proto|upper) }}</button>
     </form>
     {% endfor %}
   </div>

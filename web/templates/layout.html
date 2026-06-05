@@ -8,13 +8,13 @@
 </head>
 <body>
   <nav>
-    <a href="/">Dashboard</a>
-    <a href="/status">Status</a>
-    <a href="/doctor">Doctor</a>
-    <a href="/rotate">Rotate</a>
+    <a href="/">{{ t('nav_dashboard') }}</a>
+    <a href="/status">{{ t('nav_status') }}</a>
+    <a href="/doctor">{{ t('nav_doctor') }}</a>
+    <a href="/rotate">{{ t('nav_rotate') }}</a>
     <form method="POST" action="/logout" style="display:inline">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <button type="submit" class="nav-button">Logout</button>
+      <button type="submit" class="nav-button">{{ t('nav_logout') }}</button>
     </form>
   </nav>
   <main>

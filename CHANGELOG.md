@@ -1,5 +1,34 @@
 # Changelog
 
+## v1.9.31 — Web i18n Minimal Implementation
+
+### Changed
+
+- Added `NANOBK_LANG=zh|en` support in WebConfig (defaults to `en`).
+- Added `web/i18n.py` translation dictionary module with `normalize_lang()`, `wt()`, and `WEB_TEXT` (80+ zh/en entries).
+- Added Flask context processor injecting `t()` and `lang` into all templates.
+- Translated all Web UI text: login, dashboard, status cards, Raw JSON locked/warning, advanced mode controls, doctor page, rotate page, navigation, error messages.
+- Status category values (healthy/failed/unknown etc.) remain untranslated.
+- Web self-test expanded from 62 to 75 tests with i18n verification.
+- Added test `tests/web-i18n-minimal-v1.9.31.py` (123 tests).
+- Updated existing Web tests to match translated template keys.
+- Added validation document `docs/validation-v1.9.31-web-i18n-minimal.md`.
+- Recommended v1.9.32 i18n Checkpoint as next step.
+
+### Safety
+
+- Web-only i18n implementation.
+- No Bot runtime behavior changed.
+- No `install.sh` behavior changed.
+- No `bin/nanobk` behavior changed.
+- No redaction changes.
+- No /api/status schema changes.
+- No Raw JSON gating behavior changes.
+- No advanced mode behavior changes.
+- No rotate behavior changes.
+- No deployment core, protocol template, Worker, rotate sync, status wrapper, or operation-log rollout changed.
+- No tag/release.
+
 ## v1.9.30 — Bot i18n Minimal Implementation
 
 ### Changed
@@ -13,7 +42,7 @@
 - Updated all Bot command handlers to use localized text via `bt()` and builders.
 - Status category values (healthy/failed/unknown etc.) remain untranslated.
 - Slash command names remain unchanged.
-- Bot self-test expanded from 117 to 117 tests with zh/en verification.
+- Bot self-test now covers 117 tests with zh/en verification.
 - Added test `tests/bot-i18n-minimal-v1.9.30.py` (116 tests).
 - Updated existing tests to match new builder function references.
 - Added validation document `docs/validation-v1.9.30-bot-i18n-minimal.md`.
