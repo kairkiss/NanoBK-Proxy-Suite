@@ -1,0 +1,33 @@
+NanoBK Status Report
+====================
+
+VPS: 203.0.113.10 (node.example.invalid)
+IPv6: 2001:db8::10
+Region: JP
+
+Services:
+  HY2: active on 203.0.113.10:443
+  TUIC: active on 203.0.113.10:9443
+  Reality: active on 203.0.113.10:8443
+  Trojan: active on 203.0.113.10:2443
+
+Cloudflare:
+  nanok: https://worker.example.invalid/sub/REDACTED_EXAMPLE
+  nanob: not configured
+  workers.dev: nanobk-test.example.invalid.workers.dev
+
+Subscription:
+  URL: https://node.example.invalid/sub/fake-sub-path-12345
+  Path: /sub/fake-sub-path-12345
+
+Security:
+  token=fake-doc-token-abc123xyz
+  secret=fake-secret-value-do-not-use
+  PrivateKey=FAKE_PRIVATE_KEY_DO_NOT_USE_abc123def456
+  admin_token=fake-cf-admin-token-do-not-use
+
+Profile: /etc/nanobk/profile.current.json
+Config: /etc/nanobk/config.json
+
+Warning: Connection to 203.0.113.10 may be slow.
+Warning: Domain node.example.invalid DNS check pending.

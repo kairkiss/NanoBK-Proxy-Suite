@@ -1,0 +1,33 @@
+NanoBK Status Report
+====================
+
+VPS: [REDACTED_IPV4] ([REDACTED_DOMAIN])
+IPv6: [REDACTED_IPV6]
+Region: JP
+
+Services:
+  HY2: active on [REDACTED_IPV4]:443
+  TUIC: active on [REDACTED_IPV4]:9443
+  Reality: active on [REDACTED_IPV4]:8443
+  Trojan: active on [REDACTED_IPV4]:2443
+
+Cloudflare:
+  nanok: [REDACTED_URL]
+  nanob: not configured
+  workers.dev: [REDACTED_WORKERS_DEV]
+
+Subscription:
+  URL: [REDACTED_URL]
+  Path: [REDACTED_SUBSCRIPTION_PATH]
+
+Security:
+  token=[REDACTED]
+  secret=[REDACTED]
+  PrivateKey=[REDACTED]
+  admin_token=[REDACTED]
+
+Profile: /etc/nanobk/profile.current.json
+Config: /etc/nanobk/config.json
+
+Warning: Connection to [REDACTED_IPV4] may be slow.
+Warning: Domain [REDACTED_DOMAIN] DNS check pending.

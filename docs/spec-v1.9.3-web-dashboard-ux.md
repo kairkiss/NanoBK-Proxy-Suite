@@ -1316,8 +1316,8 @@ exit code: {code}
 
 1. v1.9.2 Bot UX/Menu Spec — ✅ 已完成
 2. v1.9.3 Web Dashboard UX Spec（本文件）— ✅ 已完成
-3. v1.9.4 Command Allowlist Spec/Tests — 待完成
-4. v1.9.5 Redaction Layer Audit/Tests — 待完成
+3. v1.9.4 Command Allowlist Spec/Tests — ✅ 已完成
+4. v1.9.5 Redaction Layer Audit/Tests — ✅ 已完成
 
 ### 实现顺序建议
 

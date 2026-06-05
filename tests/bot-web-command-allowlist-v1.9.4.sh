@@ -219,6 +219,36 @@ check_absent "open\s*\(\s*['\"].*\/(hy2|tuic|reality|trojan).*['\"].*['\"]w" \
 
 echo ""
 
+# ── Check 8b: No shutil.copy to sensitive paths ────────────────────────────
+
+echo "--- Check 8b: No shutil.copy to sensitive paths in Bot/Web ---"
+echo ""
+
+check_absent "(shutil\.copy|shutil\.copyfile|shutil\.copy2).*\/etc\/(nanobk|systemd)" \
+  "No shutil.copy to /etc/nanobk or /etc/systemd in bot/nanobk_bot.py" \
+  "$BOT_SOURCE"
+
+check_absent "(shutil\.copy|shutil\.copyfile|shutil\.copy2).*\/etc\/(nanobk|systemd)" \
+  "No shutil.copy to /etc/nanobk or /etc/systemd in web/app.py" \
+  "$WEB_SOURCE"
+
+echo ""
+
+# ── Check 8c: No Path.write_text/write_bytes to sensitive paths ────────────
+
+echo "--- Check 8c: No Path.write to sensitive paths in Bot/Web ---"
+echo ""
+
+check_absent "(write_text|write_bytes).*\/etc\/(nanobk|systemd)" \
+  "No Path.write to /etc/nanobk or /etc/systemd in bot/nanobk_bot.py" \
+  "$BOT_SOURCE"
+
+check_absent "(write_text|write_bytes).*\/etc\/(nanobk|systemd)" \
+  "No Path.write to /etc/nanobk or /etc/systemd in web/app.py" \
+  "$WEB_SOURCE"
+
+echo ""
+
 # ── Check 9: subprocess.run uses list-based commands ────────────────────────
 
 echo "--- Check 9: subprocess.run uses list-based commands ---"

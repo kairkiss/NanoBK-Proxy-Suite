@@ -1,0 +1,46 @@
+{
+  "ok": true,
+  "domain": "node.example.invalid",
+  "vpsIp": "203.0.113.10",
+  "geo": "JP",
+  "services": {
+    "hy2": "active",
+    "tuic": "active",
+    "reality": "active",
+    "trojan": "active"
+  },
+  "security": {
+    "secretsMode": "600",
+    "token": "fake-doc-token-abc123xyz",
+    "privateKey": "FAKE_PRIVATE_KEY_DO_NOT_USE_abc123def456"
+  },
+  "cloudflare": {
+    "nanok": {
+      "envExists": true,
+      "route": "https://worker.example.invalid/sub/REDACTED_EXAMPLE",
+      "workersDev": "nanobk-test.example.invalid.workers.dev"
+    },
+    "nanob": {
+      "envExists": false,
+      "route": "",
+      "workersDev": ""
+    },
+    "adminToken": "fake-cf-admin-token-do-not-use",
+    "apiToken": "fake-cf-api-token-do-not-use"
+  },
+  "subscription": {
+    "url": "https://node.example.invalid/sub/fake-sub-path-12345",
+    "path": "/sub/fake-sub-path-12345",
+    "configured": true
+  },
+  "profile": {
+    "currentPath": "/etc/nanobk/profile.current.json",
+    "domain": "node.example.invalid",
+    "vpsIp": "203.0.113.10",
+    "ipv6": "2001:db8::10"
+  },
+  "warnings": [
+    "Service hy2 may need restart",
+    "Config path: /etc/nanobk/config.json"
+  ]
+}

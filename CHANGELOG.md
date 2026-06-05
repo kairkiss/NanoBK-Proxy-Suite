@@ -1,5 +1,27 @@
 # Changelog
 
+## v1.9.5 — Redaction Layer Audit and Address-Class Redaction Tests
+
+### Added
+
+- Added Redaction Layer audit and address-class redaction specification document.
+- Audited current Bot/Web redaction functions: `redact_text()`, `redact_json()`, `safe_output()`.
+- Defined address-class sensitive data: IPv4, IPv6, domain, URL, workers.dev, subscription path, route URL.
+- Defined standardized replacement tokens: `[REDACTED_IPV4]`, `[REDACTED_IPV6]`, `[REDACTED_DOMAIN]`, `[REDACTED_URL]`, `[REDACTED_WORKERS_DEV]`, `[REDACTED_SUBSCRIPTION_PATH]`.
+- Added safe fixture files under `tests/fixtures/redaction-v1.9.5/` with RFC 5737/3849/2606 safe values.
+- Added contract test `tests/redaction-address-class-v1.9.5.sh` with 30+ checks.
+- Confirmed current redaction does NOT cover address-class values (IPv4/IPv6/domain/URL/workers.dev/subscription path).
+- Recommended v1.9.6 Shared Redaction Helper Design as next step.
+
+### Safety
+
+- Documentation + fixtures + contract test only.
+- No `install.sh` behavior changed.
+- No `bin/nanobk` behavior changed.
+- No Bot/Web runtime behavior changed.
+- No deployment core, protocol template, Worker, rotate sync, status wrapper, or operation-log rollout changed.
+- No tag/release.
+
 ## v1.9.4 — Bot/Web Command Allowlist Spec and Static Tests
 
 ### Added

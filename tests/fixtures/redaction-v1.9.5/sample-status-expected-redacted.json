@@ -1,0 +1,46 @@
+{
+  "ok": true,
+  "domain": "[REDACTED_DOMAIN]",
+  "vpsIp": "[REDACTED_IPV4]",
+  "geo": "JP",
+  "services": {
+    "hy2": "active",
+    "tuic": "active",
+    "reality": "active",
+    "trojan": "active"
+  },
+  "security": {
+    "secretsMode": "600",
+    "token": "[REDACTED]",
+    "privateKey": "[REDACTED]"
+  },
+  "cloudflare": {
+    "nanok": {
+      "envExists": true,
+      "route": "[REDACTED_URL]",
+      "workersDev": "[REDACTED_WORKERS_DEV]"
+    },
+    "nanob": {
+      "envExists": false,
+      "route": "",
+      "workersDev": ""
+    },
+    "adminToken": "[REDACTED]",
+    "apiToken": "[REDACTED]"
+  },
+  "subscription": {
+    "url": "[REDACTED_URL]",
+    "path": "[REDACTED_SUBSCRIPTION_PATH]",
+    "configured": true
+  },
+  "profile": {
+    "currentPath": "/etc/nanobk/profile.current.json",
+    "domain": "[REDACTED_DOMAIN]",
+    "vpsIp": "[REDACTED_IPV4]",
+    "ipv6": "[REDACTED_IPV6]"
+  },
+  "warnings": [
+    "Service hy2 may need restart",
+    "Config path: /etc/nanobk/config.json"
+  ]
+}
