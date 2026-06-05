@@ -1,5 +1,31 @@
 # Changelog
 
+## v1.9.23 — Bot Control Center Menu Planning
+
+### Added
+
+- Added Bot Control Center Menu planning document.
+- Defined Telegram Bot as phone-side NanoBK control center.
+- Defined user layer model: L1 Beginner, L2 Advanced diagnostics, L3 Owner/maintainer.
+- Designed future `/start` behavior with main menu buttons.
+- Mapped main menu buttons: Status Summary, Recovery Help, Diagnostics, Advanced Mode, Rotate Secrets, Web Panel, Help.
+- Classified risk levels: read-only safe, medium-risk diagnostics, high-risk confirmed, blocked.
+- Compared callback vs slash command strategies; recommended static menu + callback calling existing handlers.
+- Provided Chinese/English message copy for main menu, diagnostics, advanced mode, rotate, recovery.
+- Defined staged implementation route: v1.9.24 static menu, v1.9.25 callback polish, v1.9.26 checkpoint.
+- Defined testing strategy for future implementation.
+- Readiness decision: READY FOR BOT CONTROL CENTER STATIC MENU MINIMAL IMPLEMENTATION (narrow scope).
+
+### Safety
+
+- Planning/documentation only.
+- No Bot runtime behavior changed.
+- No Web runtime behavior changed.
+- No `install.sh` behavior changed.
+- No `bin/nanobk` behavior changed.
+- No deployment core, protocol template, Worker, rotate sync, status wrapper, or operation-log rollout changed.
+- No tag/release.
+
 ## v1.9.22 — Raw JSON Gating Checkpoint
 
 ### Added
