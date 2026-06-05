@@ -1,5 +1,36 @@
 # Changelog
 
+## v1.9.44 — Doctor Summary Field Compatibility Checkpoint
+
+### Added
+
+- Added Doctor Summary field compatibility checkpoint validation document.
+- Added field compatibility checkpoint test (242 checks).
+- Verified Bot and Web `build_doctor_summary()` correctly consume v1.9.42 fixtures.
+- Verified `profile.exists == true` maps to profile present in both Bot and Web.
+- Verified `profile.exists == false` maps to profile missing.
+- Verified `configDir` non-empty supports config present without path display.
+- Verified `security.secretsExists` inference works correctly.
+- Verified backward compatibility with v1.9.35 original fixtures.
+- Verified no raw configDir path/IP/domain/URL/token in formatted output.
+- Verified Bot/Web source markers: `--json status` in doctor handlers, `safe_output` for full diagnostics, no `shell=True`, no production status wrapper markers.
+- Readiness decision: READY FOR LIMITED REAL DOCTOR FIELD COMPATIBILITY RETEST PLANNING.
+- Recommended v1.9.45 Limited Real Doctor Field Compatibility Retest Plan as next step.
+
+### Safety
+
+- Checkpoint/validation only.
+- No Bot runtime behavior changed.
+- No Web runtime behavior changed.
+- No CLI behavior changed.
+- No `install.sh` behavior changed.
+- No `bin/nanobk` behavior changed.
+- No `installer/doctor.sh` behavior changed.
+- No real status executed.
+- No real doctor executed.
+- No deployment core, protocol template, Worker, rotate sync, status wrapper, or operation-log rollout changed.
+- No tag/release.
+
 ## v1.9.43 — Bot/Web Doctor Summary Field Compatibility Minimal Fix
 
 ### Changed
