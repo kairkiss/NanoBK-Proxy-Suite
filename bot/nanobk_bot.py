@@ -892,11 +892,22 @@ def build_doctor_summary(data: dict, *, full_available: bool = True) -> dict:
     if isinstance(profile_data, dict):
         if profile_data.get("currentPath") or profile_data.get("domain"):
             profile = "present"
+        elif profile_data.get("exists") is True:
+            profile = "present"
+        elif profile_data.get("exists") is False:
+            profile = "missing"
     elif data.get("domain") and data.get("domain") != "<not set>":
         profile = "present"
 
-    # Config — check if config directory exists (inferred from profile/warnings)
-    config = "present" if profile == "present" else "unknown"
+    # Config — inferred from profile/configDir/security/warnings
+    config = "unknown"
+    if profile == "present":
+        config = "present"
+    elif isinstance(data.get("configDir"), str) and data["configDir"]:
+        config = "present"
+    elif isinstance(data.get("security"), dict) and data["security"].get("secretsExists"):
+        config = "present"
+
     warnings = data.get("warnings", [])
     if isinstance(warnings, list):
         warn_text = " ".join(str(w) for w in warnings).lower()

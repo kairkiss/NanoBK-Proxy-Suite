@@ -1,5 +1,37 @@
 # Changelog
 
+## v1.9.43 — Bot/Web Doctor Summary Field Compatibility Minimal Fix
+
+### Changed
+
+- Fixed T15-P2-001: Bot/Web Doctor Summary now correctly infers profile present from `profile.exists == true`.
+- Fixed config inference: non-empty `configDir` and `security.secretsExists == true` now support config present.
+- Fixed explicit missing: `profile.exists == false` now maps to profile missing.
+- Bot `build_doctor_summary()` updated with profile.exists, configDir, secretsExists checks.
+- Web `build_doctor_summary()` updated with identical semantics.
+- Added test `tests/doctor-field-compatibility-runtime-v1.9.43.py` (282 tests).
+- All v1.9.42 fixtures now consumed correctly by both Bot and Web builders.
+- Backward compatible with v1.9.35 original fixtures.
+- Added validation document `docs/validation-v1.9.43-doctor-field-compatibility-fix.md`.
+- Recommended v1.9.44 Doctor Summary Field Compatibility Checkpoint as next step.
+
+### Safety
+
+- Bot/Web doctor summary builder fix only.
+- No CLI behavior changed.
+- No `install.sh` behavior changed.
+- No `bin/nanobk` behavior changed.
+- No `installer/doctor.sh` behavior changed.
+- No redaction changes.
+- No /api/status schema changes.
+- No Raw JSON gating behavior changes.
+- No advanced mode behavior changes.
+- No rotate behavior changes.
+- No raw configDir path displayed.
+- No raw IP/domain/URL/token/private key in summary.
+- No deployment core, protocol template, Worker, rotate sync, status wrapper, or operation-log rollout changed.
+- No tag/release.
+
 ## v1.9.42 — Doctor Summary Field Compatibility Fixture Tests
 
 ### Added
