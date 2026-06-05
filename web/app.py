@@ -35,7 +35,7 @@ from lib.nanobk_redaction import (
     redact_json_obj as _shared_redact_json_obj,
 )
 
-from web.i18n import normalize_lang, wt
+from web.i18n import normalize_lang, wt, WEB_TEXT
 
 try:
     from dotenv import load_dotenv
@@ -319,6 +319,228 @@ def format_status(data: dict) -> dict:
         "cards": cards,
         "raw_json": json.dumps(redacted, indent=2),
     }
+
+
+# ── Doctor Summary builder ───────────────────────────────────────────────────
+# Builds a safe beginner-friendly Doctor Summary from nanobk --json status.
+# Conforms to v1.9.35 Doctor Summary contract schema.
+# Does NOT include raw IP/domain/URL/token/private key.
+
+
+def _infer_doctor_overall(data: dict) -> str:
+    """Infer overall doctor status from status JSON.
+
+    Uses service-level analysis for nuanced status.
+    Only uses ok field as fallback when no service data available.
+    """
+    ok = data.get("ok")
+    services = data.get("services")
+    warnings = data.get("warnings")
+
+    # Check services first for nuanced status
+    if isinstance(services, dict):
+        statuses = [services.get(p) for p in ("hy2", "tuic", "reality", "trojan")]
+        active_count = sum(1 for s in statuses if s == "active")
+        failed_count = sum(1 for s in statuses if s in ("failed", "inactive"))
+        unknown_count = sum(1 for s in statuses if s in ("unknown", "missing", None))
+
+        if active_count == 4:
+            # All active — check warnings for config issues
+            if isinstance(warnings, list) and len(warnings) > 0:
+                warn_text = " ".join(str(w) for w in warnings).lower()
+                if "config" in warn_text or "not found" in warn_text:
+                    return "partial"
+            return "healthy"
+        if active_count > 0 and failed_count > 0:
+            return "partial"
+        if active_count > 0 and failed_count == 0:
+            return "partial"
+        if failed_count > 0:
+            return "failed"
+        if unknown_count == 4:
+            return "unknown"
+
+    # Fallback to ok field when no service data
+    if ok is True:
+        return "healthy"
+    if ok is False:
+        return "failed"
+    return "unknown"
+
+
+def _infer_doctor_cloudflare(data: dict) -> str:
+    """Infer Cloudflare status from status JSON."""
+    cf = data.get("cloudflare")
+    if not isinstance(cf, dict):
+        return "unknown"
+
+    nanok = cf.get("nanok")
+    nanob = cf.get("nanob")
+
+    # Check verified first
+    if isinstance(nanok, dict) and nanok.get("verified") and isinstance(nanob, dict) and nanob.get("verified"):
+        return "verified"
+
+    # Check configured
+    if isinstance(nanok, dict) and nanok.get("envExists") and isinstance(nanob, dict) and nanob.get("envExists"):
+        return "configured"
+
+    # Check if at least one exists
+    nanok_exists = isinstance(nanok, dict) and nanok.get("envExists")
+    nanob_exists = isinstance(nanob, dict) and nanob.get("envExists")
+    if nanok_exists or nanob_exists:
+        return "configured"
+
+    return "missing"
+
+
+def _infer_doctor_subscription(data: dict) -> str:
+    """Infer subscription status from status JSON."""
+    sub = data.get("subscription")
+    if not isinstance(sub, dict):
+        return "unknown"
+    if sub.get("verified"):
+        return "verified"
+    if sub.get("configured"):
+        return "configured"
+    return "missing"
+
+
+def _infer_doctor_security(data: dict) -> str:
+    """Infer security status from status JSON."""
+    security = data.get("security")
+    if not isinstance(security, dict):
+        return "unknown"
+    mode = security.get("secretsMode")
+    if mode:
+        return "ok"
+    return "warning"
+
+
+def _doctor_next_step(summary: dict) -> str:
+    """Determine next step from summary fields."""
+    overall = summary.get("overall", "unknown")
+    services = summary.get("services", {})
+    cloudflare = summary.get("cloudflare", "unknown")
+    config_val = summary.get("config", "unknown")
+
+    if overall == "failed":
+        return "check_failed_services"
+    if any(s in ("failed", "inactive") for s in services.values()):
+        return "check_failed_services"
+    if config_val == "missing":
+        return "complete_config"
+    if cloudflare in ("missing", "manual_pending"):
+        return "configure_cloudflare"
+    if overall == "unknown":
+        return "unknown"
+    return "no_action"
+
+
+def build_doctor_summary(data: dict, *, full_available: bool = True) -> dict:
+    """Build a Doctor Summary dict from nanobk --json status data.
+
+    Conforms to v1.9.35 Doctor Summary contract schema.
+    Never includes raw IP/domain/URL/token/private key.
+    """
+    if not isinstance(data, dict):
+        return {
+            "overall": "unknown",
+            "control_plane": "unknown",
+            "cli": "unknown",
+            "profile": "unknown",
+            "config": "unknown",
+            "services": {p: "unknown" for p in ("hy2", "tuic", "reality", "trojan")},
+            "cloudflare": "unknown",
+            "subscription": "unknown",
+            "security": "unknown",
+            "doctor": {"errors": 0, "warnings": 0, "full_available": full_available},
+            "next_step": "unknown",
+            "display_policy": {
+                "beginner_safe": True,
+                "full_output_advanced_only": True,
+                "redaction_required": True,
+            },
+        }
+
+    # Services
+    services_data = data.get("services")
+    services = {}
+    if isinstance(services_data, dict):
+        for p in ("hy2", "tuic", "reality", "trojan"):
+            svc = services_data.get(p)
+            if svc in ("active", "inactive", "missing"):
+                services[p] = svc
+            elif svc == "failed":
+                services[p] = "inactive"
+            else:
+                services[p] = "unknown"
+    else:
+        services = {p: "unknown" for p in ("hy2", "tuic", "reality", "trojan")}
+
+    # Profile
+    profile_data = data.get("profile")
+    profile = "unknown"
+    if isinstance(profile_data, dict):
+        if profile_data.get("currentPath") or profile_data.get("domain"):
+            profile = "present"
+    elif data.get("domain") and data.get("domain") != "<not set>":
+        profile = "present"
+
+    # Config — check if config directory exists (inferred from profile/warnings)
+    config_val = "present" if profile == "present" else "unknown"
+    warnings = data.get("warnings", [])
+    if isinstance(warnings, list):
+        warn_text = " ".join(str(w) for w in warnings).lower()
+        if "config directory not found" in warn_text or "profile not found" in warn_text:
+            config_val = "missing"
+            profile = "missing"
+
+    # Warnings count
+    warn_count = len(warnings) if isinstance(warnings, list) else 0
+
+    # Error count — infer from service failures
+    error_count = sum(1 for s in services.values() if s in ("failed", "inactive"))
+
+    # Control plane — if we got data, it's ok
+    control_plane = "ok" if isinstance(data, dict) and data.get("ok") is not None else "unknown"
+    if config_val == "missing":
+        control_plane = "warning"
+
+    # CLI — if we got valid JSON back, CLI is available
+    cli = "available"
+
+    overall = _infer_doctor_overall(data)
+    cloudflare = _infer_doctor_cloudflare(data)
+    subscription = _infer_doctor_subscription(data)
+    security = _infer_doctor_security(data)
+
+    summary = {
+        "overall": overall,
+        "control_plane": control_plane,
+        "cli": cli,
+        "profile": profile,
+        "config": config_val,
+        "services": services,
+        "cloudflare": cloudflare,
+        "subscription": subscription,
+        "security": security,
+        "doctor": {
+            "errors": error_count,
+            "warnings": warn_count,
+            "full_available": full_available,
+        },
+        "next_step": "unknown",  # placeholder, computed below
+        "display_policy": {
+            "beginner_safe": True,
+            "full_output_advanced_only": True,
+            "redaction_required": True,
+        },
+    }
+
+    summary["next_step"] = _doctor_next_step(summary)
+    return summary
+
 
 # ── Protocol validation ────────────────────────────────────────────────────
 
@@ -628,6 +850,80 @@ def run_self_test() -> bool:
     check("WebConfig has lang field", hasattr(config, "lang"))
     check("WebConfig default lang is en", config.lang == "en")
 
+    # 27. Doctor Summary builder
+    check("build_doctor_summary is callable", callable(build_doctor_summary))
+
+    # Healthy status
+    healthy_data = {
+        "ok": True,
+        "services": {"hy2": "active", "tuic": "active", "reality": "active", "trojan": "active"},
+        "security": {"secretsMode": "600"},
+        "cloudflare": {"nanok": {"envExists": True, "verified": True}, "nanob": {"envExists": True, "verified": True}},
+        "subscription": {"verified": True, "configured": True},
+        "profile": {"domain": "test.example.com", "currentPath": "/etc/nanobk/profile.current.json"},
+        "warnings": []
+    }
+    healthy_summary = build_doctor_summary(healthy_data)
+    check("doctor healthy: overall == healthy", healthy_summary["overall"] == "healthy")
+    check("doctor healthy: control_plane == ok", healthy_summary["control_plane"] == "ok")
+    check("doctor healthy: cli == available", healthy_summary["cli"] == "available")
+    check("doctor healthy: all services active", all(s == "active" for s in healthy_summary["services"].values()))
+    check("doctor healthy: cloudflare == verified", healthy_summary["cloudflare"] == "verified")
+    check("doctor healthy: next_step == no_action", healthy_summary["next_step"] == "no_action")
+    check("doctor healthy: display_policy.beginner_safe", healthy_summary["display_policy"]["beginner_safe"] is True)
+    check("doctor healthy: display_policy.full_output_advanced_only", healthy_summary["display_policy"]["full_output_advanced_only"] is True)
+    check("doctor healthy: display_policy.redaction_required", healthy_summary["display_policy"]["redaction_required"] is True)
+
+    # Partial services
+    partial_data = {
+        "ok": False,
+        "services": {"hy2": "active", "tuic": "failed", "reality": "active", "trojan": "inactive"},
+        "security": {"secretsMode": "600"},
+        "cloudflare": {"nanok": {"envExists": True, "verified": True}, "nanob": {"envExists": True, "verified": False}},
+        "subscription": {"configured": True, "verified": False},
+        "profile": {"domain": "test.example.com"},
+        "warnings": ["TUIC service not responding"]
+    }
+    partial_summary = build_doctor_summary(partial_data)
+    check("doctor partial: overall == partial", partial_summary["overall"] == "partial")
+    check("doctor partial: tuic == inactive", partial_summary["services"]["tuic"] == "inactive")
+    check("doctor partial: next_step == check_failed", partial_summary["next_step"] == "check_failed_services")
+
+    # Missing config
+    missing_data = {
+        "ok": None,
+        "services": {"hy2": "unknown", "tuic": "unknown", "reality": "unknown", "trojan": "unknown"},
+        "security": {},
+        "cloudflare": {},
+        "subscription": {},
+        "profile": {},
+        "warnings": ["Config directory not found", "Profile not found"]
+    }
+    missing_summary = build_doctor_summary(missing_data)
+    check("doctor missing: overall == unknown", missing_summary["overall"] == "unknown")
+    check("doctor missing: config == missing", missing_summary["config"] == "missing")
+    check("doctor missing: next_step == complete_config", missing_summary["next_step"] == "complete_config")
+
+    # Unknown/empty
+    unknown_summary = build_doctor_summary({})
+    check("doctor unknown: overall == unknown", unknown_summary["overall"] == "unknown")
+    check("doctor unknown: all services unknown", all(s == "unknown" for s in unknown_summary["services"].values()))
+
+    # None input
+    none_summary = build_doctor_summary(None)
+    check("doctor none: overall == unknown", none_summary["overall"] == "unknown")
+
+    # No raw IP/domain/URL in summary
+    check("doctor summary: no raw domain", "test.example.com" not in str(healthy_summary))
+    check("doctor summary: no raw IP", "1.2.3.4" not in str(healthy_summary))
+
+    # Doctor summary i18n keys
+    for key in ["doctor_summary_title", "doctor_label_overall", "doctor_label_services",
+                 "doctor_label_cloudflare", "doctor_label_next_step", "doctor_full_note",
+                 "doctor_full_warning", "doctor_status_parse_error", "doctor_full_unavailable",
+                 "doctor_intro_text"]:
+        check(f"WEB_TEXT has {key}", key in WEB_TEXT)
+
     print(f"\n=== {passed} passed, {failed} failed ===")
     return failed == 0
 
@@ -766,16 +1062,44 @@ def create_app(config: WebConfig):
     @app.route("/doctor", methods=["GET", "POST"])
     @require_login
     def doctor():
-        output = None
+        summary = None
+        full_output = None
+        parse_error = None
+        adv_enabled = is_advanced_mode_enabled(session)
+
         if request.method == "POST":
             if not validate_csrf():
                 abort(403, wt(config.lang, "csrf_error"))
-            result = run_nanobk(config, ["doctor"], timeout=config.command_timeout)
-            output = safe_output(result.stdout or result.stderr)
-            if result.code != 0:
-                output = f"(exit code: {result.code})\n{output}"
 
-        return render_template("doctor.html", output=output)
+            # Build summary from status JSON
+            status_result = run_nanobk(config, ["--json", "status"])
+            if status_result.code == 0:
+                try:
+                    data = json.loads(status_result.stdout)
+                    summary = build_doctor_summary(data, full_available=True)
+                except (json.JSONDecodeError, ValueError):
+                    parse_error = wt(config.lang, "doctor_status_parse_error")
+                    summary = build_doctor_summary({}, full_available=False)
+            else:
+                parse_error = wt(config.lang, "doctor_status_parse_error")
+                summary = build_doctor_summary({}, full_available=False)
+
+            # Advanced mode: also get full doctor output
+            if adv_enabled:
+                full_result = run_nanobk(config, ["doctor"], timeout=config.command_timeout)
+                if full_result.code == 0:
+                    full_output = safe_output(full_result.stdout or full_result.stderr)
+                else:
+                    full_output = wt(config.lang, "doctor_full_unavailable")
+
+        adv_remaining = advanced_mode_remaining_seconds(session) if adv_enabled else 0
+
+        return render_template("doctor.html",
+                               summary=summary,
+                               full_output=full_output,
+                               parse_error=parse_error,
+                               advanced_mode_enabled=adv_enabled,
+                               advanced_mode_remaining=adv_remaining)
 
     # ── Rotate ────────────────────────────────────────────────────────────
 

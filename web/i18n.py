@@ -235,6 +235,106 @@ WEB_TEXT: dict[str, dict[str, str]] = {
         "en": "Output",
         "zh": "输出",
     },
+    "doctor_summary_title": {
+        "en": "🩺 Doctor Summary",
+        "zh": "🩺 诊断摘要",
+    },
+    "doctor_label_overall": {
+        "en": "Overall",
+        "zh": "总览",
+    },
+    "doctor_label_control_plane": {
+        "en": "Control Plane",
+        "zh": "控制面",
+    },
+    "doctor_label_cli": {
+        "en": "CLI",
+        "zh": "CLI",
+    },
+    "doctor_label_profile": {
+        "en": "Profile",
+        "zh": "配置",
+    },
+    "doctor_label_config": {
+        "en": "Config",
+        "zh": "配置文件",
+    },
+    "doctor_label_services": {
+        "en": "Services",
+        "zh": "服务",
+    },
+    "doctor_label_cloudflare": {
+        "en": "Cloudflare",
+        "zh": "Cloudflare",
+    },
+    "doctor_label_subscription": {
+        "en": "Subscription",
+        "zh": "订阅",
+    },
+    "doctor_label_security": {
+        "en": "Security",
+        "zh": "安全",
+    },
+    "doctor_label_next_step": {
+        "en": "Next step",
+        "zh": "下一步",
+    },
+    "doctor_label_errors": {
+        "en": "Errors",
+        "zh": "错误",
+    },
+    "doctor_label_warnings": {
+        "en": "Warnings",
+        "zh": "警告",
+    },
+    "doctor_next_no_action": {
+        "en": "No immediate action required.",
+        "zh": "无需立即操作。",
+    },
+    "doctor_next_check_failed": {
+        "en": "Check failed services via SSH or run /status for details.",
+        "zh": "通过 SSH 检查失败服务或运行 /status 查看详情。",
+    },
+    "doctor_next_complete_config": {
+        "en": "Complete VPS and Cloudflare setup using the Full Wizard or CLI.",
+        "zh": "使用完整向导或 CLI 完成 VPS 和 Cloudflare 设置。",
+    },
+    "doctor_next_configure_cf": {
+        "en": "Finish Cloudflare verification from the Full Wizard or CLI.",
+        "zh": "从完整向导或 CLI 完成 Cloudflare 验证。",
+    },
+    "doctor_next_use_advanced": {
+        "en": "Enable advanced mode for full diagnostics.",
+        "zh": "启用高级模式获取完整诊断。",
+    },
+    "doctor_next_unknown": {
+        "en": "Run /status or check SSH for more information.",
+        "zh": "运行 /status 或检查 SSH 获取更多信息。",
+    },
+    "doctor_full_note": {
+        "en": "💡 Full diagnostics are available in advanced mode. Enable advanced mode from the Status page, then run Doctor again.",
+        "zh": "💡 完整诊断仅在高级模式下可用。请从状态页面启用高级模式，然后再次运行诊断。",
+    },
+    "doctor_full_warning": {
+        "en": "⚠️ Advanced diagnostics\nFull output is redacted but may reveal system structure.\nDo not share with untrusted people.",
+        "zh": "⚠️ 高级诊断\n完整输出已脱敏但可能暴露系统结构。\n请勿分享给不可信的人。",
+    },
+    "doctor_full_details_label": {
+        "en": "Full Diagnostics (advanced, redacted)",
+        "zh": "完整诊断（高级，已脱敏）",
+    },
+    "doctor_status_parse_error": {
+        "en": "Failed to parse status data. Showing unknown summary.",
+        "zh": "无法解析状态数据。显示未知摘要。",
+    },
+    "doctor_full_unavailable": {
+        "en": "Full diagnostics unavailable (command failed).",
+        "zh": "完整诊断不可用（命令失败）。",
+    },
+    "doctor_intro_text": {
+        "en": "Click \"Run Doctor\" to check your NanoBK environment. A safe summary will be shown below.",
+        "zh": "点击\"运行诊断\"检查您的 NanoBK 环境。安全摘要将显示在下方。",
+    },
 
     # ── Rotate ──
     "rotate_title": {

@@ -1,5 +1,38 @@
 # Changelog
 
+## v1.9.37 — Web Doctor Summary Minimal Implementation
+
+### Changed
+
+- Web `/doctor` now shows safe beginner summary cards by default instead of raw technical output.
+- Added `build_doctor_summary()` to Web app, matching Bot v1.9.36 semantics.
+- Added helper functions: `_infer_doctor_overall()`, `_infer_doctor_cloudflare()`, `_infer_doctor_subscription()`, `_infer_doctor_security()`, `_doctor_next_step()`.
+- Advanced OFF: `/doctor` POST calls `--json status`, builds summary, renders cards. Does not call `nanobk doctor`.
+- Advanced ON: `/doctor` POST shows summary cards first, then appends full redacted diagnostics in collapsed `<details>` with warning.
+- Updated `doctor.html` template with summary cards, advanced mode gate, and collapsed full diagnostics.
+- Added 25 new Web i18n keys for doctor summary labels (zh/en).
+- Added `WEB_TEXT` import to web/app.py.
+- Web self-test expanded from 75 to 106 tests with doctor summary verification.
+- Added test `tests/web-doctor-summary-v1.9.37.py` (164 tests).
+- Added validation document `docs/validation-v1.9.37-web-doctor-summary.md`.
+- Recommended v1.9.38 Doctor Output Checkpoint as next step.
+
+### Safety
+
+- Web-only doctor summary change.
+- No Bot runtime behavior changed.
+- No `install.sh` behavior changed.
+- No `bin/nanobk` behavior changed.
+- No `installer/doctor.sh` behavior changed.
+- No redaction changes.
+- No /api/status schema changes.
+- No Raw JSON gating behavior changes.
+- No advanced mode behavior changes.
+- No rotate behavior changes.
+- No raw IP/domain/URL/token/private key in summary.
+- No deployment core, protocol template, Worker, rotate sync, status wrapper, or operation-log rollout changed.
+- No tag/release.
+
 ## v1.9.36 — Bot Doctor Summary Minimal Implementation
 
 ### Changed
