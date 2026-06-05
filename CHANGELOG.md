@@ -1,5 +1,32 @@
 # Changelog
 
+## v1.9.34 — Doctor Output Current-State Audit
+
+### Added
+
+- Added Doctor Output Current-State audit document.
+- Audited Bot doctor path: `cmd_doctor()` → `run_nanobk(config, ["doctor"])` → `safe_output()` → reply text. Owner-only, redacted, no shell=True.
+- Audited Web doctor path: `/doctor` route → `run_nanobk(config, ["doctor"])` → `safe_output()` → render template. Login+CSRF, redacted.
+- Audited CLI doctor path: `bin/nanobk doctor` → `installer/doctor.sh`. Text output, `--json` is placeholder. Checks OS/kernel/arch, tool paths, config existence/permissions, admin env existence, systemd services, port listening, config files.
+- Classified output risk: beginner-safe (service status, port listening, config existence), advanced-only (OS/kernel, tool paths, config paths, port numbers, systemd names), never allowed (raw tokens/keys/env/IP/URL).
+- Evaluated data source options; recommended fixture contract tests first, avoid brittle text parsing, prefer future safe JSON summary.
+- Defined recommended summary contract direction for v1.9.35.
+- Readiness decision: READY FOR DOCTOR SUMMARY CONTRACT / FIXTURE TESTS.
+- Recommended v1.9.35 Doctor Summary Contract / Fixture Tests as next step.
+
+### Safety
+
+- Audit/documentation only.
+- No Bot runtime behavior changed.
+- No Web runtime behavior changed.
+- No CLI behavior changed.
+- No `install.sh` behavior changed.
+- No `bin/nanobk` behavior changed.
+- No `installer/doctor.sh` behavior changed.
+- No real doctor executed.
+- No deployment core, protocol template, Worker, rotate sync, status wrapper, or operation-log rollout changed.
+- No tag/release.
+
 ## v1.9.33 — Doctor Output Productization Planning
 
 ### Added
