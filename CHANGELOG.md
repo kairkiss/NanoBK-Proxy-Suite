@@ -1,5 +1,32 @@
 # Changelog
 
+## v1.9.26 — Bot Control Center Checkpoint
+
+### Added
+
+- Added Bot Control Center checkpoint validation document.
+- Added Bot Control Center consistency test (66 checks).
+- Verified /start control center menu is safe, owner-only, productized.
+- Verified all 7 callbacks use nanobk: prefix and scoped CallbackQueryHandler.
+- Verified shared get_safe_status_text() used by both /status and Status Summary callback.
+- Verified rotate callback is guidance-only (no run_nanobk, no confirmations.set).
+- Verified Web callback exposes no raw URL, no workers.dev, no subscription path.
+- Verified /status_json soft gate preserved.
+- Verified advanced mode helpers preserved.
+- Verified all slash commands remain registered.
+- Readiness decision: READY FOR LIMITED REAL BOT/WEB SMOKE TEST PLANNING.
+- Recommended v1.9.27 Limited Real Bot/Web Smoke Test Plan as next step.
+
+### Safety
+
+- Checkpoint/validation only.
+- No Bot runtime behavior changed.
+- No Web runtime behavior changed.
+- No `install.sh` behavior changed.
+- No `bin/nanobk` behavior changed.
+- No deployment core, protocol template, Worker, rotate sync, status wrapper, or operation-log rollout changed.
+- No tag/release.
+
 ## v1.9.25 — Bot Control Center Callback Polish
 
 ### Changed
