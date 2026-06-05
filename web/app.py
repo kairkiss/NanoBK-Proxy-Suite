@@ -23,6 +23,18 @@ from dataclasses import dataclass
 from pathlib import Path
 from functools import wraps
 
+# ── Shared redaction helper import ───────────────────────────────────────────
+# Compute repo root and import shared helper for address-class redaction.
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
+from lib.nanobk_redaction import (
+    strip_ansi as _shared_strip_ansi,
+    redact_text as _shared_redact_text,
+    redact_json_obj as _shared_redact_json_obj,
+)
+
 try:
     from dotenv import load_dotenv
 except ImportError:
@@ -120,47 +132,21 @@ def run_nanobk(config: WebConfig, args: list[str], timeout: int | None = None) -
         )
 
 # ── Output safety ───────────────────────────────────────────────────────────
-
-_ANSI_RE = re.compile(r'\x1b\[[0-9;?]*[ -/]*[@-~]')
+# Delegates to shared redaction helper from lib/nanobk_redaction.py
+# for address-class redaction (IPv4, IPv6, domain, URL, workers.dev,
+# subscription path) plus existing token/secret patterns.
 
 def strip_ansi(text: str) -> str:
     """Remove ANSI escape codes."""
-    return _ANSI_RE.sub('', text)
-
-_REDACT_PATTERNS = [
-    (re.compile(r'\b\d{6,}:[A-Za-z0-9_-]{20,}\b'), '[TOKEN_REDACTED]'),
-    (re.compile(r'(?i)(token|password|private[_ -]?key|secret)\s*[:=]\s*\S+'), lambda m: f'{m.group(1)}=[REDACTED]'),
-    (re.compile(r'\b[A-Za-z0-9+/]{40,}={0,2}\b'), '[REDACTED_B64]'),
-]
+    return _shared_strip_ansi(text)
 
 def redact_text(text: str) -> str:
-    """Redact sensitive patterns from text."""
-    for pattern, replacement in _REDACT_PATTERNS:
-        if callable(replacement):
-            text = pattern.sub(replacement, text)
-        else:
-            text = pattern.sub(replacement, text)
-    return text
-
-# Sensitive JSON key substrings (lowercase, no underscores/dashes)
-_SENSITIVE_KEY_SUBSTRINGS = ("token", "password", "secret", "private", "privatekey")
+    """Redact sensitive patterns from text (delegates to shared helper)."""
+    return _shared_redact_text(text)
 
 def redact_json(value):
-    """Recursively redact sensitive values from JSON-like data."""
-    if isinstance(value, dict):
-        out = {}
-        for k, v in value.items():
-            key_norm = str(k).lower().replace("_", "").replace("-", "")
-            if any(s in key_norm for s in _SENSITIVE_KEY_SUBSTRINGS):
-                out[k] = "[REDACTED]"
-            else:
-                out[k] = redact_json(v)
-        return out
-    if isinstance(value, list):
-        return [redact_json(v) for v in value]
-    if isinstance(value, str):
-        return redact_text(strip_ansi(value))
-    return value
+    """Recursively redact sensitive values from JSON-like data (delegates to shared helper)."""
+    return _shared_redact_json_obj(value)
 
 def limit_text(text: str, max_len: int = 12000) -> str:
     """Truncate text for web display."""
@@ -309,7 +295,7 @@ def run_self_test() -> bool:
         "warnings": []
     }
     formatted = format_status(test_status)
-    check("format_status includes domain", formatted["domain"] == "test.example.com")
+    check("format_status domain is redacted", formatted["domain"] != "test.example.com")
     check("format_status includes services", "hy2" in formatted["services"])
 
     # 14. Healthz data does not expose token
@@ -340,6 +326,67 @@ def run_self_test() -> bool:
     # 18. CSRF token generation
     csrf_token = secrets.token_urlsafe(32)
     check("CSRF token generation works", len(csrf_token) > 0)
+
+    # 19. Address-class redaction: redact_text removes IPv4, IPv6, domain, URL
+    check("redact_text redacts IPv4",
+          "203.0.113.10" not in redact_text("VPS: 203.0.113.10"))
+    check("redact_text redacts IPv6",
+          "2001:db8::10" not in redact_text("IPv6: 2001:db8::10"))
+    check("redact_text redacts domain",
+          "node.example.invalid" not in redact_text("Domain: node.example.invalid"))
+    check("redact_text redacts URL",
+          "https://worker.example.invalid" not in redact_text("URL: https://worker.example.invalid/path"))
+    check("redact_text redacts workers.dev",
+          "nanobk-test.workers.dev" not in redact_text("workers.dev: nanobk-test.workers.dev"))
+    check("redact_text redacts subscription path",
+          "fake-sub-path-12345" not in redact_text("Path: /sub/fake-sub-path-12345"))
+
+    # 20. Address-class redaction: redact_json removes address values from JSON
+    test_addr_json = {
+        "domain": "node.example.invalid", "vpsIp": "203.0.113.10",
+        "ok": True, "services": {"hy2": "active"}
+    }
+    redacted_addr = redact_json(test_addr_json)
+    check("redact_json redacts domain value",
+          redacted_addr.get("domain") != "node.example.invalid")
+    check("redact_json redacts IPv4 value",
+          redacted_addr.get("vpsIp") != "203.0.113.10")
+    check("redact_json preserves ok=true",
+          redacted_addr.get("ok") is True)
+    check("redact_json preserves services",
+          redacted_addr.get("services", {}).get("hy2") == "active")
+
+    # 21. Address-class redaction: safe_output redacts comprehensive text
+    test_comprehensive = (
+        "IPv6: 2001:db8::10\n"
+        "URL: https://worker.example.invalid/sub/path\n"
+        "token=fake-doc-token-abc123xyz\n"
+        "secret=fake-secret-value-do-not-use"
+    )
+    safe_comp = safe_output(test_comprehensive)
+    check("safe_output redacts IPv6", "2001:db8::10" not in safe_comp)
+    check("safe_output redacts URL", "https://worker.example.invalid" not in safe_comp)
+    check("safe_output redacts token", "fake-doc-token-abc123xyz" not in safe_comp)
+    check("safe_output redacts secret", "fake-secret-value-do-not-use" not in safe_comp)
+
+    # 22. format_status + redact_json: raw domain/IP redacted in raw_json
+    test_status_addr = {
+        "ok": True, "domain": "node.example.invalid", "vpsIp": "203.0.113.10",
+        "services": {"hy2": "active"}, "security": {}, "cloudflare": {},
+        "warnings": []
+    }
+    formatted_addr = format_status(test_status_addr)
+    check("format_status raw_json redacts domain",
+          "node.example.invalid" not in formatted_addr["raw_json"])
+    check("format_status raw_json redacts IPv4",
+          "203.0.113.10" not in formatted_addr["raw_json"])
+    check("format_status preserves services in raw_json",
+          "hy2" in formatted_addr["raw_json"])
+
+    # 23. Idempotency: safe_output is stable on already-redacted text
+    safe_once = safe_output("VPS: 203.0.113.10 domain: node.example.invalid")
+    safe_twice = safe_output(safe_once)
+    check("safe_output is idempotent", safe_once == safe_twice)
 
     print(f"\n=== {passed} passed, {failed} failed ===")
     return failed == 0
