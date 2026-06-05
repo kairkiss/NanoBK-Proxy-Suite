@@ -1,5 +1,28 @@
 # Changelog
 
+## v1.9.13 — Bot /status_json Warning and Help Classification
+
+### Changed
+
+- Updated Bot `/help` text to classify commands into Basic, Safe operations, and Advanced diagnostics sections.
+- Moved `/status_json` from main command list to "Advanced diagnostics" section.
+- Added safety warning before `/status_json` output: "Advanced diagnostics ... Do not forward ... Use /status for normal safe summary."
+- `/status_json` command remains available, not hidden or removed.
+- Output remains redacted through existing shared redaction helper.
+- Updated Bot self-test from 38 to 47 tests with help classification and warning verification.
+- Added test `tests/bot-status-json-warning-v1.9.13.py` (44 tests).
+- Added validation document `docs/validation-v1.9.13-bot-status-json-warning.md`.
+- Recommended v1.9.14 Web Raw JSON Warning Copy as next step.
+
+### Safety
+
+- Bot-only help/warning change.
+- No Web runtime behavior changed.
+- No `install.sh` behavior changed.
+- No `bin/nanobk` behavior changed.
+- No deployment core, protocol template, Worker, rotate sync, status wrapper, or operation-log rollout changed.
+- No tag/release.
+
 ## v1.9.12 — Raw JSON / Advanced Diagnostics Policy Planning
 
 ### Added

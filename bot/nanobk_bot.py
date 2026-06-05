@@ -409,9 +409,49 @@ def run_self_test() -> bool:
     time.sleep(0.01)
     check("pending confirmation expires", cm2.get_action(12345) is None)
 
-    # 9. Help text includes rotate
-    help_text = "/rotate_all /rotate_hy2 /rotate_tuic /rotate_reality /rotate_trojan"
+    # 9. Help text classification
+    help_text = (
+        "NanoBK Bot Commands\n"
+        "\n"
+        "Basic:\n"
+        "/start          — Show welcome and quick help\n"
+        "/status         — Safe status summary\n"
+        "/doctor         — Redacted diagnostic check\n"
+        "/cancel         — Cancel pending action\n"
+        "\n"
+        "Safe operations:\n"
+        "/rotate_all     — Rotate ALL protocols (requires confirmation)\n"
+        "/rotate_hy2     — Rotate HY2 secret with confirmation\n"
+        "/rotate_tuic    — Rotate TUIC secret with confirmation\n"
+        "/rotate_reality — Rotate Reality credentials with confirmation\n"
+        "/rotate_trojan  — Rotate Trojan password with confirmation\n"
+        "\n"
+        "Advanced diagnostics:\n"
+        "/status_json    — Redacted raw status JSON for debugging\n"
+        "\n"
+        "/help           — Show this help\n"
+        "\n"
+        "⚠️ Rotate commands require confirmation to prevent accidents."
+    )
+    check("help includes Basic section", "Basic:" in help_text)
+    check("help includes Safe operations section", "Safe operations:" in help_text)
+    check("help includes Advanced diagnostics section", "Advanced diagnostics:" in help_text)
+    check("help /status_json under Advanced", "/status_json" in help_text and "Advanced diagnostics:" in help_text)
     check("help includes rotate commands", "/rotate_tuic" in help_text)
+    check("help /status_json not in Basic", help_text.index("/status_json") > help_text.index("Advanced diagnostics:"))
+
+    # 9b. /status_json warning text
+    status_json_warning = (
+        "⚠️ Advanced diagnostics\n"
+        "This output is redacted, but it may still reveal system structure.\n"
+        "Do not forward the full output to untrusted people.\n"
+        "Use /status for the normal safe summary.\n"
+        "\n"
+    )
+    check("status_json warning present", "Advanced diagnostics" in status_json_warning)
+    check("status_json warning says redacted", "redacted" in status_json_warning)
+    check("status_json warning says do not forward", "Do not forward" in status_json_warning)
+    check("status_json warning recommends /status", "/status" in status_json_warning)
 
     # 10. limit_text truncates
     long_text = "x" * 5000
@@ -508,20 +548,25 @@ def create_bot_app(config: BotConfig):
         if not is_owner(update):
             return await unauthorized(update, context)
         await update.message.reply_text(
-            "NanoBK Bot Commands:\n"
+            "NanoBK Bot Commands\n"
             "\n"
-            "/status        — Show VPS/CF status summary\n"
-            "/status_json   — Show raw JSON status\n"
-            "/doctor        — Run environment diagnostics\n"
+            "Basic:\n"
+            "/start          — Show welcome and quick help\n"
+            "/status         — Safe status summary\n"
+            "/doctor         — Redacted diagnostic check\n"
+            "/cancel         — Cancel pending action\n"
             "\n"
-            "/rotate_all    — Rotate ALL protocols (requires confirmation)\n"
-            "/rotate_hy2    — Rotate HY2 only\n"
-            "/rotate_tuic   — Rotate TUIC only\n"
-            "/rotate_reality — Rotate Reality only\n"
-            "/rotate_trojan — Rotate Trojan only\n"
+            "Safe operations:\n"
+            "/rotate_all     — Rotate ALL protocols (requires confirmation)\n"
+            "/rotate_hy2     — Rotate HY2 secret with confirmation\n"
+            "/rotate_tuic    — Rotate TUIC secret with confirmation\n"
+            "/rotate_reality — Rotate Reality credentials with confirmation\n"
+            "/rotate_trojan  — Rotate Trojan password with confirmation\n"
             "\n"
-            "/cancel        — Cancel pending rotation\n"
-            "/help          — Show this help\n"
+            "Advanced diagnostics:\n"
+            "/status_json    — Redacted raw status JSON for debugging\n"
+            "\n"
+            "/help           — Show this help\n"
             "\n"
             "⚠️ Rotate commands require confirmation to prevent accidents."
         )
@@ -556,7 +601,14 @@ def create_bot_app(config: BotConfig):
             ))
             return
 
-        await update.message.reply_text(safe_output(result.stdout))
+        warning = (
+            "⚠️ Advanced diagnostics\n"
+            "This output is redacted, but it may still reveal system structure.\n"
+            "Do not forward the full output to untrusted people.\n"
+            "Use /status for the normal safe summary.\n"
+            "\n"
+        )
+        await update.message.reply_text(warning + safe_output(result.stdout))
 
     async def cmd_doctor(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not is_owner(update):
