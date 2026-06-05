@@ -130,6 +130,7 @@
 | **v1.9.7** | **Bot Redaction Helper Integration** |
 | **v1.9.8** | **Web Redaction Helper Integration** |
 | **v1.9.9** | **Redaction Integration Checkpoint / Bot-Web Safety Gate** |
+| **v1.9.10** | **Bot Safe Status Summary Minimal Implementation** |
 | v1.9 | Bot/Web 控制面产品化 |
 
 v1.7.21 fixes Cloudflare deploy status callback mismatch and admin env auto-install. v1.7.22 disables legacy admin env in Full Wizard, writes mock verified env, and tightens dynamic Summary checks. v1.7.23 fixes mock preflight port isolation so interactive mock tests are not affected by already-running NanoBK services. v1.7.24 adds hard timeouts and diagnostics to dynamic mock tests so Phase A cannot hang indefinitely. v1.7.25 fixes mock input flows so tests don't fall into placeholder URL rejection loops and ensures Summary shows nanok/nanob verified. v1.7.26 refreshes existing deployment runtime state and skips core port preflight when resuming from Cloudflare/BotWeb. v1.7.27 fixes healthcheck --quiet removal and preserves refreshed installed/verified state through resume choices. None claims real VPS validation, Cloudflare validation, or production pass. v1.8.0 adds CLI product UI polish (ui.sh, operation-log.sh) without changing deployment logic, protocol templates, Worker core, Bot/Web business logic, or rotate sync.

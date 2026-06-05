@@ -142,42 +142,149 @@ def safe_output(text: str) -> str:
 
 # ── Status formatting ───────────────────────────────────────────────────────
 
+def _infer_overall(data: dict) -> str:
+    """Infer overall status from available fields. Returns honest category."""
+    ok = data.get("ok")
+    if ok is True:
+        return "healthy"
+    if ok is False:
+        return "failed"
+    return "unknown"
+
+
+def _infer_vps(data: dict) -> str:
+    """Infer VPS status from services and config fields."""
+    services = data.get("services")
+    if not isinstance(services, dict):
+        return "unknown"
+    statuses = [services.get(p) for p in ("hy2", "tuic", "reality", "trojan")]
+    if all(s == "active" for s in statuses):
+        return "healthy"
+    if any(s == "active" for s in statuses):
+        return "partial"
+    if any(s in ("failed", "inactive") for s in statuses):
+        return "failed"
+    if any(s == "missing" for s in statuses):
+        return "incomplete"
+    return "unknown"
+
+
+def _infer_cf_status(cf_entry: dict) -> str:
+    """Infer Cloudflare component status."""
+    if not isinstance(cf_entry, dict):
+        return "unknown"
+    if cf_entry.get("verified"):
+        return "verified"
+    if cf_entry.get("envExists"):
+        return "configured"
+    return "missing"
+
+
+def _infer_subscription(data: dict) -> str:
+    """Infer subscription status."""
+    sub = data.get("subscription")
+    if not isinstance(sub, dict):
+        return "unknown"
+    if sub.get("verified"):
+        return "verified"
+    if sub.get("configured"):
+        return "configured"
+    if sub.get("url"):
+        return "configured"
+    return "unknown"
+
+
+def _infer_profile(data: dict) -> str:
+    """Infer profile status."""
+    profile = data.get("profile")
+    if isinstance(profile, dict):
+        if profile.get("currentPath") or profile.get("domain"):
+            return "present"
+    # Also check top-level domain as proxy for profile existence
+    if data.get("domain") and data.get("domain") != "<not set>":
+        return "present"
+    return "unknown"
+
+
+def _next_step_hint(overall: str, vps: str, cf_nanok: str, cf_nanob: str, sub: str) -> str:
+    """Generate a safe next-step hint based on status."""
+    if overall == "failed":
+        return "Check SSH or run NanoBK recovery from the server."
+    if vps == "failed":
+        return "Check SSH and verify proxy services are running."
+    if cf_nanok in ("missing", "unknown") or cf_nanob in ("missing", "unknown"):
+        return "Finish Cloudflare verification from the Full Wizard or CLI."
+    if sub in ("manual_pending", "unknown"):
+        return "Verify subscription access from the Full Wizard or CLI."
+    if overall == "healthy" and vps == "healthy":
+        return "No immediate action required."
+    return "Run /doctor for a redacted diagnostic summary, or check SSH if needed."
+
+
 def format_status(data: dict) -> str:
-    """Format nanobk --json status into a readable summary."""
-    lines = ["NanoBK Status", ""]
+    """Format nanobk --json status into a safe beginner-friendly summary.
 
-    lines.append(f"OK: {data.get('ok', False)}")
-    lines.append(f"Domain: {data.get('domain', '<not set>')}")
-    lines.append(f"VPS IP: {data.get('vpsIp', '<not set>')}")
-    lines.append(f"Geo: {data.get('geo', '<not set>')}")
+    Avoids raw IP/domain/URL/subscription path/labels.
+    Uses honest status categories. Tolerates missing fields.
+    """
+    if not isinstance(data, dict):
+        return "NanoBK Status Summary\n\nStatus data unavailable.\n\nNext step:\nRun /doctor or check SSH."
 
-    # Services
-    services = data.get("services", {})
-    if services:
-        lines.append("Services:")
+    lines = ["NanoBK Status Summary", ""]
+
+    # Overall
+    overall = _infer_overall(data)
+    lines.append(f"Overall: {overall}")
+
+    # VPS
+    vps = _infer_vps(data)
+    lines.append(f"VPS: {vps}")
+
+    # Protocols
+    services = data.get("services")
+    if isinstance(services, dict):
+        lines.append("Protocols:")
         for name in ("hy2", "tuic", "reality", "trojan"):
-            lines.append(f"  - {name.upper()}: {services.get(name, 'unknown')}")
-
-    # Security
-    security = data.get("security", {})
-    if security:
-        lines.append("Security:")
-        lines.append(f"  - secrets mode: {security.get('secretsMode', 'unknown')}")
+            svc = services.get(name, "unknown")
+            lines.append(f"  {name.upper()}: {svc}")
+    else:
+        lines.append("Protocols: unknown")
 
     # Cloudflare
-    cf = data.get("cloudflare", {})
-    nanok = cf.get("nanok", {})
-    nanob = cf.get("nanob", {})
-    lines.append("Cloudflare:")
-    lines.append(f"  - nanok: {'configured' if nanok.get('envExists') else 'missing'}")
-    lines.append(f"  - nanob: {'configured' if nanob.get('envExists') else 'missing'}")
+    cf = data.get("cloudflare")
+    if isinstance(cf, dict):
+        nanok = cf.get("nanok", {})
+        nanob = cf.get("nanob", {})
+        cf_nanok = _infer_cf_status(nanok)
+        cf_nanob = _infer_cf_status(nanob)
+        lines.append("Cloudflare:")
+        lines.append(f"  nanok: {cf_nanok}")
+        lines.append(f"  nanob: {cf_nanob}")
+    else:
+        cf_nanok = "unknown"
+        cf_nanob = "unknown"
+        lines.append("Cloudflare: unknown")
 
-    # Warnings
-    warnings = data.get("warnings", [])
-    if warnings:
-        lines.append("Warnings:")
-        for w in warnings:
-            lines.append(f"  - {w}")
+    # Subscription
+    sub = _infer_subscription(data)
+    lines.append(f"Subscription: {sub}")
+
+    # Secrets mode
+    security = data.get("security")
+    if isinstance(security, dict):
+        mode = security.get("secretsMode", "unknown")
+        lines.append(f"Secrets: present, mode {mode}")
+    else:
+        lines.append("Secrets: unknown")
+
+    # Profile
+    profile = _infer_profile(data)
+    lines.append(f"Profile: {profile}")
+
+    # Next step hint
+    hint = _next_step_hint(overall, vps, cf_nanok, cf_nanob, sub)
+    lines.append("")
+    lines.append(f"Next step:\n{hint}")
 
     return "\n".join(lines)
 
@@ -242,7 +349,7 @@ def run_self_test() -> bool:
     # 1. Unauthorized user
     check("unauthorized user: owner_id=12345, user=99999", config.owner_id != 99999)
 
-    # 2. Status JSON formatter doesn't leak tokens
+    # 2. Status formatter: safe beginner summary
     test_status = {
         "ok": True, "domain": "test.example.com", "vpsIp": "1.2.3.4", "geo": "JP",
         "services": {"hy2": "active", "tuic": "active", "reality": "active", "trojan": "active"},
@@ -251,8 +358,16 @@ def run_self_test() -> bool:
         "warnings": []
     }
     formatted = format_status(test_status)
-    check("status formatter includes domain", "test.example.com" in formatted)
-    check("status formatter includes services", "active" in formatted)
+    check("status summary title present", "NanoBK Status Summary" in formatted)
+    check("status summary shows overall healthy", "Overall: healthy" in formatted)
+    check("status summary shows VPS healthy", "VPS: healthy" in formatted)
+    check("status summary includes services", "active" in formatted)
+    check("status summary no raw domain label", "Domain:" not in formatted)
+    check("status summary no raw domain value", "test.example.com" not in formatted)
+    check("status summary no raw IP label", "VPS IP:" not in formatted)
+    check("status summary no raw IP value", "1.2.3.4" not in formatted)
+    check("status summary shows secrets mode", "mode 600" in formatted)
+    check("status summary shows next step", "Next step:" in formatted)
 
     # 3. redact_text hides bot token
     test_text = "Token is 123456789:ABCdefGHIjklMNOpqrsTUVwxyz012345"
@@ -322,7 +437,7 @@ def run_self_test() -> bool:
     safe_secret = safe_output("\x1b[0;32mpassword=SuperSecret123\x1b[0m")
     check("safe_output strips ANSI and redacts", "SuperSecret123" not in safe_secret and "\x1b[" not in safe_secret)
 
-    # 15. Address-class redaction: safe_output removes raw domain/IP from status
+    # 15. Address-class: format_status does not include raw domain/IP
     test_status_addr = {
         "ok": True, "domain": "node.example.invalid", "vpsIp": "203.0.113.10", "geo": "JP",
         "services": {"hy2": "active", "tuic": "active", "reality": "active", "trojan": "active"},
@@ -332,12 +447,16 @@ def run_self_test() -> bool:
     }
     formatted_addr = format_status(test_status_addr)
     safe_addr = safe_output(formatted_addr)
-    check("safe_output redacts raw domain from status",
-          "node.example.invalid" not in safe_addr)
-    check("safe_output redacts raw IPv4 from status",
-          "203.0.113.10" not in safe_addr)
+    check("format_status no raw domain label",
+          "Domain:" not in formatted_addr)
+    check("format_status no raw domain value",
+          "node.example.invalid" not in formatted_addr)
+    check("format_status no raw IP label",
+          "VPS IP:" not in formatted_addr)
+    check("format_status no raw IP value",
+          "203.0.113.10" not in formatted_addr)
     check("safe_output preserves service words in status",
-          "active" in safe_addr and "JP" in safe_addr and "600" in safe_addr)
+          "active" in safe_addr and "600" in safe_addr)
 
     # 16. Address-class redaction: safe_output removes IPv6, URL, workers.dev, subscription path
     test_addr_text = "IPv6: 2001:db8::10 URL: https://worker.example.invalid/sub/fake-sub-path-12345 workers.dev: nanobk-test.example.invalid.workers.dev"

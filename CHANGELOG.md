@@ -1,5 +1,31 @@
 # Changelog
 
+## v1.9.10 — Bot Safe Status Summary Minimal Implementation
+
+### Changed
+
+- Rewrote Bot `format_status()` from address-heavy dump to safe beginner-friendly summary.
+- Bot `/status` no longer shows Domain/VPS IP/geo labels or raw values.
+- Bot `/status` now shows: Overall, VPS, Protocols, Cloudflare, Subscription, Secrets, Profile, Next step.
+- Honest status categories preserved: healthy/verified/active/failed/unknown/manual_pending/dry-run/planned/skipped.
+- Missing fields produce "unknown" rather than success.
+- Next-step hints generated based on status (SSH recovery, Cloudflare verification, no action needed).
+- Defensive implementation tolerates missing keys, unexpected types, non-dict input.
+- Bot self-test updated from 28 to 38 tests with new format expectations.
+- Added test `tests/bot-safe-status-summary-v1.9.10.py` (67 tests).
+- Added validation document `docs/validation-v1.9.10-bot-safe-status-summary.md`.
+- Recommended v1.9.11 Web Safe Status Cards as next step.
+
+### Safety
+
+- Bot-only /status formatting change.
+- No Web runtime behavior changed.
+- No `install.sh` behavior changed.
+- No `bin/nanobk` behavior changed.
+- `/status_json` unchanged.
+- No deployment core, protocol template, Worker, rotate sync, status wrapper, or operation-log rollout changed.
+- No tag/release.
+
 ## v1.9.9 — Redaction Integration Checkpoint / Bot-Web Safety Gate
 
 ### Added
