@@ -1,0 +1,31 @@
+{
+  "ok": true,
+  "configDir": "/tmp/nanobk-test-config",
+  "domain": "<not set>",
+  "vpsIp": "192.0.2.10",
+  "profile": {
+    "exists": true,
+    "updatedAt": "2026-06-01T00:00:00Z",
+    "hy2": true,
+    "tuic": true,
+    "reality": true,
+    "trojan": true
+  },
+  "services": {
+    "hy2": "active",
+    "tuic": "active",
+    "reality": "active",
+    "trojan": "active"
+  },
+  "security": {
+    "secretsExists": true,
+    "secretsMode": "600",
+    "secretsModeOk": true
+  },
+  "cloudflare": {
+    "nanok": {"envExists": true},
+    "nanob": {"envExists": true}
+  },
+  "subscription": {"configured": true},
+  "warnings": []
+}

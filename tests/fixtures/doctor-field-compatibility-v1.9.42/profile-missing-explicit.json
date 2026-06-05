@@ -1,0 +1,26 @@
+{
+  "ok": false,
+  "configDir": "/tmp/nanobk-test-config",
+  "domain": "<not set>",
+  "profile": {
+    "exists": false,
+    "hy2": false,
+    "tuic": false,
+    "reality": false,
+    "trojan": false
+  },
+  "services": {
+    "hy2": "unknown",
+    "tuic": "unknown",
+    "reality": "unknown",
+    "trojan": "unknown"
+  },
+  "security": {
+    "secretsExists": true,
+    "secretsMode": "600",
+    "secretsModeOk": true
+  },
+  "cloudflare": {},
+  "subscription": {},
+  "warnings": ["Profile not found"]
+}

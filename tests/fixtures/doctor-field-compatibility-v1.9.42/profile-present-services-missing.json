@@ -1,0 +1,27 @@
+{
+  "ok": null,
+  "configDir": "/tmp/nanobk-test-config",
+  "domain": "example.invalid",
+  "profile": {
+    "exists": true,
+    "updatedAt": "2026-06-01T00:00:00Z",
+    "hy2": true,
+    "tuic": true,
+    "reality": true,
+    "trojan": true
+  },
+  "services": {
+    "hy2": "unknown",
+    "tuic": "unknown",
+    "reality": "unknown",
+    "trojan": "unknown"
+  },
+  "security": {
+    "secretsExists": true,
+    "secretsMode": "600",
+    "secretsModeOk": true
+  },
+  "cloudflare": {},
+  "subscription": {},
+  "warnings": []
+}

@@ -1,0 +1,27 @@
+{
+  "overall": "unknown",
+  "control_plane": "warning",
+  "cli": "available",
+  "profile": "missing",
+  "config": "missing",
+  "services": {
+    "hy2": "unknown",
+    "tuic": "unknown",
+    "reality": "unknown",
+    "trojan": "unknown"
+  },
+  "cloudflare": "unknown",
+  "subscription": "unknown",
+  "security": "ok",
+  "doctor": {
+    "errors": 0,
+    "warnings": 1,
+    "full_available": true
+  },
+  "next_step": "complete_config",
+  "display_policy": {
+    "beginner_safe": true,
+    "full_output_advanced_only": true,
+    "redaction_required": true
+  }
+}

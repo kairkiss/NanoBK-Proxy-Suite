@@ -1,5 +1,33 @@
 # Changelog
 
+## v1.9.42 — Doctor Summary Field Compatibility Fixture Tests
+
+### Added
+
+- Added 6 fake realistic status input fixtures under `tests/fixtures/doctor-field-compatibility-v1.9.42/`.
+- Added 6 expected summary fixtures for field compatibility scenarios.
+- Added fixture contract test `tests/doctor-field-compatibility-fixtures-v1.9.42.py` (294 checks).
+- Defined mapping contract: `profile.exists == true` → present, `configDir`/`security.secretsExists` → config present, `profile.exists == false` → missing.
+- Validated all expected summaries conform to v1.9.35 schema with display_policy flags true.
+- Validated forbidden patterns absent from all expected summaries.
+- Validated honesty rules: missing stays missing, unknown stays unknown, services missing → not healthy.
+- Verified v1.9.35 contract fixtures still exist (regression).
+- Readiness decision: READY FOR BOT/WEB FIELD COMPATIBILITY MINIMAL FIX AFTER CHATGPT REVIEW.
+- Recommended v1.9.43 Bot/Web Doctor Summary Field Compatibility Minimal Fix as next step.
+
+### Safety
+
+- Fixture/test/documentation only.
+- No Bot runtime behavior changed.
+- No Web runtime behavior changed.
+- No CLI behavior changed.
+- No `install.sh` behavior changed.
+- No `bin/nanobk` behavior changed.
+- No real status executed.
+- No real doctor executed.
+- No deployment core, protocol template, Worker, rotate sync, status wrapper, or operation-log rollout changed.
+- No tag/release.
+
 ## v1.9.41 — Doctor Summary Real Status Field Compatibility Fix Planning
 
 ### Added
