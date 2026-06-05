@@ -1,5 +1,30 @@
 # Changelog
 
+## v1.9.40 — Real Doctor Smoke Retest Validation
+
+### Added
+
+- Recorded T15 real Bot/Web Doctor smoke retest result: PASS WITH POLISH.
+- Bot /doctor Advanced OFF showed safe summary only. Advanced ON showed warning + redacted full diagnostics.
+- Web /doctor Advanced OFF showed summary cards only. Advanced ON showed warning + redacted full diagnostics.
+- No P0/P1 security leakage observed.
+- Four protocol services remained active. No deployment/protocol service breakage.
+- Issue matrix: P2 Doctor Summary Profile/Config field compatibility, P2 advanced diagnostics engineering-oriented, P2 fingerprint redaction policy pending, P2 Web Doctor collapse state confirmation, P2 i18n mainly English, P1 systemd not productized, P2 Web uses Flask dev server.
+- Readiness decision: PASS WITH POLISH.
+- Recommended v1.9.41 Doctor Summary Real Status Field Compatibility Fix Planning as next step.
+
+### Safety
+
+- Documentation only.
+- No Bot runtime behavior changed.
+- No Web runtime behavior changed.
+- No CLI behavior changed.
+- No `install.sh` behavior changed.
+- No `bin/nanobk` behavior changed.
+- No real doctor executed by Claude Code.
+- No deployment core, protocol template, Worker, rotate sync, status wrapper, or operation-log rollout changed.
+- No tag/release.
+
 ## v1.9.39 — Limited Real Bot/Web Doctor Smoke Retest Plan
 
 ### Added
