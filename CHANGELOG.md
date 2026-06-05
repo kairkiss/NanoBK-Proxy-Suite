@@ -1,5 +1,28 @@
 # Changelog
 
+## v1.9.22 — Raw JSON Gating Checkpoint
+
+### Added
+
+- Added Raw JSON Gating checkpoint validation document.
+- Added Bot/Web Raw JSON soft gating consistency test (58 checks).
+- Verified Bot /status_json soft gate: OFF = guidance only, ON = warning + redacted JSON.
+- Verified Web Raw JSON soft gate: OFF = locked panel, ON = warning + redacted details.
+- Verified both use 15-minute TTL, preserve redaction, protect beginner UI.
+- Verified /api/status remains available and not gated.
+- Readiness decision: READY FOR CONTROL-PLANE UX POLISH PLANNING.
+- Recommended v1.9.23 Bot Control Center Menu Planning as next step.
+
+### Safety
+
+- Checkpoint/validation only.
+- No Bot runtime behavior changed.
+- No Web runtime behavior changed.
+- No `install.sh` behavior changed.
+- No `bin/nanobk` behavior changed.
+- No deployment core, protocol template, Worker, rotate sync, status wrapper, or operation-log rollout changed.
+- No tag/release.
+
 ## v1.9.21 — Web Raw JSON Soft Gate Minimal Implementation
 
 ### Changed
