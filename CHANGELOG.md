@@ -1,5 +1,32 @@
 # Changelog
 
+## v1.9.21 — Web Raw JSON Soft Gate Minimal Implementation
+
+### Changed
+
+- Web Status page Raw JSON section now requires advanced diagnostics mode.
+- When advanced mode is OFF: shows locked panel (no status.raw_json rendered).
+- When advanced mode is ON: shows warning + redacted Raw JSON details (collapsed by default).
+- Expired advanced mode behaves as OFF.
+- Added `.locked-panel` CSS class for locked state styling.
+- `/api/status` remains unchanged and not gated.
+- Added test `tests/web-raw-json-soft-gate-v1.9.21.py` (48 tests).
+- Added validation document `docs/validation-v1.9.21-web-raw-json-soft-gate.md`.
+- Recommended v1.9.22 Raw JSON Gating Checkpoint as next step.
+
+### Safety
+
+- Web-only Raw JSON gating change.
+- No Bot runtime behavior changed.
+- No `install.sh` behavior changed.
+- No `bin/nanobk` behavior changed.
+- Advanced mode does not bypass redaction.
+- Off-state does not render status.raw_json.
+- /api/status unchanged and not gated.
+- Secrets, raw addresses, subscription URLs remain hidden.
+- No deployment core, protocol template, Worker, rotate sync, status wrapper, or operation-log rollout changed.
+- No tag/release.
+
 ## v1.9.20 — Bot /status_json Soft Gate Minimal Implementation
 
 ### Changed

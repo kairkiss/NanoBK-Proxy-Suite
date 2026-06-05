@@ -57,6 +57,7 @@
   {% endif %}
 </div>
 
+{% if advanced_mode_enabled %}
 <div class="warning-box">
   <strong>⚠️ Advanced diagnostics</strong><br>
   Raw JSON is redacted and intended for troubleshooting only.<br>
@@ -68,6 +69,15 @@
   <summary>Raw JSON (advanced diagnostics)</summary>
   <pre>{{ status.raw_json }}</pre>
 </details>
+{% else %}
+<div class="card locked-panel">
+  <h2>🔒 Raw JSON (Advanced Diagnostics)</h2>
+  <p class="muted">Raw JSON belongs to advanced diagnostics and is currently locked.</p>
+  <p>Use the status cards above for the normal safe summary.</p>
+  <p>Enable advanced diagnostics mode to view redacted Raw JSON. This mode expires automatically after 15 minutes.</p>
+  <p class="muted">Even in advanced mode, secrets, raw addresses, and subscription URLs must remain hidden.</p>
+</div>
+{% endif %}
 {% elif raw_output %}
 <div class="card">
   <h3>Output</h3>
