@@ -1,5 +1,35 @@
 # Changelog
 
+## v1.9.3 — Web Dashboard UX Spec
+
+### Added
+
+- Added Web Dashboard UX specification document.
+- Defined Web Panel design principles: browser dashboard, beginner-first, honest status, redaction-first, CLI-backed, consistent with Bot.
+- Defined three-tier user model matching Bot: Beginner (L1), Advanced (L2), Owner (L3).
+- Designed Dashboard layout with Overall Status, VPS, CF, Subscription, Bot/Web, Recent Operations, and Recovery cards.
+- Defined status color/badge semantics matching Bot spec.
+- Specified each card's allowed/forbidden fields for beginner view.
+- Specified Raw JSON/details policy: hidden by default, advanced-only, must pass address-class redaction.
+- Specified Doctor page UX as medium-risk with beginner/advanced view split.
+- Specified Rotate page UX with two-step CSRF-protected confirmation.
+- Defined Recovery page for SSH-based recovery guidance.
+- Defined Recent Operations card as safe summary only (no full operation-log rollout).
+- Defined Auth/Session/CSRF UX rules with safe error messages.
+- Defined Web copywriting rules and UI text templates.
+- Mapped Web UX to Bot UX for consistency verification.
+- Defined future test requirements for Web UX implementation.
+- Recommended v1.9.4 Bot/Web Command Allowlist Spec and Static Tests as next step.
+
+### Safety
+
+- Documentation/spec only.
+- No `install.sh` behavior changed.
+- No `bin/nanobk` behavior changed.
+- No Bot/Web code changed.
+- No deployment core, protocol template, Worker, rotate sync, status wrapper, or operation-log rollout changed.
+- No tag/release.
+
 ## v1.9.2 — Telegram Bot UX/Menu Spec
 
 ### Added
