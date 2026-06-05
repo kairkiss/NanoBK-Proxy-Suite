@@ -147,9 +147,9 @@ check("/status_json warning still present", "Advanced diagnostics" in bot_source
 
 print("\n--- No Web changes ---\n")
 
-check("no advanced_mode in web source", "advanced_mode" not in web_source.lower())
+check("advanced_mode exists in web source (v1.9.17+)", "advanced_mode" in web_source.lower())
 check("no /advanced route in web source", '"/advanced"' not in web_source)
-check("no enable_advanced_mode in web source", "enable_advanced_mode" not in web_source)
+check("enable_advanced_mode exists in web source (v1.9.17+)", "enable_advanced_mode" in web_source)
 
 # ── 7. Safety checks ─────────────────────────────────────────────────────
 

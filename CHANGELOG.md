@@ -1,5 +1,37 @@
 # Changelog
 
+## v1.9.17 — Web Advanced Mode Minimal Implementation
+
+### Changed
+
+- Added Web advanced diagnostics mode helper functions: `enable_advanced_mode()`, `disable_advanced_mode()`, `is_advanced_mode_enabled()`, `advanced_mode_remaining_seconds()`.
+- Advanced mode state stored in Flask session only. Not persisted to disk/env/config.
+- Auto-expires after 15 minutes (`ADVANCED_MODE_TTL_SECONDS = 900`).
+- Logout/session expiry resets advanced mode.
+- Added `POST /advanced/on` route (login + CSRF required): enables mode, redirects to Status.
+- Added `POST /advanced/off` route (login + CSRF required): disables mode, redirects to Status.
+- Added `GET /advanced/status` route (login required): returns JSON status.
+- Updated Status page template with Advanced Diagnostics control card (enable/disable buttons, warning copy).
+- Added `.badge-ok` and `.button-warn` CSS classes.
+- Web self-test expanded with advanced mode helper verification.
+- Added test `tests/web-advanced-mode-v1.9.17.py`.
+- Added validation document `docs/validation-v1.9.17-web-advanced-mode.md`.
+- Recommended v1.9.18 Advanced Diagnostics Mode Checkpoint as next step.
+
+### Safety
+
+- Web-only advanced mode state change.
+- No Bot runtime behavior changed.
+- No `install.sh` behavior changed.
+- No `bin/nanobk` behavior changed.
+- Advanced mode does not change redaction rules.
+- Advanced mode does not gate Raw JSON details.
+- Advanced mode does not change /api/status.
+- No URL query parameter bypass.
+- No persistent storage.
+- No deployment core, protocol template, Worker, rotate sync, status wrapper, or operation-log rollout changed.
+- No tag/release.
+
 ## v1.9.16 — Bot Advanced Mode Minimal Implementation
 
 ### Changed

@@ -85,7 +85,7 @@ check("api_status uses redact_json", "redact_json(data)" in web_source)
 
 print("\n--- No advanced mode ---\n")
 
-check("no advanced_mode in web source", "advanced_mode" not in web_source.lower())
+check("advanced_mode exists in web source (v1.9.17+)", "advanced_mode" in web_source.lower())
 check("no session toggle in web source", "session_toggle" not in web_source.lower())
 check("no /advanced route", '"/advanced"' not in web_source)
 

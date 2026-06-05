@@ -323,6 +323,51 @@ VALID_PROTOCOLS = {"all", "hy2", "tuic", "reality", "trojan"}
 def validate_protocol(protocol: str) -> bool:
     return protocol in VALID_PROTOCOLS
 
+# ── Advanced diagnostics mode ────────────────────────────────────────────────
+# Session-level state for advanced diagnostics mode.
+# Not persisted to disk/env/config. Logout/session expiry resets state.
+# Auto-expires after TTL.
+
+ADVANCED_MODE_TTL_SECONDS = 15 * 60  # 15 minutes
+
+
+def _get_advanced_mode(session_obj: dict) -> dict | None:
+    """Get advanced mode state from session, or None if expired/missing."""
+    adv = session_obj.get("advanced_mode")
+    if adv is None:
+        return None
+    if time.time() - adv.get("enabled_at", 0) > ADVANCED_MODE_TTL_SECONDS:
+        session_obj.pop("advanced_mode", None)
+        return None
+    return adv
+
+
+def enable_advanced_mode(session_obj: dict) -> None:
+    """Enable advanced mode in session."""
+    session_obj["advanced_mode"] = {
+        "enabled_at": time.time(),
+    }
+
+
+def disable_advanced_mode(session_obj: dict) -> None:
+    """Disable advanced mode in session."""
+    session_obj.pop("advanced_mode", None)
+
+
+def is_advanced_mode_enabled(session_obj: dict) -> bool:
+    """Check if advanced mode is enabled and not expired."""
+    return _get_advanced_mode(session_obj) is not None
+
+
+def advanced_mode_remaining_seconds(session_obj: dict) -> int:
+    """Return remaining seconds of advanced mode, or 0 if disabled/expired."""
+    adv = _get_advanced_mode(session_obj)
+    if adv is None:
+        return 0
+    remaining = int(ADVANCED_MODE_TTL_SECONDS - (time.time() - adv.get("enabled_at", 0)))
+    return max(0, remaining)
+
+
 # ── Pending rotation ────────────────────────────────────────────────────────
 
 ROTATE_EXPIRY_SECONDS = 120
@@ -536,6 +581,34 @@ def run_self_test() -> bool:
     safe_twice = safe_output(safe_once)
     check("safe_output is idempotent", safe_once == safe_twice)
 
+    # 24. Advanced mode helpers
+    test_session_adv: dict = {}
+    check("advanced mode disabled by default", not is_advanced_mode_enabled(test_session_adv))
+    check("remaining zero when disabled", advanced_mode_remaining_seconds(test_session_adv) == 0)
+
+    enable_advanced_mode(test_session_adv)
+    check("enabled after enable", is_advanced_mode_enabled(test_session_adv))
+    check("remaining positive after enable", advanced_mode_remaining_seconds(test_session_adv) > 0)
+
+    disable_advanced_mode(test_session_adv)
+    check("disabled after disable", not is_advanced_mode_enabled(test_session_adv))
+    check("remaining zero after disable", advanced_mode_remaining_seconds(test_session_adv) == 0)
+
+    # Expired advanced mode
+    test_session_adv2: dict = {"advanced_mode": {"enabled_at": time.time() - ADVANCED_MODE_TTL_SECONDS - 1}}
+    check("expired mode is disabled", not is_advanced_mode_enabled(test_session_adv2))
+    check("expired remaining is zero", advanced_mode_remaining_seconds(test_session_adv2) == 0)
+    check("expired cleans session key", "advanced_mode" not in test_session_adv2)
+
+    # TTL constant
+    check("TTL is 15 minutes", ADVANCED_MODE_TTL_SECONDS == 15 * 60)
+
+    # 25. Advanced mode helper functions exist
+    check("enable_advanced_mode is callable", callable(enable_advanced_mode))
+    check("disable_advanced_mode is callable", callable(disable_advanced_mode))
+    check("is_advanced_mode_enabled is callable", callable(is_advanced_mode_enabled))
+    check("advanced_mode_remaining_seconds is callable", callable(advanced_mode_remaining_seconds))
+
     print(f"\n=== {passed} passed, {failed} failed ===")
     return failed == 0
 
@@ -640,9 +713,14 @@ def create_app(config: WebConfig):
         else:
             raw_output = safe_output(result.stderr or result.stdout)
 
+        adv_enabled = is_advanced_mode_enabled(session)
+        adv_remaining = advanced_mode_remaining_seconds(session) if adv_enabled else 0
+
         return render_template("status.html",
                                status=status_data,
-                               raw_output=raw_output)
+                               raw_output=raw_output,
+                               advanced_mode_enabled=adv_enabled,
+                               advanced_mode_remaining=adv_remaining)
 
     @app.route("/api/status")
     @require_login
@@ -749,6 +827,34 @@ def create_app(config: WebConfig):
             abort(403, "CSRF validation failed.")
         clear_pending_rotate(session)
         return redirect(url_for("rotate"))
+
+    # ── Advanced diagnostics mode ─────────────────────────────────────────
+
+    @app.route("/advanced/on", methods=["POST"])
+    @require_login
+    def advanced_on():
+        if not validate_csrf():
+            abort(403, "CSRF validation failed.")
+        enable_advanced_mode(session)
+        return redirect(url_for("status"))
+
+    @app.route("/advanced/off", methods=["POST"])
+    @require_login
+    def advanced_off():
+        if not validate_csrf():
+            abort(403, "CSRF validation failed.")
+        disable_advanced_mode(session)
+        return redirect(url_for("status"))
+
+    @app.route("/advanced/status")
+    @require_login
+    def advanced_status():
+        enabled = is_advanced_mode_enabled(session)
+        remaining = advanced_mode_remaining_seconds(session) if enabled else 0
+        return jsonify({
+            "enabled": enabled,
+            "remaining_seconds": remaining,
+        })
 
     return app
 

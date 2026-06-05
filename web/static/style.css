@@ -68,6 +68,7 @@ h3 { font-size: 15px; margin: 12px 0 8px; }
 }
 
 .badge-warn { background: #d29922; color: #000; }
+.badge-ok { background: #238636; color: #fff; }
 
 pre {
   background: #0d1117;
@@ -104,6 +105,13 @@ li { margin: 4px 0; }
 }
 
 .button-danger:hover { background: #f85149; }
+
+.button-warn {
+  background: #d29922;
+  color: #000;
+}
+
+.button-warn:hover { background: #b8891a; }
 
 .button-group {
   display: flex;

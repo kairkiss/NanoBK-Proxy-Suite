@@ -33,6 +33,30 @@
   <p class="muted">Status from nanobk CLI. Sensitive addresses are hidden.</p>
 </div>
 
+<div class="card">
+  <h2>Advanced Diagnostics</h2>
+  {% if advanced_mode_enabled %}
+  <p class="badge badge-ok">Enabled — expires in ~{{ advanced_mode_remaining // 60 }} minutes</p>
+  <form method="POST" action="/advanced/off" style="display:inline">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <button type="submit" class="button">Disable advanced mode</button>
+  </form>
+  {% else %}
+  <p class="muted">Advanced diagnostics mode is disabled.</p>
+  <div class="warning-box">
+    <strong>⚠️ Enable advanced diagnostics?</strong><br>
+    Advanced diagnostics remain redacted, but may reveal system structure.<br>
+    Do not share full diagnostic output with untrusted people.<br>
+    Secrets, raw addresses, and subscription URLs must remain hidden.<br>
+    This mode expires in 15 minutes.
+  </div>
+  <form method="POST" action="/advanced/on">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <button type="submit" class="button button-warn">Enable advanced mode</button>
+  </form>
+  {% endif %}
+</div>
+
 <div class="warning-box">
   <strong>⚠️ Advanced diagnostics</strong><br>
   Raw JSON is redacted and intended for troubleshooting only.<br>
