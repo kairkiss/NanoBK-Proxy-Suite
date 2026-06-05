@@ -1,5 +1,38 @@
 # Changelog
 
+## v1.9.24 — Bot Control Center Static Menu Minimal Implementation
+
+### Changed
+
+- Updated `/start` to show productized NanoBK Control Center message with InlineKeyboardButton menu.
+- Added static main menu: Status Summary, Recovery Help, Diagnostics, Advanced Mode, Rotate Secrets, Web Panel, Help.
+- Added callback data constants with `nanobk:` prefix for safe scoping.
+- Added `handle_menu_callback()` with owner-only authorization and scoped `CallbackQueryHandler`.
+- Status Summary callback calls existing safe `/status` logic.
+- Recovery Help callback shows static safe recovery text.
+- Diagnostics callback shows guidance for /doctor, /advanced on, /status_json.
+- Advanced Mode callback shows current status + command guidance.
+- Rotate Secrets callback shows static guidance only (does NOT execute rotate).
+- Web Panel callback shows safe guidance (does NOT expose raw URL).
+- Help callback shows help text.
+- All slash commands remain available as canonical shortcuts.
+- Bot self-test expanded from 66 to 81 tests with control center verification.
+- Added test `tests/bot-control-center-menu-v1.9.24.py` (46 tests).
+- Added validation document `docs/validation-v1.9.24-bot-control-center-static-menu.md`.
+- Recommended v1.9.25 Bot Control Center Callback Polish as next step.
+
+### Safety
+
+- Bot-only static menu implementation.
+- No Web runtime behavior changed.
+- No `install.sh` behavior changed.
+- No `bin/nanobk` behavior changed.
+- Callbacks do not bypass owner checks, advanced mode gate, or rotate confirmation.
+- Rotate callback does not execute rotate.
+- Web Panel callback does not expose raw URL.
+- No deployment core, protocol template, Worker, rotate sync, status wrapper, or operation-log rollout changed.
+- No tag/release.
+
 ## v1.9.23 — Bot Control Center Menu Planning
 
 ### Added

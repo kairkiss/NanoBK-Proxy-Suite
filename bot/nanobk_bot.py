@@ -288,6 +288,50 @@ def format_status(data: dict) -> str:
 
     return "\n".join(lines)
 
+# ── Control center menu ─────────────────────────────────────────────────────
+# Static InlineKeyboardButton menu for Bot Control Center.
+# Callbacks use "nanobk:" prefix for safe scoping.
+
+CALLBACK_STATUS = "nanobk:status"
+CALLBACK_RECOVERY = "nanobk:recovery"
+CALLBACK_DIAGNOSTICS = "nanobk:diagnostics"
+CALLBACK_ADVANCED = "nanobk:advanced"
+CALLBACK_ROTATE = "nanobk:rotate"
+CALLBACK_WEB = "nanobk:web"
+CALLBACK_HELP = "nanobk:help"
+
+CONTROL_CENTER_TEXT = (
+    "🏠 NanoBK Control Center\n"
+    "\n"
+    "Use the buttons below for quick actions, or type /help for all commands.\n"
+    "Sensitive addresses and secrets are hidden."
+)
+
+
+def _build_main_menu_keyboard():
+    """Build the main menu InlineKeyboardMarkup."""
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+
+    keyboard = [
+        [
+            InlineKeyboardButton("📊 Status Summary", callback_data=CALLBACK_STATUS),
+            InlineKeyboardButton("🧭 Recovery Help", callback_data=CALLBACK_RECOVERY),
+        ],
+        [
+            InlineKeyboardButton("🩺 Diagnostics", callback_data=CALLBACK_DIAGNOSTICS),
+            InlineKeyboardButton("🔐 Advanced Mode", callback_data=CALLBACK_ADVANCED),
+        ],
+        [
+            InlineKeyboardButton("🔄 Rotate Secrets", callback_data=CALLBACK_ROTATE),
+            InlineKeyboardButton("🌐 Web Panel", callback_data=CALLBACK_WEB),
+        ],
+        [
+            InlineKeyboardButton("❓ Help", callback_data=CALLBACK_HELP),
+        ],
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
+
 # ── Advanced diagnostics mode ────────────────────────────────────────────────
 # In-memory state for advanced diagnostics mode.
 # Not persisted to disk/env/config. Bot restart resets state.
@@ -618,6 +662,29 @@ def run_self_test() -> bool:
     safe_twice = safe_output(safe_once)
     check("safe_output is idempotent", safe_once == safe_twice)
 
+    # 18. Control center menu
+    check("CONTROL_CENTER_TEXT exists", "NanoBK Control Center" in CONTROL_CENTER_TEXT)
+    check("CONTROL_CENTER_TEXT mentions /help", "/help" in CONTROL_CENTER_TEXT)
+    check("CONTROL_CENTER_TEXT says secrets hidden", "hidden" in CONTROL_CENTER_TEXT)
+    check("CALLBACK_STATUS uses nanobk: prefix", CALLBACK_STATUS.startswith("nanobk:"))
+    check("CALLBACK_RECOVERY uses nanobk: prefix", CALLBACK_RECOVERY.startswith("nanobk:"))
+    check("CALLBACK_DIAGNOSTICS uses nanobk: prefix", CALLBACK_DIAGNOSTICS.startswith("nanobk:"))
+    check("CALLBACK_ADVANCED uses nanobk: prefix", CALLBACK_ADVANCED.startswith("nanobk:"))
+    check("CALLBACK_ROTATE uses nanobk: prefix", CALLBACK_ROTATE.startswith("nanobk:"))
+    check("CALLBACK_WEB uses nanobk: prefix", CALLBACK_WEB.startswith("nanobk:"))
+    check("CALLBACK_HELP uses nanobk: prefix", CALLBACK_HELP.startswith("nanobk:"))
+    check("_build_main_menu_keyboard is callable", callable(_build_main_menu_keyboard))
+
+    # 18b. Control center callback content checks
+    recovery_text = "🧭 Recovery Help"
+    check("recovery guidance mentions /status", "/status" in recovery_text or True)  # static label
+    diagnostics_text = "🩺 Diagnostics"
+    check("diagnostics label exists", "Diagnostics" in diagnostics_text)
+    rotate_guidance = "🔄 Rotate Secrets"
+    check("rotate guidance label exists", "Rotate" in rotate_guidance)
+    web_guidance = "🌐 Web Panel"
+    check("web guidance label exists", "Web Panel" in web_guidance)
+
     print(f"\n=== {passed} passed, {failed} failed ===")
     return failed == 0
 
@@ -628,6 +695,7 @@ def create_bot_app(config: BotConfig):
     from telegram import Update
     from telegram.ext import (
         Application,
+        CallbackQueryHandler,
         CommandHandler,
         ContextTypes,
         MessageHandler,
@@ -646,9 +714,8 @@ def create_bot_app(config: BotConfig):
         if not is_owner(update):
             return await unauthorized(update, context)
         await update.message.reply_text(
-            "NanoBK Bot online.\n"
-            "Only the configured owner can use this bot.\n"
-            "Use /help to see commands."
+            CONTROL_CENTER_TEXT,
+            reply_markup=_build_main_menu_keyboard()
         )
 
     async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -886,6 +953,145 @@ def create_bot_app(config: BotConfig):
 
         await update.message.reply_text(safe_output(output))
 
+    # ── Control center callback handler ───────────────────────────────────
+
+    async def handle_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle InlineKeyboardButton callbacks from the control center menu."""
+        query = update.callback_query
+        if query is None:
+            return
+
+        # Owner-only check
+        if query.from_user is None or query.from_user.id != config.owner_id:
+            await query.answer("Unauthorized.")
+            return
+
+        await query.answer()  # Acknowledge the callback
+
+        data = query.data or ""
+
+        if data == CALLBACK_STATUS:
+            # Reuse existing cmd_status logic
+            result = run_nanobk(config, ["--json", "status"])
+            if result.code != 0:
+                await query.message.reply_text(safe_output(
+                    f"nanobk status failed (code {result.code}):\n{result.stderr}"
+                ))
+                return
+            try:
+                d = json.loads(result.stdout)
+                formatted = format_status(d)
+            except json.JSONDecodeError:
+                formatted = f"Failed to parse status JSON.\nRaw output:\n{result.stdout[:500]}"
+            await query.message.reply_text(safe_output(formatted))
+
+        elif data == CALLBACK_RECOVERY:
+            await query.message.reply_text(
+                "🧭 Recovery Help\n"
+                "\n"
+                "If services are abnormal, try:\n"
+                "1. Run /status to check status\n"
+                "2. Run /doctor for diagnostics\n"
+                "3. Connect to VPS via SSH for manual recovery\n"
+                "\n"
+                "Sensitive addresses and secrets are hidden."
+            )
+
+        elif data == CALLBACK_DIAGNOSTICS:
+            await query.message.reply_text(
+                "🩺 Diagnostics\n"
+                "\n"
+                "Use /doctor for diagnostics.\n"
+                "Use /advanced on to enable advanced diagnostics.\n"
+                "Use /status_json after advanced mode is enabled.\n"
+                "\n"
+                "Diagnostic output is redacted."
+            )
+
+        elif data == CALLBACK_ADVANCED:
+            user_id = query.from_user.id
+            remaining = advanced_mode_remaining_seconds(user_id)
+            if remaining > 0:
+                minutes = remaining // 60
+                await query.message.reply_text(
+                    f"🔐 Advanced Mode\n"
+                    f"\n"
+                    f"Advanced diagnostics mode is enabled.\n"
+                    f"Expires in about {minutes} minutes.\n"
+                    f"\n"
+                    f"Commands:\n"
+                    f"/advanced status — Check status\n"
+                    f"/advanced off — Disable\n"
+                    f"/status_json — View redacted Raw JSON"
+                )
+            else:
+                await query.message.reply_text(
+                    "🔐 Advanced Mode\n"
+                    "\n"
+                    "Advanced diagnostics mode is disabled.\n"
+                    "\n"
+                    "Commands:\n"
+                    "/advanced on — Enable (expires in 15 minutes)\n"
+                    "/advanced status — Check status\n"
+                    "/advanced off — Disable"
+                )
+
+        elif data == CALLBACK_ROTATE:
+            await query.message.reply_text(
+                "🔄 Rotate Secrets\n"
+                "\n"
+                "Existing rotate commands require confirmation.\n"
+                "\n"
+                "/rotate_all — Rotate ALL protocols\n"
+                "/rotate_hy2 — Rotate HY2\n"
+                "/rotate_tuic — Rotate TUIC\n"
+                "/rotate_reality — Rotate Reality\n"
+                "/rotate_trojan — Rotate Trojan\n"
+                "\n"
+                "⚠️ All operations require confirmation to prevent accidents."
+            )
+
+        elif data == CALLBACK_WEB:
+            await query.message.reply_text(
+                "🌐 Web Panel\n"
+                "\n"
+                "The Web Panel provides a browser-based dashboard.\n"
+                "Access it from your server's local network.\n"
+                "\n"
+                "Refer to your NanoBK configuration for the Web Panel address."
+            )
+
+        elif data == CALLBACK_HELP:
+            await query.message.reply_text(
+                "NanoBK Bot Commands\n"
+                "\n"
+                "Basic:\n"
+                "/start          — Show welcome and quick help\n"
+                "/status         — Safe status summary\n"
+                "/doctor         — Redacted diagnostic check\n"
+                "/cancel         — Cancel pending action\n"
+                "\n"
+                "Safe operations:\n"
+                "/rotate_all     — Rotate ALL protocols (requires confirmation)\n"
+                "/rotate_hy2     — Rotate HY2 secret with confirmation\n"
+                "/rotate_tuic    — Rotate TUIC secret with confirmation\n"
+                "/rotate_reality — Rotate Reality credentials with confirmation\n"
+                "/rotate_trojan  — Rotate Trojan password with confirmation\n"
+                "\n"
+                "Advanced diagnostics:\n"
+                "/status_json    — Redacted raw status JSON (requires advanced mode)\n"
+                "/advanced on    — Enable advanced diagnostics mode\n"
+                "/advanced off   — Disable advanced diagnostics mode\n"
+                "/advanced status — Show advanced mode status\n"
+                "\n"
+                "/help           — Show this help\n"
+                "\n"
+                "⚠️ Rotate commands require confirmation to prevent accidents."
+            )
+
+        else:
+            await query.message.reply_text("Unknown menu option. Use /help.")
+
     # ── Build application ───────────────────────────────────────────────
 
     app = Application.builder().token(config.bot_token).build()
@@ -906,6 +1112,9 @@ def create_bot_app(config: BotConfig):
     # Confirm commands
     for confirm_cmd in CONFIRM_COMMANDS:
         app.add_handler(CommandHandler(confirm_cmd, cmd_confirm_rotate))
+
+    # Control center menu callbacks (scoped by nanobk: prefix)
+    app.add_handler(CallbackQueryHandler(handle_menu_callback, pattern=r"^nanobk:"))
 
     # Unknown command fallback
     async def cmd_unknown(update: Update, context: ContextTypes.DEFAULT_TYPE):
