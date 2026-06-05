@@ -1,0 +1,21 @@
+{
+  "ok": true,
+  "domain": "example.invalid",
+  "vpsIp": "192.0.2.10",
+  "services": {
+    "hy2": "active",
+    "tuic": "active",
+    "reality": "active",
+    "trojan": "active"
+  },
+  "security": {
+    "secretsMode": "600"
+  },
+  "cloudflare": {
+    "nanok": {"envExists": true, "verified": true},
+    "nanob": {"envExists": true, "verified": true}
+  },
+  "subscription": {"verified": true, "configured": true},
+  "profile": {"domain": "example.invalid", "currentPath": "/etc/nanobk/profile.current.json"},
+  "warnings": []
+}

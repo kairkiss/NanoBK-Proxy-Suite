@@ -1,0 +1,59 @@
+
+── System Info ──
+
+  ✓ OS: Ubuntu 24.04.1 LTS
+  ✓ Kernel: 6.8.0-48-generic
+  ✓ Arch: x86_64
+  ✓ Running as root
+
+── Required Tools ──
+
+  ✓ curl: /usr/bin/curl
+  ✓ jq: /usr/bin/jq
+  ✓ python3: /usr/bin/python3
+  ✓ openssl: /usr/bin/openssl
+  ✓ systemctl: /usr/bin/systemctl
+  ✓ ss: /usr/bin/ss
+  ! uuidgen: not found (may be needed for full functionality)
+  ! xray: not found (may be needed for full functionality)
+  ! hysteria: not found (may be needed for full functionality)
+  ! tuic-server: not found (may be needed for full functionality)
+
+── NanoBK Configuration ──
+
+  ✓ Config directory: /etc/nanobk
+  ✓ Config env: /etc/nanobk/config.env
+  ✓ Config env permissions: 600 (secure)
+
+── Cloudflare Admin Config ──
+
+  ✓ CF admin env: /root/.nanok-cf-admin.env
+  ✓ ADMIN_TOKEN is set
+  ✓ ADMIN_UPDATE_URL is set
+
+── Systemd Services ──
+
+  ✗ hysteria-server.service: inactive
+  ✗ tuic-v5-9443.service: failed
+  ✓ xray-reality-8443.service: active
+  ✓ xray-trojan-2443.service: active
+
+── Port Listening ──
+
+  ✗ HY2 :443 (udp): NOT listening
+  ✗ TUIC :9443 (udp): NOT listening
+  ✓ Reality :8443 (tcp): listening
+  ✓ Trojan :2443 (tcp): listening
+
+── Config Files ──
+
+  ✓ HY2 config: /etc/hysteria/config.yaml
+  ✓ TUIC config: /etc/proxy-stack/tuic-v5-9443/config.json
+  ✓ Reality config: /etc/proxy-stack/xray-reality-8443/config.json
+  ✓ Trojan config: /etc/proxy-stack/xray-trojan-2443/config.json
+
+── Summary ──
+
+  2 error(s), 4 warning(s).
+
+  Fix the errors above before proceeding.

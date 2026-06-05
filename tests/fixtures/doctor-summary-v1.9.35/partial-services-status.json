@@ -1,0 +1,21 @@
+{
+  "ok": false,
+  "domain": "example.invalid",
+  "vpsIp": "198.51.100.20",
+  "services": {
+    "hy2": "active",
+    "tuic": "failed",
+    "reality": "active",
+    "trojan": "inactive"
+  },
+  "security": {
+    "secretsMode": "600"
+  },
+  "cloudflare": {
+    "nanok": {"envExists": true, "verified": true},
+    "nanob": {"envExists": true, "verified": false}
+  },
+  "subscription": {"configured": true, "verified": false},
+  "profile": {"domain": "example.invalid", "currentPath": "/etc/nanobk/profile.current.json"},
+  "warnings": ["TUIC service not responding", "Trojan service inactive"]
+}

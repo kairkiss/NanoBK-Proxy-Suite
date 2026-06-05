@@ -1,0 +1,21 @@
+{
+  "ok": true,
+  "domain": "example.invalid",
+  "vpsIp": "203.0.113.30",
+  "services": {
+    "hy2": "active",
+    "tuic": "active",
+    "reality": "active",
+    "trojan": "active"
+  },
+  "security": {
+    "secretsMode": "600"
+  },
+  "cloudflare": {
+    "nanok": {"envExists": false},
+    "nanob": {"envExists": false}
+  },
+  "subscription": {"configured": false},
+  "profile": {"domain": "example.invalid"},
+  "warnings": ["Cloudflare admin env not found"]
+}

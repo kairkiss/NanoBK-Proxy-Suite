@@ -1,0 +1,14 @@
+{
+  "ok": null,
+  "services": {
+    "hy2": "unknown",
+    "tuic": "unknown",
+    "reality": "unknown",
+    "trojan": "unknown"
+  },
+  "security": {},
+  "cloudflare": {},
+  "subscription": {},
+  "profile": {},
+  "warnings": ["Config directory not found", "Profile not found"]
+}

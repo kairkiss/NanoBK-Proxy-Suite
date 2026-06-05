@@ -1,0 +1,27 @@
+{
+  "overall": "healthy",
+  "control_plane": "ok",
+  "cli": "available",
+  "profile": "present",
+  "config": "present",
+  "services": {
+    "hy2": "active",
+    "tuic": "active",
+    "reality": "active",
+    "trojan": "active"
+  },
+  "cloudflare": "verified",
+  "subscription": "verified",
+  "security": "ok",
+  "doctor": {
+    "errors": 0,
+    "warnings": 0,
+    "full_available": true
+  },
+  "next_step": "no_action",
+  "display_policy": {
+    "beginner_safe": true,
+    "full_output_advanced_only": true,
+    "redaction_required": true
+  }
+}

@@ -1,5 +1,31 @@
 # Changelog
 
+## v1.9.35 — Doctor Summary Contract / Fixture Tests
+
+### Added
+
+- Added Doctor Summary contract document with schema, safety rules, and scenario expectations.
+- Added 14 fixture files under `tests/fixtures/doctor-summary-v1.9.35/`: 7 input fixtures (healthy, partial, missing config, CF missing, failure, secret-containing, unknown) and 7 expected summary fixtures.
+- Added contract test `tests/doctor-summary-contract-v1.9.35.py` (352 checks).
+- Defined stable Doctor Summary JSON schema with allowed value sets.
+- Validated all expected summaries for schema compliance, forbidden pattern absence, and honesty rules.
+- Verified input fixtures contain fake secrets for redaction testing, while expected summaries contain none.
+- Readiness decision: READY FOR BOT DOCTOR SUMMARY MINIMAL IMPLEMENTATION AFTER CHATGPT REVIEW.
+- Recommended v1.9.36 Bot Doctor Summary Minimal Implementation as next step.
+
+### Safety
+
+- Contract/fixture/test only.
+- No Bot runtime behavior changed.
+- No Web runtime behavior changed.
+- No CLI behavior changed.
+- No `install.sh` behavior changed.
+- No `bin/nanobk` behavior changed.
+- No `installer/doctor.sh` behavior changed.
+- No real doctor executed.
+- No deployment core, protocol template, Worker, rotate sync, status wrapper, or operation-log rollout changed.
+- No tag/release.
+
 ## v1.9.34 — Doctor Output Current-State Audit
 
 ### Added

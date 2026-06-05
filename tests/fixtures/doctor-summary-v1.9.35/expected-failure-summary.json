@@ -1,0 +1,27 @@
+{
+  "overall": "failed",
+  "control_plane": "ok",
+  "cli": "available",
+  "profile": "present",
+  "config": "present",
+  "services": {
+    "hy2": "inactive",
+    "tuic": "inactive",
+    "reality": "active",
+    "trojan": "active"
+  },
+  "cloudflare": "verified",
+  "subscription": "verified",
+  "security": "ok",
+  "doctor": {
+    "errors": 2,
+    "warnings": 4,
+    "full_available": true
+  },
+  "next_step": "check_failed_services",
+  "display_policy": {
+    "beginner_safe": true,
+    "full_output_advanced_only": true,
+    "redaction_required": true
+  }
+}
