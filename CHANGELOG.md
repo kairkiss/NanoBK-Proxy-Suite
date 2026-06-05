@@ -1,5 +1,36 @@
 # Changelog
 
+## v1.9.16 — Bot Advanced Mode Minimal Implementation
+
+### Changed
+
+- Added Bot advanced diagnostics mode helper functions: `enable_advanced_mode()`, `disable_advanced_mode()`, `is_advanced_mode_enabled()`, `advanced_mode_remaining_seconds()`, `advanced_mode_expires_at()`.
+- Advanced mode state stored in-memory only (`_ADVANCED_MODE_EXPIRES_AT` dict). Not persisted to disk/env/config.
+- Auto-expires after 15 minutes (`ADVANCED_MODE_TTL_SECONDS = 900`).
+- Bot restart resets advanced mode.
+- Added `/advanced on` command (owner-only): enables mode, shows warning copy.
+- Added `/advanced off` command (owner-only): disables mode.
+- Added `/advanced status` command (owner-only): shows mode status and remaining time.
+- Added `/advanced` without arguments: shows usage text.
+- Updated `/help` to include `/advanced on|off|status` under Advanced diagnostics section.
+- Bot self-test expanded from 47 to 61 tests with advanced mode verification.
+- Added test `tests/bot-advanced-mode-v1.9.16.py`.
+- Added validation document `docs/validation-v1.9.16-bot-advanced-mode.md`.
+- Recommended v1.9.17 Web Advanced Mode Planning as next step.
+
+### Safety
+
+- Bot-only advanced mode state change.
+- No Web runtime behavior changed.
+- No `install.sh` behavior changed.
+- No `bin/nanobk` behavior changed.
+- Advanced mode does not change redaction rules.
+- Advanced mode does not gate `/status_json`.
+- Advanced mode does not change rotate behavior.
+- No file/env/config persistence.
+- No deployment core, protocol template, Worker, rotate sync, status wrapper, or operation-log rollout changed.
+- No tag/release.
+
 ## v1.9.15 — Advanced Diagnostics Mode Planning
 
 ### Added

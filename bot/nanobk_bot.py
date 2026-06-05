@@ -288,6 +288,62 @@ def format_status(data: dict) -> str:
 
     return "\n".join(lines)
 
+# ── Advanced diagnostics mode ────────────────────────────────────────────────
+# In-memory state for advanced diagnostics mode.
+# Not persisted to disk/env/config. Bot restart resets state.
+# Auto-expires after TTL. Owner-only.
+
+ADVANCED_MODE_TTL_SECONDS = 15 * 60  # 15 minutes
+
+_ADVANCED_MODE_EXPIRES_AT: dict[int, float] = {}
+
+
+def enable_advanced_mode(user_id: int, now: float | None = None) -> float:
+    """Enable advanced mode for a user. Returns expiry timestamp."""
+    if now is None:
+        now = time.time()
+    expiry = now + ADVANCED_MODE_TTL_SECONDS
+    _ADVANCED_MODE_EXPIRES_AT[user_id] = expiry
+    return expiry
+
+
+def disable_advanced_mode(user_id: int) -> None:
+    """Disable advanced mode for a user."""
+    _ADVANCED_MODE_EXPIRES_AT.pop(user_id, None)
+
+
+def advanced_mode_expires_at(user_id: int) -> float | None:
+    """Return expiry timestamp for user, or None if not enabled."""
+    return _ADVANCED_MODE_EXPIRES_AT.get(user_id)
+
+
+def is_advanced_mode_enabled(user_id: int, now: float | None = None) -> bool:
+    """Check if advanced mode is enabled and not expired. Cleans expired entries."""
+    if now is None:
+        now = time.time()
+    expiry = _ADVANCED_MODE_EXPIRES_AT.get(user_id)
+    if expiry is None:
+        return False
+    if now >= expiry:
+        del _ADVANCED_MODE_EXPIRES_AT[user_id]
+        return False
+    return True
+
+
+def advanced_mode_remaining_seconds(user_id: int, now: float | None = None) -> int:
+    """Return remaining seconds of advanced mode, or 0 if disabled/expired."""
+    if now is None:
+        now = time.time()
+    expiry = _ADVANCED_MODE_EXPIRES_AT.get(user_id)
+    if expiry is None:
+        return 0
+    remaining = int(expiry - now)
+    if remaining <= 0:
+        del _ADVANCED_MODE_EXPIRES_AT[user_id]
+        return 0
+    return remaining
+
+
 # ── Pending confirmation ────────────────────────────────────────────────────
 
 @dataclass
@@ -428,6 +484,9 @@ def run_self_test() -> bool:
         "\n"
         "Advanced diagnostics:\n"
         "/status_json    — Redacted raw status JSON for debugging\n"
+        "/advanced on    — Enable advanced diagnostics mode\n"
+        "/advanced off   — Disable advanced diagnostics mode\n"
+        "/advanced status — Show advanced mode status\n"
         "\n"
         "/help           — Show this help\n"
         "\n"
@@ -452,6 +511,36 @@ def run_self_test() -> bool:
     check("status_json warning says redacted", "redacted" in status_json_warning)
     check("status_json warning says do not forward", "Do not forward" in status_json_warning)
     check("status_json warning recommends /status", "/status" in status_json_warning)
+
+    # 9c. Advanced mode helpers
+    # Disabled by default
+    check("advanced mode disabled by default", not is_advanced_mode_enabled(99999))
+
+    # Enable and check
+    test_now = 1000.0
+    expiry = enable_advanced_mode(12345, now=test_now)
+    check("enable returns expiry", expiry == test_now + ADVANCED_MODE_TTL_SECONDS)
+    check("enabled after enable", is_advanced_mode_enabled(12345, now=test_now))
+    check("remaining seconds positive", advanced_mode_remaining_seconds(12345, now=test_now) > 0)
+    check("expires_at returns value", advanced_mode_expires_at(12345) is not None)
+
+    # Disable and check
+    disable_advanced_mode(12345)
+    check("disabled after disable", not is_advanced_mode_enabled(12345))
+    check("remaining seconds zero after disable", advanced_mode_remaining_seconds(12345) == 0)
+    check("expires_at None after disable", advanced_mode_expires_at(12345) is None)
+
+    # Expiration
+    enable_advanced_mode(12345, now=test_now)
+    expired_time = test_now + ADVANCED_MODE_TTL_SECONDS + 1
+    check("expired mode is disabled", not is_advanced_mode_enabled(12345, now=expired_time))
+    check("expired remaining is zero", advanced_mode_remaining_seconds(12345, now=expired_time) == 0)
+
+    # 9d. Help text includes /advanced commands
+    check("help includes /advanced on", "/advanced on" in help_text)
+    check("help includes /advanced off", "/advanced off" in help_text)
+    check("help includes /advanced status", "/advanced status" in help_text)
+    check("help /status_json still in Advanced", "/status_json" in help_text)
 
     # 10. limit_text truncates
     long_text = "x" * 5000
@@ -565,6 +654,9 @@ def create_bot_app(config: BotConfig):
             "\n"
             "Advanced diagnostics:\n"
             "/status_json    — Redacted raw status JSON for debugging\n"
+            "/advanced on    — Enable advanced diagnostics mode\n"
+            "/advanced off   — Disable advanced diagnostics mode\n"
+            "/advanced status — Show advanced mode status\n"
             "\n"
             "/help           — Show this help\n"
             "\n"
@@ -629,6 +721,48 @@ def create_bot_app(config: BotConfig):
 
         confirmations.clear(update.effective_user.id)
         await update.message.reply_text("Pending confirmation cancelled.")
+
+    async def cmd_advanced(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        if not is_owner(update):
+            return await unauthorized(update, context)
+
+        user_id = update.effective_user.id
+        args = update.message.text.split()[1:] if update.message.text else []
+        subcommand = args[0].lower() if args else ""
+
+        if subcommand == "on":
+            enable_advanced_mode(user_id)
+            await update.message.reply_text(
+                "⚠️ Advanced diagnostics mode enabled.\n"
+                "\n"
+                "Outputs are still redacted, but diagnostic details may reveal system structure.\n"
+                "Do not forward full diagnostic output to untrusted people.\n"
+                "Secrets, raw addresses, and subscription URLs must remain hidden.\n"
+                "\n"
+                "This mode will expire in 15 minutes.\n"
+                "Use /advanced off to disable it sooner."
+            )
+        elif subcommand == "off":
+            disable_advanced_mode(user_id)
+            await update.message.reply_text("Advanced diagnostics mode disabled.")
+        elif subcommand == "status":
+            remaining = advanced_mode_remaining_seconds(user_id)
+            if remaining > 0:
+                minutes = remaining // 60
+                await update.message.reply_text(
+                    f"Advanced diagnostics mode is enabled.\n"
+                    f"Expires in about {minutes} minutes."
+                )
+            else:
+                await update.message.reply_text("Advanced diagnostics mode is disabled.")
+        else:
+            await update.message.reply_text(
+                "Usage: /advanced on|off|status\n"
+                "\n"
+                "on     — Enable advanced diagnostics mode\n"
+                "off    — Disable advanced diagnostics mode\n"
+                "status — Show current mode status"
+            )
 
     # ── Rotate handlers ─────────────────────────────────────────────────
 
@@ -727,6 +861,7 @@ def create_bot_app(config: BotConfig):
     app.add_handler(CommandHandler("status_json", cmd_status_json))
     app.add_handler(CommandHandler("doctor", cmd_doctor))
     app.add_handler(CommandHandler("cancel", cmd_cancel))
+    app.add_handler(CommandHandler("advanced", cmd_advanced))
 
     # Rotate commands (request confirmation)
     for action_name in ROTATE_ACTIONS:

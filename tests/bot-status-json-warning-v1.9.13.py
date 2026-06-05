@@ -162,13 +162,14 @@ check("status summary no raw domain value", "test.example.com" not in formatted)
 check("status summary no raw IP label", "VPS IP:" not in formatted)
 check("status summary no raw IP value", "1.2.3.4" not in formatted)
 
-# ── 5. No advanced mode commands added ────────────────────────────────────
+# ── 5. Advanced mode exists but does not gate /status_json ────────────────
 
-print("\n--- No advanced mode ---\n")
+print("\n--- Advanced mode (v1.9.16+) ---\n")
 
-check("no /advanced on command", "/advanced on" not in bot_source)
-check("no /advanced off command", "/advanced off" not in bot_source)
-check("no advanced_mode field", "advanced_mode" not in bot_source.lower() or "advanced mode not implemented" in bot_source.lower() or "Do not add advanced mode" in bot_source)
+check("/advanced on command exists", "/advanced on" in bot_source)
+check("/advanced off command exists", "/advanced off" in bot_source)
+check("advanced_mode helpers exist", "enable_advanced_mode" in bot_source)
+check("/status_json not gated by advanced", "is_advanced_mode_enabled" not in bot_source.split("cmd_status_json")[1].split("async def")[0] if "cmd_status_json" in bot_source else False)
 
 # ── 6. No Web files changed ──────────────────────────────────────────────
 
