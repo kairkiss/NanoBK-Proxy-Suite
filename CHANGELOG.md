@@ -1,5 +1,29 @@
 # Changelog
 
+## v1.9.9 — Redaction Integration Checkpoint / Bot-Web Safety Gate
+
+### Added
+
+- Added redaction integration checkpoint validation document.
+- Added Bot/Web redaction consistency test with 94 checks.
+- Verified Bot and Web redaction paths delegate to shared helper consistently.
+- Verified no old local redaction patterns remain in Bot/Web source.
+- Verified address-class values (IPv4/IPv6/domain/URL/workers.dev/subscription path) are redacted by both Bot and Web.
+- Verified status words (active/failed/unknown/JP/600/configured) are preserved.
+- Verified idempotency: Bot and Web produce identical redacted output on same input.
+- Readiness decision: READY FOR SMALL UX IMPLEMENTATION PLANNING (narrow scope).
+- Recommended v1.9.10 Bot Safe Status Summary as next step (after ChatGPT review).
+
+### Safety
+
+- Checkpoint/validation only.
+- No Bot runtime behavior changed.
+- No Web runtime behavior changed.
+- No `install.sh` behavior changed.
+- No `bin/nanobk` behavior changed.
+- No deployment core, protocol template, Worker, rotate sync, status wrapper, or operation-log rollout changed.
+- No tag/release.
+
 ## v1.9.8 — Web Redaction Helper Integration
 
 ### Changed
