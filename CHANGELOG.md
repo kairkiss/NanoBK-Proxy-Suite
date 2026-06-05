@@ -1,5 +1,29 @@
 # Changelog
 
+## v1.9.6 — Shared Redaction Helper Design / Prototype Review
+
+### Added
+
+- Added shared redaction helper module `lib/nanobk_redaction.py`.
+- Helper exposes `redact_text()`, `redact_json_obj()`, `redact_json_text()`, `strip_ansi()`.
+- Covers address-class redaction: IPv4, IPv6, domain, URL, workers.dev, subscription path.
+- Covers token/secret/password/private-key redaction with key-value patterns.
+- Covers Telegram bot token format and long base64/hex strings.
+- JSON redaction preserves booleans, numbers, status fields, and JSON validity.
+- Domain redaction excludes file extensions (.json, .py, etc.) to avoid false positives on paths.
+- Added 82-test suite `tests/redaction-helper-v1.9.6.py` covering fixtures, idempotency, edge cases.
+- Added design document `docs/design-v1.9.6-shared-redaction-helper.md`.
+- Recommended v1.9.7 Bot Redaction Helper Integration as next step.
+
+### Safety
+
+- Helper module added but NOT wired into Bot/Web runtime.
+- No `install.sh` behavior changed.
+- No `bin/nanobk` behavior changed.
+- No Bot/Web runtime behavior changed.
+- No deployment core, protocol template, Worker, rotate sync, status wrapper, or operation-log rollout changed.
+- No tag/release.
+
 ## v1.9.5 — Redaction Layer Audit and Address-Class Redaction Tests
 
 ### Added
