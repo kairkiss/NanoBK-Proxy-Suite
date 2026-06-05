@@ -1,5 +1,30 @@
 # Changelog
 
+## v1.9.33 — Doctor Output Productization Planning
+
+### Added
+
+- Added Doctor Output Productization planning document.
+- Defined two-layer Doctor UX model: beginner summary (default) and full diagnostics (advanced mode).
+- Compared Bot doctor design options; recommended option C (advanced mode gates output depth) with option A as fallback.
+- Compared Web doctor design options; recommended option C (summary + advanced details tabs).
+- Defined data source strategy: prefer future safe JSON summary, avoid brittle text parsing.
+- Defined redaction/information-class policy for beginner summary vs advanced-only content.
+- Defined staged implementation route: v1.9.34 audit, v1.9.35 fixture tests, v1.9.36 Bot, v1.9.37 Web, v1.9.38 checkpoint.
+- Readiness decision: READY FOR DOCTOR OUTPUT CURRENT-STATE AUDIT.
+- Recommended v1.9.34 Doctor Output Current-State Audit as next step.
+
+### Safety
+
+- Planning/documentation only.
+- No Bot runtime behavior changed.
+- No Web runtime behavior changed.
+- No CLI behavior changed.
+- No `install.sh` behavior changed.
+- No `bin/nanobk` behavior changed.
+- No deployment core, protocol template, Worker, rotate sync, status wrapper, or operation-log rollout changed.
+- No tag/release.
+
 ## v1.9.32 — Bot/Web i18n Checkpoint
 
 ### Added
