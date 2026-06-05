@@ -1,5 +1,36 @@
 # Changelog
 
+## v1.9.36 — Bot Doctor Summary Minimal Implementation
+
+### Changed
+
+- Bot `/doctor` now shows safe beginner summary by default instead of raw technical output.
+- Added `build_doctor_summary()` to build summary dict from `nanobk --json status` conforming to v1.9.35 contract schema.
+- Added `format_doctor_summary()` to format summary into human-readable text with i18n labels.
+- Added helper functions: `_infer_doctor_overall()`, `_infer_doctor_cloudflare()`, `_infer_doctor_subscription()`, `_infer_doctor_security()`, `_doctor_next_step()`.
+- Advanced OFF: `/doctor` calls `--json status`, builds summary, formats and sends. Does not call `nanobk doctor`.
+- Advanced ON: `/doctor` shows summary first, then appends full redacted diagnostics with warning.
+- Added 23 new Bot i18n keys for doctor summary labels (zh/en).
+- Bot self-test expanded from 148 to 180 tests with doctor summary verification.
+- Added test `tests/bot-doctor-summary-v1.9.36.py` (163 tests).
+- Added validation document `docs/validation-v1.9.36-bot-doctor-summary.md`.
+- Recommended v1.9.37 Web Doctor Summary Minimal Implementation as next step.
+
+### Safety
+
+- Bot-only doctor summary change.
+- No Web runtime behavior changed.
+- No `install.sh` behavior changed.
+- No `bin/nanobk` behavior changed.
+- No `installer/doctor.sh` behavior changed.
+- No redaction changes.
+- No /status_json gate changes.
+- No advanced mode changes.
+- No rotate confirmation changes.
+- No raw IP/domain/URL/token/private key in summary.
+- No deployment core, protocol template, Worker, rotate sync, status wrapper, or operation-log rollout changed.
+- No tag/release.
+
 ## v1.9.35 — Doctor Summary Contract / Fixture Tests
 
 ### Added
