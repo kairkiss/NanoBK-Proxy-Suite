@@ -18,7 +18,7 @@ set -Eeuo pipefail
 
 # ── Version ─────────────────────────────────────────────────────────────────
 
-NANOBK_VERSION="2.0.1"
+NANOBK_VERSION="2.0.2"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -809,7 +809,9 @@ cmd_export() {
 
       while [[ $# -gt 0 ]]; do
         case "$1" in
-          --profile)  profile_path="$2"; shift 2 ;;
+          --profile)
+            [[ $# -ge 2 ]] || die "export link: --profile 需要路径参数"
+            profile_path="$2"; shift 2 ;;
           --json)     json_mode=1; shift ;;
           --dry-run)  DRY_RUN=1; shift ;;
           *)          die "export link: 未知选项: $1" ;;
@@ -845,7 +847,9 @@ cmd_export() {
 
       while [[ $# -gt 0 ]]; do
         case "$1" in
-          --profile)  profile_path="$2"; shift 2 ;;
+          --profile)
+            [[ $# -ge 2 ]] || die "export links: --profile 需要路径参数"
+            profile_path="$2"; shift 2 ;;
           --json)     json_mode=1; shift ;;
           --dry-run)  DRY_RUN=1; shift ;;
           *)          die "export links: 未知选项: $1" ;;

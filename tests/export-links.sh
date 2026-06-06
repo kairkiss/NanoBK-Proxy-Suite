@@ -167,6 +167,24 @@ else
   pass "missing profile returns nonzero"
 fi
 
+# ── Missing --profile value ───────────────────────────────────────────────
+
+MISSING_PROFILE_ERR=$(bash "$NANOBK" export link hy2 --profile 2>&1 || true)
+if echo "$MISSING_PROFILE_ERR" | grep -q "profile"; then
+  pass "export link --profile without value shows clear error"
+else
+  fail "export link --profile without value missing error message"
+  ERRORS=$((ERRORS + 1))
+fi
+
+MISSING_PROFILE_ERR2=$(bash "$NANOBK" export links --profile 2>&1 || true)
+if echo "$MISSING_PROFILE_ERR2" | grep -q "profile"; then
+  pass "export links --profile without value shows clear error"
+else
+  fail "export links --profile without value missing error message"
+  ERRORS=$((ERRORS + 1))
+fi
+
 # ── Unknown protocol ───────────────────────────────────────────────────────
 
 if bash "$NANOBK" export link wireguard --profile "$FIXTURE" >/dev/null 2>&1; then
@@ -174,6 +192,97 @@ if bash "$NANOBK" export link wireguard --profile "$FIXTURE" >/dev/null 2>&1; th
   ERRORS=$((ERRORS + 1))
 else
   pass "unknown protocol returns nonzero"
+fi
+
+# ── Missing required fields ───────────────────────────────────────────────
+
+echo ""
+echo "--- Required field validation ---"
+echo ""
+
+TMPDIR_TESTS=$(mktemp -d)
+trap 'rm -rf "$TMPDIR_TESTS"' EXIT
+
+# Missing HY2 password
+cat > "$TMPDIR_TESTS/hy2-missing-password.json" <<'FIXTURE_EOF'
+{
+  "hy2": {
+    "name": "[US] Test-HY2",
+    "server": "node.example.com",
+    "port": 443,
+    "sni": "node.example.com"
+  }
+}
+FIXTURE_EOF
+
+HY2_ERR=$(bash "$NANOBK" export link hy2 --profile "$TMPDIR_TESTS/hy2-missing-password.json" 2>&1 || true)
+if echo "$HY2_ERR" | grep -q "password"; then
+  pass "missing HY2 password reports clear error"
+else
+  fail "missing HY2 password should report password error"
+  ERRORS=$((ERRORS + 1))
+fi
+# Must NOT contain Python traceback
+if echo "$HY2_ERR" | grep -q "Traceback"; then
+  fail "missing HY2 password should not produce Python traceback"
+  ERRORS=$((ERRORS + 1))
+else
+  pass "missing HY2 password has no traceback"
+fi
+
+# Missing Reality publicKey
+cat > "$TMPDIR_TESTS/reality-missing-pubkey.json" <<'FIXTURE_EOF'
+{
+  "reality": {
+    "name": "[US] Test-Reality",
+    "server": "203.0.113.10",
+    "port": 8443,
+    "uuid": "11111111-1111-4111-8111-111111111111",
+    "servername": "www.example.com",
+    "shortId": "abcd1234efgh5678"
+  }
+}
+FIXTURE_EOF
+
+REALITY_ERR=$(bash "$NANOBK" export link reality --profile "$TMPDIR_TESTS/reality-missing-pubkey.json" 2>&1 || true)
+if echo "$REALITY_ERR" | grep -q "publicKey"; then
+  pass "missing Reality publicKey reports clear error"
+else
+  fail "missing Reality publicKey should report publicKey error"
+  ERRORS=$((ERRORS + 1))
+fi
+if echo "$REALITY_ERR" | grep -q "Traceback"; then
+  fail "missing Reality publicKey should not produce Python traceback"
+  ERRORS=$((ERRORS + 1))
+else
+  pass "missing Reality publicKey has no traceback"
+fi
+
+# Missing TUIC uuid
+cat > "$TMPDIR_TESTS/tuic-missing-uuid.json" <<'FIXTURE_EOF'
+{
+  "tuic": {
+    "name": "[US] Test-TUIC",
+    "server": "node.example.com",
+    "port": 9443,
+    "password": "example-password",
+    "sni": "node.example.com"
+  }
+}
+FIXTURE_EOF
+
+TUIC_ERR=$(bash "$NANOBK" export link tuic --profile "$TMPDIR_TESTS/tuic-missing-uuid.json" 2>&1 || true)
+if echo "$TUIC_ERR" | grep -q "uuid"; then
+  pass "missing TUIC uuid reports clear error"
+else
+  fail "missing TUIC uuid should report uuid error"
+  ERRORS=$((ERRORS + 1))
+fi
+if echo "$TUIC_ERR" | grep -q "Traceback"; then
+  fail "missing TUIC uuid should not produce Python traceback"
+  ERRORS=$((ERRORS + 1))
+else
+  pass "missing TUIC uuid has no traceback"
 fi
 
 # ── Status must not expose links ───────────────────────────────────────────
@@ -189,6 +298,16 @@ else
   fail "help missing export command"
   ERRORS=$((ERRORS + 1))
 fi
+
+# Help output must not contain any protocol URI prefixes (links are secrets)
+for proto_uri in "hysteria2://" "tuic://" "vless://" "trojan://"; do
+  if echo "$STATUS_HELP" | grep -q "$proto_uri"; then
+    fail "--help should not contain $proto_uri"
+    ERRORS=$((ERRORS + 1))
+  else
+    pass "--help does not contain $proto_uri"
+  fi
+done
 
 # ── Link content safety ────────────────────────────────────────────────────
 

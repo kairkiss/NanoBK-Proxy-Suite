@@ -1,5 +1,35 @@
 # Changelog
 
+## v2.0.2 — CLI Export Link Polish and Error Handling
+
+### Fixed
+
+- `nanobk export link --profile` and `nanobk export links --profile` without a path argument now exit nonzero with a clear Chinese error message instead of failing ungracefully under `set -u`.
+- Added explicit required-field validation in `lib/nanobk_export_links.py`. Missing or empty required fields (e.g. `password`, `uuid`, `publicKey`) now print a clear stderr message (`错误: reality 缺少必填字段 publicKey`) and exit nonzero — no Python tracebacks for normal user mistakes.
+
+### Changed
+
+- `bin/nanobk` `--profile` argument parsing now checks `$# -ge 2` before accessing `$2`.
+- `lib/nanobk_export_links.py` adds `_validate_fields()` and `_REQUIRED_FIELDS` dict for per-protocol field validation.
+
+### Added
+
+- Tests for missing `--profile` value (both `export link` and `export links`).
+- Tests for missing required fields: HY2 password, Reality publicKey, TUIC uuid.
+- Traceback absence checks for all malformed-profile error paths.
+- Strengthened safety test: `--help` output verified to not contain protocol URI prefixes (`hysteria2://`, `tuic://`, `vless://`, `trojan://`).
+- Temporary fixture JSON files created inside test script for missing-field tests.
+
+### Safety
+
+- No Bot runtime behavior changed.
+- No Web runtime behavior changed.
+- No `installer/install.sh` behavior changed.
+- No VPS protocol templates changed.
+- No Cloudflare Worker logic changed.
+- No protocol URI schemas changed.
+- No tag/release.
+
 ## v2.0.1 — CLI Single Protocol Link Export
 
 ### Added

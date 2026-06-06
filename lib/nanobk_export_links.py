@@ -26,6 +26,14 @@ from urllib.parse import quote
 
 SUPPORTED_PROTOCOLS = ("hy2", "tuic", "reality", "trojan")
 
+# Required fields per protocol (name is optional for all)
+_REQUIRED_FIELDS = {
+    "hy2": ("server", "port", "password", "sni"),
+    "tuic": ("server", "port", "uuid", "password", "sni"),
+    "reality": ("server", "port", "uuid", "servername", "publicKey", "shortId"),
+    "trojan": ("server", "port", "password", "sni"),
+}
+
 
 def _quote(value: str) -> str:
     """Percent-encode a value for use in URI components."""
@@ -97,14 +105,35 @@ _BUILDERS = {
 }
 
 
+def _validate_fields(protocol: str, section: dict) -> str:
+    """Validate required fields in a protocol section.
+
+    Returns an error message string if validation fails, empty string if OK.
+    """
+    required = _REQUIRED_FIELDS.get(protocol, ())
+    missing = []
+    for field in required:
+        value = section.get(field)
+        if value is None or (isinstance(value, str) and not value.strip()):
+            missing.append(field)
+    if missing:
+        return f"错误: {protocol} 缺少必填字段 {', '.join(missing)}"
+    return ""
+
+
 def build_link(protocol: str, profile_data: dict) -> str:
     """Build a single protocol link from profile data.
 
     Returns the link string, or empty string if the protocol section is missing.
+    Prints validation error to stderr and calls sys.exit(1) if fields are invalid.
     """
     section = profile_data.get(protocol)
     if not section:
         return ""
+    error = _validate_fields(protocol, section)
+    if error:
+        print(error, file=sys.stderr)
+        sys.exit(1)
     return _BUILDERS[protocol](section)
 
 
