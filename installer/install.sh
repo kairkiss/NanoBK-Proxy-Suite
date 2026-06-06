@@ -2074,6 +2074,7 @@ NANOBK_REPO_DIR=${repo_dir_for_bot}
 NANOBK_BOT_DRY_RUN=${bot_dry_run}
 NANOBK_COMMAND_TIMEOUT=120
 NANOBK_ROTATE_TIMEOUT=300
+NANOBK_LANG=${LANG_CODE:-zh}
 EOF
     chmod 600 "$bot_env_dir/.env"
     ok "Bot 配置已保存: bot/.env (mode 600)"
@@ -2214,6 +2215,7 @@ NANOBK_REPO_DIR=${repo_dir_for_web}
 NANOBK_WEB_DRY_RUN=${web_dry_run}
 NANOBK_COMMAND_TIMEOUT=120
 NANOBK_ROTATE_TIMEOUT=300
+NANOBK_LANG=${LANG_CODE:-zh}
 EOF
     chmod 600 "$web_env_dir/.env"
     ok "Web Panel 配置已保存: web/.env (mode 600)"

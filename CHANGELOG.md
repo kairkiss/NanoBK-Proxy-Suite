@@ -1,5 +1,38 @@
 # Changelog
 
+## v1.9.49 — Installer Bot/Web Language Propagation Minimal Implementation
+
+### Changed
+
+- Installer Bot env generation now writes `NANOBK_LANG=${LANG_CODE:-zh}` to bot/.env.
+- Installer Web env generation now writes `NANOBK_LANG=${LANG_CODE:-zh}` to web/.env.
+- `--lang zh` propagates `NANOBK_LANG=zh` to Bot/Web env.
+- `--lang en` propagates `NANOBK_LANG=en` to Bot/Web env.
+- Missing/invalid language falls back to `zh`.
+- Full Wizard language selection automatically propagates via existing `LANG_CODE` global.
+- chmod 600 preserved for both Bot and Web env files.
+- No env contents printed. No tokens printed.
+- VPS deployment, Cloudflare, rotate logic unchanged.
+- Added focused installer language propagation test (22 checks).
+- Added validation document `docs/validation-v1.9.49-installer-language-propagation.md`.
+- Recommended v1.9.50 Language Switch UX Planning as next step.
+
+### Safety
+
+- Installer Bot/Web env propagation only.
+- No Bot runtime behavior changed.
+- No Web runtime behavior changed.
+- No CLI behavior changed.
+- No `bin/nanobk` behavior changed.
+- No `installer/doctor.sh` behavior changed.
+- No redaction changes.
+- No /api/status schema changes.
+- No Raw JSON gating behavior changes.
+- No advanced mode behavior changes.
+- No rotate behavior changes.
+- No deployment core, protocol template, Worker, rotate sync, status wrapper, or operation-log rollout changed.
+- No tag/release.
+
 ## v1.9.48 — Bot/Web Chinese Default Minimal Implementation
 
 ### Changed
