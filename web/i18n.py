@@ -151,6 +151,33 @@ WEB_TEXT: dict[str, dict[str, str]] = {
         "en": "Status from nanobk CLI. Sensitive addresses are hidden.",
         "zh": "状态来自 nanobk CLI。敏感地址已隐藏。",
     },
+
+    # ── Status next-step hints ──
+    "next_step_check_ssh_recovery": {
+        "en": "Check SSH or run NanoBK recovery from the server.",
+        "zh": "请通过 SSH 检查或在服务器上运行 NanoBK 恢复。",
+    },
+    "next_step_check_ssh_services": {
+        "en": "Check SSH and verify proxy services are running.",
+        "zh": "请通过 SSH 检查并确认代理服务正在运行。",
+    },
+    "next_step_finish_cf": {
+        "en": "Finish Cloudflare verification from the Full Wizard or CLI.",
+        "zh": "请从完整向导或 CLI 完成 Cloudflare 验证。",
+    },
+    "next_step_verify_subscription": {
+        "en": "Verify subscription access from the Full Wizard or CLI.",
+        "zh": "请从完整向导或 CLI 验证订阅访问。",
+    },
+    "next_step_no_action": {
+        "en": "No immediate action required.",
+        "zh": "无需立即操作。",
+    },
+    "next_step_run_doctor": {
+        "en": "Run Doctor for a redacted diagnostic summary, or check SSH if needed.",
+        "zh": "运行诊断获取脱敏诊断摘要，或在需要时通过 SSH 检查。",
+    },
+
     "status_no_data": {
         "en": "No status data available.",
         "zh": "暂无状态数据。",

@@ -1,5 +1,37 @@
 # Changelog
 
+## v1.9.57 — Web Chinese Copy Polish / i18n Coverage Fix
+
+### Fixed
+
+- Fixed T17-P2-003: Web Chinese mode "Next step" copy residue.
+- Root cause: `_next_step_hint()` in `web/app.py` returned hardcoded English strings for status card next-step hints, bypassing the i18n system entirely.
+- Added 6 new i18n keys in `web/i18n.py`: `next_step_check_ssh_recovery`, `next_step_check_ssh_services`, `next_step_finish_cf`, `next_step_verify_subscription`, `next_step_no_action`, `next_step_run_doctor`.
+- Modified `_next_step_hint()` to accept `lang` parameter and use `wt()` for translated output.
+- Modified `_build_safe_cards()` and `format_status()` to propagate `lang` parameter.
+- Dashboard and status routes now pass `config.lang` to `format_status()`.
+- zh mode now returns Chinese text for all next-step hints.
+- en mode returns English text (unchanged behavior).
+- Machine values (healthy/failed/unknown/active/etc.) remain English by design.
+- Raw JSON keys not translated. `/api/status` unchanged.
+- No Bot, installer, CLI, redaction, gating, advanced mode, rotate, or deployment changes.
+
+### Safety
+
+- Web i18n/copy only.
+- No Bot runtime behavior changed.
+- No `installer/install.sh` behavior changed.
+- No CLI behavior changed.
+- No `bin/nanobk` behavior changed.
+- No env files read or written.
+- No redaction changes.
+- No /api/status schema changes.
+- No Raw JSON gating behavior changes.
+- No advanced mode behavior changes.
+- No rotate behavior changes.
+- No deployment core, protocol template, Worker, rotate sync changed.
+- No tag/release.
+
 ## v1.9.56 — Installer Language Propagation Test Debt Fix
 
 ### Fixed

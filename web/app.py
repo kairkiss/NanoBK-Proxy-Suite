@@ -240,22 +240,22 @@ def _infer_secrets(data: dict) -> str:
     return "present"
 
 
-def _next_step_hint(overall: str, vps: str, cf_nanok: str, cf_nanob: str, sub: str) -> str:
+def _next_step_hint(overall: str, vps: str, cf_nanok: str, cf_nanob: str, sub: str, lang: str = "zh") -> str:
     """Generate a safe next-step hint based on status."""
     if overall == "failed":
-        return "Check SSH or run NanoBK recovery from the server."
+        return wt(lang, "next_step_check_ssh_recovery")
     if vps == "failed":
-        return "Check SSH and verify proxy services are running."
+        return wt(lang, "next_step_check_ssh_services")
     if cf_nanok in ("missing", "unknown") or cf_nanob in ("missing", "unknown"):
-        return "Finish Cloudflare verification from the Full Wizard or CLI."
+        return wt(lang, "next_step_finish_cf")
     if sub in ("manual_pending", "unknown"):
-        return "Verify subscription access from the Full Wizard or CLI."
+        return wt(lang, "next_step_verify_subscription")
     if overall == "healthy" and vps == "healthy":
-        return "No immediate action required."
-    return "Run Doctor for a redacted diagnostic summary, or check SSH if needed."
+        return wt(lang, "next_step_no_action")
+    return wt(lang, "next_step_run_doctor")
 
 
-def _build_safe_cards(data: dict) -> dict:
+def _build_safe_cards(data: dict, lang: str = "zh") -> dict:
     """Build safe card data from status JSON. No raw IP/domain/URL."""
     if not isinstance(data, dict):
         return {
@@ -267,7 +267,7 @@ def _build_safe_cards(data: dict) -> dict:
             "subscription": "unknown",
             "secrets": "unknown",
             "profile": "unknown",
-            "next_step": "Run Doctor for a redacted diagnostic summary, or check SSH if needed.",
+            "next_step": wt(lang, "next_step_run_doctor"),
         }
 
     overall = _infer_overall(data)
@@ -292,7 +292,7 @@ def _build_safe_cards(data: dict) -> dict:
     sub = _infer_subscription(data)
     secrets_str = _infer_secrets(data)
     profile = _infer_profile(data)
-    hint = _next_step_hint(overall, vps, cf_nanok, cf_nanob, sub)
+    hint = _next_step_hint(overall, vps, cf_nanok, cf_nanob, sub, lang=lang)
 
     return {
         "overall": overall,
@@ -307,14 +307,14 @@ def _build_safe_cards(data: dict) -> dict:
     }
 
 
-def format_status(data: dict) -> dict:
+def format_status(data: dict, lang: str = "zh") -> dict:
     """Format nanobk --json status into a safe display-friendly dict.
 
     Normal cards use safe categories only — no raw IP/domain/URL.
     Raw JSON is still available (redacted) for advanced diagnostics.
     """
     redacted = redact_json(data)
-    cards = _build_safe_cards(data)
+    cards = _build_safe_cards(data, lang=lang)
     return {
         "cards": cards,
         "raw_json": json.dumps(redacted, indent=2),
@@ -1067,7 +1067,7 @@ def create_app(config: WebConfig):
         result = run_nanobk(config, ["--json", "status"])
         if result.code == 0:
             try:
-                status_data = format_status(json.loads(result.stdout))
+                status_data = format_status(json.loads(result.stdout), lang=config.lang)
             except json.JSONDecodeError:
                 pass
 
@@ -1086,7 +1086,7 @@ def create_app(config: WebConfig):
 
         if result.code == 0:
             try:
-                status_data = format_status(json.loads(result.stdout))
+                status_data = format_status(json.loads(result.stdout), lang=config.lang)
             except json.JSONDecodeError:
                 raw_output = safe_output(result.stdout)
         else:
