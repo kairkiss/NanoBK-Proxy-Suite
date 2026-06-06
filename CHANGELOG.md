@@ -1,5 +1,53 @@
 # Changelog
 
+## v2.0.7 — Cloudflare DNS Profile Dry-Run Plan
+
+### Added
+
+- New `nanobk cf dns plan` command: local dry-run DNS planning for Cloudflare zone.
+  Supports direct args (`--zone`, `--node`, `--ipv4`, `--ipv6`) and JSON profile (`--profile`).
+  Outputs human-readable plan or `--json` structured output.
+  Plans DNS-only A/AAAA records for node hostname (proxied=false).
+  Lists reserved future hostnames: panel, nanok, nanob.
+  Explicitly states "no mutation performed" and "no Cloudflare API call was made".
+- New `nanobk cf dns validate-profile` command: validates a DNS profile JSON file
+  for correctness (DNS names, IP addresses, required fields, no secret-like keys).
+- New `lib/nanobk_cf_dns.py`: Python stdlib-only helper for DNS plan validation
+  and output formatting. Uses argparse, json, ipaddress, re, dataclasses, sys.
+  Does not use Cloudflare SDK, requests, or any network calls.
+- New `tests/fixtures/cf-dns-profile.example.json`: safe example DNS profile
+  with documentation-only values (example.com, 203.0.113.10, 2001:db8::10).
+- New `tests/cf-dns-plan.sh`: comprehensive test covering validation, planning,
+  JSON output, error handling, security (no secrets in output), and CLI integration.
+- Added `tests/cf-dns-plan.sh` to `nanobk test --all` test suite.
+
+### Design
+
+- Dry-run only: no Cloudflare API calls, no DNS record creation, no Worker
+  deployment, no certificate requests, no Tunnel or Access creation.
+- DNS-only policy: all planned A/AAAA records use proxied=false because
+  proxy protocol records (HY2/TUIC/Reality/Trojan) must remain DNS-only.
+  Cloudflare orange-cloud HTTP proxy cannot be used for normal proxy protocol ports.
+- Security: profile validation rejects keys containing secret-like substrings
+  (token, secret, private, password, key, cf_api_token). zoneId is allowed.
+  publicKey is rejected in DNS profile context (not expected here).
+- Output safety: neither text nor JSON output contains CF_API_TOKEN, workers.dev,
+  subscription URLs, protocol URIs, private keys, or passwords.
+
+### Safety
+
+- No Bot runtime behavior changed.
+- No Web route/security behavior changed.
+- No VPS protocol templates changed.
+- No Cloudflare Worker logic changed.
+- No Cloudflare Tunnel/Access added.
+- No Cloudflare API calls made.
+- No DNS records created.
+- No certificates requested.
+- No external JS/CSS/fonts/CDN added.
+- No installer scripts changed.
+- No tag/release.
+
 ## v2.0.6 — Web Systemd First-Start Polish
 
 ### Changed

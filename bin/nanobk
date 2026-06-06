@@ -18,7 +18,7 @@ set -Eeuo pipefail
 
 # ── Version ─────────────────────────────────────────────────────────────────
 
-NANOBK_VERSION="2.0.2"
+NANOBK_VERSION="2.0.7"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -203,6 +203,8 @@ NanoBK Proxy Suite — Unified CLI v${NANOBK_VERSION}
   cf deploy [args...]         部署 Cloudflare Workers
   cf verify [nanok|nanob]     刷新 Cloudflare 订阅验证状态
   cf install-admin-env        安装 rotate sync admin env 到 /root
+  cf dns plan [options...]    Cloudflare DNS 干跑计划（不创建 DNS）
+  cf dns validate-profile     验证 DNS 配置文件
   rotate <protocol> [args.]  换密钥: all|hy2|tuic|reality|trojan
   export link <protocol>     导出单个协议链接: hy2|tuic|reality|trojan
   export links               导出所有协议链接
@@ -764,6 +766,88 @@ ENVEOF
   fi
 }
 
+# ── cf dns ────────────────────────────────────────────────────────────────
+
+cmd_cf_dns() {
+  local dns_sub="${1:-}"
+  shift 2>/dev/null || true
+
+  local dns_script="${REPO_DIR}/lib/nanobk_cf_dns.py"
+  [[ -f "$dns_script" ]] || die "DNS plan script not found: ${dns_script}"
+
+  case "$dns_sub" in
+    plan)
+      local args=(python3 "$dns_script" plan)
+      while [[ $# -gt 0 ]]; do
+        case "$1" in
+          --profile)
+            [[ $# -ge 2 ]] || die "cf dns plan: --profile needs a path argument"
+            args+=("$1" "$2"); shift 2 ;;
+          --zone)
+            [[ $# -ge 2 ]] || die "cf dns plan: --zone needs a value"
+            args+=("$1" "$2"); shift 2 ;;
+          --node)
+            [[ $# -ge 2 ]] || die "cf dns plan: --node needs a value"
+            args+=("$1" "$2"); shift 2 ;;
+          --ipv4)
+            [[ $# -ge 2 ]] || die "cf dns plan: --ipv4 needs a value"
+            args+=("$1" "$2"); shift 2 ;;
+          --ipv6)
+            [[ $# -ge 2 ]] || die "cf dns plan: --ipv6 needs a value"
+            args+=("$1" "$2"); shift 2 ;;
+          --json)
+            args+=("--json"); shift ;;
+          --dry-run)
+            DRY_RUN=1; shift ;;
+          *)
+            die "cf dns plan: unknown option: $1"
+            ;;
+        esac
+      done
+
+      if [[ "$DRY_RUN" == "1" ]]; then
+        print_cmd "${args[@]}"
+        echo -e "  ${CYAN}[DRY-RUN]${NC} 跳过执行"
+        return 0
+      fi
+
+      "${args[@]}"
+      ;;
+
+    validate-profile)
+      local args=(python3 "$dns_script" validate-profile)
+      while [[ $# -gt 0 ]]; do
+        case "$1" in
+          --profile)
+            [[ $# -ge 2 ]] || die "cf dns validate-profile: --profile needs a path argument"
+            args+=("$1" "$2"); shift 2 ;;
+          --dry-run)
+            DRY_RUN=1; shift ;;
+          *)
+            die "cf dns validate-profile: unknown option: $1"
+            ;;
+        esac
+      done
+
+      if [[ "$DRY_RUN" == "1" ]]; then
+        print_cmd "${args[@]}"
+        echo -e "  ${CYAN}[DRY-RUN]${NC} 跳过执行"
+        return 0
+      fi
+
+      "${args[@]}"
+      ;;
+
+    "")
+      die "Usage: nanobk cf dns <plan|validate-profile> [options...]"
+      ;;
+
+    *)
+      die "Unknown cf dns subcommand: ${dns_sub}. Use: nanobk cf dns <plan|validate-profile>"
+      ;;
+  esac
+}
+
 # ── rotate ──────────────────────────────────────────────────────────────────
 
 cmd_rotate() {
@@ -909,6 +993,7 @@ cmd_test() {
     scripts+=(
       "$REPO_DIR/tests/wrangler-nanok-dry-run.sh"
       "$REPO_DIR/tests/wrangler-nanob-dry-run.sh"
+      "$REPO_DIR/tests/cf-dns-plan.sh"
     )
   fi
 
@@ -987,7 +1072,8 @@ main() {
         deploy)  cmd_cf_deploy ${cf_rest[@]+"${cf_rest[@]}"} ;;
         verify)  cmd_cf_verify ${cf_rest[@]+"${cf_rest[@]}"} ;;
         install-admin-env) cmd_cf_install_admin_env ;;
-        *)       die "Usage: nanobk cf <deploy|verify|install-admin-env> [args...]" ;;
+        dns)     cmd_cf_dns ${cf_rest[@]+"${cf_rest[@]}"} ;;
+        *)       die "Usage: nanobk cf <deploy|verify|install-admin-env|dns> [args...]" ;;
       esac
       ;;
     rotate)   cmd_rotate ${cmd_rest[@]+"${cmd_rest[@]}"} ;;
