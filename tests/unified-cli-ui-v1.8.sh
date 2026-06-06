@@ -480,13 +480,13 @@ echo ""
 echo "--- Test 11: Version consistency ---"
 
 nanobk_version=$("${REPO_DIR}/bin/nanobk" --version 2>&1)
-assert_contains "$nanobk_version" "1.8.45" "nanobk --version shows 1.8.45"
+assert_contains "$nanobk_version" "1.9.58" "nanobk --version shows 1.9.58"
 
 install_version=$(grep '^VERSION=' "${REPO_DIR}/installer/install.sh" | head -1)
-assert_contains "$install_version" "1.8.45" "install.sh VERSION is 1.8.45"
+assert_contains "$install_version" "1.9.58" "install.sh VERSION is 1.9.58"
 
 bootstrap_version=$(grep '^BOOTSTRAP_VERSION=' "${REPO_DIR}/installer/bootstrap.sh" | head -1)
-assert_contains "$bootstrap_version" "1.8.45" "bootstrap.sh BOOTSTRAP_VERSION is 1.8.45"
+assert_contains "$bootstrap_version" "1.9.58" "bootstrap.sh BOOTSTRAP_VERSION is 1.9.58"
 
 # ── Test 12: Summary status words not replaced with success ───────────────
 

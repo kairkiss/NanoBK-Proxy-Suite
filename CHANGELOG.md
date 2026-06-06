@@ -1,5 +1,38 @@
 # Changelog
 
+## v1.9.58 — CLI Version Display Fix
+
+### Fixed
+
+- Fixed CLI version display: `nanobk --version` now reports `1.9.58` instead of `1.8.45`.
+- Updated `NANOBK_VERSION` in `bin/nanobk` from `1.8.45` to `1.9.58`.
+- Updated `VERSION` in `installer/install.sh` from `1.8.45` to `1.9.58` for consistency.
+- Updated `BOOTSTRAP_VERSION` in `installer/bootstrap.sh` from `1.8.45` to `1.9.58` for consistency.
+- All three version constants now match at `1.9.58`.
+- Version command (`--version`, `version`) does not execute status, doctor, install, or rotate.
+- Help text (`--help`) also reflects updated version.
+- Updated `tests/unified-cli-ui-v1.8.sh` version assertions from `1.8.45` to `1.9.58`.
+- Added focused test `tests/cli-version-display-v1.9.58.sh` (28 checks).
+- No deployment behavior changed. No Bot/Web runtime changed.
+- No installer deployment logic changed (only VERSION constant updated).
+- No tag/release.
+
+### Safety
+
+- CLI version display only.
+- No Bot runtime behavior changed.
+- No Web runtime behavior changed.
+- No `installer/install.sh` deployment logic changed (VERSION constant only).
+- No `installer/bootstrap.sh` logic changed (BOOTSTRAP_VERSION constant only).
+- No env files read or written.
+- No redaction changes.
+- No /api/status schema changes.
+- No Raw JSON gating behavior changes.
+- No advanced mode behavior changes.
+- No rotate behavior changes.
+- No deployment core, protocol template, Worker, rotate sync changed.
+- No tag/release.
+
 ## v1.9.57 — Web Chinese Copy Polish / i18n Coverage Fix
 
 ### Fixed
