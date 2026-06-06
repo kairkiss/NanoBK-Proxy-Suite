@@ -8,11 +8,11 @@ No external dependencies. Safe fallback to English.
 from __future__ import annotations
 
 SUPPORTED_LANGS = {"en", "zh"}
-DEFAULT_LANG = "en"
+DEFAULT_LANG = "zh"
 
 
 def normalize_lang(value: str | None) -> str:
-    """Normalize language code. Returns 'en' or 'zh'. Defaults to 'en'."""
+    """Normalize language code. Returns 'en' or 'zh'. Defaults to 'zh'."""
     if not value:
         return DEFAULT_LANG
     v = value.strip().lower()

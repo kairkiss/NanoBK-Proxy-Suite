@@ -1,5 +1,37 @@
 # Changelog
 
+## v1.9.48 — Bot/Web Chinese Default Minimal Implementation
+
+### Changed
+
+- Changed Bot `DEFAULT_LANG` from `"en"` to `"zh"`. Missing/empty/invalid `NANOBK_LANG` now falls back to Chinese.
+- Changed Bot `BotConfig.lang` default from `"en"` to `"zh"`.
+- Changed Web `DEFAULT_LANG` from `"en"` to `"zh"`. Missing/empty/invalid `NANOBK_LANG` now falls back to Chinese.
+- Changed Web `WebConfig.lang` default from `"en"` to `"zh"`.
+- Explicit `NANOBK_LANG=en` still forces English for both Bot and Web.
+- Slash command names unchanged. Status machine values unchanged.
+- Redaction, Raw JSON gating, advanced mode, rotate behavior unchanged.
+- Updated Bot i18n test (116 checks), Web i18n test (123 checks), i18n checkpoint test (167 checks).
+- Updated Bot and Web embedded self-tests to expect Chinese default.
+- Added focused Chinese default test (75 checks).
+- Added validation document `docs/validation-v1.9.48-bot-web-chinese-default.md`.
+- Total: 1,524 checks passed across all test suites.
+- Recommended v1.9.49 Installer Bot/Web Language Propagation as next step.
+
+### Safety
+
+- Bot/Web default language change only.
+- No installer behavior changed.
+- No `bin/nanobk` behavior changed.
+- No `installer/doctor.sh` behavior changed.
+- No redaction changes.
+- No /api/status schema changes.
+- No Raw JSON gating behavior changes.
+- No advanced mode behavior changes.
+- No rotate behavior changes.
+- No deployment core, protocol template, Worker, rotate sync, status wrapper, or operation-log rollout changed.
+- No tag/release.
+
 ## v1.9.47 — Bot/Web Language Propagation and Chinese Default Planning
 
 ### Added

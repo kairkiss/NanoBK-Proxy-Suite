@@ -55,7 +55,7 @@ class WebConfig:
     rotate_timeout: int = 300
     dry_run: bool = True
     secret_key: str = ""
-    lang: str = "en"
+    lang: str = "zh"
 
     @classmethod
     def from_env(cls) -> WebConfig:
@@ -848,18 +848,18 @@ def run_self_test() -> bool:
 
     # 26. i18n support
     check("normalize_lang exists", callable(normalize_lang))
-    check("normalize_lang(None) == en", normalize_lang(None) == "en")
-    check("normalize_lang('') == en", normalize_lang("") == "en")
+    check("normalize_lang(None) == zh", normalize_lang(None) == "zh")
+    check("normalize_lang('') == zh", normalize_lang("") == "zh")
     check("normalize_lang('zh') == zh", normalize_lang("zh") == "zh")
     check("normalize_lang('zh-cn') == zh", normalize_lang("zh-cn") == "zh")
-    check("normalize_lang('invalid') == en", normalize_lang("invalid") == "en")
+    check("normalize_lang('invalid') == zh", normalize_lang("invalid") == "zh")
     check("wt() exists", callable(wt))
     check("wt en login title", "NanoBK Web Panel" in wt("en", "login_title"))
     check("wt zh login title", "NanoBK Web 面板" in wt("zh", "login_title"))
     check("wt fallback for missing key", wt("en", "nonexistent_xyz") == "nonexistent_xyz")
     check("wt fallback for missing lang", "NanoBK" in wt("invalid_lang", "login_title"))
     check("WebConfig has lang field", hasattr(config, "lang"))
-    check("WebConfig default lang is en", config.lang == "en")
+    check("WebConfig default lang is zh", config.lang == "zh")
 
     # 27. Doctor Summary builder
     check("build_doctor_summary is callable", callable(build_doctor_summary))

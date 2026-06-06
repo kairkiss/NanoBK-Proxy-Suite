@@ -40,11 +40,11 @@ except ImportError:
 # ── Configuration ───────────────────────────────────────────────────────────
 
 SUPPORTED_LANGS = {"en", "zh"}
-DEFAULT_LANG = "en"
+DEFAULT_LANG = "zh"
 
 
 def normalize_lang(value: str | None) -> str:
-    """Normalize language code. Returns 'en' or 'zh'. Defaults to 'en'."""
+    """Normalize language code. Returns 'en' or 'zh'. Defaults to 'zh'."""
     if not value:
         return DEFAULT_LANG
     v = value.strip().lower()
@@ -478,7 +478,7 @@ class BotConfig:
     command_timeout: int = 120
     rotate_timeout: int = 300
     dry_run: bool = False
-    lang: str = "en"
+    lang: str = "zh"
 
     @classmethod
     def from_env(cls) -> BotConfig:

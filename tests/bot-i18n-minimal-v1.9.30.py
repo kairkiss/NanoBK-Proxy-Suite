@@ -48,18 +48,18 @@ print("=== Bot i18n Minimal Test (v1.9.30) ===\n")
 print("--- Language config ---\n")
 
 check("normalize_lang exists", callable(bot.normalize_lang))
-check("normalize_lang(None) == en", bot.normalize_lang(None) == "en")
-check("normalize_lang('') == en", bot.normalize_lang("") == "en")
+check("normalize_lang(None) == zh", bot.normalize_lang(None) == "zh")
+check("normalize_lang('') == zh", bot.normalize_lang("") == "zh")
 check("normalize_lang('en') == en", bot.normalize_lang("en") == "en")
 check("normalize_lang('zh') == zh", bot.normalize_lang("zh") == "zh")
 check("normalize_lang('zh-cn') == zh", bot.normalize_lang("zh-cn") == "zh")
 check("normalize_lang('zh_cn') == zh", bot.normalize_lang("zh_cn") == "zh")
-check("normalize_lang('invalid') == en", bot.normalize_lang("invalid") == "en")
+check("normalize_lang('invalid') == zh", bot.normalize_lang("invalid") == "zh")
 check("SUPPORTED_LANGS contains en", "en" in bot.SUPPORTED_LANGS)
 check("SUPPORTED_LANGS contains zh", "zh" in bot.SUPPORTED_LANGS)
-check("DEFAULT_LANG is en", bot.DEFAULT_LANG == "en")
+check("DEFAULT_LANG is zh", bot.DEFAULT_LANG == "zh")
 check("BotConfig has lang field", hasattr(bot.BotConfig(), "lang"))
-check("BotConfig default lang is en", bot.BotConfig().lang == "en")
+check("BotConfig default lang is zh", bot.BotConfig().lang == "zh")
 
 # ── 2. Translation helper ────────────────────────────────────────────────
 
