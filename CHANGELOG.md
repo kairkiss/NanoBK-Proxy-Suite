@@ -1,5 +1,35 @@
 # Changelog
 
+## v1.9.53 — Chinese/English Control Plane Smoke Test Plan
+
+### Added
+
+- Added Chinese/English control-plane smoke test planning document.
+- Defined safe user-run real smoke test scope: Bot startup, /start, /help, /language, /status, /doctor, /advanced, /status_json gate, Web startup, login, Dashboard, Status, Doctor, language switch zh/en, Raw JSON gate, /api/status, service health.
+- Excluded from scope: deployment, Cloudflare mutation, real rotate, repair/restart, systemd, production runner, tag/release.
+- Documented known preflight test debt: `tests/web-language-switch-v1.9.51.py` has 5 pre-existing source-level check failures (not caused by v1.9.52).
+- Defined preflight decision: rerun test, record exact failures, classify as false positive or real issue before stable closeout.
+- Defined Bot Chinese smoke checklist (10 steps) with leak checks.
+- Defined Bot English strategy: defer full real test until persistent CLI language command exists.
+- Defined Web Chinese/English smoke checklist (14 steps) with leak checks.
+- Defined P0/P1/P2 leak classification and checklist.
+- Defined copy-paste-safe user report template.
+- Defined failure handling: stop on raw secret, stop on CSRF bypass, stop on gate breakage.
+- Defined stable tag prerequisites: Chinese default verified, Web switch verified, Bot guidance verified, test debt resolved, no P0/P1, CLI version addressed.
+- Defined verdict criteria: PASS, PASS WITH POLISH, BLOCKED.
+- Readiness decision: READY FOR USER-RUN CHINESE/ENGLISH CONTROL PLANE SMOKE TEST AFTER CHATGPT REVIEW.
+
+### Safety
+
+- Planning/documentation only.
+- No Bot runtime behavior changed.
+- No Web runtime behavior changed.
+- No CLI behavior changed.
+- No installer behavior changed.
+- No env files read or written.
+- No deployment core, protocol template, Worker, rotate sync changed.
+- No tag/release.
+
 ## v1.9.52 — Bot Language Command / Guidance Minimal Implementation
 
 ### Changed
