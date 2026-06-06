@@ -49,6 +49,10 @@ WEB_TEXT: dict[str, dict[str, str]] = {
         "en": "Invalid token.",
         "zh": "令牌无效。",
     },
+    "login_security_note": {
+        "en": "Use the Web Panel only from localhost, an SSH tunnel, or a protected Cloudflare Tunnel. Do not expose it directly to the public internet.",
+        "zh": "建议仅通过本机、SSH 隧道或受保护的 Cloudflare Tunnel 访问 Web 控制台。不要把面板直接暴露到公网。",
+    },
 
     # ── Navigation ──
     "nav_dashboard": {

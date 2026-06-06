@@ -29,35 +29,35 @@
 <div class="summary-grid mb-24">
   <div class="summary-item">
     <div class="summary-label">{{ t('doctor_label_overall') }}</div>
-    <div class="summary-value"><span class="status-pill status-{{ summary.overall|lower }}">{{ summary.overall }}</span></div>
+    <div class="summary-value"><span class="status-pill status-{{ summary.overall|status_class }}">{{ summary.overall }}</span></div>
   </div>
   <div class="summary-item">
     <div class="summary-label">{{ t('doctor_label_control_plane') }}</div>
-    <div class="summary-value"><span class="status-pill status-{{ summary.control_plane|lower }}">{{ summary.control_plane }}</span></div>
+    <div class="summary-value"><span class="status-pill status-{{ summary.control_plane|status_class }}">{{ summary.control_plane }}</span></div>
   </div>
   <div class="summary-item">
     <div class="summary-label">{{ t('doctor_label_cli') }}</div>
-    <div class="summary-value"><span class="status-pill status-{{ summary.cli|lower }}">{{ summary.cli }}</span></div>
+    <div class="summary-value"><span class="status-pill status-{{ summary.cli|status_class }}">{{ summary.cli }}</span></div>
   </div>
   <div class="summary-item">
     <div class="summary-label">{{ t('doctor_label_profile') }}</div>
-    <div class="summary-value"><span class="status-pill status-{{ summary.profile|lower }}">{{ summary.profile }}</span></div>
+    <div class="summary-value"><span class="status-pill status-{{ summary.profile|status_class }}">{{ summary.profile }}</span></div>
   </div>
   <div class="summary-item">
     <div class="summary-label">{{ t('doctor_label_config') }}</div>
-    <div class="summary-value"><span class="status-pill status-{{ summary.config|lower }}">{{ summary.config }}</span></div>
+    <div class="summary-value"><span class="status-pill status-{{ summary.config|status_class }}">{{ summary.config }}</span></div>
   </div>
   <div class="summary-item">
     <div class="summary-label">{{ t('doctor_label_cloudflare') }}</div>
-    <div class="summary-value"><span class="status-pill status-{{ summary.cloudflare|lower }}">{{ summary.cloudflare }}</span></div>
+    <div class="summary-value"><span class="status-pill status-{{ summary.cloudflare|status_class }}">{{ summary.cloudflare }}</span></div>
   </div>
   <div class="summary-item">
     <div class="summary-label">{{ t('doctor_label_subscription') }}</div>
-    <div class="summary-value"><span class="status-pill status-{{ summary.subscription|lower }}">{{ summary.subscription }}</span></div>
+    <div class="summary-value"><span class="status-pill status-{{ summary.subscription|status_class }}">{{ summary.subscription }}</span></div>
   </div>
   <div class="summary-item">
     <div class="summary-label">{{ t('doctor_label_security') }}</div>
-    <div class="summary-value"><span class="status-pill status-{{ summary.security|lower }}">{{ summary.security }}</span></div>
+    <div class="summary-value"><span class="status-pill status-{{ summary.security|status_class }}">{{ summary.security }}</span></div>
   </div>
   <div class="summary-item">
     <div class="summary-label">{{ t('doctor_label_errors') }}</div>
@@ -75,7 +75,7 @@
   {% for name, svc in summary.services.items() %}
   <div class="proto-card">
     <div class="proto-name">{{ name|upper }}</div>
-    <span class="status-pill status-{{ svc|lower }}">{{ svc }}</span>
+    <span class="status-pill status-{{ svc|status_class }}">{{ svc }}</span>
   </div>
   {% endfor %}
 </div>

@@ -152,6 +152,22 @@ def redact_json(value):
     """Recursively redact sensitive values from JSON-like data (delegates to shared helper)."""
     return _shared_redact_json_obj(value)
 
+def safe_status_class(value: object) -> str:
+    """Convert a status value to a safe CSS class name.
+
+    - Converts to string, lowercases.
+    - Replaces any sequence of non-alphanumeric chars with "-".
+    - Strips leading/trailing "-".
+    - Returns "unknown" if empty or None.
+    """
+    if value is None:
+        return "unknown"
+    s = str(value).strip().lower()
+    s = re.sub(r'[^a-z0-9]+', '-', s)
+    s = s.strip('-')
+    return s if s else "unknown"
+
+
 def limit_text(text: str, max_len: int = 12000) -> str:
     """Truncate text for web display."""
     if len(text) <= max_len:
@@ -935,7 +951,18 @@ def run_self_test() -> bool:
                  "doctor_intro_text"]:
         check(f"WEB_TEXT has {key}", key in WEB_TEXT)
 
-    # 28. Language switch i18n keys
+    # 28. safe_status_class filter
+    check("safe_status_class('healthy') == 'healthy'", safe_status_class("healthy") == "healthy")
+    check("safe_status_class('manual_pending') == 'manual-pending'", safe_status_class("manual_pending") == "manual-pending")
+    check("safe_status_class('dry run') == 'dry-run'", safe_status_class("dry run") == "dry-run")
+    check("safe_status_class('not/run') == 'not-run'", safe_status_class("not/run") == "not-run")
+    check("safe_status_class('present, mode 600') == 'present-mode-600'", safe_status_class("present, mode 600") == "present-mode-600")
+    check("safe_status_class('') == 'unknown'", safe_status_class("") == "unknown")
+    check("safe_status_class(None) == 'unknown'", safe_status_class(None) == "unknown")
+    check("safe_status_class('Mixed_Case/Val') == 'mixed-case-val'", safe_status_class("Mixed_Case/Val") == "mixed-case-val")
+    check("safe_status_class('  spaces  ') == 'spaces'", safe_status_class("  spaces  ") == "spaces")
+
+    # 29. Language switch i18n keys
     for key in ["lang_switch_to_en", "lang_switch_to_zh", "lang_changed", "lang_invalid"]:
         check(f"WEB_TEXT has {key}", key in WEB_TEXT)
     check("wt lang_switch_to_en", wt("en", "lang_switch_to_en") == "EN")
@@ -967,6 +994,9 @@ def create_app(config: WebConfig):
 
     app = Flask(__name__, template_folder="templates", static_folder="static")
     app.secret_key = config.secret_key
+
+    # Register safe status CSS class filter
+    app.jinja_env.filters["status_class"] = safe_status_class
 
     # ── CSRF helpers ────────────────────────────────────────────────────
 

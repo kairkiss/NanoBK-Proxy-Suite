@@ -14,11 +14,11 @@
 <div class="page-grid">
   <div class="card">
     <div class="card-label">{{ t('status_label_overall') }}</div>
-    <div class="card-value"><span class="status-pill status-{{ status.cards.overall|lower }}">{{ status.cards.overall }}</span></div>
+    <div class="card-value"><span class="status-pill status-{{ status.cards.overall|status_class }}">{{ status.cards.overall }}</span></div>
   </div>
   <div class="card">
     <div class="card-label">{{ t('status_label_vps') }}</div>
-    <div class="card-value"><span class="status-pill status-{{ status.cards.vps|lower }}">{{ status.cards.vps }}</span></div>
+    <div class="card-value"><span class="status-pill status-{{ status.cards.vps|status_class }}">{{ status.cards.vps }}</span></div>
   </div>
   <div class="card">
     <div class="card-label">{{ t('status_next_step') }}</div>
@@ -32,7 +32,7 @@
   {% for name, svc in status.cards.services.items() %}
   <div class="proto-card">
     <div class="proto-name">{{ name|upper }}</div>
-    <span class="status-pill status-{{ svc|lower }}">{{ svc }}</span>
+    <span class="status-pill status-{{ svc|status_class }}">{{ svc }}</span>
   </div>
   {% endfor %}
 </div>
@@ -42,11 +42,11 @@
 <div class="page-grid">
   <div class="card">
     <div class="card-label">NanoK</div>
-    <div class="card-value"><span class="status-pill status-{{ status.cards.cf_nanok|lower }}">{{ status.cards.cf_nanok }}</span></div>
+    <div class="card-value"><span class="status-pill status-{{ status.cards.cf_nanok|status_class }}">{{ status.cards.cf_nanok }}</span></div>
   </div>
   <div class="card">
     <div class="card-label">NanoB</div>
-    <div class="card-value"><span class="status-pill status-{{ status.cards.cf_nanob|lower }}">{{ status.cards.cf_nanob }}</span></div>
+    <div class="card-value"><span class="status-pill status-{{ status.cards.cf_nanob|status_class }}">{{ status.cards.cf_nanob }}</span></div>
   </div>
 </div>
 
@@ -55,15 +55,15 @@
 <div class="page-grid page-grid-3">
   <div class="card">
     <div class="card-label">{{ t('status_subscription') }}</div>
-    <div class="card-value"><span class="status-pill status-{{ status.cards.subscription|lower }}">{{ status.cards.subscription }}</span></div>
+    <div class="card-value"><span class="status-pill status-{{ status.cards.subscription|status_class }}">{{ status.cards.subscription }}</span></div>
   </div>
   <div class="card">
     <div class="card-label">{{ t('status_secrets') }}</div>
-    <div class="card-value"><span class="status-pill status-{{ status.cards.secrets|lower }}">{{ status.cards.secrets }}</span></div>
+    <div class="card-value"><span class="status-pill status-{{ status.cards.secrets|status_class }}">{{ status.cards.secrets }}</span></div>
   </div>
   <div class="card">
     <div class="card-label">{{ t('status_profile') }}</div>
-    <div class="card-value"><span class="status-pill status-{{ status.cards.profile|lower }}">{{ status.cards.profile }}</span></div>
+    <div class="card-value"><span class="status-pill status-{{ status.cards.profile|status_class }}">{{ status.cards.profile }}</span></div>
   </div>
 </div>
 

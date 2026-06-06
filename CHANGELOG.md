@@ -1,5 +1,29 @@
 # Changelog
 
+## v2.0.4 — Web UI Safe Status Class and Login Safety Polish
+
+### Changed
+
+- Added `safe_status_class` Jinja filter for safe CSS class generation from status values.
+  Replaces fragile `|lower` patterns with `|status_class` across all templates.
+  Handles spaces, underscores, slashes, punctuation, and mixed case safely.
+  Returns "unknown" for empty/None values.
+- Updated all templates (index, status, doctor) to use `|status_class` filter consistently.
+- Added CSS aliases for normalized class names: `manual-pending`, `partial`, `configured`, `available`, `dry-run`, `not-run`, `not-found`, `warning`, `warn`, `incomplete`.
+- Improved login page security note: replaced generic "Access Token" text with actionable safety guidance about localhost/SSH tunnel/Cloudflare Tunnel access.
+- Added `login_security_note` i18n key (en/zh).
+
+### Safety
+
+- No Bot runtime behavior changed.
+- No Web route/security behavior changed.
+- No `installer/install.sh` behavior changed.
+- No `bin/nanobk` behavior changed.
+- No VPS protocol templates changed.
+- No Cloudflare Worker logic changed.
+- No external JS/CSS/fonts/CDN added.
+- No tag/release.
+
 ## v2.0.3 — Apple-Inspired Web Panel UI Redesign
 
 ### Changed

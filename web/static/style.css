@@ -327,6 +327,35 @@ body {
 }
 .status-not_run::before, .status-na::before { background: var(--muted); }
 
+/* Normalized aliases (safe_status_class converts _ and / to -) */
+.status-manual-pending, .status-partial, .status-configured,
+.status-available {
+  background: var(--yellow-soft);
+  color: #8a6a00;
+}
+.status-manual-pending::before, .status-partial::before,
+.status-configured::before, .status-available::before { background: var(--yellow); }
+
+.status-dry-run, .status-not-run, .status-not-found,
+.status-warning, .status-warn {
+  background: var(--yellow-soft);
+  color: #8a6a00;
+}
+.status-dry-run::before, .status-not-run::before, .status-not-found::before,
+.status-warning::before, .status-warn::before { background: var(--yellow); }
+
+.status-incomplete {
+  background: var(--yellow-soft);
+  color: #8a6a00;
+}
+.status-incomplete::before { background: var(--yellow); }
+
+.status-present {
+  background: var(--green-soft);
+  color: #1b8a3e;
+}
+.status-present::before { background: var(--green); }
+
 /* ── Action Cards ──────────────────────────────────────────────────────── */
 
 .action-card {
