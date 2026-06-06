@@ -1,5 +1,40 @@
 # Changelog
 
+## v1.9.60 — v1.9 Stable Closeout Checkpoint
+
+### Checkpoint
+
+- Final v1.9 stable closeout checkpoint.
+- All 16 completed gate items confirmed (redaction, doctor, i18n, Chinese default, smoke tests, test debt fixes, copy fixes, CLI version fix, AI maintenance interface).
+- Final focused tests: 14/14 test suites passed, 0 failures.
+- Bot self-test: 228 passed. Web self-test: 118 passed.
+- Version display: `nanobk 1.9.58`.
+- Security posture: no P0/P1 leaks, redaction required, advanced mode ≠ unredacted.
+- Control-plane boundaries confirmed: Bot/Web are control-plane only, call CLI, do not write configs/systemd/secrets directly.
+- Closeout checkpoint document: `docs/validation-v1.9.60-stable-closeout-checkpoint.md`.
+- Stable tag gate updated: closeout checkpoint and final tests marked complete; user approval still pending.
+- Added focused test `tests/stable-closeout-v1.9.60.sh` (18 checks).
+- Tag `v1.9.60` recommended but NOT created. Requires explicit user approval.
+- No Bot, Web, CLI, installer, redaction, gating, advanced mode, rotate, or deployment changes.
+- No runtime behavior changed.
+
+### Safety
+
+- Checkpoint / validation only.
+- No Bot runtime behavior changed.
+- No Web runtime behavior changed.
+- No CLI behavior changed.
+- No `installer/install.sh` behavior changed.
+- No `bin/nanobk` behavior changed.
+- No env files read or written.
+- No redaction changes.
+- No /api/status schema changes.
+- No Raw JSON gating behavior changes.
+- No advanced mode behavior changes.
+- No rotate behavior changes.
+- No deployment core, protocol template, Worker, rotate sync changed.
+- No tag/release.
+
 ## v1.9.59 — AI Maintenance Interface / Handoff Map
 
 ### Added

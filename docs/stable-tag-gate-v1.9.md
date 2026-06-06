@@ -40,8 +40,8 @@ Version display: `1.9.58` (not a release tag).
 
 | Item | Target version | Status |
 |------|---------------|--------|
-| v1.9.60 closeout checkpoint | v1.9.60 | ⏳ Pending |
-| Final focused tests | v1.9.60 | ⏳ Pending |
+| v1.9.60 closeout checkpoint | v1.9.60 | ✅ Complete |
+| Final focused tests | v1.9.60 | ✅ All 14 test suites passed |
 | Final user approval | v1.9.60 | ⏳ Pending |
 | Optional final real smoke retest | v1.9.60 | ⏳ Optional (user decides) |
 
@@ -66,13 +66,13 @@ These items are explicitly NOT required before the v1.9 stable tag:
 
 ## 5. Stable tag recommendation
 
-**Do not tag in v1.9.59.**
+**v1.9.60 closeout checkpoint complete. Final focused tests passed.**
 
-Prepare for v1.9.60 closeout checkpoint. Tag only after:
-1. v1.9.60 closeout checkpoint document created
-2. Final focused tests pass
-3. No P0/P1 issues remain
-4. Explicit user approval for tag/release
+Tag `v1.9.60` is ready but NOT yet created. Tag only after:
+1. ✅ v1.9.60 closeout checkpoint document created
+2. ✅ Final focused tests pass (14/14 suites, 0 failures)
+3. ✅ No P0/P1 issues remain
+4. ⏳ Explicit user approval for tag/release (PENDING)
 
 ---
 
