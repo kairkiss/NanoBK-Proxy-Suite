@@ -1,5 +1,34 @@
 # Changelog
 
+## v1.9.47 — Bot/Web Language Propagation and Chinese Default Planning
+
+### Added
+
+- Added Bot/Web language propagation and Chinese default planning document.
+- Audited current i18n architecture: Bot `BOT_TEXT`/`bt()`, Web `WEB_TEXT`/`wt()`, both read `NANOBK_LANG`, default `en`.
+- Identified gap: installer `select_language()` defaults Chinese but does not write `NANOBK_LANG` to bot/.env/web/.env.
+- Identified gap: no user-facing language switch UX exists.
+- Defined default language decision: Option C — follow installer language, fallback Chinese when missing.
+- Defined installer propagation plan: `--lang zh|en` should write `NANOBK_LANG` to bot/.env/web/.env.
+- Defined language switch strategy: staged hybrid — Web session switch, CLI persistent, Bot guidance.
+- Defined implementation route: v1.9.48 default Chinese, v1.9.49 installer propagation, v1.9.50+ switch UX.
+- Defined stable tag gate: Chinese default must be implemented before v1.9 stable tag.
+- Defined AI maintenance interface plan for future no-memory AI targeted fixes.
+- Readiness decision: READY FOR BOT/WEB CHINESE DEFAULT MINIMAL IMPLEMENTATION AFTER CHATGPT REVIEW.
+
+### Safety
+
+- Planning/documentation only.
+- No Bot runtime behavior changed.
+- No Web runtime behavior changed.
+- No CLI behavior changed.
+- No `install.sh` behavior changed.
+- No `bin/nanobk` behavior changed.
+- No real status executed by Claude Code.
+- No real doctor executed by Claude Code.
+- No deployment core, protocol template, Worker, rotate sync, status wrapper, or operation-log rollout changed.
+- No tag/release.
+
 ## v1.9.46 — Real Doctor Field Compatibility Retest Validation
 
 ### Added
