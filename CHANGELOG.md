@@ -1,5 +1,36 @@
 # Changelog
 
+## v1.9.56 — Installer Language Propagation Test Debt Fix
+
+### Fixed
+
+- Fixed T17-TEST-002: `tests/installer-language-propagation-v1.9.49.sh` false-positive env-cat checks.
+- Root cause: test grep matched safety warning text (`echo "不要执行 cat bot/.env"`, heredoc `⚠ Do NOT cat bot/.env`) instead of executable env reads.
+- macOS was unaffected because `grep -P` (PCRE) is unavailable, causing the check to silently skip.
+- Fix: added filters for comment lines, echo/printf statements, and heredoc/documentation content (lines not starting with a valid shell command character).
+- Switched from `grep -P` (PCRE, non-portable) to `grep -vE` (ERE, POSIX-compatible) for all filtering.
+- All 22 installer language propagation tests now pass.
+- Real executable env reads (`cat bot/.env`, `$(cat bot/.env)`, `cat bot/.env | head`) are still correctly detected.
+- No assertions weakened. No installer runtime behavior changed.
+- No Bot, Web, CLI, redaction, gating, advanced mode, rotate, or deployment changes.
+
+### Safety
+
+- Test fix only.
+- No `installer/install.sh` behavior changed.
+- No Bot runtime behavior changed.
+- No Web runtime behavior changed.
+- No CLI behavior changed.
+- No `bin/nanobk` behavior changed.
+- No env files read or written.
+- No redaction changes.
+- No /api/status schema changes.
+- No Raw JSON gating behavior changes.
+- No advanced mode behavior changes.
+- No rotate behavior changes.
+- No deployment core, protocol template, Worker, rotate sync changed.
+- No tag/release.
+
 ## v1.9.55 — Real Chinese/English Control Plane Smoke Validation
 
 ### Added

@@ -93,9 +93,20 @@ fi
 
 # No reading bot/.env (cat bot/.env without redirect)
 # The heredoc "cat > bot/.env" is writing, not reading. We check for read patterns.
-if grep -qP 'cat\s+["\047]?bot/\.env' "$INSTALL_SH" 2>/dev/null; then
-  # Check it's only the write heredoc (cat > ...) not a read (cat bot/.env)
-  READ_LINES=$(grep -P 'cat\s+["\047]?bot/\.env' "$INSTALL_SH" | grep -v 'cat >' || true)
+# Filter out non-executable matches:
+#   - write heredocs (cat >)
+#   - comment lines (# ...)
+#   - echo/printf warning text
+#   - heredoc/documentation content (lines not starting with a valid shell command)
+# A real executable "cat bot/.env" starts with a valid command word (alpha, _, $, etc.).
+if grep -q 'cat.*bot/\.env' "$INSTALL_SH" 2>/dev/null; then
+  READ_LINES=$(grep -n 'cat.*bot/\.env' "$INSTALL_SH" \
+    | grep -v 'cat >' \
+    | grep -v '^[[:space:]]*[0-9]*:[[:space:]]*#' \
+    | grep -v '^[[:space:]]*[0-9]*:[[:space:]]*echo[[:space:]]' \
+    | grep -v '^[[:space:]]*[0-9]*:[[:space:]]*printf[[:space:]]' \
+    | grep -vE '^[[:space:]]*[0-9]*:[[:space:]]*[^a-zA-Z_0-9[:space:]/$({]' \
+    || true)
   if [[ -n "$READ_LINES" ]]; then
     fail "install.sh reads bot/.env"
     ERRORS=$((ERRORS + 1))
@@ -107,8 +118,14 @@ else
 fi
 
 # No reading web/.env
-if grep -qP 'cat\s+["\047]?web/\.env' "$INSTALL_SH" 2>/dev/null; then
-  READ_LINES=$(grep -P 'cat\s+["\047]?web/\.env' "$INSTALL_SH" | grep -v 'cat >' || true)
+if grep -q 'cat.*web/\.env' "$INSTALL_SH" 2>/dev/null; then
+  READ_LINES=$(grep -n 'cat.*web/\.env' "$INSTALL_SH" \
+    | grep -v 'cat >' \
+    | grep -v '^[[:space:]]*[0-9]*:[[:space:]]*#' \
+    | grep -v '^[[:space:]]*[0-9]*:[[:space:]]*echo[[:space:]]' \
+    | grep -v '^[[:space:]]*[0-9]*:[[:space:]]*printf[[:space:]]' \
+    | grep -vE '^[[:space:]]*[0-9]*:[[:space:]]*[^a-zA-Z_0-9[:space:]/$({]' \
+    || true)
   if [[ -n "$READ_LINES" ]]; then
     fail "install.sh reads web/.env"
     ERRORS=$((ERRORS + 1))
