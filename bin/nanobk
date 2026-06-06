@@ -18,7 +18,7 @@ set -Eeuo pipefail
 
 # ── Version ─────────────────────────────────────────────────────────────────
 
-NANOBK_VERSION="2.0.7"
+NANOBK_VERSION="2.0.9"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -205,6 +205,7 @@ NanoBK Proxy Suite — Unified CLI v${NANOBK_VERSION}
   cf install-admin-env        安装 rotate sync admin env 到 /root
   cf dns plan [options...]    Cloudflare DNS 干跑计划（不创建 DNS）
   cf dns validate-profile     验证 DNS 配置文件
+  cf dns apply [options...]   应用 DNS 记录到 Cloudflare（需要 --yes）
   rotate <protocol> [args.]  换密钥: all|hy2|tuic|reality|trojan
   export link <protocol>     导出单个协议链接: hy2|tuic|reality|trojan
   export links               导出所有协议链接
@@ -830,12 +831,43 @@ cmd_cf_dns() {
       "${args[@]}"
       ;;
 
+    apply)
+      local apply_script="${REPO_DIR}/lib/nanobk_cf_dns_apply.py"
+      [[ -f "$apply_script" ]] || die "DNS apply script not found: ${apply_script}"
+      local args=(python3 "$apply_script")
+      while [[ $# -gt 0 ]]; do
+        case "$1" in
+          --profile)
+            [[ $# -ge 2 ]] || die "cf dns apply: --profile needs a path argument"
+            args+=("$1" "$2"); shift 2 ;;
+          --api-env)
+            [[ $# -ge 2 ]] || die "cf dns apply: --api-env needs a path argument"
+            args+=("$1" "$2"); shift 2 ;;
+          --dry-run)
+            args+=("--dry-run"); shift ;;
+          --check)
+            args+=("--check"); shift ;;
+          --yes)
+            args+=("--yes"); shift ;;
+          --json)
+            args+=("--json"); shift ;;
+          --force)
+            args+=("--force"); shift ;;
+          *)
+            die "cf dns apply: unknown option: $1"
+            ;;
+        esac
+      done
+
+      "${args[@]}"
+      ;;
+
     "")
-      die "Usage: nanobk cf dns <plan|validate-profile> [options...]"
+      die "Usage: nanobk cf dns <plan|validate-profile|apply> [options...]"
       ;;
 
     *)
-      die "Unknown cf dns subcommand: ${dns_sub}. Use: nanobk cf dns <plan|validate-profile>"
+      die "Unknown cf dns subcommand: ${dns_sub}. Use: nanobk cf dns <plan|validate-profile|apply>"
       ;;
   esac
 }
@@ -986,6 +1018,7 @@ cmd_test() {
       "$REPO_DIR/tests/wrangler-nanok-dry-run.sh"
       "$REPO_DIR/tests/wrangler-nanob-dry-run.sh"
       "$REPO_DIR/tests/cf-dns-plan.sh"
+      "$REPO_DIR/tests/cf-dns-apply.sh"
     )
   fi
 

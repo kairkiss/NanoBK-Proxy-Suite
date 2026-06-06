@@ -1,5 +1,63 @@
 # Changelog
 
+## v2.0.9 — Cloudflare DNS Apply Skeleton with Mocked Tests
+
+### Added
+
+- New `nanobk cf dns apply` command: applies DNS A/AAAA records to Cloudflare with
+  idempotency. Requires `--profile` and `--api-env`. Requires `--yes` for mutation.
+- New `lib/nanobk_cf_dns_apply.py`: Python stdlib-only apply helper with safe API env
+  parser, transport abstraction (real HTTP via urllib, fake transport for tests),
+  idempotency state machine, and CLI. Uses only argparse, json, os, stat, sys,
+  urllib.request, urllib.parse, dataclasses, typing.
+- Safe api-env parser: reads CF_API_TOKEN, CF_ZONE_ID, CF_ZONE_NAME from a file
+  without sourcing. Requires file mode 600. Rejects suspicious keys containing
+  secret/password/private substrings. Never prints token values.
+- Idempotency state machine for each planned A/AAAA record:
+  - No existing record → create (POST).
+  - Existing matches content + proxied=false + has ownership marker → noop.
+  - Existing owned by nanobk with different content → update (PATCH).
+  - Existing unowned with different content → fail_conflict (manual resolution).
+  - Existing proxied=true → fail_conflict (no silent proxy-to-DNS-only conversion).
+  - Multiple existing records → fail_conflict.
+  - Same-name CNAME exists → fail_conflict.
+- Ownership marker: `managed-by=nanobk; component=cf-dns-apply; hostname=...` comment
+  on DNS records to track which records are managed by nanobk.
+- `--dry-run`: validates profile and api-env format only, no API calls.
+- `--check`: GET-only mode, queries existing records but no mutation.
+- `--yes`: required flag for POST/PATCH mutation. Without it, shows plan and exits 2.
+- `--force`: reserved, returns clear error message.
+- `--json`: JSON output mode with redacted token values.
+- Fake transport support via `NANOBK_CF_DNS_FAKE_TRANSPORT` env var for testing.
+- New `tests/cf-dns-apply.sh`: 44 test cases using fake transport, covering api-env
+  validation, command modes, all 7 idempotency scenarios, HTTP error simulation
+  (401/403/429), security output checks, exit codes, IPv4-only/IPv6-only profiles.
+- Added `tests/cf-dns-apply.sh` to `nanobk test --all` test suite.
+
+### Design
+
+- Transport abstraction: `TransportFn` type allows swapping real HTTP for fake transport.
+  Real transport uses `urllib.request` with 15s timeout. Fake transport reads from a
+  JSON fixture file keyed by request type (GET_A, POST, PATCH:record_id, etc.).
+- Fake transport records calls to a `_calls_file` for test verification.
+- Cloudflare API uses `Authorization: Bearer` header, never printed in output.
+- All error messages are redacted (token values stripped) before display.
+- Exit codes: 0 = success/noop, 1 = error/conflict, 2 = mutations needed but --yes missing.
+
+### Safety
+
+- No Bot runtime behavior changed.
+- No Web route/security behavior changed.
+- No VPS protocol templates changed.
+- No Cloudflare Worker logic changed.
+- No Cloudflare Tunnel/Access added.
+- No real Cloudflare API calls in tests (fake transport only).
+- No DNS records created in tests.
+- No certificates requested.
+- No external JS/CSS/fonts/CDN added.
+- No installer scripts changed.
+- No tag/release.
+
 ## v2.0.8 — Cloudflare DNS Dry-Run Validation Polish
 
 ### Changed
