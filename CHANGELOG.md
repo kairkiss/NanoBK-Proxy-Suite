@@ -1,5 +1,51 @@
 # Changelog
 
+## v1.9.59 — AI Maintenance Interface / Handoff Map
+
+### Added
+
+- Added `docs/maintenance-map.md`: comprehensive maintenance map for future no-memory AI agents.
+  - Subsystem ownership map (12 subsystems with files, responsibilities, safe/dangerous changes, required tests).
+  - Protected core documentation (v1.7.27 deployment baseline, control-plane boundaries).
+  - Bot maintenance contract (control-plane only, CLI subprocess, owner-only, safe summary, advanced gating).
+  - Web maintenance contract (control-plane only, CLI subprocess, login/CSRF, advanced gating, session language).
+  - Redaction contract (never leak secrets, shared helper, no bypass).
+  - Language/i18n contract (default zh, NANOBK_LANG, machine values English by design).
+  - Doctor contract (summary default, full diagnostics advanced-only).
+  - Version/tag contract (version display ≠ release tag).
+  - Standard test matrix by change type (11 change types).
+  - Change report checklist (11 fields).
+  - Never do list (9 items).
+- Added `docs/ai-handoff-template.md`: reusable task prompt template for future AI agents.
+  - Copy-paste friendly format with all required fields.
+  - Includes stop conditions, user approval requirements, secret-handling reminder.
+- Added `docs/stable-tag-gate-v1.9.md`: v1.9 stable tag gate tracker.
+  - 16 completed gate items documented.
+  - 4 remaining gate items listed.
+  - Items explicitly NOT required for v1.9 stable tag listed.
+  - Tag recommendation: do not tag in v1.9.59, prepare v1.9.60 closeout.
+- Added `tests/maintenance-docs-v1.9.59.sh`: focused test (35 checks) verifying maintenance docs exist and contain required safety guidance.
+- Updated `README.md`: added Maintenance section with links to new docs.
+- Added validation document `docs/validation-v1.9.59-ai-maintenance-interface.md`.
+- No Bot, Web, CLI, installer, redaction, gating, advanced mode, rotate, or deployment changes.
+
+### Safety
+
+- Documentation / maintenance interface only.
+- No Bot runtime behavior changed.
+- No Web runtime behavior changed.
+- No CLI behavior changed.
+- No `installer/install.sh` behavior changed.
+- No `bin/nanobk` behavior changed.
+- No env files read or written.
+- No redaction changes.
+- No /api/status schema changes.
+- No Raw JSON gating behavior changes.
+- No advanced mode behavior changes.
+- No rotate behavior changes.
+- No deployment core, protocol template, Worker, rotate sync changed.
+- No tag/release.
+
 ## v1.9.58 — CLI Version Display Fix
 
 ### Fixed

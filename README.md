@@ -68,6 +68,9 @@ nanobk test --all                      # 包含 wrangler bundle 测试
 | [docs/release-v1.0.md](docs/release-v1.0.md) | v1.0 Release Notes |
 | [docs/roadmap.md](docs/roadmap.md) | Roadmap |
 | [docs/troubleshooting.md](docs/troubleshooting.md) | 故障排查 |
+| [docs/maintenance-map.md](docs/maintenance-map.md) | 维护地图（子系统、保护区域、测试矩阵） |
+| [docs/ai-handoff-template.md](docs/ai-handoff-template.md) | AI 交接模板 |
+| [docs/stable-tag-gate-v1.9.md](docs/stable-tag-gate-v1.9.md) | v1.9 稳定 tag 门控 |
 
 ## 安全提醒
 
