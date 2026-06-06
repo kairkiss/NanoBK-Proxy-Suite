@@ -1,5 +1,45 @@
 # Changelog
 
+## v2.0.1 — CLI Single Protocol Link Export
+
+### Added
+
+- `nanobk export link <hy2|tuic|reality|trojan>` — export a single protocol subscription link from profile JSON.
+- `nanobk export links` — export all available protocol links.
+- `--profile PATH` flag to override default profile path (`/etc/nanobk/profile.current.json`).
+- `--json` flag for machine-readable JSON output.
+- Python helper `lib/nanobk_export_links.py` for JSON parsing and URI encoding (stdlib only).
+- Test fixture `tests/fixtures/profile-export.example.json` with safe example values.
+- Test script `tests/export-links.sh` (20 checks) covering all protocols, JSON output, error handling, and safety.
+- Export test added to `nanobk test` default suite.
+- CLI version bumped to 2.0.1.
+
+### Protocol URI formats
+
+- HY2: `hysteria2://PASSWORD@SERVER:PORT?sni=SNI#NAME`
+- TUIC: `tuic://UUID:PASSWORD@SERVER:PORT?sni=SNI&congestion_control=bbr&udp_relay_mode=native#NAME`
+- Reality: `vless://UUID@SERVER:PORT?encryption=none&security=reality&sni=SERVERNAME&fp=chrome&pbk=PUBLIC_KEY&sid=SHORT_ID&type=tcp#NAME`
+- Trojan: `trojan://PASSWORD@SERVER:PORT?security=tls&sni=SNI&type=tcp#NAME`
+
+### Design
+
+- CLI-only change. `bin/nanobk` is the public dispatcher; Python helper does JSON parsing and link building.
+- Protocol links are secrets. Only explicit `export` commands print links to stdout.
+- `nanobk status` and `nanobk doctor` are unchanged and do not expose links.
+- All URI components are percent-encoded. No raw spaces in output links.
+- Python stdlib only (`json`, `argparse`, `urllib.parse`). No external dependencies.
+
+### Safety
+
+- No Bot runtime behavior changed.
+- No Web runtime behavior changed.
+- No `installer/install.sh` behavior changed.
+- No VPS protocol templates changed.
+- No Cloudflare Worker logic changed.
+- No env files read or written.
+- No real secrets, IPs, domains, or private keys in fixtures or tests.
+- No tag/release.
+
 ## v1.9.60 — v1.9 Stable Closeout Checkpoint
 
 ### Checkpoint

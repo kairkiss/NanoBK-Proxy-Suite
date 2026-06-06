@@ -18,7 +18,7 @@ set -Eeuo pipefail
 
 # ── Version ─────────────────────────────────────────────────────────────────
 
-NANOBK_VERSION="1.9.58"
+NANOBK_VERSION="2.0.1"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -204,6 +204,8 @@ NanoBK Proxy Suite — Unified CLI v${NANOBK_VERSION}
   cf verify [nanok|nanob]     刷新 Cloudflare 订阅验证状态
   cf install-admin-env        安装 rotate sync admin env 到 /root
   rotate <protocol> [args.]  换密钥: all|hy2|tuic|reality|trojan
+  export link <protocol>     导出单个协议链接: hy2|tuic|reality|trojan
+  export links               导出所有协议链接
   test [--all]                运行本地测试
   version                     显示版本
 
@@ -219,6 +221,9 @@ NanoBK Proxy Suite — Unified CLI v${NANOBK_VERSION}
   nanobk install --mode commands
   nanobk cf deploy --dry-run --create-kv --route-url https://nanok.example.com
   nanobk rotate all --skip-cloudflare
+  nanobk export link hy2
+  nanobk export link reality --profile /path/to/profile.json
+  nanobk export links --json
   nanobk test --all
 
 CLI 安装:
@@ -785,6 +790,97 @@ cmd_rotate() {
   esac
 }
 
+# ── export ─────────────────────────────────────────────────────────────────
+
+cmd_export() {
+  local subcmd="${1:-}"
+  shift || true
+
+  case "$subcmd" in
+    link)
+      local protocol="${1:-}"
+      shift || true
+      if [[ -z "$protocol" ]]; then
+        die "用法: nanobk export link <hy2|tuic|reality|trojan> [--profile PATH] [--json]"
+      fi
+
+      local profile_path="${CONFIG_DIR}/profile.current.json"
+      local json_mode="$JSON_OUT"
+
+      while [[ $# -gt 0 ]]; do
+        case "$1" in
+          --profile)  profile_path="$2"; shift 2 ;;
+          --json)     json_mode=1; shift ;;
+          --dry-run)  DRY_RUN=1; shift ;;
+          *)          die "export link: 未知选项: $1" ;;
+        esac
+      done
+
+      [[ -f "$profile_path" ]] || die "配置文件不存在: ${profile_path}"
+
+      local export_script="${REPO_DIR}/lib/nanobk_export_links.py"
+      [[ -f "$export_script" ]] || die "导出脚本不存在: ${export_script}"
+
+      local args=(
+        python3 "$export_script"
+        --profile "$profile_path"
+        --protocol "$protocol"
+      )
+      if [[ "$json_mode" == "1" ]]; then
+        args+=(--json)
+      fi
+
+      if [[ "$DRY_RUN" == "1" ]]; then
+        print_cmd "${args[@]}"
+        echo -e "  ${CYAN}[DRY-RUN]${NC} 跳过执行"
+        return 0
+      fi
+
+      "${args[@]}"
+      ;;
+
+    links)
+      local profile_path="${CONFIG_DIR}/profile.current.json"
+      local json_mode="$JSON_OUT"
+
+      while [[ $# -gt 0 ]]; do
+        case "$1" in
+          --profile)  profile_path="$2"; shift 2 ;;
+          --json)     json_mode=1; shift ;;
+          --dry-run)  DRY_RUN=1; shift ;;
+          *)          die "export links: 未知选项: $1" ;;
+        esac
+      done
+
+      [[ -f "$profile_path" ]] || die "配置文件不存在: ${profile_path}"
+
+      local export_script="${REPO_DIR}/lib/nanobk_export_links.py"
+      [[ -f "$export_script" ]] || die "导出脚本不存在: ${export_script}"
+
+      local args=(
+        python3 "$export_script"
+        --profile "$profile_path"
+        --protocol all
+      )
+      if [[ "$json_mode" == "1" ]]; then
+        args+=(--json)
+      fi
+
+      if [[ "$DRY_RUN" == "1" ]]; then
+        print_cmd "${args[@]}"
+        echo -e "  ${CYAN}[DRY-RUN]${NC} 跳过执行"
+        return 0
+      fi
+
+      "${args[@]}"
+      ;;
+
+    *)
+      die "用法: nanobk export <link|links> [选项...]"
+      ;;
+  esac
+}
+
 # ── test ────────────────────────────────────────────────────────────────────
 
 cmd_test() {
@@ -802,6 +898,7 @@ cmd_test() {
     "$REPO_DIR/tests/bootstrap-dry-run.sh"
     "$REPO_DIR/tests/render-install-vps.sh"
     "$REPO_DIR/tests/rotate-render-only.sh"
+    "$REPO_DIR/tests/export-links.sh"
   )
 
   if [[ "$run_all" == "1" ]]; then
@@ -890,6 +987,7 @@ main() {
       esac
       ;;
     rotate)   cmd_rotate ${cmd_rest[@]+"${cmd_rest[@]}"} ;;
+    export)   cmd_export ${cmd_rest[@]+"${cmd_rest[@]}"} ;;
     test)     cmd_test ${cmd_rest[@]+"${cmd_rest[@]}"} ;;
     version)  cmd_version ;;
     "")       cmd_help ;;
