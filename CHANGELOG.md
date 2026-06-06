@@ -1,5 +1,32 @@
 # Changelog
 
+## v1.9.50 — Language Switch UX Planning
+
+### Added
+
+- Added Language Switch UX planning document.
+- Compared Web language switch options: session-only (recommended), persistent env write (rejected), CLI call (future), static instructions (poor UX).
+- Compared Bot language switch options: guidance-only (recommended first), in-memory switch, CLI call (future), direct env write (rejected).
+- Defined persistent language strategy: CLI/installer-safe path for long-term persistent switching.
+- Defined Web first implementation contract: `POST /language`, session storage, login + CSRF, layout buttons.
+- Defined Bot first implementation contract: `/language` command, owner-only, current language display, safe guidance.
+- Defined testing strategy for Web session switch and Bot language guidance.
+- Defined stable tag language gate prerequisites.
+- Defined AI maintenance interface interaction for language switching.
+- Proposed implementation route: v1.9.51 Web session switch, v1.9.52 Bot guidance, v1.9.53-54 smoke tests, v1.9.55+ stable tag prep.
+- Readiness decision: READY FOR WEB SESSION LANGUAGE SWITCH MINIMAL IMPLEMENTATION AFTER CHATGPT REVIEW.
+
+### Safety
+
+- Planning/documentation only.
+- No Bot runtime behavior changed.
+- No Web runtime behavior changed.
+- No CLI behavior changed.
+- No installer behavior changed.
+- No env files read or written.
+- No deployment core, protocol template, Worker, rotate sync changed.
+- No tag/release.
+
 ## v1.9.49 — Installer Bot/Web Language Propagation Minimal Implementation
 
 ### Changed
