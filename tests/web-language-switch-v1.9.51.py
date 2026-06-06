@@ -16,6 +16,7 @@ Usage:
 """
 
 import os
+import re
 import sys
 import secrets
 
@@ -88,10 +89,17 @@ check("inject_i18n returns lang", '"lang"' in inject_section)
 print("\n--- Language route ---\n")
 
 check("/language route defined", '"/language"' in web_source)
-# The language function is defined inside create_app — check decorators + body
-# Get the decorator line + function body
-lang_decorator_area = web_source.split("def language(")[0][-200:] if "def language(" in web_source else ""
-lang_body = web_source.split("def language(")[1].split("\n    def ")[0] if "def language(" in web_source else ""
+# Use regex to find the actual language() function definition in web/app.py.
+# The function is indented inside create_app(), so anchor to line start with
+# optional leading whitespace. This avoids matching string literals like
+# _src.rsplit("def language(" in the self-test code.
+_lang_match = re.search(r'^[ ]*def language\(', web_source, re.MULTILINE)
+if _lang_match:
+    lang_body = web_source[_lang_match.end():].split('\n    def ')[0]
+    lang_decorator_area = web_source[max(0, _lang_match.start() - 200):_lang_match.start()]
+else:
+    lang_decorator_area = ""
+    lang_body = ""
 check("/language is POST only", "POST" in lang_decorator_area)
 check("/language requires login", "require_login" in lang_decorator_area)
 check("/language validates CSRF", "validate_csrf" in lang_body)

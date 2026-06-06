@@ -1,5 +1,34 @@
 # Changelog
 
+## v1.9.54 — Web Language Switch Test Debt Fix
+
+### Fixed
+
+- Fixed 5 pre-existing source-level check failures in `tests/web-language-switch-v1.9.51.py`.
+- Root cause: `web_source.split("def language(")` matched 2 occurrences (actual route function + self-test string reference), producing 3 parts. `parts[1]` pointed to self-test code, not the route body.
+- Fix: replaced brittle `split` with `re.search(r'^[ ]*def language\\(', web_source, re.MULTILINE)` to anchor to line-start function definition.
+- All 5 previously failing checks now pass: `/language is POST only`, `/language requires login`, `/language validates CSRF`, `/language accepts lang form field`, `/language stores valid lang`.
+- No assertions weakened. No Web runtime behavior changed.
+- No Bot, installer, CLI, redaction, gating, advanced mode, rotate, or deployment changes.
+- Added validation document `docs/validation-v1.9.54-web-language-switch-test-debt-fix.md`.
+
+### Safety
+
+- Test fix only.
+- No Bot runtime behavior changed.
+- No Web runtime behavior changed.
+- No CLI behavior changed.
+- No `installer/install.sh` behavior changed.
+- No `bin/nanobk` behavior changed.
+- No env files read or written.
+- No redaction changes.
+- No /api/status schema changes.
+- No Raw JSON gating behavior changes.
+- No advanced mode behavior changes.
+- No rotate behavior changes.
+- No deployment core, protocol template, Worker, rotate sync changed.
+- No tag/release.
+
 ## v1.9.53 — Chinese/English Control Plane Smoke Test Plan
 
 ### Added
