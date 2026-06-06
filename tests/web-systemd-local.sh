@@ -98,6 +98,22 @@ else
   pass "run.sh does not expose .env contents"
 fi
 
+# run.sh must check .venv/bin/python before creating venv (idempotent startup)
+if grep -q '\.venv/bin/python' "$ROOT/web/run.sh" 2>/dev/null; then
+  pass "run.sh checks .venv/bin/python (idempotent startup)"
+else
+  fail "run.sh missing .venv/bin/python check for idempotent startup"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# run.sh must support NANOBK_WEB_REFRESH_DEPS
+if grep -q 'NANOBK_WEB_REFRESH_DEPS' "$ROOT/web/run.sh" 2>/dev/null; then
+  pass "run.sh supports NANOBK_WEB_REFRESH_DEPS"
+else
+  fail "run.sh missing NANOBK_WEB_REFRESH_DEPS support"
+  ERRORS=$((ERRORS + 1))
+fi
+
 echo ""
 
 # ── systemd unit checks ───────────────────────────────────────────────────
@@ -167,6 +183,17 @@ if grep -q 'EnvironmentFile' "$UNIT" 2>/dev/null; then
   pass "systemd unit has EnvironmentFile"
 else
   fail "systemd unit missing EnvironmentFile"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# ReadWritePaths must cover the web directory (not just .venv) for first-start venv creation
+if grep -q 'ReadWritePaths=.*/web$' "$UNIT" 2>/dev/null; then
+  pass "systemd unit ReadWritePaths covers web directory (first-start safe)"
+elif grep -q 'ReadWritePaths=.*/web/.venv' "$UNIT" 2>/dev/null; then
+  fail "systemd unit ReadWritePaths only covers .venv (first-start may fail)"
+  ERRORS=$((ERRORS + 1))
+else
+  fail "systemd unit missing ReadWritePaths"
   ERRORS=$((ERRORS + 1))
 fi
 

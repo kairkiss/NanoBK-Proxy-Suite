@@ -1,5 +1,27 @@
 # Changelog
 
+## v2.0.6 — Web Systemd First-Start Polish
+
+### Changed
+
+- Made `web/run.sh` venv startup idempotent: skips venv creation and pip install when `.venv/bin/python` already exists.
+- Added optional `NANOBK_WEB_REFRESH_DEPS=1` env flag to force dependency refresh on startup.
+- Adjusted systemd `ReadWritePaths` from `.venv` only to entire `web/` directory, so first start can create `.venv` under `ProtectSystem=strict`.
+- Added comment explaining `ReadWritePaths` rationale in systemd unit.
+- Strengthened `tests/web-systemd-local.sh`: added checks for idempotent venv startup, `NANOBK_WEB_REFRESH_DEPS` support, and `ReadWritePaths` first-start compatibility.
+- No Cloudflare Tunnel/Access added.
+- No route/security behavior changed.
+
+### Safety
+
+- No Bot runtime behavior changed.
+- No Web route/security behavior changed.
+- No VPS protocol templates changed.
+- No Cloudflare Worker logic changed.
+- No Cloudflare Tunnel/Access added.
+- No external JS/CSS/fonts/CDN added.
+- No tag/release.
+
 ## v2.0.5 — Web Local/Systemd Install Hardening
 
 ### Changed

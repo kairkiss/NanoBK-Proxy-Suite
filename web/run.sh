@@ -113,13 +113,23 @@ if [[ ! -d ".venv" ]]; then
 fi
 
 # ── Setup and run ───────────────────────────────────────────────────────────
+# Idempotent: only create venv and install deps when missing or explicitly
+# requested via NANOBK_WEB_REFRESH_DEPS=1.
 
-echo "Setting up Python venv..."
-python3 -m venv .venv
-source .venv/bin/activate
-
-echo "Installing dependencies..."
-pip install -q -r requirements.txt
+if [[ ! -x ".venv/bin/python" ]]; then
+  echo "Preparing Python virtual environment..."
+  python3 -m venv .venv
+  source .venv/bin/activate
+  echo "Installing Web dependencies..."
+  pip install -q -r requirements.txt
+else
+  source .venv/bin/activate
+  echo "Python virtual environment: OK"
+  if [[ "${NANOBK_WEB_REFRESH_DEPS:-0}" == "1" ]]; then
+    echo "Refreshing Web dependencies (NANOBK_WEB_REFRESH_DEPS=1)..."
+    pip install -q -r requirements.txt
+  fi
+fi
 
 echo "Starting NanoBK Web Panel on ${web_host}:${web_port} (local-only)"
 exec python3 app.py

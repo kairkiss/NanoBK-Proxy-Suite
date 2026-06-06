@@ -14,7 +14,9 @@ EnvironmentFile=/opt/NanoBK-Proxy-Suite/web/.env
 
 # Security hardening
 ProtectSystem=strict
-ReadWritePaths=/opt/NanoBK-Proxy-Suite/web/.venv
+# ReadWritePaths covers the whole web/ dir so first start can create/update .venv.
+# The Web app still remains local-only and secrets stay in EnvironmentFile.
+ReadWritePaths=/opt/NanoBK-Proxy-Suite/web
 PrivateTmp=true
 NoNewPrivileges=true
 
