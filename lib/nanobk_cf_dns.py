@@ -221,13 +221,14 @@ def validate_profile(profile: dict) -> list[str]:
     if ipv4 is None and ipv6 is None:
         errors.append("at least one of 'ipv4' or 'ipv6' must be provided")
 
-    # defaultProxied
-    proxied = profile.get("defaultProxied")
-    if proxied is True:
-        errors.append(
-            "defaultProxied must be false or omitted — "
-            "proxy protocol records (HY2/TUIC/Reality/Trojan) must be DNS-only"
-        )
+    # defaultProxied: must be exactly false (bool) or omitted
+    if "defaultProxied" in profile:
+        proxied = profile["defaultProxied"]
+        if proxied is not False:
+            errors.append(
+                "defaultProxied must be false or omitted — "
+                "proxy protocol records (HY2/TUIC/Reality/Trojan) must be DNS-only"
+            )
 
     # Reserved prefixes
     reserved = profile.get("reserved", {})
@@ -414,6 +415,24 @@ def _handle_validate_profile(args: argparse.Namespace) -> None:
 def _handle_plan(args: argparse.Namespace) -> None:
     """Handle the plan subcommand."""
     if args.profile:
+        # Reject mixed mode: --profile combined with direct fields
+        direct_fields = []
+        if args.zone:
+            direct_fields.append("--zone")
+        if args.node:
+            direct_fields.append("--node")
+        if args.ipv4:
+            direct_fields.append("--ipv4")
+        if args.ipv6:
+            direct_fields.append("--ipv6")
+        if direct_fields:
+            print(
+                f"error: --profile cannot be combined with "
+                f"{'/'.join(direct_fields)}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
         profile = _load_profile(args.profile)
         errors = validate_profile(profile)
         if errors:

@@ -1,5 +1,33 @@
 # Changelog
 
+## v2.0.8 — Cloudflare DNS Dry-Run Validation Polish
+
+### Changed
+
+- Strict `defaultProxied` validation: only boolean `false` or omitted is accepted.
+  Previously only rejected `true`; now also rejects `"true"`, `"false"`, `1`, `0`,
+  `null`, and any other non-boolean value.
+- Reject mixed input mode: `--profile` combined with `--zone`/`--node`/`--ipv4`/`--ipv6`
+  now returns a clear error instead of silently ignoring direct args.
+- `--dry-run` no longer skips `cf dns plan` and `cf dns validate-profile` execution.
+  These commands are already dry-run only (no mutation), so validation always runs.
+- Added 9 new test cases: 6 strict `defaultProxied` variants, 2 mixed input mode
+  tests, 3 `--dry-run` behavior tests.
+
+### Safety
+
+- No Bot runtime behavior changed.
+- No Web route/security behavior changed.
+- No VPS protocol templates changed.
+- No Cloudflare Worker logic changed.
+- No Cloudflare Tunnel/Access added.
+- No Cloudflare API calls made.
+- No DNS records created.
+- No certificates requested.
+- No external JS/CSS/fonts/CDN added.
+- No installer scripts changed.
+- No tag/release.
+
 ## v2.0.7 — Cloudflare DNS Profile Dry-Run Plan
 
 ### Added

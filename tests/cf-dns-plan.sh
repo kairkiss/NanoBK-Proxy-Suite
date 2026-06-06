@@ -228,11 +228,12 @@ else
   ERRORS=$((ERRORS + 1))
 fi
 
-# ── Error handling: defaultProxied=true ───────────────────────────────────
+# ── Error handling: strict defaultProxied ─────────────────────────────────
 
 TMPDIR_TESTS=$(mktemp -d)
 trap 'rm -rf "$TMPDIR_TESTS"' EXIT
 
+# defaultProxied true (boolean) — must fail
 cat > "$TMPDIR_TESTS/proxied-true.json" <<'EOF'
 {
   "zoneName": "example.com",
@@ -247,6 +248,96 @@ if echo "$PROXIED_ERR" | grep -qi "proxied\|DNS-only"; then
   pass "defaultProxied=true rejected"
 else
   fail "defaultProxied=true should be rejected"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# defaultProxied "true" (string) — must fail
+cat > "$TMPDIR_TESTS/proxied-string-true.json" <<'EOF'
+{
+  "zoneName": "example.com",
+  "nodePrefix": "node",
+  "ipv4": "203.0.113.10",
+  "defaultProxied": "true"
+}
+EOF
+
+PROXIED_STR_ERR=$(bash "$NANOBK" cf dns plan --profile "$TMPDIR_TESTS/proxied-string-true.json" 2>&1 || true)
+if echo "$PROXIED_STR_ERR" | grep -qi "proxied\|DNS-only"; then
+  pass 'defaultProxied="true" (string) rejected'
+else
+  fail 'defaultProxied="true" (string) should be rejected'
+  ERRORS=$((ERRORS + 1))
+fi
+
+# defaultProxied "false" (string) — must fail (only boolean false accepted)
+cat > "$TMPDIR_TESTS/proxied-string-false.json" <<'EOF'
+{
+  "zoneName": "example.com",
+  "nodePrefix": "node",
+  "ipv4": "203.0.113.10",
+  "defaultProxied": "false"
+}
+EOF
+
+PROXIED_STR_FALSE_ERR=$(bash "$NANOBK" cf dns plan --profile "$TMPDIR_TESTS/proxied-string-false.json" 2>&1 || true)
+if echo "$PROXIED_STR_FALSE_ERR" | grep -qi "proxied\|DNS-only"; then
+  pass 'defaultProxied="false" (string) rejected'
+else
+  fail 'defaultProxied="false" (string) should be rejected'
+  ERRORS=$((ERRORS + 1))
+fi
+
+# defaultProxied 1 (integer) — must fail
+cat > "$TMPDIR_TESTS/proxied-int-1.json" <<'EOF'
+{
+  "zoneName": "example.com",
+  "nodePrefix": "node",
+  "ipv4": "203.0.113.10",
+  "defaultProxied": 1
+}
+EOF
+
+PROXIED_INT1_ERR=$(bash "$NANOBK" cf dns plan --profile "$TMPDIR_TESTS/proxied-int-1.json" 2>&1 || true)
+if echo "$PROXIED_INT1_ERR" | grep -qi "proxied\|DNS-only"; then
+  pass "defaultProxied=1 (integer) rejected"
+else
+  fail "defaultProxied=1 (integer) should be rejected"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# defaultProxied 0 (integer) — must fail
+cat > "$TMPDIR_TESTS/proxied-int-0.json" <<'EOF'
+{
+  "zoneName": "example.com",
+  "nodePrefix": "node",
+  "ipv4": "203.0.113.10",
+  "defaultProxied": 0
+}
+EOF
+
+PROXIED_INT0_ERR=$(bash "$NANOBK" cf dns plan --profile "$TMPDIR_TESTS/proxied-int-0.json" 2>&1 || true)
+if echo "$PROXIED_INT0_ERR" | grep -qi "proxied\|DNS-only"; then
+  pass "defaultProxied=0 (integer) rejected"
+else
+  fail "defaultProxied=0 (integer) should be rejected"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# defaultProxied null — must fail
+cat > "$TMPDIR_TESTS/proxied-null.json" <<'EOF'
+{
+  "zoneName": "example.com",
+  "nodePrefix": "node",
+  "ipv4": "203.0.113.10",
+  "defaultProxied": null
+}
+EOF
+
+PROXIED_NULL_ERR=$(bash "$NANOBK" cf dns plan --profile "$TMPDIR_TESTS/proxied-null.json" 2>&1 || true)
+if echo "$PROXIED_NULL_ERR" | grep -qi "proxied\|DNS-only"; then
+  pass "defaultProxied=null rejected"
+else
+  fail "defaultProxied=null should be rejected"
   ERRORS=$((ERRORS + 1))
 fi
 
@@ -353,6 +444,60 @@ if echo "$BAD_JSON_ERR" | grep -qi "JSON\|invalid\|error"; then
   pass "invalid JSON rejected"
 else
   fail "invalid JSON should be rejected"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# ── Error handling: mixed profile + direct args ──────────────────────────
+
+echo ""
+echo "--- Mixed input mode ---"
+echo ""
+
+MIXED_ERR=$(bash "$NANOBK" cf dns plan --profile "$FIXTURE" --zone example.com 2>&1 || true)
+if echo "$MIXED_ERR" | grep -qi "cannot be combined\|profile.*zone\|error"; then
+  pass "--profile + --zone rejected"
+else
+  fail "--profile + --zone should be rejected"
+  ERRORS=$((ERRORS + 1))
+fi
+
+MIXED_ERR2=$(bash "$NANOBK" cf dns plan --profile "$FIXTURE" --node node --ipv4 203.0.113.10 2>&1 || true)
+if echo "$MIXED_ERR2" | grep -qi "cannot be combined\|error"; then
+  pass "--profile + --node/--ipv4 rejected"
+else
+  fail "--profile + --node/--ipv4 should be rejected"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# ── --dry-run still runs validation ──────────────────────────────────────
+
+echo ""
+echo "--- --dry-run behavior ---"
+echo ""
+
+# --dry-run should still run validation (not skip it)
+DRY_VALID=$(bash "$NANOBK" --dry-run cf dns validate-profile --profile "$FIXTURE" 2>&1)
+if echo "$DRY_VALID" | grep -q "valid"; then
+  pass "--dry-run still runs validate-profile"
+else
+  fail "--dry-run should still run validate-profile (helper is no-mutation)"
+  ERRORS=$((ERRORS + 1))
+fi
+
+DRY_PLAN=$(bash "$NANOBK" --dry-run cf dns plan --profile "$FIXTURE" 2>&1)
+if echo "$DRY_PLAN" | grep -q "Cloudflare DNS dry-run plan"; then
+  pass "--dry-run still runs cf dns plan"
+else
+  fail "--dry-run should still run cf dns plan (helper is no-mutation)"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# --dry-run with bad profile should still reject
+DRY_BAD=$(bash "$NANOBK" --dry-run cf dns plan --profile "$TMPDIR_TESTS/proxied-true.json" 2>&1 || true)
+if echo "$DRY_BAD" | grep -qi "proxied\|DNS-only"; then
+  pass "--dry-run still validates bad profile"
+else
+  fail "--dry-run should still validate and reject bad profile"
   ERRORS=$((ERRORS + 1))
 fi
 

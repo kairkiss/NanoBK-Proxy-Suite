@@ -798,18 +798,14 @@ cmd_cf_dns() {
           --json)
             args+=("--json"); shift ;;
           --dry-run)
-            DRY_RUN=1; shift ;;
+            # cf dns plan is already dry-run only (no mutation).
+            # Ignore global --dry-run so validation still runs.
+            shift ;;
           *)
             die "cf dns plan: unknown option: $1"
             ;;
         esac
       done
-
-      if [[ "$DRY_RUN" == "1" ]]; then
-        print_cmd "${args[@]}"
-        echo -e "  ${CYAN}[DRY-RUN]${NC} 跳过执行"
-        return 0
-      fi
 
       "${args[@]}"
       ;;
@@ -822,18 +818,14 @@ cmd_cf_dns() {
             [[ $# -ge 2 ]] || die "cf dns validate-profile: --profile needs a path argument"
             args+=("$1" "$2"); shift 2 ;;
           --dry-run)
-            DRY_RUN=1; shift ;;
+            # cf dns validate-profile is already dry-run only (no mutation).
+            # Ignore global --dry-run so validation still runs.
+            shift ;;
           *)
             die "cf dns validate-profile: unknown option: $1"
             ;;
         esac
       done
-
-      if [[ "$DRY_RUN" == "1" ]]; then
-        print_cmd "${args[@]}"
-        echo -e "  ${CYAN}[DRY-RUN]${NC} 跳过执行"
-        return 0
-      fi
 
       "${args[@]}"
       ;;
