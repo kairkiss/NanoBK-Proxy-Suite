@@ -5,11 +5,18 @@ Wants=network-online.target
 
 [Service]
 Type=simple
+# Replace /opt/NanoBK-Proxy-Suite with your actual install path
 WorkingDirectory=/opt/NanoBK-Proxy-Suite/web
-ExecStart=/opt/NanoBK-Proxy-Suite/web/.venv/bin/python /opt/NanoBK-Proxy-Suite/web/app.py
-Restart=always
-RestartSec=5
+ExecStart=/opt/NanoBK-Proxy-Suite/web/run.sh
+Restart=on-failure
+RestartSec=3
 EnvironmentFile=/opt/NanoBK-Proxy-Suite/web/.env
+
+# Security hardening
+ProtectSystem=strict
+ReadWritePaths=/opt/NanoBK-Proxy-Suite/web/.venv
+PrivateTmp=true
+NoNewPrivileges=true
 
 [Install]
 WantedBy=multi-user.target

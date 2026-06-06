@@ -2,20 +2,73 @@
 # NanoBK Web Panel — Runner
 #
 # Sets up Python venv and starts the web panel.
+# Default: binds to 127.0.0.1 (local-only, not publicly exposed).
 #
 # Usage:
 #   bash web/run.sh
 
 set -Eeuo pipefail
 
-cd "$(dirname "$0")"
+# ── Resolve web directory ───────────────────────────────────────────────────
+
+WEB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$WEB_DIR"
+
+# ── Check .env exists ───────────────────────────────────────────────────────
 
 if [[ ! -f ".env" ]]; then
   echo "ERROR: Missing web/.env"
+  echo ""
   echo "Copy .env.example to .env and edit it:"
   echo "  cp .env.example .env"
   echo "  nano .env"
+  echo ""
+  echo "Required variables:"
+  echo "  NANOBK_WEB_TOKEN       — login token (change from default)"
+  echo "  NANOBK_WEB_SECRET_KEY  — Flask session key (change from default)"
+  echo "  NANOBK_WEB_HOST        — bind address (default: 127.0.0.1)"
+  echo "  NANOBK_WEB_PORT        — port (default: 8080)"
   exit 1
+fi
+
+# ── Check .env permissions ──────────────────────────────────────────────────
+
+env_perms=$(stat -c '%a' .env 2>/dev/null || stat -f '%Lp' .env 2>/dev/null || echo "unknown")
+if [[ "$env_perms" != "unknown" && "$env_perms" != "600" ]]; then
+  echo "WARNING: web/.env has permissions $env_perms (recommended: 600)"
+  echo "  Fix with: chmod 600 .env"
+fi
+
+# ── Validate required env values (source safely, do not echo) ───────────────
+
+# Source .env to check values — we trust this file was created by the installer
+set -a
+# shellcheck disable=SC1091
+source .env
+set +a
+
+if [[ "${NANOBK_WEB_TOKEN:-}" == "change-me-long-random-token" || -z "${NANOBK_WEB_TOKEN:-}" ]]; then
+  echo "ERROR: NANOBK_WEB_TOKEN is not set or still has the default value."
+  echo "  Edit web/.env and set a real token."
+  exit 1
+fi
+
+if [[ "${NANOBK_WEB_SECRET_KEY:-}" == "change-me-session-secret" || -z "${NANOBK_WEB_SECRET_KEY:-}" ]]; then
+  echo "ERROR: NANOBK_WEB_SECRET_KEY is not set or still has the default value."
+  echo "  Edit web/.env and set a real secret key."
+  exit 1
+fi
+
+# ── Guard against public binding ────────────────────────────────────────────
+
+web_host="${NANOBK_WEB_HOST:-127.0.0.1}"
+web_port="${NANOBK_WEB_PORT:-8080}"
+
+if [[ "$web_host" == "0.0.0.0" ]]; then
+  echo "WARNING: NANOBK_WEB_HOST is 0.0.0.0 — the Web Panel will be accessible from the network."
+  echo "  This is NOT recommended unless you are behind a firewall or reverse proxy."
+  echo "  Recommended: keep 127.0.0.1 and access via SSH tunnel:"
+  echo "    ssh -L ${web_port}:127.0.0.1:${web_port} root@YOUR_VPS_IP"
 fi
 
 # ── Check Python venv availability ──────────────────────────────────────────
@@ -68,5 +121,5 @@ source .venv/bin/activate
 echo "Installing dependencies..."
 pip install -q -r requirements.txt
 
-echo "Starting NanoBK Web Panel..."
+echo "Starting NanoBK Web Panel on ${web_host}:${web_port} (local-only)"
 exec python3 app.py

@@ -1,5 +1,25 @@
 # Changelog
 
+## v2.0.5 — Web Local/Systemd Install Hardening
+
+### Changed
+
+- Hardened `web/run.sh`: validates `.env` permissions (warns if not 600), checks required env vars are not defaults, guards against `0.0.0.0` binding with clear warning, resolves repo root safely.
+- Improved `web/systemd/nanobk-web-panel.service.example`: ExecStart now calls `run.sh` (handles venv+deps), `Restart=on-failure` with `RestartSec=3`, added security hardening (`ProtectSystem=strict`, `PrivateTmp=true`, `NoNewPrivileges=true`).
+- Added `tests/web-systemd-local.sh` — validates run.sh, systemd unit, security patterns, and runs web self-test.
+- No Cloudflare Tunnel/Access added.
+- No route/security behavior changed.
+
+### Safety
+
+- No Bot runtime behavior changed.
+- No Web route/security behavior changed.
+- No VPS protocol templates changed.
+- No Cloudflare Worker logic changed.
+- No Cloudflare Tunnel/Access added.
+- No external JS/CSS/fonts/CDN added.
+- No tag/release.
+
 ## v2.0.4 — Web UI Safe Status Class and Login Safety Polish
 
 ### Changed
