@@ -1,5 +1,41 @@
 # Changelog
 
+## v1.9.55 — Real Chinese/English Control Plane Smoke Validation
+
+### Added
+
+- Added T17 real Chinese/English control-plane smoke test validation document.
+- Documented user-run real smoke test result: PASS WITH POLISH.
+- Documented environment: Ubuntu 24.04.1 LTS, root, Python 3.12, dirty test VPS, existing four-protocol deployment.
+- Documented Stage 0 baseline update (9 commits behind, fast-forwarded to `daa9740`).
+- Documented Stage 1 preflight: installer language propagation test false-positive debt (T17-TEST-002), all other focused tests PASS.
+- Documented Stage 2 Bot/Web restart and health: /healthz ok, four services active, no errors.
+- Documented Stage 3 Web Chinese/English: default Chinese, English switch, switch back, logout session reset, safety regression — all PASS.
+- Documented Stage 4 Bot Chinese: /start, /help, /language, /status, /doctor, /advanced, /status_json, button callbacks — all PASS.
+- Documented Stage 5 final health: HEAD verified, processes running, services active.
+- Documented leak check: no P0/P1 leaks, Advanced-only visible information acceptable.
+- Documented issue matrix: 12 items, 0 P0, 0 P1, 1 test debt, 9 P2/known.
+- Documented stable tag gate conditions.
+- No Bot, Web, CLI, installer, redaction, gating, advanced mode, rotate, or deployment changes.
+
+### Safety
+
+- Documentation only.
+- No Bot runtime behavior changed.
+- No Web runtime behavior changed.
+- No CLI behavior changed.
+- No `installer/install.sh` behavior changed.
+- No `bin/nanobk` behavior changed.
+- No env files read or written.
+- No redaction changes.
+- No /api/status schema changes.
+- No Raw JSON gating behavior changes.
+- No advanced mode behavior changes.
+- No rotate behavior changes.
+- No deployment core, protocol template, Worker, rotate sync changed.
+- No tests added.
+- No tag/release.
+
 ## v1.9.54 — Web Language Switch Test Debt Fix
 
 ### Fixed
