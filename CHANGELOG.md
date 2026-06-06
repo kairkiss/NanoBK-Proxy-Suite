@@ -1,5 +1,36 @@
 # Changelog
 
+## v1.9.52 — Bot Language Command / Guidance Minimal Implementation
+
+### Changed
+
+- Added Bot `/language` command: owner-only, shows current runtime language and guidance.
+- Added `build_language_guidance()` function with zh/en support.
+- Added 10 i18n keys: `language_title`, `language_current_zh`, `language_current_en`, `language_source_explanation`, `language_default_zh`, `language_en_available`, `language_persistent_planned`, `language_no_env_write`, `language_usage`, `help_language`.
+- Updated `/help` to include `/language` in Basic section.
+- Registered `CommandHandler("language", cmd_language)`.
+- Command does NOT call run_nanobk, does NOT write/read env, does NOT expose tokens.
+- Guidance explains: current language from NANOBK_LANG, Chinese default, English available via NANOBK_LANG=en, persistent switching planned for future CLI/installer-safe command.
+- Bot self-test expanded from 180 to 228 checks.
+- Added focused Bot language command test (90 checks).
+- Added validation document `docs/validation-v1.9.52-bot-language-command-guidance.md`.
+
+### Safety
+
+- Bot language guidance command only.
+- No Web runtime behavior changed.
+- No CLI behavior changed.
+- No `installer/install.sh` behavior changed.
+- No `bin/nanobk` behavior changed.
+- No env files read or written.
+- No redaction changes.
+- No /api/status schema changes.
+- No Raw JSON gating behavior changes.
+- No advanced mode behavior changes.
+- No rotate behavior changes.
+- No deployment core, protocol template, Worker, rotate sync changed.
+- No tag/release.
+
 ## v1.9.51 — Web Session Language Switch Minimal Implementation
 
 ### Changed

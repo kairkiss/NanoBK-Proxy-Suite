@@ -452,6 +452,47 @@ BOT_TEXT: dict[str, dict[str, str]] = {
         "en": "Confirmation mismatch. Pending: {pending}, got: {got}",
         "zh": "确认不匹配。待处理：{pending}，收到：{got}",
     },
+    # ── Language command ──
+    "language_title": {
+        "en": "🌐 Language Settings",
+        "zh": "🌐 语言设置",
+    },
+    "language_current_zh": {
+        "en": "Current language: Chinese (中文)",
+        "zh": "当前语言：中文",
+    },
+    "language_current_en": {
+        "en": "Current language: English",
+        "zh": "当前语言：英文 (English)",
+    },
+    "language_source_explanation": {
+        "en": "Bot language is set by the NANOBK_LANG environment variable or installer language option.",
+        "zh": "Bot 语言由 NANOBK_LANG 环境变量或安装器语言选项决定。",
+    },
+    "language_default_zh": {
+        "en": "Chinese (中文) is the default language for new installations.",
+        "zh": "新安装默认使用中文。",
+    },
+    "language_en_available": {
+        "en": "English is available by setting NANOBK_LANG=en before installation.",
+        "zh": "通过在安装前设置 NANOBK_LANG=en 可使用英文。",
+    },
+    "language_persistent_planned": {
+        "en": "Persistent language switching is planned for a future CLI/installer-safe command.",
+        "zh": "持久语言切换计划在未来通过 CLI/安装器安全命令实现。",
+    },
+    "language_no_env_write": {
+        "en": "This command does not write to configuration files.",
+        "zh": "此命令不会写入配置文件。",
+    },
+    "language_usage": {
+        "en": "Usage: /language — Show current language and guidance.",
+        "zh": "用法：/language — 显示当前语言和引导。",
+    },
+    "help_language": {
+        "en": "Show language info and guidance",
+        "zh": "显示语言信息和引导",
+    },
 }
 
 
@@ -1082,6 +1123,25 @@ def build_guidance_web(lang: str = "en") -> str:
     return bt(lang, "guidance_web")
 
 
+def build_language_guidance(lang: str = "en") -> str:
+    """Build the /language guidance text."""
+    lines = [bt(lang, "language_title"), ""]
+
+    if lang == "zh":
+        lines.append(bt(lang, "language_current_zh"))
+    else:
+        lines.append(bt(lang, "language_current_en"))
+
+    lines.append("")
+    lines.append(bt(lang, "language_source_explanation"))
+    lines.append(bt(lang, "language_default_zh"))
+    lines.append(bt(lang, "language_en_available"))
+    lines.append("")
+    lines.append(bt(lang, "language_persistent_planned"))
+    lines.append(bt(lang, "language_no_env_write"))
+    return "\n".join(lines)
+
+
 def build_help_text(lang: str = "en") -> str:
     """Build the /help text in the given language."""
     lines = [bt(lang, "help_title"), ""]
@@ -1090,6 +1150,7 @@ def build_help_text(lang: str = "en") -> str:
     lines.append(f"/status         — {bt(lang, 'help_status')}")
     lines.append(f"/doctor         — {bt(lang, 'help_doctor')}")
     lines.append(f"/cancel         — {bt(lang, 'help_cancel')}")
+    lines.append(f"/language       — {bt(lang, 'help_language')}")
     lines.append("")
     lines.append(f"{bt(lang, 'help_safe_ops')}")
     lines.append(f"/rotate_all     — {bt(lang, 'help_rotate_all')}")
@@ -1600,6 +1661,41 @@ def run_self_test() -> bool:
     # 18d. Shared status helper
     check("get_safe_status_text is callable", callable(get_safe_status_text))
 
+    # 18e. Language command
+    check("build_language_guidance is callable", callable(build_language_guidance))
+    lang_guidance_en = build_language_guidance("en")
+    check("language guidance en: has title", "Language Settings" in lang_guidance_en)
+    check("language guidance en: shows current language", "Current language" in lang_guidance_en)
+    check("language guidance en: mentions NANOBK_LANG", "NANOBK_LANG" in lang_guidance_en)
+    check("language guidance en: mentions Chinese default", "default" in lang_guidance_en.lower())
+    check("language guidance en: mentions English available", "English" in lang_guidance_en)
+    check("language guidance en: mentions persistent planned", "planned" in lang_guidance_en.lower() or "future" in lang_guidance_en.lower())
+    check("language guidance en: says no env write", "not write" in lang_guidance_en.lower() or "does not write" in lang_guidance_en.lower())
+    check("language guidance en: no raw env path", "/etc/" not in lang_guidance_en and "/root/" not in lang_guidance_en)
+    check("language guidance en: no raw token", "TOKEN=" not in lang_guidance_en)
+
+    lang_guidance_zh = build_language_guidance("zh")
+    check("language guidance zh: has title", "语言设置" in lang_guidance_zh)
+    check("language guidance zh: shows current language", "当前语言" in lang_guidance_zh)
+    check("language guidance zh: mentions NANOBK_LANG", "NANOBK_LANG" in lang_guidance_zh)
+    check("language guidance zh: mentions Chinese default", "默认" in lang_guidance_zh)
+    check("language guidance zh: mentions English available", "英文" in lang_guidance_zh or "English" in lang_guidance_zh)
+    check("language guidance zh: no raw env path", "/etc/" not in lang_guidance_zh and "/root/" not in lang_guidance_zh)
+
+    # Language i18n keys exist
+    for key in ["language_title", "language_current_zh", "language_current_en",
+                 "language_source_explanation", "language_default_zh", "language_en_available",
+                 "language_persistent_planned", "language_no_env_write", "language_usage", "help_language"]:
+        check(f"BOT_TEXT has {key}", key in BOT_TEXT)
+        check(f"BOT_TEXT {key} has en", "en" in BOT_TEXT[key])
+        check(f"BOT_TEXT {key} has zh", "zh" in BOT_TEXT[key])
+
+    # Help text includes /language
+    help_en_text = build_help_text("en")
+    check("en help includes /language", "/language" in help_en_text)
+    help_zh_text = build_help_text("zh")
+    check("zh help includes /language", "/language" in help_zh_text)
+
     print(f"\n=== {passed} passed, {failed} failed ===")
     return failed == 0
 
@@ -1738,6 +1834,11 @@ def create_bot_app(config: BotConfig):
                 await update.message.reply_text(bt(config.lang, "advanced_disabled_status"))
         else:
             await update.message.reply_text(bt(config.lang, "advanced_usage"))
+
+    async def cmd_language(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        if not is_owner(update):
+            return await unauthorized(update, context)
+        await update.message.reply_text(build_language_guidance(config.lang))
 
     # ── Rotate handlers ─────────────────────────────────────────────────
 
@@ -1882,6 +1983,7 @@ def create_bot_app(config: BotConfig):
     app.add_handler(CommandHandler("doctor", cmd_doctor))
     app.add_handler(CommandHandler("cancel", cmd_cancel))
     app.add_handler(CommandHandler("advanced", cmd_advanced))
+    app.add_handler(CommandHandler("language", cmd_language))
 
     # Rotate commands (request confirmation)
     for action_name in ROTATE_ACTIONS:
