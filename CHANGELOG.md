@@ -1,5 +1,35 @@
 # Changelog
 
+## v1.9.51 — Web Session Language Switch Minimal Implementation
+
+### Changed
+
+- Added `get_current_lang()` helper: session["lang"] > config.lang > default zh.
+- Updated `inject_i18n()` context processor to use `get_current_lang()`.
+- Added `POST /language` route: login required, CSRF protected, accepts zh/en.
+- Added language switch button in layout.html navigation bar.
+- Added i18n keys: `lang_switch_to_en`, `lang_switch_to_zh`, `lang_changed`, `lang_invalid`.
+- Session language override clears on logout/session expiry.
+- No env writes. No Bot changes. No CLI changes. No installer changes.
+- Added focused Web language switch test.
+- Added validation document `docs/validation-v1.9.51-web-session-language-switch.md`.
+
+### Safety
+
+- Web session language switch only.
+- No Bot runtime behavior changed.
+- No CLI behavior changed.
+- No `installer/install.sh` behavior changed.
+- No `bin/nanobk` behavior changed.
+- No env files read or written.
+- No redaction changes.
+- No /api/status schema changes.
+- No Raw JSON gating behavior changes.
+- No advanced mode behavior changes.
+- No rotate behavior changes.
+- No deployment core, protocol template, Worker, rotate sync changed.
+- No tag/release.
+
 ## v1.9.50 — Language Switch UX Planning
 
 ### Added

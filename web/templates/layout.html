@@ -12,6 +12,11 @@
     <a href="/status">{{ t('nav_status') }}</a>
     <a href="/doctor">{{ t('nav_doctor') }}</a>
     <a href="/rotate">{{ t('nav_rotate') }}</a>
+    <form method="POST" action="/language" style="display:inline">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="lang" value="{{ 'en' if lang == 'zh' else 'zh' }}">
+      <button type="submit" class="nav-button">{{ t('lang_switch_to_en') if lang == 'zh' else t('lang_switch_to_zh') }}</button>
+    </form>
     <form method="POST" action="/logout" style="display:inline">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <button type="submit" class="nav-button">{{ t('nav_logout') }}</button>

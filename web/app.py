@@ -935,6 +935,27 @@ def run_self_test() -> bool:
                  "doctor_intro_text"]:
         check(f"WEB_TEXT has {key}", key in WEB_TEXT)
 
+    # 28. Language switch i18n keys
+    for key in ["lang_switch_to_en", "lang_switch_to_zh", "lang_changed", "lang_invalid"]:
+        check(f"WEB_TEXT has {key}", key in WEB_TEXT)
+    check("wt lang_switch_to_en", wt("en", "lang_switch_to_en") == "EN")
+    check("wt lang_switch_to_zh", wt("zh", "lang_switch_to_zh") == "中文")
+    check("wt lang_changed en", "Language changed" in wt("en", "lang_changed"))
+    check("wt lang_changed zh", "语言已切换" in wt("zh", "lang_changed"))
+
+    # 29. get_current_lang helper
+    check("get_current_lang exists in create_app", "get_current_lang" in open(__file__).read())
+
+    # 30. /language route
+    _src = open(__file__).read()
+    # Use rsplit to find the actual function definition (not self-test string references)
+    _lang_parts = _src.rsplit("def language(", 1)
+    _lang_body = _lang_parts[1].split("\n    def ")[0] if len(_lang_parts) > 1 else ""
+    _lang_deco = _lang_parts[0][-200:] if len(_lang_parts) > 1 else ""
+    check("/language route exists", '"/language"' in _src)
+    check("/language requires login", "require_login" in _lang_deco)
+    check("/language validates CSRF", "validate_csrf" in _lang_body)
+
     print(f"\n=== {passed} passed, {failed} failed ===")
     return failed == 0
 
@@ -965,9 +986,16 @@ def create_app(config: WebConfig):
     def inject_csrf_token():
         return {"csrf_token": get_csrf_token()}
 
+    def get_current_lang() -> str:
+        """Get current language: session override > config.lang > default zh."""
+        session_lang = session.get("lang")
+        if session_lang and session_lang in ("zh", "en"):
+            return session_lang
+        return config.lang
+
     @app.context_processor
     def inject_i18n():
-        lang = config.lang
+        lang = get_current_lang()
         return {
             "t": lambda key, **kwargs: wt(lang, key, **kwargs),
             "lang": lang,
@@ -1012,6 +1040,23 @@ def create_app(config: WebConfig):
             abort(403, wt(config.lang, "csrf_error"))
         session.clear()
         return redirect(url_for("login"))
+
+    # ── Language switch ────────────────────────────────────────────────────
+
+    @app.route("/language", methods=["POST"])
+    @require_login
+    def language():
+        if not validate_csrf():
+            abort(403, wt(config.lang, "csrf_error"))
+        lang = request.form.get("lang", "").strip().lower()
+        if lang in ("zh", "en"):
+            session["lang"] = lang
+        # Invalid values are silently ignored — no crash, no storage.
+        # Redirect back safely: prefer referrer if same-origin, else dashboard.
+        referrer = request.referrer or ""
+        if referrer and referrer.startswith(request.host_url):
+            return redirect(referrer)
+        return redirect(url_for("dashboard"))
 
     # ── Dashboard ────────────────────────────────────────────────────────
 

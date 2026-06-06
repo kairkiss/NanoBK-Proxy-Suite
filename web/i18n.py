@@ -425,6 +425,24 @@ WEB_TEXT: dict[str, dict[str, str]] = {
         "en": "NanoBK Web Panel",
         "zh": "NanoBK Web 面板",
     },
+
+    # ── Language switch ──
+    "lang_switch_to_en": {
+        "en": "EN",
+        "zh": "EN",
+    },
+    "lang_switch_to_zh": {
+        "en": "中文",
+        "zh": "中文",
+    },
+    "lang_changed": {
+        "en": "Language changed.",
+        "zh": "语言已切换。",
+    },
+    "lang_invalid": {
+        "en": "Invalid language.",
+        "zh": "无效语言。",
+    },
 }
 
 
