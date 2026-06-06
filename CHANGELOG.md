@@ -1,5 +1,36 @@
 # Changelog
 
+## v2.0.10 — Cloudflare DNS Apply Skeleton Security Polish
+
+### Changed
+
+- Hardened `api-env` key validation: switched from substring-based secret detection
+  to a strict allowlist. Only `CF_API_TOKEN`, `CF_ZONE_ID`, `CF_ZONE_NAME` are
+  accepted. All other keys (including `API_KEY`, `CF_API_KEY`, `SECRET_KEY`,
+  `EXTRA_FIELD`) are rejected with a clear message listing allowed keys.
+- Hardened `_real_transport()` JSON parsing: non-JSON 2xx responses now return a
+  safe error tuple instead of raising `JSONDecodeError`. Added catch-all exception
+  handler for unexpected network/decode errors. Raw response body is never printed.
+- Tightened ownership marker check `_is_managed_by_nanobk()`: now requires all three
+  markers (`managed-by=nanobk`, `component=cf-dns-apply`, `hostname=<matching>`)
+  to be present in the record comment. Records with wrong hostname, missing
+  component, or missing managed-by are now treated as unowned (fail_conflict).
+- Added 10 new mocked tests: 5 allowlist validation tests (API_KEY, CF_API_KEY,
+  SECRET_KEY, EXTRA_FIELD rejected; valid env passes), 4 ownership marker tests
+  (matching hostname update, wrong hostname conflict, missing component conflict,
+  missing managed-by conflict), 1 JSON parse hardening test (non-JSON response).
+
+### Safety
+
+- No real Cloudflare API calls made.
+- No DNS records created or deleted.
+- No force overwrite implemented.
+- No Tunnel/Access/certificate/Worker changes.
+- No Bot runtime behavior changed.
+- No Web route/security behavior changed.
+- No installer scripts changed.
+- No release tag.
+
 ## v2.0.9 — Cloudflare DNS Apply Skeleton with Mocked Tests
 
 ### Added

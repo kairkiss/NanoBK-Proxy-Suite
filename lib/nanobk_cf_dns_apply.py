@@ -33,9 +33,8 @@ from nanobk_cf_dns import (
 
 CF_API_BASE = "https://api.cloudflare.com/client/v4"
 
-# Secret-like substrings for api-env key validation
-_API_ENV_SECRET_SUBSTRINGS = ["password", "private", "secret"]
-_API_ENV_ALLOWED_SECRET_KEYS = {"CF_API_TOKEN", "CF_ZONE_ID"}
+# Allowlist for api-env keys — reject everything else
+_API_ENV_ALLOWED_KEYS = {"CF_API_TOKEN", "CF_ZONE_ID", "CF_ZONE_NAME"}
 
 # Ownership marker for managed records
 _MANAGED_BY = "managed-by=nanobk"
@@ -110,7 +109,7 @@ def parse_api_env(path: str) -> ApiEnv:
     """Parse a Cloudflare API env file safely (no sourcing).
 
     Checks file permissions (must be 600), required keys, and rejects
-    suspicious keys containing secret-like substrings.
+    any key not in the allowlist (CF_API_TOKEN, CF_ZONE_ID, CF_ZONE_NAME).
     """
     if not os.path.isfile(path):
         raise ApiEnvError(f"api-env file not found: {path}")
@@ -152,14 +151,14 @@ def parse_api_env(path: str) -> ApiEnv:
     except OSError as e:
         raise ApiEnvError(f"cannot read api-env file: {e}")
 
-    # Check for suspicious keys
+    # Allowlist check — reject any key not in the allowed set
+    allowed = _API_ENV_ALLOWED_KEYS
     for key in values:
-        key_lower = key.lower()
-        for substr in _API_ENV_SECRET_SUBSTRINGS:
-            if substr in key_lower and key not in _API_ENV_ALLOWED_SECRET_KEYS:
-                raise ApiEnvError(
-                    f"suspicious key in api-env: '{key}' contains '{substr}'"
-                )
+        if key not in allowed:
+            raise ApiEnvError(
+                f"unsupported key in api-env: '{key}'. "
+                f"Allowed keys: {', '.join(sorted(allowed))}"
+            )
 
     # Check required keys
     missing = []
@@ -208,7 +207,11 @@ def _real_transport(
     try:
         with urllib.request.urlopen(req, timeout=15) as resp:
             status = resp.status
-            resp_body = json.loads(resp.read().decode("utf-8"))
+            raw = resp.read().decode("utf-8")
+            try:
+                resp_body = json.loads(raw)
+            except (json.JSONDecodeError, ValueError):
+                resp_body = {"success": False, "errors": [{"code": 0, "message": "invalid JSON in API response"}]}
             return (status, resp_body)
     except urllib.error.HTTPError as e:
         try:
@@ -220,6 +223,8 @@ def _real_transport(
         return (0, {"success": False, "errors": [{"code": 0, "message": f"connection error: {e.reason}"}]})
     except TimeoutError:
         return (0, {"success": False, "errors": [{"code": 0, "message": "request timed out"}]})
+    except Exception as e:
+        return (0, {"success": False, "errors": [{"code": 0, "message": f"unexpected error: {type(e).__name__}"}]})
 
 
 def _make_fake_transport(fixture_path: str) -> TransportFn:
@@ -440,9 +445,13 @@ class CloudflareDnsClient:
 # ── Idempotency state machine ────────────────────────────────────────────────
 
 def _is_managed_by_nanobk(record: dict[str, Any], hostname: str) -> bool:
-    """Check if a record has our ownership marker."""
+    """Check if a record has our ownership marker with matching hostname."""
     comment = record.get("comment", "") or ""
-    return _MANAGED_BY in comment and _MANAGED_COMPONENT in comment
+    if _MANAGED_BY not in comment or _MANAGED_COMPONENT not in comment:
+        return False
+    # Also require hostname= to be present and match
+    hostname_marker = f"hostname={hostname}"
+    return hostname_marker in comment
 
 
 def check_record(

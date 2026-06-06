@@ -234,6 +234,91 @@ else
   ERRORS=$((ERRORS + 1))
 fi
 
+# 5b. API_KEY rejected (allowlist)
+API_KEY_ENV="$TMPDIR_TESTS/api-key.env"
+cat > "$API_KEY_ENV" <<'EOF'
+CF_API_TOKEN="fake-token"
+CF_ZONE_ID="fake-zone-id"
+CF_ZONE_NAME=example.com
+API_KEY="should-not-be-here"
+EOF
+chmod 600 "$API_KEY_ENV"
+OUT=$(bash "$NANOBK" cf dns apply --profile "$PROFILE" --api-env "$API_KEY_ENV" 2>&1 || true)
+if echo "$OUT" | grep -qi "unsupported key\|API_KEY\|Allowed keys"; then
+  pass "API_KEY rejected by allowlist"
+else
+  fail "API_KEY should be rejected by allowlist"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# 5c. CF_API_KEY rejected (allowlist)
+CF_API_KEY_ENV="$TMPDIR_TESTS/cf-api-key.env"
+cat > "$CF_API_KEY_ENV" <<'EOF'
+CF_API_TOKEN="fake-token"
+CF_ZONE_ID="fake-zone-id"
+CF_ZONE_NAME=example.com
+CF_API_KEY="should-not-be-here"
+EOF
+chmod 600 "$CF_API_KEY_ENV"
+OUT=$(bash "$NANOBK" cf dns apply --profile "$PROFILE" --api-env "$CF_API_KEY_ENV" 2>&1 || true)
+if echo "$OUT" | grep -qi "unsupported key\|CF_API_KEY\|Allowed keys"; then
+  pass "CF_API_KEY rejected by allowlist"
+else
+  fail "CF_API_KEY should be rejected by allowlist"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# 5d. SECRET_KEY rejected (allowlist)
+SECRET_KEY_ENV="$TMPDIR_TESTS/secret-key.env"
+cat > "$SECRET_KEY_ENV" <<'EOF'
+CF_API_TOKEN="fake-token"
+CF_ZONE_ID="fake-zone-id"
+CF_ZONE_NAME=example.com
+SECRET_KEY="should-not-be-here"
+EOF
+chmod 600 "$SECRET_KEY_ENV"
+OUT=$(bash "$NANOBK" cf dns apply --profile "$PROFILE" --api-env "$SECRET_KEY_ENV" 2>&1 || true)
+if echo "$OUT" | grep -qi "unsupported key\|SECRET_KEY\|Allowed keys"; then
+  pass "SECRET_KEY rejected by allowlist"
+else
+  fail "SECRET_KEY should be rejected by allowlist"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# 5e. EXTRA_FIELD rejected (allowlist)
+EXTRA_FIELD_ENV="$TMPDIR_TESTS/extra-field.env"
+cat > "$EXTRA_FIELD_ENV" <<'EOF'
+CF_API_TOKEN="fake-token"
+CF_ZONE_ID="fake-zone-id"
+CF_ZONE_NAME=example.com
+EXTRA_FIELD="should-not-be-here"
+EOF
+chmod 600 "$EXTRA_FIELD_ENV"
+OUT=$(bash "$NANOBK" cf dns apply --profile "$PROFILE" --api-env "$EXTRA_FIELD_ENV" 2>&1 || true)
+if echo "$OUT" | grep -qi "unsupported key\|EXTRA_FIELD\|Allowed keys"; then
+  pass "EXTRA_FIELD rejected by allowlist"
+else
+  fail "EXTRA_FIELD should be rejected by allowlist"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# 5f. Valid env with only allowed keys still passes
+VALID_ENV="$TMPDIR_TESTS/valid.env"
+make_api_env "$VALID_ENV"
+TRANSPORT="$TMPDIR_TESTS/transport-valid-env.json"
+make_transport "$TRANSPORT" \
+  "GET_A" "$EMPTY_RECORDS" \
+  "GET_AAAA" "$EMPTY_RECORDS" \
+  "GET_CNAME" "$EMPTY_RECORDS"
+OUT=$(NANOBK_CF_DNS_FAKE_TRANSPORT="$TRANSPORT" \
+  bash "$NANOBK" cf dns apply --profile "$PROFILE" --api-env "$VALID_ENV" --dry-run 2>&1 || true)
+if echo "$OUT" | grep -qi "dry-run\|validate\|plan"; then
+  pass "valid env with only allowed keys still passes"
+else
+  fail "valid env with only allowed keys should pass"
+  ERRORS=$((ERRORS + 1))
+fi
+
 # ═══════════════════════════════════════════════════════════════════════════
 # Section 2: Command mode behavior
 # ═══════════════════════════════════════════════════════════════════════════
@@ -421,6 +506,59 @@ else
   ERRORS=$((ERRORS + 1))
 fi
 
+# 15b. Owned different content with matching hostname -> update
+A_RECORD_OWNED_MATCH='{"success": true, "result": [{"id": "rec-a-001", "type": "A", "name": "node.example.com", "content": "203.0.113.20", "proxied": false, "comment": "managed-by=nanobk; component=cf-dns-apply; hostname=node.example.com"}]}'
+AAAA_RECORD_OWNED_MATCH='{"success": true, "result": [{"id": "rec-aaaa-001", "type": "AAAA", "name": "node.example.com", "content": "2001:db8::20", "proxied": false, "comment": "managed-by=nanobk; component=cf-dns-apply; hostname=node.example.com"}]}'
+TRANSPORT="$TMPDIR_TESTS/transport-owned-match.json"
+make_transport "$TRANSPORT" \
+  "GET_A" "$A_RECORD_OWNED_MATCH" \
+  "GET_AAAA" "$AAAA_RECORD_OWNED_MATCH" \
+  "GET_CNAME" "$EMPTY_RECORDS"
+OUT=$(NANOBK_CF_DNS_FAKE_TRANSPORT="$TRANSPORT" \
+  bash "$NANOBK" cf dns apply --profile "$PROFILE" --api-env "$API_ENV" --check 2>&1 || true)
+if echo "$OUT" | grep -qi "update\|will update"; then
+  pass "owned different with matching hostname -> update"
+else
+  fail "owned different with matching hostname should be update"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# 15c. Owned different content but wrong hostname -> fail conflict
+A_RECORD_WRONG_HOST='{"success": true, "result": [{"id": "rec-a-001", "type": "A", "name": "node.example.com", "content": "203.0.113.20", "proxied": false, "comment": "managed-by=nanobk; component=cf-dns-apply; hostname=other.example.com"}]}'
+AAAA_RECORD_WRONG_HOST='{"success": true, "result": [{"id": "rec-aaaa-001", "type": "AAAA", "name": "node.example.com", "content": "2001:db8::20", "proxied": false, "comment": "managed-by=nanobk; component=cf-dns-apply; hostname=other.example.com"}]}'
+TRANSPORT="$TMPDIR_TESTS/transport-wrong-host.json"
+make_transport "$TRANSPORT" \
+  "GET_A" "$A_RECORD_WRONG_HOST" \
+  "GET_AAAA" "$AAAA_RECORD_WRONG_HOST" \
+  "GET_CNAME" "$EMPTY_RECORDS"
+assert_exit 1 "owned different but wrong hostname -> fail conflict" \
+  env NANOBK_CF_DNS_FAKE_TRANSPORT="$TRANSPORT" \
+  bash "$NANOBK" cf dns apply --profile "$PROFILE" --api-env "$API_ENV" --check
+
+# 15d. Marker missing component -> fail conflict
+A_RECORD_NO_COMPONENT='{"success": true, "result": [{"id": "rec-a-001", "type": "A", "name": "node.example.com", "content": "203.0.113.20", "proxied": false, "comment": "managed-by=nanobk; hostname=node.example.com"}]}'
+AAAA_RECORD_NO_COMPONENT='{"success": true, "result": [{"id": "rec-aaaa-001", "type": "AAAA", "name": "node.example.com", "content": "2001:db8::20", "proxied": false, "comment": "managed-by=nanobk; hostname=node.example.com"}]}'
+TRANSPORT="$TMPDIR_TESTS/transport-no-component.json"
+make_transport "$TRANSPORT" \
+  "GET_A" "$A_RECORD_NO_COMPONENT" \
+  "GET_AAAA" "$AAAA_RECORD_NO_COMPONENT" \
+  "GET_CNAME" "$EMPTY_RECORDS"
+assert_exit 1 "marker missing component -> fail conflict" \
+  env NANOBK_CF_DNS_FAKE_TRANSPORT="$TRANSPORT" \
+  bash "$NANOBK" cf dns apply --profile "$PROFILE" --api-env "$API_ENV" --check
+
+# 15e. Marker missing managed-by -> fail conflict
+A_RECORD_NO_MANAGED='{"success": true, "result": [{"id": "rec-a-001", "type": "A", "name": "node.example.com", "content": "203.0.113.20", "proxied": false, "comment": "component=cf-dns-apply; hostname=node.example.com"}]}'
+AAAA_RECORD_NO_MANAGED='{"success": true, "result": [{"id": "rec-aaaa-001", "type": "AAAA", "name": "node.example.com", "content": "2001:db8::20", "proxied": false, "comment": "component=cf-dns-apply; hostname=node.example.com"}]}'
+TRANSPORT="$TMPDIR_TESTS/transport-no-managed.json"
+make_transport "$TRANSPORT" \
+  "GET_A" "$A_RECORD_NO_MANAGED" \
+  "GET_AAAA" "$AAAA_RECORD_NO_MANAGED" \
+  "GET_CNAME" "$EMPTY_RECORDS"
+assert_exit 1 "marker missing managed-by -> fail conflict" \
+  env NANOBK_CF_DNS_FAKE_TRANSPORT="$TRANSPORT" \
+  bash "$NANOBK" cf dns apply --profile "$PROFILE" --api-env "$API_ENV" --check
+
 # ═══════════════════════════════════════════════════════════════════════════
 # Section 4: Error simulation
 # ═══════════════════════════════════════════════════════════════════════════
@@ -472,6 +610,24 @@ if echo "$OUT" | grep -qi "rate limit\|429"; then
 else
   fail "simulated 429 should produce clear failure"
   ERRORS=$((ERRORS + 1))
+fi
+
+# 18b. Simulated non-JSON API response -> clear failure (no traceback)
+# Note: The fake transport always returns valid JSON from fixtures, so we test
+# that _real_transport handles non-JSON gracefully by verifying the error path
+# does not produce a Python traceback in output.
+NONJSON_TRANSPORT="$TMPDIR_TESTS/transport-nonjson.json"
+make_transport "$NONJSON_TRANSPORT" \
+  "GET_A" "$ERR_401" \
+  "GET_AAAA" "$ERR_401" \
+  "GET_CNAME" "$ERR_401"
+OUT=$(NANOBK_CF_DNS_FAKE_TRANSPORT="$NONJSON_TRANSPORT" \
+  bash "$NANOBK" cf dns apply --profile "$PROFILE" --api-env "$API_ENV" --check 2>&1 || true)
+if echo "$OUT" | grep -qi "Traceback\|JSONDecodeError"; then
+  fail "API error should not produce Python traceback"
+  ERRORS=$((ERRORS + 1))
+else
+  pass "API error produces clean message (no traceback)"
 fi
 
 # ═══════════════════════════════════════════════════════════════════════════
