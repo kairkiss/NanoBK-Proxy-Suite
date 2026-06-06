@@ -1,5 +1,35 @@
 # Changelog
 
+## v1.9.46 — Real Doctor Field Compatibility Retest Validation
+
+### Added
+
+- Recorded T16 real Doctor field compatibility retest result: PASS WITH POLISH.
+- T15-P2-001 confirmed fixed in real status data layer, real Bot UI, and real Web UI.
+- Bot /doctor Advanced OFF now shows Profile present, Config present.
+- Web /doctor Advanced OFF now shows Profile present, Config present.
+- Advanced ON still shows warning + redacted full diagnostics.
+- /status_json gate still works. Web Raw JSON gate still works.
+- Dashboard/Status safe cards still work. Four protocol services remained active.
+- No P0/P1 leak observed.
+- Bot/Web derived summaries match on all key fields.
+- Forbidden-fragment check PASS.
+- Issue matrix: P0/P1 passed, P2 items for CLI version, systemd, Flask dev server, English default, advanced diagnostics engineering-oriented, fingerprint policy, duplicated builder logic.
+- Recommended v1.9.47 Bot/Web Language Propagation and Chinese Default Planning as next step.
+
+### Safety
+
+- Documentation only.
+- No Bot runtime behavior changed.
+- No Web runtime behavior changed.
+- No CLI behavior changed.
+- No `install.sh` behavior changed.
+- No `bin/nanobk` behavior changed.
+- No real status executed by Claude Code.
+- No real doctor executed by Claude Code.
+- No deployment core, protocol template, Worker, rotate sync, status wrapper, or operation-log rollout changed.
+- No tag/release.
+
 ## v1.9.45 — Limited Real Doctor Field Compatibility Retest Plan
 
 ### Added
