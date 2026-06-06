@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ lang }}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,23 +7,35 @@
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-  <nav>
-    <a href="/">{{ t('nav_dashboard') }}</a>
-    <a href="/status">{{ t('nav_status') }}</a>
-    <a href="/doctor">{{ t('nav_doctor') }}</a>
-    <a href="/rotate">{{ t('nav_rotate') }}</a>
-    <form method="POST" action="/language" style="display:inline">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <input type="hidden" name="lang" value="{{ 'en' if lang == 'zh' else 'zh' }}">
-      <button type="submit" class="nav-button">{{ t('lang_switch_to_en') if lang == 'zh' else t('lang_switch_to_zh') }}</button>
-    </form>
-    <form method="POST" action="/logout" style="display:inline">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <button type="submit" class="nav-button">{{ t('nav_logout') }}</button>
-    </form>
-  </nav>
-  <main>
-    {% block content %}{% endblock %}
-  </main>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="topbar-inner">
+        <a href="/" class="brand">
+          <span class="brand-mark">NanoBK</span>
+          <span class="brand-subtitle">{{ t('brand_subtitle') }}</span>
+        </a>
+        <nav class="nav-links">
+          <a href="/" class="nav-pill {% if request.path == '/' %}active{% endif %}">{{ t('nav_dashboard') }}</a>
+          <a href="/status" class="nav-pill {% if request.path == '/status' %}active{% endif %}">{{ t('nav_status') }}</a>
+          <a href="/doctor" class="nav-pill {% if request.path == '/doctor' %}active{% endif %}">{{ t('nav_doctor') }}</a>
+          <a href="/rotate" class="nav-pill {% if request.path == '/rotate' %}active{% endif %}">{{ t('nav_rotate') }}</a>
+        </nav>
+        <div class="nav-actions">
+          <form method="POST" action="/language" style="display:inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <input type="hidden" name="lang" value="{{ 'en' if lang == 'zh' else 'zh' }}">
+            <button type="submit" class="nav-button">{{ t('lang_switch_to_en') if lang == 'zh' else t('lang_switch_to_zh') }}</button>
+          </form>
+          <form method="POST" action="/logout" style="display:inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="submit" class="nav-button">{{ t('nav_logout') }}</button>
+          </form>
+        </div>
+      </div>
+    </header>
+    <div class="page">
+      {% block content %}{% endblock %}
+    </div>
+  </div>
 </body>
 </html>

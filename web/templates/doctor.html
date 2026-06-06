@@ -1,79 +1,125 @@
 {% extends "layout.html" %}
 {% block title %}{{ t('doctor_title') }} — NanoBK{% endblock %}
 {% block content %}
-<h1>{{ t('doctor_title') }}</h1>
 
-<div class="card">
-  <p class="muted">{{ t('doctor_intro_text') }}</p>
-  <form method="POST" action="/doctor" style="margin-top: 12px;">
+<div class="page-hero">
+  <div class="hero-eyebrow">NanoBK</div>
+  <h1 class="hero-title">{{ t('doctor_title') }}</h1>
+  <p class="hero-subtitle">{{ t('doctor_intro_text') }}</p>
+</div>
+
+{# ── Run Doctor ───────────────────────────────────────────────────────── #}
+<div class="card mb-24">
+  <form method="POST" action="/doctor">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <button type="submit" class="button">{{ t('doctor_run_button') }}</button>
   </form>
 </div>
 
 {% if parse_error %}
-<div class="card error-card">
-  <p>{{ parse_error }}</p>
+<div class="card error-card mb-24">
+  <p class="card-text">{{ parse_error }}</p>
 </div>
 {% endif %}
 
 {% if summary %}
-<div class="card">
-  <h2>{{ t('doctor_summary_title') }}</h2>
 
-  <p><strong>{{ t('doctor_label_overall') }}:</strong> {{ summary.overall }}</p>
-  <p><strong>{{ t('doctor_label_control_plane') }}:</strong> {{ summary.control_plane }}</p>
-  <p><strong>{{ t('doctor_label_cli') }}:</strong> {{ summary.cli }}</p>
-  <p><strong>{{ t('doctor_label_profile') }}:</strong> {{ summary.profile }}</p>
-  <p><strong>{{ t('doctor_label_config') }}:</strong> {{ summary.config }}</p>
-
-  <h3>{{ t('doctor_label_services') }}</h3>
-  <ul>
-    {% for name, svc in summary.services.items() %}
-    <li>{{ name|upper }}: {{ svc }}</li>
-    {% endfor %}
-  </ul>
-
-  <p><strong>{{ t('doctor_label_cloudflare') }}:</strong> {{ summary.cloudflare }}</p>
-  <p><strong>{{ t('doctor_label_subscription') }}:</strong> {{ summary.subscription }}</p>
-  <p><strong>{{ t('doctor_label_security') }}:</strong> {{ summary.security }}</p>
-  <p><strong>{{ t('doctor_label_errors') }}:</strong> {{ summary.doctor.errors }}</p>
-  <p><strong>{{ t('doctor_label_warnings') }}:</strong> {{ summary.doctor.warnings }}</p>
-
-  <h3>{{ t('doctor_label_next_step') }}</h3>
-  {% set next_step = summary.next_step %}
-  {% if next_step == 'no_action' %}
-    <p>{{ t('doctor_next_no_action') }}</p>
-  {% elif next_step == 'check_failed_services' %}
-    <p>{{ t('doctor_next_check_failed') }}</p>
-  {% elif next_step == 'complete_config' %}
-    <p>{{ t('doctor_next_complete_config') }}</p>
-  {% elif next_step == 'configure_cloudflare' %}
-    <p>{{ t('doctor_next_configure_cf') }}</p>
-  {% elif next_step == 'use_advanced_diagnostics' %}
-    <p>{{ t('doctor_next_use_advanced') }}</p>
-  {% else %}
-    <p>{{ t('doctor_next_unknown') }}</p>
-  {% endif %}
-
-  <p class="muted" style="margin-top: 12px;">{{ t('status_footer') }}</p>
+{# ── Summary Grid ─────────────────────────────────────────────────────── #}
+<div class="section-label">{{ t('doctor_summary_title') }}</div>
+<div class="summary-grid mb-24">
+  <div class="summary-item">
+    <div class="summary-label">{{ t('doctor_label_overall') }}</div>
+    <div class="summary-value"><span class="status-pill status-{{ summary.overall|lower }}">{{ summary.overall }}</span></div>
+  </div>
+  <div class="summary-item">
+    <div class="summary-label">{{ t('doctor_label_control_plane') }}</div>
+    <div class="summary-value"><span class="status-pill status-{{ summary.control_plane|lower }}">{{ summary.control_plane }}</span></div>
+  </div>
+  <div class="summary-item">
+    <div class="summary-label">{{ t('doctor_label_cli') }}</div>
+    <div class="summary-value"><span class="status-pill status-{{ summary.cli|lower }}">{{ summary.cli }}</span></div>
+  </div>
+  <div class="summary-item">
+    <div class="summary-label">{{ t('doctor_label_profile') }}</div>
+    <div class="summary-value"><span class="status-pill status-{{ summary.profile|lower }}">{{ summary.profile }}</span></div>
+  </div>
+  <div class="summary-item">
+    <div class="summary-label">{{ t('doctor_label_config') }}</div>
+    <div class="summary-value"><span class="status-pill status-{{ summary.config|lower }}">{{ summary.config }}</span></div>
+  </div>
+  <div class="summary-item">
+    <div class="summary-label">{{ t('doctor_label_cloudflare') }}</div>
+    <div class="summary-value"><span class="status-pill status-{{ summary.cloudflare|lower }}">{{ summary.cloudflare }}</span></div>
+  </div>
+  <div class="summary-item">
+    <div class="summary-label">{{ t('doctor_label_subscription') }}</div>
+    <div class="summary-value"><span class="status-pill status-{{ summary.subscription|lower }}">{{ summary.subscription }}</span></div>
+  </div>
+  <div class="summary-item">
+    <div class="summary-label">{{ t('doctor_label_security') }}</div>
+    <div class="summary-value"><span class="status-pill status-{{ summary.security|lower }}">{{ summary.security }}</span></div>
+  </div>
+  <div class="summary-item">
+    <div class="summary-label">{{ t('doctor_label_errors') }}</div>
+    <div class="summary-value">{{ summary.doctor.errors }}</div>
+  </div>
+  <div class="summary-item">
+    <div class="summary-label">{{ t('doctor_label_warnings') }}</div>
+    <div class="summary-value">{{ summary.doctor.warnings }}</div>
+  </div>
 </div>
 
+{# ── Services Grid ────────────────────────────────────────────────────── #}
+<div class="section-label">{{ t('doctor_label_services') }}</div>
+<div class="proto-grid mb-24">
+  {% for name, svc in summary.services.items() %}
+  <div class="proto-card">
+    <div class="proto-name">{{ name|upper }}</div>
+    <span class="status-pill status-{{ svc|lower }}">{{ svc }}</span>
+  </div>
+  {% endfor %}
+</div>
+
+{# ── Next Step ────────────────────────────────────────────────────────── #}
+<div class="card mb-24">
+  <div class="card-label">{{ t('doctor_label_next_step') }}</div>
+  <div class="card-value">
+    {% set next_step = summary.next_step %}
+    {% if next_step == 'no_action' %}
+      {{ t('doctor_next_no_action') }}
+    {% elif next_step == 'check_failed_services' %}
+      {{ t('doctor_next_check_failed') }}
+    {% elif next_step == 'complete_config' %}
+      {{ t('doctor_next_complete_config') }}
+    {% elif next_step == 'configure_cloudflare' %}
+      {{ t('doctor_next_configure_cf') }}
+    {% elif next_step == 'use_advanced_diagnostics' %}
+      {{ t('doctor_next_use_advanced') }}
+    {% else %}
+      {{ t('doctor_next_unknown') }}
+    {% endif %}
+  </div>
+</div>
+
+<p class="muted text-center">{{ t('status_footer') }}</p>
+
 {% if not advanced_mode_enabled %}
-<div class="card locked-panel">
+<div class="card locked-panel mt-24 mb-24">
+  <div class="lock-icon">🔒</div>
   <p class="muted">{{ t('doctor_full_note') }}</p>
 </div>
 {% endif %}
+
 {% endif %}
 
 {% if advanced_mode_enabled and full_output %}
-<div class="warning-box">
+<div class="warning-box mb-16">
   <strong>{{ t('doctor_full_warning')|replace('\n', '<br>')|safe }}</strong>
 </div>
 
-<details style="margin-top: 12px;">
+<details>
   <summary>{{ t('doctor_full_details_label') }}</summary>
-  <div class="card" style="margin-top: 8px;">
+  <div class="command-output mt-16">
     <pre>{{ full_output }}</pre>
   </div>
 </details>

@@ -1,49 +1,87 @@
 {% extends "layout.html" %}
 {% block title %}{{ t('nav_status') }} — NanoBK{% endblock %}
 {% block content %}
-<h1>{{ t('nav_status') }}</h1>
 
-{% if status %}
-<div class="card">
-  <h2>{{ t('status_overall') }}</h2>
-  <p><strong>{{ t('status_label_overall') }}:</strong> {{ status.cards.overall }}</p>
-  <p><strong>{{ t('status_label_vps') }}:</strong> {{ status.cards.vps }}</p>
-
-  <h3>{{ t('status_protocols') }}</h3>
-  <ul>
-    {% for name, svc in status.cards.services.items() %}
-    <li>{{ name|upper }}: {{ svc }}</li>
-    {% endfor %}
-  </ul>
-
-  <h3>{{ t('status_cloudflare') }}</h3>
-  <ul>
-    <li>nanok: {{ status.cards.cf_nanok }}</li>
-    <li>nanob: {{ status.cards.cf_nanob }}</li>
-  </ul>
-
-  <h3>{{ t('status_other') }}</h3>
-  <ul>
-    <li>{{ t('status_subscription') }}: {{ status.cards.subscription }}</li>
-    <li>{{ t('status_secrets') }}: {{ status.cards.secrets }}</li>
-    <li>{{ t('status_profile') }}: {{ status.cards.profile }}</li>
-  </ul>
-
-  <p><strong>{{ t('status_next_step') }}:</strong> {{ status.cards.next_step }}</p>
-  <p class="muted">{{ t('status_footer') }}</p>
+<div class="page-hero">
+  <div class="hero-eyebrow">NanoBK</div>
+  <h1 class="hero-title">{{ t('nav_status') }}</h1>
+  <p class="hero-subtitle">{{ t('status_footer') }}</p>
 </div>
 
-<div class="card">
-  <h2>{{ t('advanced_title') }}</h2>
+{% if status %}
+
+{# ── Health Overview ───────────────────────────────────────────────────── #}
+<div class="page-grid">
+  <div class="card">
+    <div class="card-label">{{ t('status_label_overall') }}</div>
+    <div class="card-value"><span class="status-pill status-{{ status.cards.overall|lower }}">{{ status.cards.overall }}</span></div>
+  </div>
+  <div class="card">
+    <div class="card-label">{{ t('status_label_vps') }}</div>
+    <div class="card-value"><span class="status-pill status-{{ status.cards.vps|lower }}">{{ status.cards.vps }}</span></div>
+  </div>
+  <div class="card">
+    <div class="card-label">{{ t('status_next_step') }}</div>
+    <div class="card-value">{{ status.cards.next_step }}</div>
+  </div>
+</div>
+
+{# ── Protocol Grid ────────────────────────────────────────────────────── #}
+<div class="section-label">{{ t('status_protocols') }}</div>
+<div class="proto-grid">
+  {% for name, svc in status.cards.services.items() %}
+  <div class="proto-card">
+    <div class="proto-name">{{ name|upper }}</div>
+    <span class="status-pill status-{{ svc|lower }}">{{ svc }}</span>
+  </div>
+  {% endfor %}
+</div>
+
+{# ── Cloudflare Grid ──────────────────────────────────────────────────── #}
+<div class="section-label">{{ t('status_cloudflare') }}</div>
+<div class="page-grid">
+  <div class="card">
+    <div class="card-label">NanoK</div>
+    <div class="card-value"><span class="status-pill status-{{ status.cards.cf_nanok|lower }}">{{ status.cards.cf_nanok }}</span></div>
+  </div>
+  <div class="card">
+    <div class="card-label">NanoB</div>
+    <div class="card-value"><span class="status-pill status-{{ status.cards.cf_nanob|lower }}">{{ status.cards.cf_nanob }}</span></div>
+  </div>
+</div>
+
+{# ── Readiness Checklist ──────────────────────────────────────────────── #}
+<div class="section-label">{{ t('status_other') }}</div>
+<div class="page-grid page-grid-3">
+  <div class="card">
+    <div class="card-label">{{ t('status_subscription') }}</div>
+    <div class="card-value"><span class="status-pill status-{{ status.cards.subscription|lower }}">{{ status.cards.subscription }}</span></div>
+  </div>
+  <div class="card">
+    <div class="card-label">{{ t('status_secrets') }}</div>
+    <div class="card-value"><span class="status-pill status-{{ status.cards.secrets|lower }}">{{ status.cards.secrets }}</span></div>
+  </div>
+  <div class="card">
+    <div class="card-label">{{ t('status_profile') }}</div>
+    <div class="card-value"><span class="status-pill status-{{ status.cards.profile|lower }}">{{ status.cards.profile }}</span></div>
+  </div>
+</div>
+
+<p class="muted text-center mt-16">{{ t('status_footer') }}</p>
+
+{# ── Advanced Diagnostics Section ──────────────────────────────────────── #}
+<div class="section-label mt-24">{{ t('advanced_title') }}</div>
+
+<div class="card mb-24">
   {% if advanced_mode_enabled %}
-  <p class="badge badge-ok">{{ t('advanced_enabled_badge', minutes=advanced_mode_remaining // 60) }}</p>
-  <form method="POST" action="/advanced/off" style="display:inline">
+  <div style="margin-bottom:12px"><span class="badge badge-ok">{{ t('advanced_enabled_badge', minutes=advanced_mode_remaining // 60) }}</span></div>
+  <form method="POST" action="/advanced/off">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <button type="submit" class="button">{{ t('advanced_disable_button') }}</button>
+    <button type="submit" class="button button-secondary">{{ t('advanced_disable_button') }}</button>
   </form>
   {% else %}
-  <p class="muted">{{ t('advanced_disabled_note') }}</p>
-  <div class="warning-box">
+  <p class="muted mb-16">{{ t('advanced_disabled_note') }}</p>
+  <div class="warning-box mb-16">
     <strong>{{ t('advanced_enable_warning_title') }}</strong><br>
     {{ t('advanced_enable_warning_text')|replace('\n', '<br>')|safe }}
   </div>
@@ -55,32 +93,38 @@
 </div>
 
 {% if advanced_mode_enabled %}
-<div class="warning-box">
+<div class="warning-box mb-16">
   <strong>{{ t('raw_json_warning_title') }}</strong><br>
   {{ t('raw_json_warning_text')|replace('\n', '<br>')|safe }}
 </div>
 
 <details>
   <summary>{{ t('raw_json_details_label') }}</summary>
-  <pre>{{ status.raw_json }}</pre>
+  <div class="command-output mt-16">
+    <pre>{{ status.raw_json }}</pre>
+  </div>
 </details>
 {% else %}
-<div class="card locked-panel">
-  <h2>{{ t('raw_json_locked_title') }}</h2>
+<div class="card locked-panel mb-24">
+  <div class="lock-icon">🔒</div>
+  <div class="card-title">{{ t('raw_json_locked_title') }}</div>
   <p class="muted">{{ t('raw_json_locked_desc') }}</p>
-  <p>{{ t('raw_json_locked_use_cards') }}</p>
-  <p>{{ t('raw_json_locked_enable_hint') }}</p>
-  <p class="muted">{{ t('raw_json_locked_secrets_note') }}</p>
+  <p class="card-text mt-16">{{ t('raw_json_locked_use_cards') }}</p>
+  <p class="card-text mt-16">{{ t('raw_json_locked_enable_hint') }}</p>
+  <p class="muted mt-16">{{ t('raw_json_locked_secrets_note') }}</p>
 </div>
 {% endif %}
+
 {% elif raw_output %}
 <div class="card">
-  <h3>{{ t('doctor_output_title') }}</h3>
-  <pre>{{ raw_output }}</pre>
+  <div class="card-title">{{ t('doctor_output_title') }}</div>
+  <div class="command-output">
+    <pre>{{ raw_output }}</pre>
+  </div>
 </div>
 {% else %}
 <div class="card">
-  <p>{{ t('status_no_data') }}</p>
+  <p class="card-text">{{ t('status_no_data') }}</p>
 </div>
 {% endif %}
 {% endblock %}

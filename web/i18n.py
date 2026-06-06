@@ -72,6 +72,20 @@ WEB_TEXT: dict[str, dict[str, str]] = {
         "zh": "退出",
     },
 
+    # ── Brand / Hero ──
+    "brand_subtitle": {
+        "en": "Proxy Suite Control Center",
+        "zh": "代理套件控制中心",
+    },
+    "hero_eyebrow": {
+        "en": "NanoBK Control Center",
+        "zh": "NanoBK 控制中心",
+    },
+    "hero_subtitle": {
+        "en": "Monitor your VPS, proxy services, and Cloudflare in one place.",
+        "zh": "在一个地方监控您的 VPS、代理服务和 Cloudflare。",
+    },
+
     # ── Dashboard ──
     "dashboard_title": {
         "en": "NanoBK Dashboard",

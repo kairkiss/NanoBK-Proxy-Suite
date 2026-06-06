@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ lang }}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,16 +7,22 @@
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-  <div class="login-container">
-    <h1>{{ t('login_title') }}</h1>
-    <form method="POST" action="/login">
-      <label for="token">{{ t('login_token_label') }}</label>
-      <input type="password" id="token" name="token" placeholder="{{ t('login_token_placeholder') }}" required autofocus>
-      <button type="submit">{{ t('login_button') }}</button>
-      {% if error %}
-      <p class="error">{{ error }}</p>
-      {% endif %}
-    </form>
+  <div class="login-page">
+    <div class="login-card">
+      <div class="login-brand">NanoBK</div>
+      <div class="login-subtitle">{{ t('nanobk_web_panel') }}</div>
+      <form method="POST" action="/login">
+        <div class="form-field">
+          <label for="token">{{ t('login_token_label') }}</label>
+          <input type="password" id="token" name="token" class="form-input" placeholder="{{ t('login_token_placeholder') }}" required autofocus>
+        </div>
+        <button type="submit" class="button">{{ t('login_button') }}</button>
+        {% if error %}
+        <div class="login-error">{{ error }}</div>
+        {% endif %}
+      </form>
+      <div class="login-note">{{ t('login_token_label') }}</div>
+    </div>
   </div>
 </body>
 </html>

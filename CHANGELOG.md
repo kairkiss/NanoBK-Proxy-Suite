@@ -1,5 +1,48 @@
 # Changelog
 
+## v2.0.3 — Apple-Inspired Web Panel UI Redesign
+
+### Changed
+
+- Complete visual redesign of all Web Panel pages (dashboard, status, doctor, rotate, login).
+- Apple-inspired premium design: light background, frosted glass topbar, large rounded cards, soft shadows, clean typography.
+- CSS design system with CSS variables for colors, spacing, radii, and shadows.
+- System font stack including CJK fonts (PingFang SC, Noto Sans SC, Microsoft YaHei).
+- Frosted glass topbar with brand, pill-style navigation tabs, language switch, and logout.
+- Dashboard: hero section, status cards grid, protocol grid, Cloudflare section, system readiness checklist, action cards.
+- Status page: health overview grid, protocol grid, Cloudflare grid, readiness checklist, separated advanced diagnostics section.
+- Doctor page: summary grid with status pills, services grid, next-step card, locked/full advanced output.
+- Rotate page: danger-zone styled protocol selection, high-visibility confirmation panel, styled result output.
+- Login page: full-screen gradient background, centered glass card, premium form styling.
+- Responsive mobile layout with clean wrapping at 768px and 480px breakpoints.
+- `prefers-reduced-motion` handling for all animations and transitions.
+- `focus-visible` outlines for keyboard accessibility.
+- Status pills with color-coded dot indicators (green/yellow/red/gray).
+- New i18n keys: `brand_subtitle`, `hero_eyebrow`, `hero_subtitle`.
+
+### Preserved Safety
+
+- All forms retain CSRF hidden fields.
+- `/status` raw JSON remains gated by `advanced_mode_enabled`.
+- `/doctor` full output remains gated by `advanced_mode_enabled`.
+- Rotate retains two-step confirmation (request → confirm/cancel).
+- Login retains POST `/login` with password input name `token`.
+- Language switch form retained.
+- Logout form retained.
+- No external JS frameworks, CDN, or remote assets added.
+- No Apple trademarks, logos, or copyrighted content used.
+- No route behavior or security behavior changed.
+
+### Safety
+
+- No Bot runtime behavior changed.
+- No Web route/security behavior changed.
+- No `installer/install.sh` behavior changed.
+- No `bin/nanobk` behavior changed.
+- No VPS protocol templates changed.
+- No Cloudflare Worker logic changed.
+- No tag/release.
+
 ## v2.0.2 — CLI Export Link Polish and Error Handling
 
 ### Fixed

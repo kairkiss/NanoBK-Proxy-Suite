@@ -1,66 +1,85 @@
 {% extends "layout.html" %}
 {% block title %}{{ t('rotate_title') }} — NanoBK{% endblock %}
 {% block content %}
-<h1>{{ t('rotate_title') }}</h1>
 
-{% if dry_run %}
-<div class="badge badge-warn">{{ t('rotate_dry_run_badge') }}</div>
-{% endif %}
+<div class="page-hero">
+  <div class="hero-eyebrow">NanoBK</div>
+  <h1 class="hero-title">{{ t('rotate_title') }}</h1>
+  <p class="hero-subtitle">{{ t('rotate_select_desc') }}</p>
+  {% if dry_run %}
+  <div style="margin-top:12px"><span class="badge badge-warn">{{ t('rotate_dry_run_badge') }}</span></div>
+  {% endif %}
+</div>
 
 {% if error %}
-<div class="card error-card">
-  <p>{{ error }}</p>
+<div class="card error-card mb-24">
+  <p class="card-text">{{ error }}</p>
 </div>
 {% endif %}
 
 {% if confirming and pending %}
-<div class="card confirm-card">
-  <h2>{{ t('rotate_confirm_title') }}</h2>
-  <p>{{ t('rotate_confirm_desc', protocol=pending.protocol|upper) }}</p>
-  <p>{{ t('rotate_confirm_restart_note') }}</p>
-  <p>{{ t('rotate_confirm_cf_note') }}</p>
+
+{# ── Confirmation Panel ────────────────────────────────────────────────── #}
+<div class="danger-zone mb-24">
+  <div class="card-title">{{ t('rotate_confirm_title') }}</div>
+  <p class="card-text mb-16">{{ t('rotate_confirm_desc', protocol=pending.protocol|upper) }}</p>
+  <p class="card-text mb-16">{{ t('rotate_confirm_restart_note') }}</p>
+  <p class="card-text mb-16">{{ t('rotate_confirm_cf_note') }}</p>
   <div class="button-group">
-    <form method="POST" action="/rotate/confirm" style="display:inline">
+    <form method="POST" action="/rotate/confirm">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <button type="submit" class="button button-danger">{{ t('rotate_confirm_button', protocol=pending.protocol|upper) }}</button>
     </form>
-    <form method="POST" action="/rotate/cancel" style="display:inline">
+    <form method="POST" action="/rotate/cancel">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <button type="submit" class="button">{{ t('rotate_cancel_button') }}</button>
+      <button type="submit" class="button button-secondary">{{ t('rotate_cancel_button') }}</button>
     </form>
   </div>
 </div>
+
 {% elif pending %}
-<div class="card">
-  <p>{{ t('rotate_pending_note', protocol=pending.protocol|upper) }}</p>
+
+<div class="card confirm-card mb-24">
+  <div class="card-title">{{ t('rotate_pending_note', protocol=pending.protocol|upper) }}</div>
   <div class="button-group">
-    <form method="POST" action="/rotate/confirm" style="display:inline">
+    <form method="POST" action="/rotate/confirm">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <button type="submit" class="button button-danger">{{ t('rotate_confirm_short') }}</button>
     </form>
-    <form method="POST" action="/rotate/cancel" style="display:inline">
+    <form method="POST" action="/rotate/cancel">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <button type="submit" class="button">{{ t('rotate_cancel_button') }}</button>
+      <button type="submit" class="button button-secondary">{{ t('rotate_cancel_button') }}</button>
     </form>
   </div>
 </div>
+
 {% elif dry_run_result %}
-<div class="card">
-  <h3>{{ t('rotate_dry_run_result_title') }}</h3>
-  <pre>{{ dry_run_result }}</pre>
+
+<div class="card mb-24">
+  <div class="card-title">{{ t('rotate_dry_run_result_title') }}</div>
+  <div class="command-output">
+    <pre>{{ dry_run_result }}</pre>
+  </div>
 </div>
+
 {% elif rotate_result %}
-<div class="card">
-  <h3>{{ t('rotate_result_title') }}</h3>
-  <pre>{{ rotate_result }}</pre>
+
+<div class="card mb-24">
+  <div class="card-title">{{ t('rotate_result_title') }}</div>
+  <div class="command-output">
+    <pre>{{ rotate_result }}</pre>
+  </div>
 </div>
+
 {% else %}
-<div class="card">
-  <h2>{{ t('rotate_select_title') }}</h2>
-  <p>{{ t('rotate_select_desc') }}</p>
+
+{# ── Protocol Selection ────────────────────────────────────────────────── #}
+<div class="danger-zone mb-24">
+  <div class="card-title">{{ t('rotate_select_title') }}</div>
+  <p class="card-text mb-16">{{ t('rotate_select_desc') }}</p>
   <div class="button-group">
     {% for proto in protocols %}
-    <form method="POST" action="/rotate/request" style="display:inline">
+    <form method="POST" action="/rotate/request">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <input type="hidden" name="protocol" value="{{ proto }}">
       <button type="submit" class="button button-danger">{{ t('rotate_button_label', protocol=proto|upper) }}</button>
@@ -68,5 +87,6 @@
     {% endfor %}
   </div>
 </div>
+
 {% endif %}
 {% endblock %}
