@@ -10,7 +10,7 @@
   transport hook (`NANOBK_CF_ZONES_FAKE_RESPONSE`), and sanitized output.
 - Env parser: token-only compatible, enforces `chmod 600`, allowlist
   (`CF_API_TOKEN`, `CF_ZONE_ID`, `CF_ZONE_NAME`), no shell execution.
-- Output: domains masked (`ex***le.com`), zone IDs redacted
+- Output: domains masked (`ex***e.com`), zone IDs redacted
   (`abc1…345`), no raw token/Authorization/response printed.
 - JSON mode: `{"ok": true, "count": N, "zones": [...], "mutation": false}`.
 - Test fixtures: `cf-zones-success.json`, `cf-zones-empty.json`,

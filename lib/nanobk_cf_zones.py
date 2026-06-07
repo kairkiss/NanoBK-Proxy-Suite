@@ -139,8 +139,15 @@ def fetch_zones_real(token):
 
 def fetch_zones_fake(fake_path):
     """Load fake response from fixture file."""
-    with open(fake_path, "r") as f:
-        data = json.load(f)
+    try:
+        with open(fake_path, "r") as f:
+            data = json.load(f)
+    except FileNotFoundError:
+        raise RuntimeError(f"Fake response file not found: {fake_path}") from None
+    except OSError as e:
+        raise RuntimeError(f"Cannot read fake response file: {e}") from None
+    except json.JSONDecodeError:
+        raise RuntimeError("Cloudflare API returned invalid JSON") from None
     if not data.get("success", False):
         errors = data.get("errors", [])
         msg = "; ".join(str(e.get("message", "unknown")) for e in errors) or "unknown error"

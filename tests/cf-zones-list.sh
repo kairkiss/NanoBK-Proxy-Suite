@@ -23,6 +23,16 @@ fail() { echo -e "  ${RED}✗${NC} $*" >&2; }
 
 ERRORS=0
 
+# ── Temp file cleanup ───────────────────────────────────────────────────────
+
+TMP_FILES=()
+cleanup() {
+  for f in "${TMP_FILES[@]+"${TMP_FILES[@]}"}"; do
+    rm -f "$f" 2>/dev/null || true
+  done
+}
+trap cleanup EXIT
+
 assert_contains() {
   local haystack="$1"
   local needle="$2"
@@ -62,7 +72,18 @@ make_env() {
   for line in "$@"; do
     echo "$line" >> "$tmpfile"
   done
+  TMP_FILES+=("$tmpfile")
   echo "$tmpfile"
+}
+
+# ── Helper: run zones list with fake response ───────────────────────────────
+
+run_zones() {
+  local fake_fixture="$1"
+  local env_file="$2"
+  shift 2
+  NANOBK_CF_ZONES_FAKE_RESPONSE="$fake_fixture" \
+    bash "$NANOBK" --repo-dir "$ROOT" cf zones list --api-env "$env_file" "$@" 2>&1
 }
 
 echo ""
@@ -91,10 +112,8 @@ echo ""
 
 # Token-only env
 TOKEN_ENV=$(make_env 600 "CF_API_TOKEN=test_token_123")
-TOKEN_OUT=$(NANOBK_CF_ZONES_FAKE_RESPONSE="$FIXTURES/cf-zones-success.json" \
-  bash "$NANOBK" --repo-dir "$ROOT" cf zones list --api-env "$TOKEN_ENV" 2>&1)
+TOKEN_OUT=$(run_zones "$FIXTURES/cf-zones-success.json" "$TOKEN_ENV")
 TOKEN_RC=$?
-rm -f "$TOKEN_ENV"
 
 if [[ $TOKEN_RC -eq 0 ]]; then
   pass "token-only env accepted (exit 0)"
@@ -106,10 +125,8 @@ assert_contains "$TOKEN_OUT" "Cloudflare zones discovered" "shows zone count"
 
 # Token+zone env
 FULL_ENV=$(make_env 600 "CF_API_TOKEN=test_token_123" "CF_ZONE_ID=zone123" "CF_ZONE_NAME=example.com")
-FULL_OUT=$(NANOBK_CF_ZONES_FAKE_RESPONSE="$FIXTURES/cf-zones-success.json" \
-  bash "$NANOBK" --repo-dir "$ROOT" cf zones list --api-env "$FULL_ENV" 2>&1)
+FULL_OUT=$(run_zones "$FIXTURES/cf-zones-success.json" "$FULL_ENV")
 FULL_RC=$?
-rm -f "$FULL_ENV"
 
 if [[ $FULL_RC -eq 0 ]]; then
   pass "token+zone env accepted (exit 0)"
@@ -128,20 +145,17 @@ echo ""
 # Missing token
 NOTOKEN_ENV=$(make_env 600 "CF_ZONE_NAME=example.com")
 NOTOKEN_OUT=$(bash "$NANOBK" --repo-dir "$ROOT" cf zones list --api-env "$NOTOKEN_ENV" 2>&1 || true)
-rm -f "$NOTOKEN_ENV"
 assert_contains "$NOTOKEN_OUT" "CF_API_TOKEN" "missing token reports error"
 
 # Unsupported key
 BADKEY_ENV=$(make_env 600 "CF_API_TOKEN=test_token" "CF_BAD_KEY=bad")
 BADKEY_OUT=$(bash "$NANOBK" --repo-dir "$ROOT" cf zones list --api-env "$BADKEY_ENV" 2>&1 || true)
-rm -f "$BADKEY_ENV"
 assert_contains "$BADKEY_OUT" "Unsupported key" "unsupported key reports error"
 assert_not_contains "$BADKEY_OUT" "test_token" "token not leaked in unsupported key error"
 
 # Insecure permissions (644)
 PERM_ENV=$(make_env 644 "CF_API_TOKEN=test_token")
 PERM_OUT=$(bash "$NANOBK" --repo-dir "$ROOT" cf zones list --api-env "$PERM_ENV" 2>&1 || true)
-rm -f "$PERM_ENV"
 assert_contains "$PERM_OUT" "Insecure" "insecure permissions rejected"
 assert_not_contains "$PERM_OUT" "test_token" "token not leaked in permission error"
 
@@ -158,16 +172,12 @@ echo ""
 
 # Token with shell injection attempt
 SHELL_ENV=$(make_env 600 'CF_API_TOKEN=fake_$(echo INJECTED)_token')
-SHELL_OUT=$(NANOBK_CF_ZONES_FAKE_RESPONSE="$FIXTURES/cf-zones-success.json" \
-  bash "$NANOBK" --repo-dir "$ROOT" cf zones list --api-env "$SHELL_ENV" 2>&1)
-rm -f "$SHELL_ENV"
+SHELL_OUT=$(run_zones "$FIXTURES/cf-zones-success.json" "$SHELL_ENV")
 assert_not_contains "$SHELL_OUT" "INJECTED" "shell injection not executed"
 
 # Token with semicolon
 SEMI_ENV=$(make_env 600 'CF_API_TOKEN=fake;echo INJECTED')
-SEMI_OUT=$(NANOBK_CF_ZONES_FAKE_RESPONSE="$FIXTURES/cf-zones-success.json" \
-  bash "$NANOBK" --repo-dir "$ROOT" cf zones list --api-env "$SEMI_ENV" 2>&1)
-rm -f "$SEMI_ENV"
+SEMI_OUT=$(run_zones "$FIXTURES/cf-zones-success.json" "$SEMI_ENV")
 assert_not_contains "$SEMI_OUT" "INJECTED" "semicolon injection not executed"
 
 echo ""
@@ -178,10 +188,8 @@ echo "--- E. Fake transport cases ---"
 echo ""
 
 # Success with zones
-SUCCESS_OUT=$(NANOBK_CF_ZONES_FAKE_RESPONSE="$FIXTURES/cf-zones-success.json" \
-  bash "$NANOBK" --repo-dir "$ROOT" cf zones list --api-env "$(
-    tmpfile=$(mktemp); chmod 600 "$tmpfile"; echo "CF_API_TOKEN=test" > "$tmpfile"; echo "$tmpfile"
-  )" 2>&1)
+SUCCESS_ENV=$(make_env 600 "CF_API_TOKEN=test")
+SUCCESS_OUT=$(run_zones "$FIXTURES/cf-zones-success.json" "$SUCCESS_ENV")
 assert_contains "$SUCCESS_OUT" "2" "success shows 2 zones"
 assert_contains "$SUCCESS_OUT" "ex***e.com" "success masks domain 1"
 assert_contains "$SUCCESS_OUT" "ex***e.net" "success masks domain 2"
@@ -193,26 +201,20 @@ assert_not_contains "$SUCCESS_OUT" "Authorization" "no Authorization in output"
 assert_not_contains "$SUCCESS_OUT" "workers.dev" "no workers.dev in output"
 
 # Empty zones
-EMPTY_OUT=$(NANOBK_CF_ZONES_FAKE_RESPONSE="$FIXTURES/cf-zones-empty.json" \
-  bash "$NANOBK" --repo-dir "$ROOT" cf zones list --api-env "$(
-    tmpfile=$(mktemp); chmod 600 "$tmpfile"; echo "CF_API_TOKEN=test" > "$tmpfile"; echo "$tmpfile"
-  )" 2>&1)
+EMPTY_ENV=$(make_env 600 "CF_API_TOKEN=test")
+EMPTY_OUT=$(run_zones "$FIXTURES/cf-zones-empty.json" "$EMPTY_ENV")
 assert_contains "$EMPTY_OUT" "0" "empty zones shows count 0"
 assert_contains "$EMPTY_OUT" "No DNS records were changed" "empty shows no-mutation"
 
 # Auth error
-AUTH_OUT=$(NANOBK_CF_ZONES_FAKE_RESPONSE="$FIXTURES/cf-zones-auth-error.json" \
-  bash "$NANOBK" --repo-dir "$ROOT" cf zones list --api-env "$(
-    tmpfile=$(mktemp); chmod 600 "$tmpfile"; echo "CF_API_TOKEN=test" > "$tmpfile"; echo "$tmpfile"
-  )" 2>&1 || true)
+AUTH_ENV=$(make_env 600 "CF_API_TOKEN=test")
+AUTH_OUT=$(run_zones "$FIXTURES/cf-zones-auth-error.json" "$AUTH_ENV" || true)
 assert_contains "$AUTH_OUT" "Authentication error" "auth error shows message"
 assert_not_contains "$AUTH_OUT" "test" "no token in auth error output"
 
 # API error
-API_OUT=$(NANOBK_CF_ZONES_FAKE_RESPONSE="$FIXTURES/cf-zones-api-error.json" \
-  bash "$NANOBK" --repo-dir "$ROOT" cf zones list --api-env "$(
-    tmpfile=$(mktemp); chmod 600 "$tmpfile"; echo "CF_API_TOKEN=test" > "$tmpfile"; echo "$tmpfile"
-  )" 2>&1 || true)
+API_ENV=$(make_env 600 "CF_API_TOKEN=test")
+API_OUT=$(run_zones "$FIXTURES/cf-zones-api-error.json" "$API_ENV" || true)
 assert_contains "$API_OUT" "Rate limit" "api error shows message"
 
 # No protocol URI schemes
@@ -223,15 +225,44 @@ assert_not_contains "$SUCCESS_OUT" "trojan://" "no trojan:// in output"
 
 echo ""
 
-# ── F. JSON mode ────────────────────────────────────────────────────────────
+# ── F. Malformed fake response ──────────────────────────────────────────────
 
-echo "--- F. JSON mode ---"
+echo "--- F. Malformed fake response ---"
 echo ""
 
-JSON_OUT=$(NANOBK_CF_ZONES_FAKE_RESPONSE="$FIXTURES/cf-zones-success.json" \
-  bash "$NANOBK" --repo-dir "$ROOT" cf zones list --api-env "$(
-    tmpfile=$(mktemp); chmod 600 "$tmpfile"; echo "CF_API_TOKEN=test" > "$tmpfile"; echo "$tmpfile"
-  )" --json 2>&1)
+# Text mode: malformed JSON
+MAL_ENV=$(make_env 600 "CF_API_TOKEN=test_token_malformed")
+MAL_OUT=$(run_zones "$FIXTURES/cf-zones-malformed.json" "$MAL_ENV" || true)
+assert_contains "$MAL_OUT" "invalid JSON" "malformed response reports invalid JSON"
+assert_not_contains "$MAL_OUT" "Traceback" "malformed response has no traceback"
+assert_not_contains "$MAL_OUT" "test_token_malformed" "malformed response has no token"
+assert_not_contains "$MAL_OUT" "Authorization" "malformed response has no Authorization"
+
+# JSON mode: malformed JSON
+MAL_JSON_ENV=$(make_env 600 "CF_API_TOKEN=test_token_malformed_json")
+MAL_JSON_OUT=$(run_zones "$FIXTURES/cf-zones-malformed.json" "$MAL_JSON_ENV" --json || true)
+
+# Should be valid JSON error response
+if echo "$MAL_JSON_OUT" | python3 -c "import json,sys; json.load(sys.stdin)" 2>/dev/null; then
+  pass "malformed JSON mode returns valid JSON"
+else
+  fail "malformed JSON mode returns invalid JSON"
+  ERRORS=$((ERRORS + 1))
+fi
+assert_contains "$MAL_JSON_OUT" '"ok": false' "malformed JSON has ok: false"
+assert_contains "$MAL_JSON_OUT" '"mutation": false' "malformed JSON has mutation: false"
+assert_not_contains "$MAL_JSON_OUT" "Traceback" "malformed JSON has no traceback"
+assert_not_contains "$MAL_JSON_OUT" "test_token_malformed_json" "malformed JSON has no token"
+
+echo ""
+
+# ── G. JSON mode ────────────────────────────────────────────────────────────
+
+echo "--- G. JSON mode ---"
+echo ""
+
+JSON_ENV=$(make_env 600 "CF_API_TOKEN=test")
+JSON_OUT=$(run_zones "$FIXTURES/cf-zones-success.json" "$JSON_ENV" --json)
 
 # Validate JSON structure
 if echo "$JSON_OUT" | python3 -c "import json,sys; json.load(sys.stdin)" 2>/dev/null; then
@@ -249,18 +280,16 @@ assert_not_contains "$JSON_OUT" "example.com" "JSON has no raw domain"
 assert_not_contains "$JSON_OUT" "abc123def456" "JSON has no raw zone ID"
 
 # JSON error
-JSON_ERR=$(NANOBK_CF_ZONES_FAKE_RESPONSE="$FIXTURES/cf-zones-auth-error.json" \
-  bash "$NANOBK" --repo-dir "$ROOT" cf zones list --api-env "$(
-    tmpfile=$(mktemp); chmod 600 "$tmpfile"; echo "CF_API_TOKEN=test" > "$tmpfile"; echo "$tmpfile"
-  )" --json 2>&1 || true)
-assert_contains "$JSON_ERR" '"ok": false' "JSON error has ok: false"
-assert_not_contains "$JSON_ERR" "test" "JSON error has no token"
+JSON_ERR_ENV=$(make_env 600 "CF_API_TOKEN=test")
+JSON_ERR_OUT=$(run_zones "$FIXTURES/cf-zones-auth-error.json" "$JSON_ERR_ENV" --json || true)
+assert_contains "$JSON_ERR_OUT" '"ok": false' "JSON error has ok: false"
+assert_not_contains "$JSON_ERR_OUT" "test" "JSON error has no token"
 
 echo ""
 
-# ── G. Dispatch and help ────────────────────────────────────────────────────
+# ── H. Dispatch ─────────────────────────────────────────────────────────────
 
-echo "--- G. Dispatch ---"
+echo "--- H. Dispatch ---"
 echo ""
 
 # Invalid subcommand
