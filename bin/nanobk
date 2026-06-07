@@ -184,7 +184,7 @@ cmd_version() {
   echo "nanobk ${NANOBK_VERSION}"
 }
 
-# ── Console helpers ─────────────────────────────────────────────────────────
+# ── CLI UI helpers ──────────────────────────────────────────────────────────
 
 # Returns 0 if both stdin and stdout are TTYs.
 # Test-only override: NANOBK_TEST_FORCE_TTY=1 bypasses TTY check.
@@ -192,6 +192,49 @@ is_interactive_tty() {
   [[ "${NANOBK_TEST_FORCE_TTY:-}" == "1" ]] && return 0
   [[ -t 0 ]] && [[ -t 1 ]]
 }
+
+# UI primitives — no external deps, no Python, no curses
+ui_title() {
+  echo -e "${BOLD}$*${NC}"
+}
+
+ui_section() {
+  echo ""
+  echo -e "  ${BOLD}$*${NC}"
+}
+
+ui_hint() {
+  echo -e "  ${CYAN}$*${NC}"
+}
+
+ui_success() {
+  echo -e "  ${GREEN}$*${NC}"
+}
+
+ui_warning() {
+  echo -e "  ${YELLOW}$*${NC}"
+}
+
+ui_safe_action() {
+  echo -e "  ${GREEN}[safe]${NC} $*"
+}
+
+ui_explicit_action() {
+  echo -e "  ${YELLOW}[explicit]${NC} $*"
+}
+
+ui_advanced_action() {
+  echo -e "  ${CYAN}[advanced]${NC} $*"
+}
+
+console_pause() {
+  is_interactive_tty || return 0
+  echo ""
+  printf "  Press Enter to return to menu…"
+  read -r _ || true
+}
+
+# ── Console helpers ─────────────────────────────────────────────────────────
 
 print_console_header() {
   echo ""
@@ -201,7 +244,7 @@ print_console_header() {
   echo -e "${BOLD}╚══════════════════════════════════════════════════════════╝${NC}"
   echo ""
   echo "  NanoBK v${NANOBK_VERSION}"
-  echo "  Deployment is never started automatically."
+  echo "  Safe by default · deployment requires explicit confirmation"
   echo ""
 }
 
@@ -220,8 +263,8 @@ print_console_menu() {
 
 # DNS submenu — guidance-first (does not auto-run commands)
 console_dns_submenu() {
-  echo ""
-  echo -e "  ${BOLD}Cloudflare DNS Tools${NC}"
+  ui_section "Cloudflare DNS Tools"
+  ui_hint "Read-only guidance in this console"
   echo ""
   echo "  1) Preview DNS plan"
   echo "  2) Validate DNS profile"
@@ -233,35 +276,36 @@ console_dns_submenu() {
   case "$choice" in
     1)
       echo ""
-      echo "  To preview DNS plan:"
+      ui_safe_action "Preview DNS plan (dry-run, no mutation):"
       echo ""
       echo "    nanobk cf dns plan --profile /etc/nanobk/cloudflare-dns-profile.json"
       echo ""
       echo "  Or with direct arguments:"
       echo ""
       echo "    nanobk cf dns plan --zone example.com --node proxy --ipv4 YOUR_VPS_IPV4"
-      echo ""
+      console_pause
       ;;
     2)
       echo ""
-      echo "  To validate DNS profile:"
+      ui_safe_action "Validate DNS profile (read-only):"
       echo ""
       echo "    nanobk cf dns validate-profile --profile /etc/nanobk/cloudflare-dns-profile.json"
-      echo ""
+      console_pause
       ;;
     3)
       echo ""
-      echo "  Read-only check (GET-only, no DNS mutation):"
+      ui_safe_action "Read-only check (GET-only, no DNS mutation):"
       echo ""
       echo "    nanobk cf dns apply --profile /etc/nanobk/cloudflare-dns-profile.json \\"
       echo "      --api-env /etc/nanobk/cloudflare-api.env --check"
-      echo ""
+      console_pause
       ;;
     4|"")
       return
       ;;
     *)
       echo "  Invalid input. Please enter 1-4."
+      console_pause
       ;;
   esac
 }
@@ -274,14 +318,22 @@ console_loop() {
     read -rp "  Select [1-9]: " choice || { echo ""; break; }
     case "$choice" in
       1)
+        ui_section "Status"
+        ui_safe_action "Read-only status view"
         echo ""
         cmd_status || true
+        console_pause
         ;;
       2)
+        ui_section "Doctor / Diagnostics"
+        ui_safe_action "Read-only diagnostics"
         echo ""
         cmd_doctor || true
+        console_pause
         ;;
       3)
+        ui_section "New Deployment / Full Wizard"
+        ui_explicit_action "Explicit deployment flow"
         echo ""
         echo "  This starts the legacy Full Wizard."
         echo "  Command: nanobk install --mode full"
@@ -310,8 +362,8 @@ console_loop() {
         console_dns_submenu
         ;;
       5)
-        echo ""
-        echo -e "  ${YELLOW}Protocol links are sensitive — do not share them.${NC}"
+        ui_section "Export Protocol Links"
+        ui_warning "Sensitive output; run explicit export command"
         echo ""
         echo "  Export commands:"
         echo "    nanobk export link hy2"
@@ -319,11 +371,11 @@ console_loop() {
         echo "    nanobk export link reality"
         echo "    nanobk export link trojan"
         echo "    nanobk export links"
-        echo ""
+        console_pause
         ;;
       6)
-        echo ""
-        echo -e "  ${YELLOW}Rotating keys replaces existing protocol credentials.${NC}"
+        ui_section "Rotate Keys"
+        ui_explicit_action "Credential-changing operation; run explicit command"
         echo ""
         echo "  Rotate commands:"
         echo "    nanobk rotate all"
@@ -333,15 +385,21 @@ console_loop() {
         echo "    nanobk rotate trojan"
         echo ""
         echo "  Run these commands explicitly when ready."
-        echo ""
+        console_pause
         ;;
       7)
+        ui_section "Install / Repair CLI"
+        ui_safe_action "Install nanobk symlink to /usr/local/bin"
         echo ""
         cmd_install_cli || true
+        console_pause
         ;;
       8)
+        ui_section "Advanced Commands / Full Help"
+        ui_advanced_action "Full CLI reference"
         echo ""
         cmd_help
+        console_pause
         ;;
       9|"")
         echo ""
@@ -351,6 +409,7 @@ console_loop() {
         ;;
       *)
         echo "  Invalid input. Please enter 1-9."
+        console_pause
         ;;
     esac
   done

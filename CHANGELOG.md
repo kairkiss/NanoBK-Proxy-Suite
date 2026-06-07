@@ -1,5 +1,25 @@
 # Changelog
 
+## v2.1.3 — CLI UI Polish and Operation Display Skeleton
+
+### Added
+
+- CLI UI helper functions: `ui_title`, `ui_section`, `ui_hint`, `ui_success`,
+  `ui_warning`, `ui_safe_action`, `ui_explicit_action`, `ui_advanced_action`.
+- Interactive console pause prompts (`console_pause`) after guidance screens;
+  skipped automatically in non-TTY mode.
+- Safety labels in console menu actions: `[safe]` for read-only, `[explicit]`
+  for deployment/rotate, `[advanced]` for full help.
+- Improved console header: "Safe by default · deployment requires explicit
+  confirmation".
+
+### Not Changed
+
+- No DNS/Cloudflare/cert/Tunnel/Access/Web/Bot runtime behavior changes.
+- No deployment logic changes.
+- No `nanobk cf dns apply --yes` removed or broken.
+- No release tag.
+
 ## v2.1.2-polish — Console Test Hook and Safer DNS Guidance
 
 ### Changed
