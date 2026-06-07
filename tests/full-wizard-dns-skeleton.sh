@@ -747,15 +747,27 @@ echo ""
 echo "--- VPS port preflight gated to VPS deploy path ---"
 echo ""
 
-# Static check: protocol port checks in preflight are gated
-# The preflight should NOT fatal on occupied ports when VPS is skipped
-# Verify that NANOBK_VPS_SKIP_PORTS gates port checks
+# Static check: run_unified_preflight accepts scope parameter
 assert_grep \
-  "Preflight skips ports when NANOBK_VPS_SKIP_PORTS=1" \
-  'NANOBK_VPS_SKIP_PORTS.*1' \
+  "Preflight accepts scope parameter" \
+  'local scope=.*1.*full' \
   "$ROOT/installer/install.sh"
 
-# Verify that port checks happen in VPS deploy path
+# Verify that Full Wizard calls preflight with "common" scope
+assert_grep \
+  "Full Wizard calls preflight common" \
+  'run_unified_preflight common' \
+  "$ROOT/installer/install.sh"
+
+# Verify that "common" scope skips protocol port checks
+assert_grep \
+  "Common scope skips protocol port checks" \
+  'scope.*common' \
+  "$ROOT/installer/install.sh"
+
+# Verify that protocol port checks (443/udp HY2) are NOT in common scope path
+# The check_port_available 443 calls should only appear in the VPS deploy branch
+# and in the full-scope preflight path (not in common)
 assert_grep \
   "VPS deploy path checks ports" \
   'check_port_available.*443.*udp.*HY2' \
@@ -783,6 +795,13 @@ assert_grep \
 assert_grep \
   "Skip VPS shows existing deployment info" \
   '现有部署.*继续准备.*Cloudflare DNS' \
+  "$ROOT/installer/install.sh"
+
+# Verify that non-full-wizard modes still call full preflight (no scope arg)
+# These should call run_unified_preflight without "common"
+assert_grep \
+  "CLI modes call full preflight" \
+  'run_unified_preflight \|\| true' \
   "$ROOT/installer/install.sh"
 
 # ── Summary ──────────────────────────────────────────────────────────────

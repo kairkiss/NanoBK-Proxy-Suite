@@ -1,5 +1,35 @@
 # Changelog
 
+## v2.0.19 — Full Wizard Preflight Split Correctness Fix
+
+### Fixed
+
+- Fixed v2.0.18 issue where `NANOBK_VPS_SKIP_PORTS` flag was set too late — after
+  global preflight had already checked protocol ports and could die on a dirty VPS.
+- `run_unified_preflight` now accepts a `scope` parameter: `common` (no protocol
+  port checks) or `full` (default, existing behavior).
+- Full Wizard Phase 0 now calls `run_unified_preflight common` — protocol port
+  checks are deferred to the VPS deploy branch only.
+- Non-Full-Wizard CLI modes (`cli-only`, `cli-bot`, `cli-web`, `cli-bot-web`) still
+  call `run_unified_preflight` with full scope, preserving existing safety.
+- Dirty existing VPS users can now skip VPS and continue DNS preparation/check
+  without being blocked by occupied protocol ports.
+- Strict port conflict remains fatal for VPS reconfiguration (VPS deploy branch).
+- Cloudflare/BotWeb resume still skips DNS.
+- Tests strengthened with static checks for preflight scope parameter and
+  Full Wizard calling `common` scope.
+
+### Safety
+
+- No production behavior changes to VPS deploy path.
+- Strict port conflict remains fatal for VPS reconfiguration.
+- Cloudflare/BotWeb resume still skips DNS.
+- Still never auto-runs `apply --yes`.
+- No real Cloudflare mutation in tests.
+- No certificate/Tunnel/Access/Worker changes.
+- No version display bump.
+- No release tag.
+
 ## v2.0.18 — Full Wizard DNS Dirty VPS Resume Preflight Polish
 
 ### Fixed

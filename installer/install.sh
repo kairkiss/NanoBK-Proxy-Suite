@@ -2678,6 +2678,9 @@ handle_core_port_conflict() {
 }
 
 run_unified_preflight() {
+  # Scope: "common" skips VPS protocol port checks (for Full Wizard early phase)
+  #        "full" (default) includes everything
+  local scope="${1:-full}"
   local check_cf="${NANOBK_DEPLOY_CLOUDFLARE:-false}"
   local check_bot="${NANOBK_ENABLE_BOT:-false}"
   local check_web="${NANOBK_ENABLE_WEB:-false}"
@@ -2785,7 +2788,10 @@ run_unified_preflight() {
   fi
 
   # Port checks (VPS protocols)
-  if [[ "$DRY_RUN" == "1" ]]; then
+  # Skip in "common" scope — Full Wizard checks ports only in VPS deploy branch
+  if [[ "$scope" == "common" ]]; then
+    : # Protocol port checks deferred to VPS deploy branch
+  elif [[ "$DRY_RUN" == "1" ]]; then
     echo ""
     if [[ "${NANOBK_COMPACT:-}" == "1" ]]; then
       preflight_pass "Ports: HY2:443 TUIC:9443 Reality:8443 Trojan:2443 (dry-run)"
@@ -3442,9 +3448,9 @@ run_full_wizard() {
     esac
   fi
 
-  # Phase 0: Preflight
+  # Phase 0: Preflight (common only — protocol port checks deferred to VPS branch)
   local START_FROM_STAGE="${START_FROM_STAGE:-auto}"
-  run_unified_preflight || true
+  run_unified_preflight common || true
 
   # Phase 1: VPS (skip if resuming from cloudflare/botweb)
   ui_section "阶段 1：VPS 部署" "1" "5"
