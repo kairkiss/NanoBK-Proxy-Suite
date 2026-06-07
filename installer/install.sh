@@ -743,6 +743,8 @@ run_one_test() {
   fi
 }
 
+PROMPT_EOF=0
+
 prompt() {
   local var_name="$1"
   local prompt_text="$2"
@@ -766,7 +768,12 @@ prompt() {
       printf "%s: " "$prompt_text"
     fi
   fi
-  read -r input
+  if ! read -r input; then
+    # EOF on stdin — mark EOF state and use default
+    PROMPT_EOF=1
+    printf -v "$var_name" '%s' "${default:-}"
+    return
+  fi
 
   if [[ -z "$input" ]] && [[ -n "$default" ]]; then
     printf -v "$var_name" '%s' "$default"
@@ -865,7 +872,17 @@ prompt_menu_choice() {
         printf "%s: " "$prompt_text"
       fi
     fi
-    read -r input
+    if ! read -r input; then
+      # EOF on stdin
+      PROMPT_EOF=1
+      if [[ -n "$default" ]]; then
+        printf -v "$var_name" '%s' "$default"
+        return 0
+      fi
+      # No default — use "1" as safe fallback
+      printf -v "$var_name" '%s' "1"
+      return 0
+    fi
 
     # Use default if empty
     if [[ -z "$input" ]] && [[ -n "$default" ]]; then
@@ -1545,6 +1562,7 @@ collect_vps_args() {
 # ── Cloudflare DNS parameter collection ─────────────────────────────────────
 
 collect_dns_args() {
+  PROMPT_EOF=0
   section_line "Cloudflare DNS 节点记录参数"
 
   echo "  本步骤只准备/检查 A/AAAA DNS 记录。"
@@ -1555,8 +1573,17 @@ collect_dns_args() {
   # Collect zone name
   local zone_name=""
   while true; do
-    prompt zone_name "域名（如 example.com）" "example.com"
+    PROMPT_EOF=0
+    prompt zone_name "域名（例如 example.com）" ""
+    if [[ "$PROMPT_EOF" == "1" ]] && [[ -z "$zone_name" ]]; then
+      warn "stdin 已关闭，无法收集 DNS 参数。"
+      return 1
+    fi
     if [[ -z "$zone_name" ]]; then
+      if [[ "$YES" == "1" ]]; then
+        warn "--yes 模式下域名不能为空，请手动运行并输入域名。"
+        return 1
+      fi
       warn "域名不能为空。"
       continue
     fi
@@ -1583,8 +1610,17 @@ collect_dns_args() {
   # Collect IPv4
   local ipv4=""
   while true; do
-    prompt ipv4 "节点 IPv4 地址" "203.0.113.10"
+    PROMPT_EOF=0
+    prompt ipv4 "节点 IPv4 地址（例如 203.0.113.10；真实部署请填写你的 VPS IPv4）" ""
+    if [[ "$PROMPT_EOF" == "1" ]] && [[ -z "$ipv4" ]]; then
+      warn "stdin 已关闭，无法收集 IPv4 地址。"
+      return 1
+    fi
     if [[ -z "$ipv4" ]]; then
+      if [[ "$YES" == "1" ]]; then
+        warn "--yes 模式下 IPv4 不能为空，请手动运行并输入地址。"
+        return 1
+      fi
       warn "至少需要一个 IPv4 或 IPv6 地址。"
       continue
     fi
@@ -1592,7 +1628,7 @@ collect_dns_args() {
     if [[ "$ipv4" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
       break
     else
-      warn "请输入有效的 IPv4 地址（如 203.0.113.10）。"
+      warn "请输入有效的 IPv4 地址（例如 203.0.113.10）。"
     fi
   done
 
@@ -1709,13 +1745,14 @@ collect_dns_args() {
       warn "cloudflare-api.env 不存在: ${api_env_path}"
       echo ""
       echo "  请先创建 api-env 文件："
-      echo "    mkdir -p /etc/nanobk"
-      echo "    cat > ${api_env_path} <<'EOF'"
-      echo "    CF_API_TOKEN=your-token-here"
-      echo "    CF_ZONE_ID=your-zone-id"
-      echo "    CF_ZONE_NAME=${zone_name}"
-      echo "    EOF"
-      echo "    chmod 600 ${api_env_path}"
+      echo "    sudo mkdir -p /etc/nanobk"
+      echo "    sudo install -m 600 -o root -g root /dev/null ${api_env_path}"
+      echo "    sudo nano ${api_env_path}"
+      echo ""
+      echo "  文件内容应包含以下键（不含引号）："
+      echo "    CF_API_TOKEN"
+      echo "    CF_ZONE_ID"
+      echo "    CF_ZONE_NAME"
       echo ""
       DNS_CHECK_STATUS="manual_pending"
       DNS_APPLY_STATUS="manual_apply_pending"
@@ -3459,7 +3496,20 @@ run_full_wizard() {
     echo "  已跳过 Cloudflare DNS（从 botweb 继续）。"
     DNS_STAGE_STATUS="skipped"
   elif ask_yes_no_menu "是否准备 Cloudflare DNS 节点记录？" "y"; then
-    collect_dns_args
+    local dns_rc=0
+    collect_dns_args || dns_rc=$?
+    if [[ "$dns_rc" -ne 0 ]]; then
+      DNS_STAGE_STATUS="${DNS_STAGE_STATUS:-failed}"
+      DNS_PROFILE_STATUS="${DNS_PROFILE_STATUS:-unknown}"
+      DNS_PLAN_STATUS="${DNS_PLAN_STATUS:-failed}"
+      DNS_CHECK_STATUS="${DNS_CHECK_STATUS:-skipped}"
+      DNS_APPLY_STATUS="skipped"
+      SUMMARY_HAS_FAILURES=1
+      ui_error "Cloudflare DNS 阶段失败。"
+      ui_recovery_block \
+        "bash bin/nanobk cf dns validate-profile --profile /etc/nanobk/cloudflare-dns-profile.json" \
+        "bash bin/nanobk cf dns plan --profile /etc/nanobk/cloudflare-dns-profile.json"
+    fi
   else
     DNS_STAGE_STATUS="skipped"
     echo "  跳过 Cloudflare DNS 节点记录准备。"

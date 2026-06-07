@@ -8,6 +8,9 @@
 # - Summary contains correct DNS fields
 # - No real Cloudflare API calls
 # - No token/env leakage
+# - DNS stage failure is caught and summarized
+# - No unsafe defaults (example.com, 203.0.113.10)
+# - No cat-heredoc api-env instructions
 #
 # Usage:
 #   bash tests/full-wizard-dns-skeleton.sh
@@ -36,6 +39,30 @@ check() {
   fi
 }
 
+assert_not_grep() {
+  local desc="$1"
+  local pattern="$2"
+  local file="$3"
+  if grep -qE "$pattern" "$file" 2>/dev/null; then
+    fail "$desc"
+    ERRORS=$((ERRORS + 1))
+  else
+    pass "$desc"
+  fi
+}
+
+assert_grep() {
+  local desc="$1"
+  local pattern="$2"
+  local file="$3"
+  if grep -qE "$pattern" "$file" 2>/dev/null; then
+    pass "$desc"
+  else
+    fail "$desc"
+    ERRORS=$((ERRORS + 1))
+  fi
+}
+
 echo ""
 echo "=== Full Wizard DNS Skeleton Test ==="
 echo ""
@@ -57,18 +84,16 @@ CF_ZONE_NAME=example.com
 EOF
 chmod 600 "$TMPDIR/etc/nanobk/cloudflare-api.env"
 
-# Run Full Wizard DNS with mock inputs via stdin
-# Inputs: 1=yes for DNS, zone name, node prefix, IPv4, IPv6 (empty=skip), 2=no for check
-DNS_INPUT=$(printf '1\nexample.com\nnanobk-node\n203.0.113.10\n\n2\n')
-
+# Run Full Wizard with --yes and --dry-run (non-interactive mode)
 # Use NANOBK_TEST_MOCK to avoid real VPS/CF operations
 # Use NANOBK_TEST_TMPDIR to write under temp dir
 export NANOBK_TEST_MOCK=1
 export NANOBK_TEST_TMPDIR="$TMPDIR"
 
-# Run only the DNS-relevant parts via a focused script
-# We'll test by directly running the installer with mock stdin
-WIZARD_OUTPUT=$(echo "$DNS_INPUT" | bash "$ROOT/installer/install.sh" --mode full --lang zh --dry-run 2>&1 || true)
+# With --yes, the wizard auto-accepts all prompts.
+# DNS stage will fail because zone_name/ipv4 have no defaults in --yes mode.
+# This is correct behavior: --yes mode should not silently use placeholder values.
+WIZARD_OUTPUT=$(bash "$ROOT/installer/install.sh" --mode full --lang zh --dry-run --yes 2>&1 || true)
 
 unset NANOBK_TEST_MOCK
 unset NANOBK_TEST_TMPDIR
@@ -78,6 +103,22 @@ if grep -q "Cloudflare DNS\|DNS 节点记录\|DNS 节点" <<< "$WIZARD_OUTPUT"; 
   pass "Wizard shows DNS section"
 else
   fail "Wizard missing DNS section"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# Check that DNS stage failure is caught (wizard continues, doesn't crash)
+if grep -q "阶段 3\|Cloudflare 部署\|阶段 4\|Telegram Bot\|Summary\|最终摘要" <<< "$WIZARD_OUTPUT"; then
+  pass "Wizard continues past DNS failure to later stages"
+else
+  fail "Wizard should continue past DNS failure"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# Check that DNS failure is reported honestly
+if grep -q "DNS.*失败\|DNS.*failed\|域名不能为空" <<< "$WIZARD_OUTPUT"; then
+  pass "DNS failure is reported in output"
+else
+  fail "DNS failure should be reported"
   ERRORS=$((ERRORS + 1))
 fi
 
@@ -306,6 +347,102 @@ if grep -q 'ui_stage_card_cloudflare_dns' "$ROOT/installer/lib/ui.sh"; then
   pass "ui.sh defines DNS stage card"
 else
   fail "ui.sh missing DNS stage card definition"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# ── Test 12: DNS stage failure is caught ──────────────────────────────────
+
+echo ""
+echo "--- DNS stage failure handling ---"
+echo ""
+
+# Check that run_full_wizard wraps collect_dns_args with || dns_rc=$?
+if grep -A2 'collect_dns_args' "$ROOT/installer/install.sh" | grep -q 'dns_rc'; then
+  pass "DNS stage wraps collect_dns_args with failure handler"
+else
+  fail "DNS stage missing failure handler (|| dns_rc=...)"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# Check that DNS failure sets DNS_STAGE_STATUS to failed
+if grep -A10 'dns_rc' "$ROOT/installer/install.sh" | grep -q 'DNS_STAGE_STATUS.*failed'; then
+  pass "DNS failure sets DNS_STAGE_STATUS=failed"
+else
+  fail "DNS failure should set DNS_STAGE_STATUS=failed"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# Check that DNS failure does NOT crash the wizard (no bare return 1 in DNS failure block)
+# The recovery block should show commands but wizard should continue to summary
+if grep -A15 'dns_rc' "$ROOT/installer/install.sh" | grep -q 'ui_recovery_block'; then
+  pass "DNS failure shows recovery block"
+else
+  fail "DNS failure should show recovery block"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# ── Test 13: No unsafe cat-heredoc api-env instructions ──────────────────
+
+echo ""
+echo "--- No unsafe api-env cat-heredoc instructions ---"
+echo ""
+
+assert_not_grep \
+  "No 'cat > ... cloudflare-api.env' heredoc" \
+  "cat > .*cloudflare-api.env" \
+  "$ROOT/installer/install.sh"
+
+assert_not_grep \
+  "No 'CF_API_TOKEN=your-token-here' placeholder" \
+  "CF_API_TOKEN=your-token-here" \
+  "$ROOT/installer/install.sh"
+
+# Safer instructions should be present
+assert_grep \
+  "Has 'install -m 600' instruction" \
+  "install -m 600" \
+  "$ROOT/installer/install.sh"
+
+assert_grep \
+  "Has 'sudo nano' instruction" \
+  "sudo nano" \
+  "$ROOT/installer/install.sh"
+
+# ── Test 14: No unsafe real Wizard defaults ──────────────────────────────
+
+echo ""
+echo "--- No unsafe real Wizard defaults ---"
+echo ""
+
+# Zone name prompt should NOT default to example.com
+# Allow "example.com" in prompt text (as example) but not as default value
+# The prompt function uses: prompt var_name "text" "default"
+# Check that the zone_name prompt line does not have example.com as default arg
+if grep 'prompt zone_name' "$ROOT/installer/install.sh" | grep -q '"example.com"'; then
+  # Check if it's just in the prompt text, not the default
+  if grep 'prompt zone_name' "$ROOT/installer/install.sh" | grep -qE 'prompt zone_name.*".*".*"example.com"'; then
+    fail "zone_name prompt should not default to example.com"
+    ERRORS=$((ERRORS + 1))
+  else
+    pass "zone_name prompt example.com is in description, not default"
+  fi
+else
+  pass "zone_name prompt does not default to example.com"
+fi
+
+# IPv4 prompt should NOT default to 203.0.113.10
+if grep 'prompt ipv4' "$ROOT/installer/install.sh" | grep -qE 'prompt ipv4.*".*".*"203\.0\.113\.10"'; then
+  fail "ipv4 prompt should not default to 203.0.113.10"
+  ERRORS=$((ERRORS + 1))
+else
+  pass "ipv4 prompt does not default to 203.0.113.10"
+fi
+
+# nodePrefix default nanobk-node is OK
+if grep 'prompt node_prefix' "$ROOT/installer/install.sh" | grep -q '"nanobk-node"'; then
+  pass "node_prefix defaults to nanobk-node (OK)"
+else
+  fail "node_prefix should default to nanobk-node"
   ERRORS=$((ERRORS + 1))
 fi
 

@@ -1,5 +1,35 @@
 # Changelog
 
+## v2.0.14 — Full Wizard DNS Skeleton Polish
+
+### Fixed
+
+- DNS stage failure is now caught with `|| dns_rc=$?` and summarized honestly in
+  Summary, instead of crashing the whole wizard.
+- Replaced unsafe `cat > cloudflare-api.env` heredoc instructions with safer
+  `install -m 600` + `nano` workflow. No `CF_API_TOKEN=your-token-here` placeholder.
+- Real Wizard no longer defaults zoneName to `example.com` or IPv4 to `203.0.113.10`.
+  Prompts show examples in description text but require explicit user input.
+- `prompt()` and `prompt_menu_choice()` now handle EOF on stdin gracefully, preventing
+  infinite loops when stdin is exhausted (e.g., in mock/piped test environments).
+- DNS stage skipped for `cloudflare` resume path (previously only skipped for `botweb`).
+- Updated Python mock tests (A, B, C, E) to include DNS stage inputs.
+- Strengthened `tests/full-wizard-dns-skeleton.sh` with:
+  - DNS failure handling verification (wizard continues past failure)
+  - Static checks for no `cat > cloudflare-api.env` heredoc
+  - Static checks for no `CF_API_TOKEN=your-token-here` placeholder
+  - Static checks for no unsafe real Wizard defaults
+  - Checks for `install -m 600` and `sudo nano` instructions
+
+### Safety
+
+- Full Wizard NEVER automatically executes `nanobk cf dns apply --yes`.
+- No real Cloudflare API calls in tests.
+- No DNS records created or deleted in tests.
+- No token/env/protocol/subscription leakage.
+- No certificate/Tunnel/Access/Worker changes.
+- No release tag.
+
 ## v2.0.13 — Full Wizard Cloudflare DNS Plan/Check Integration Skeleton
 
 ### Added

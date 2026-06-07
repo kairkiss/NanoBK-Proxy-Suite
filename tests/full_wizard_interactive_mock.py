@@ -175,6 +175,12 @@ inputs_a = [
     "beta.example-user.test",
     "1",   # VPS review: confirm
     "1",   # VPS deploy: execute
+    "1",   # DNS: yes
+    "example.com",  # DNS zone name
+    "",    # DNS node prefix (default)
+    "203.0.113.10",  # DNS IPv4
+    "",    # DNS IPv6 (skip)
+    "2",   # DNS check: no
     "2",   # Skip Bot
     "2",   # Skip Web
 ]
@@ -197,6 +203,7 @@ print("── Test B: Bot token redaction ──")
 clean_state()
 inputs_b = [
     "2",   # Skip VPS
+    "2",   # Skip DNS
     "2",   # Skip CF
     "",    # Bot: yes
     "123456:SECRET_TEST_BOT_TOKEN",
@@ -223,6 +230,7 @@ print("── Test C: Web Panel setup ──")
 clean_state()
 inputs_c = [
     "2",   # Skip VPS
+    "2",   # Skip DNS
     "2",   # Skip CF
     "2",   # Skip Bot
     "",    # Web: yes
@@ -244,6 +252,12 @@ print("── Test D: Cloudflare stdin dynamic ──")
 clean_state()
 inputs_d = [
     "2",   # Skip VPS
+    "1",   # Configure DNS (yes)
+    "example.com",  # DNS zone name
+    "",    # DNS node prefix (default: nanobk-node)
+    "203.0.113.10",  # DNS IPv4
+    "",    # DNS IPv6 (skip)
+    "2",   # DNS check: no
     "1",   # Configure Cloudflare
     "/etc/nanobk/profile.current.json",  # profile path
     "demo-user.workers.dev",  # Workers subdomain
@@ -298,6 +312,7 @@ state_json_e = '{"version":"1.7.14","current_phase":"cloudflare","vps_status":"i
 
 inputs_e = [
     "3",   # Resume: Cloudflare
+    "2",   # Skip DNS
     "1",   # Configure Cloudflare
     "/etc/nanobk/profile.current.json",
     "demo-user.workers.dev",
