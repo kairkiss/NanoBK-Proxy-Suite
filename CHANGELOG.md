@@ -1,5 +1,21 @@
 # Changelog
 
+## v2.1.1-polish — Safer Default DNS Entry Copy
+
+### Changed
+
+- Removed `cf dns apply --yes` from the default no-args entry screen.
+- Default screen now suggests read-only `cf dns apply --check` instead.
+- Actual advanced `cf dns apply --yes` command remains fully available via
+  explicit use (`nanobk cf dns apply --yes` or `nanobk --help`).
+
+### Not Changed
+
+- No DNS behavior changes.
+- No Cloudflare API behavior changes.
+- No `nanobk cf dns apply --yes` removed or broken.
+- No release tag.
+
 ## v2.1.1 — Install Product Only Entry Skeleton
 
 ### Changed

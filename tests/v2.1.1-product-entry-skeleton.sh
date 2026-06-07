@@ -110,6 +110,13 @@ assert_contains "$ENTRY_OUTPUT" "nanobk doctor" "entry lists doctor command"
 assert_contains "$ENTRY_OUTPUT" "nanobk install --mode full" "entry lists full wizard command"
 assert_contains "$ENTRY_OUTPUT" "Deployment is not started automatically" "entry explains no auto-deploy"
 
+# DNS section: safe read-only commands shown, apply --yes hidden
+assert_contains "$ENTRY_OUTPUT" "cf dns plan" "entry lists cf dns plan"
+assert_contains "$ENTRY_OUTPUT" "cf dns validate-profile" "entry lists cf dns validate-profile"
+assert_contains "$ENTRY_OUTPUT" "cf dns apply --check" "entry lists cf dns apply --check (read-only)"
+assert_not_contains "$ENTRY_OUTPUT" "apply --yes" "entry does NOT show apply --yes"
+assert_not_contains "$ENTRY_OUTPUT" "cf dns apply --yes" "entry does NOT show cf dns apply --yes"
+
 # Should NOT start any deployment action
 assert_not_contains "$ENTRY_OUTPUT" "launching" "entry does not launch anything"
 assert_not_contains "$ENTRY_OUTPUT" "executing" "entry does not exec anything"
