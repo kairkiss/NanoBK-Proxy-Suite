@@ -1,5 +1,32 @@
 # Changelog
 
+## v2.1.4 — Cloudflare Read-Only Zone Discovery Skeleton
+
+### Added
+
+- `nanobk cf zones list --api-env PATH [--json]` — read-only Cloudflare zone
+  discovery using GET-only API calls.
+- `lib/nanobk_cf_zones.py` — standalone Python helper with env parser, fake
+  transport hook (`NANOBK_CF_ZONES_FAKE_RESPONSE`), and sanitized output.
+- Env parser: token-only compatible, enforces `chmod 600`, allowlist
+  (`CF_API_TOKEN`, `CF_ZONE_ID`, `CF_ZONE_NAME`), no shell execution.
+- Output: domains masked (`ex***le.com`), zone IDs redacted
+  (`abc1…345`), no raw token/Authorization/response printed.
+- JSON mode: `{"ok": true, "count": N, "zones": [...], "mutation": false}`.
+- Test fixtures: `cf-zones-success.json`, `cf-zones-empty.json`,
+  `cf-zones-auth-error.json`, `cf-zones-api-error.json`.
+- Focused test: `tests/cf-zones-list.sh` with env parser, shell safety,
+  fake transport, and JSON validation.
+
+### Not Changed
+
+- No DNS mutation (no create/update/delete).
+- No existing DNS apply behavior changes.
+- No Cloudflare POST/PATCH/DELETE calls.
+- No console auto-execution of zone discovery.
+- No `apply --yes` added anywhere.
+- No release tag.
+
 ## v2.1.3 — CLI UI Polish and Operation Display Skeleton
 
 ### Added

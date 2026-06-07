@@ -496,6 +496,7 @@ NanoBK Proxy Suite — Unified CLI v${NANOBK_VERSION}
   cf dns plan [options...]    Cloudflare DNS 干跑计划（不创建 DNS）
   cf dns validate-profile     验证 DNS 配置文件
   cf dns apply [options...]   应用 DNS 记录到 Cloudflare（需要 --yes）
+  cf zones list --api-env PATH  只读列出 Cloudflare zones [--json]
   rotate <protocol> [args.]  换密钥: all|hy2|tuic|reality|trojan
   export link <protocol>     导出单个协议链接: hy2|tuic|reality|trojan
   export links               导出所有协议链接
@@ -1164,6 +1165,53 @@ cmd_cf_dns() {
   esac
 }
 
+# ── cf zones ──────────────────────────────────────────────────────────────
+
+cmd_cf_zones() {
+  local zones_sub="${1:-}"
+  shift 2>/dev/null || true
+
+  case "$zones_sub" in
+    list)
+      local args=(python3 "$REPO_DIR/lib/nanobk_cf_zones.py" list)
+      local json_mode=0
+      while [[ $# -gt 0 ]]; do
+        case "$1" in
+          --api-env)
+            [[ $# -ge 2 ]] || die "cf zones list: --api-env needs a path argument"
+            args+=("$1" "$2"); shift 2 ;;
+          --json)
+            json_mode=1; args+=("--json"); shift ;;
+          --help|-h)
+            args+=("--help"); shift ;;
+          --dry-run)
+            # cf zones list is already read-only; ignore global --dry-run
+            shift ;;
+          *)
+            die "cf zones list: unknown option: $1"
+            ;;
+        esac
+      done
+
+      if [[ "$DRY_RUN" == "1" ]]; then
+        print_cmd "${args[@]}"
+        echo -e "  ${CYAN}[DRY-RUN]${NC} 跳过执行"
+        return 0
+      fi
+
+      "${args[@]}"
+      ;;
+
+    "")
+      die "Usage: nanobk cf zones list --api-env PATH [--json]"
+      ;;
+
+    *)
+      die "Unknown cf zones subcommand: ${zones_sub}. Use: nanobk cf zones list"
+      ;;
+  esac
+}
+
 # ── rotate ──────────────────────────────────────────────────────────────────
 
 cmd_rotate() {
@@ -1390,7 +1438,8 @@ main() {
         verify)  cmd_cf_verify ${cf_rest[@]+"${cf_rest[@]}"} ;;
         install-admin-env) cmd_cf_install_admin_env ;;
         dns)     cmd_cf_dns ${cf_rest[@]+"${cf_rest[@]}"} ;;
-        *)       die "Usage: nanobk cf <deploy|verify|install-admin-env|dns> [args...]" ;;
+        zones)   cmd_cf_zones ${cf_rest[@]+"${cf_rest[@]}"} ;;
+        *)       die "Usage: nanobk cf <deploy|verify|install-admin-env|dns|zones> [args...]" ;;
       esac
       ;;
     rotate)   cmd_rotate ${cmd_rest[@]+"${cmd_rest[@]}"} ;;

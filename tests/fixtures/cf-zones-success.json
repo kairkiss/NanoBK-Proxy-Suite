@@ -1,0 +1,7 @@
+{
+  "success": true,
+  "result": [
+    {"id": "abc123def456ghi789jkl012mno345", "name": "example.com"},
+    {"id": "xyz789abc123def456ghi789jkl012", "name": "example.net"}
+  ]
+}
