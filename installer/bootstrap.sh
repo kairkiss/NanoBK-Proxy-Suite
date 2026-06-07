@@ -16,7 +16,7 @@ set -Eeuo pipefail
 
 REPO_URL="https://github.com/kairkiss/NanoBK-Proxy-Suite.git"
 BRANCH="main"
-BOOTSTRAP_VERSION="1.9.58"
+BOOTSTRAP_VERSION="2.0.21"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 

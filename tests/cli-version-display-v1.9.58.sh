@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — CLI Version Display Test (v1.9.58)
+# NanoBK Proxy Suite — CLI Version Display Test (v2.0.21)
 #
 # Verifies that the CLI version display is honest and consistent.
 #
 # Usage:
 #   bash tests/cli-version-display-v1.9.58.sh
+#   (kept filename for git history; content validates v2.0.21)
 
 set -Eeuo pipefail
 
@@ -56,7 +57,7 @@ assert_not_contains() {
 }
 
 echo ""
-echo "=== CLI Version Display Test (v1.9.58) ==="
+echo "=== CLI Version Display Test (v2.0.21) ==="
 echo ""
 
 # ── 1. Version output ─────────────────────────────────────────────────────
@@ -66,13 +67,13 @@ echo ""
 
 VERSION_OUTPUT=$(bash "$NANOBK" --version 2>&1)
 assert_contains "$VERSION_OUTPUT" "nanobk" "version output contains 'nanobk'"
-assert_contains "$VERSION_OUTPUT" "1.9.58" "version output contains '1.9.58'"
-assert_not_contains "$VERSION_OUTPUT" "1.8.45" "version output does not contain '1.8.45'"
+assert_contains "$VERSION_OUTPUT" "2.0.21" "version output contains '2.0.21'"
+assert_not_contains "$VERSION_OUTPUT" "1.9.58" "version output does not contain stale '1.9.58'"
 
 # Also test 'nanobk version' subcommand
 VERSION_SUBCMD=$(bash "$NANOBK" version 2>&1)
-assert_contains "$VERSION_SUBCMD" "1.9.58" "version subcommand contains '1.9.58'"
-assert_not_contains "$VERSION_SUBCMD" "1.8.45" "version subcommand does not contain '1.8.45'"
+assert_contains "$VERSION_SUBCMD" "2.0.21" "version subcommand contains '2.0.21'"
+assert_not_contains "$VERSION_SUBCMD" "1.9.58" "version subcommand does not contain stale '1.9.58'"
 
 echo ""
 
@@ -83,15 +84,15 @@ echo ""
 
 # bin/nanobk NANOBK_VERSION
 NANOBK_VER=$(grep '^NANOBK_VERSION=' "$NANOBK" | head -1 | cut -d'"' -f2)
-assert_contains "$NANOBK_VER" "1.9.58" "bin/nanobk NANOBK_VERSION is 1.9.58"
+assert_contains "$NANOBK_VER" "2.0.21" "bin/nanobk NANOBK_VERSION is 2.0.21"
 
 # installer/install.sh VERSION
 INSTALL_VER=$(grep '^VERSION=' "$ROOT/installer/install.sh" | head -1 | cut -d'"' -f2)
-assert_contains "$INSTALL_VER" "1.9.58" "install.sh VERSION is 1.9.58"
+assert_contains "$INSTALL_VER" "2.0.21" "install.sh VERSION is 2.0.21"
 
 # installer/bootstrap.sh BOOTSTRAP_VERSION
 BOOTSTRAP_VER=$(grep '^BOOTSTRAP_VERSION=' "$ROOT/installer/bootstrap.sh" | head -1 | cut -d'"' -f2)
-assert_contains "$BOOTSTRAP_VER" "1.9.58" "bootstrap.sh BOOTSTRAP_VERSION is 1.9.58"
+assert_contains "$BOOTSTRAP_VER" "2.0.21" "bootstrap.sh BOOTSTRAP_VERSION is 2.0.21"
 
 # All three should match
 if [[ "$NANOBK_VER" == "$INSTALL_VER" ]] && [[ "$INSTALL_VER" == "$BOOTSTRAP_VER" ]]; then
@@ -130,8 +131,8 @@ echo "--- Help text version ---"
 echo ""
 
 HELP_OUTPUT=$(bash "$NANOBK" --help 2>&1)
-assert_contains "$HELP_OUTPUT" "1.9.58" "help text contains version 1.9.58"
-assert_not_contains "$HELP_OUTPUT" "1.8.45" "help text does not contain 1.8.45"
+assert_contains "$HELP_OUTPUT" "2.0.21" "help text contains version 2.0.21"
+assert_not_contains "$HELP_OUTPUT" "1.9.58" "help text does not contain stale 1.9.58"
 
 echo ""
 

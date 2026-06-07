@@ -1,5 +1,23 @@
 # Changelog
 
+## v2.0.21 — Version Display Consistency Polish
+
+### Fixed
+
+- Aligned `bin/nanobk` `NANOBK_VERSION` from `2.0.11` to `2.0.21`.
+- Aligned `installer/install.sh` `VERSION` from `1.9.58` to `2.0.21`.
+- Updated `installer/install.sh` header comment from stale `v1.8.45` to `v2.0.21`.
+- Aligned `installer/bootstrap.sh` `BOOTSTRAP_VERSION` from `1.9.58` to `2.0.21`.
+- Updated `tests/cli-version-display-v1.9.58.sh` to validate `2.0.21` across all
+  three version constants and user-facing outputs.
+
+### Safety
+
+- No functional behavior changes.
+- No DNS/Cloudflare mutation changes.
+- No certificate/Tunnel/Access/Worker changes.
+- No release tag.
+
 ## v2.0.20 — Record Full Wizard DNS Dirty VPS Validation
 
 ### Documentation

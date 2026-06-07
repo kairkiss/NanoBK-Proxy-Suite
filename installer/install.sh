@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — Unified Beginner Installer v1.8.45
+# NanoBK Proxy Suite — Unified Installer v2.0.21
 #
 # Interactive entry point for NanoBK Proxy Suite.
 # Guides users through VPS deployment, Cloudflare setup, Bot, Web Panel.
@@ -27,7 +27,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # ── Constants ───────────────────────────────────────────────────────────────
 
 REPO_URL="https://github.com/kairkiss/NanoBK-Proxy-Suite"
-VERSION="1.9.58"
+VERSION="2.0.21"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
