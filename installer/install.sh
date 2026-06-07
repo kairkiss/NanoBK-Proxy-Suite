@@ -879,8 +879,9 @@ prompt_menu_choice() {
         printf -v "$var_name" '%s' "$default"
         return 0
       fi
-      # No default — use "1" as safe fallback
-      printf -v "$var_name" '%s' "1"
+      # EOF with no default — use max (typically exit/cancel) to avoid
+      # accidentally choosing the affirmative path (choice 1).
+      printf -v "$var_name" '%s' "$max"
       return 0
     fi
 
@@ -3492,8 +3493,8 @@ run_full_wizard() {
   ui_section "阶段 2：Cloudflare DNS 节点记录" "2" "6"
   ui_stage_card_cloudflare_dns
 
-  if [[ "$START_FROM_STAGE" == "botweb" ]]; then
-    echo "  已跳过 Cloudflare DNS（从 botweb 继续）。"
+  if [[ "$START_FROM_STAGE" == "cloudflare" ]] || [[ "$START_FROM_STAGE" == "botweb" ]]; then
+    echo "  已跳过 Cloudflare DNS（从 ${START_FROM_STAGE} 继续）。"
     DNS_STAGE_STATUS="skipped"
   elif ask_yes_no_menu "是否准备 Cloudflare DNS 节点记录？" "y"; then
     local dns_rc=0

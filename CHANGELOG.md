@@ -1,5 +1,20 @@
 # Changelog
 
+## v2.0.15 — Full Wizard DNS Resume and EOF Safety Polish
+
+### Fixed
+
+- DNS substage now skips when resuming from Cloudflare or later stages (`cloudflare` or `botweb`), not just `botweb`.
+- `prompt_menu_choice()` EOF fallback no longer defaults to `"1"` (affirmative). With no default, it now uses `$max` (typically exit/cancel) to avoid accidentally choosing the affirmative path.
+- Tests strengthened with static checks for DNS resume skip logic and EOF safety.
+
+### Safety
+
+- Still never auto-runs `apply --yes`.
+- No real Cloudflare mutation in tests.
+- No certificate/Tunnel/Access/Worker changes.
+- No release tag.
+
 ## v2.0.14 — Full Wizard DNS Skeleton Polish
 
 ### Fixed

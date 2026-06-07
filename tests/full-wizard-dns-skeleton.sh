@@ -446,6 +446,48 @@ else
   ERRORS=$((ERRORS + 1))
 fi
 
+# ── Test 15: DNS stage skip for cloudflare resume ────────────────────────
+
+echo ""
+echo "--- DNS stage skip for cloudflare resume ---"
+echo ""
+
+# Static check: installer skips DNS when START_FROM_STAGE is cloudflare or botweb
+assert_grep \
+  "DNS skip checks both cloudflare and botweb" \
+  'START_FROM_STAGE.*==.*cloudflare.*\|\|.*START_FROM_STAGE.*==.*botweb' \
+  "$ROOT/installer/install.sh"
+
+# Static check: the skip message mentions the stage name (not hardcoded to botweb)
+assert_not_grep \
+  "DNS skip message is not hardcoded to botweb only" \
+  '已跳过 Cloudflare DNS（从 botweb 继续' \
+  "$ROOT/installer/install.sh"
+
+# ── Test 16: EOF safety in prompt_menu_choice ────────────────────────────
+
+echo ""
+echo "--- EOF safety in prompt_menu_choice ---"
+echo ""
+
+# EOF with no default should NOT fall back to "1" (affirmative path)
+assert_not_grep \
+  "EOF fallback does not use '1' as safe fallback" \
+  "printf -v.*var_name.*'1'" \
+  "$ROOT/installer/install.sh"
+
+# EOF with no default should use $max (typically exit/cancel)
+assert_grep \
+  "EOF fallback uses \$max (exit/cancel)" \
+  'printf -v.*var_name.*\$max' \
+  "$ROOT/installer/install.sh"
+
+# EOF fallback should have a comment explaining safety reasoning
+assert_grep \
+  "EOF fallback comment mentions affirmative path" \
+  'affirmative' \
+  "$ROOT/installer/install.sh"
+
 # ── Summary ──────────────────────────────────────────────────────────────
 
 echo ""
