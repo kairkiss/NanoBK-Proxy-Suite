@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
 # NanoBK Proxy Suite — Remote Bootstrap Installer
 #
-# Downloads (or updates) the NanoBK repository and launches the interactive installer.
+# Downloads (or updates) the NanoBK repository and prepares the nanobk CLI.
+# Default: install only — does NOT auto-launch deployment installer.
 # Does NOT directly deploy VPS services, modify Cloudflare, or rotate keys.
 #
 # Usage:
 #   bash <(curl -fsSL https://raw.githubusercontent.com/kairkiss/NanoBK-Proxy-Suite/main/installer/bootstrap.sh)
 #   bash installer/bootstrap.sh
 #   bash installer/bootstrap.sh -- --mode doctor
+#   bash installer/bootstrap.sh -- --mode full
 #   bash installer/bootstrap.sh --install-dir ~/NanoBK -- --mode commands
 
 set -Eeuo pipefail
@@ -16,7 +18,7 @@ set -Eeuo pipefail
 
 REPO_URL="https://github.com/kairkiss/NanoBK-Proxy-Suite.git"
 BRANCH="main"
-BOOTSTRAP_VERSION="2.0.21"
+BOOTSTRAP_VERSION="2.1.1"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -54,7 +56,8 @@ show_help() {
   cat <<'EOF'
 NanoBK Proxy Suite — Remote Bootstrap Installer
 
-Downloads (or updates) the NanoBK repository and launches the interactive installer.
+Downloads (or updates) the NanoBK repository and prepares the nanobk CLI.
+Default: install only (no deployment). Run 'nanobk' to enter NanoBK.
 
 Usage:
   bash <(curl -fsSL https://raw.githubusercontent.com/kairkiss/NanoBK-Proxy-Suite/main/installer/bootstrap.sh)
@@ -68,9 +71,10 @@ Options:
   --repo-url URL        Repository URL
   --help                Show this help
 
-Arguments after -- are passed to installer/install.sh:
+Arguments after -- are passed to installer/install.sh (legacy path):
   bash installer/bootstrap.sh -- --mode doctor
   bash installer/bootstrap.sh -- --mode commands
+  bash installer/bootstrap.sh -- --mode full
   bash installer/bootstrap.sh -- --mode vps --dry-run
 EOF
 }
@@ -238,6 +242,77 @@ handle_directory() {
   ok "仓库已更新到最新 ${BRANCH}"
 }
 
+# ── Install-only completion ─────────────────────────────────────────────────
+
+install_only_complete() {
+  # In dry-run mode, print what would happen
+  if [[ "$DRY_RUN" == "1" ]]; then
+    if [[ "$WOULD_CLONE" == "1" ]]; then
+      echo ""
+      echo -e "  ${CYAN}[DRY-RUN]${NC} 仓库尚未实际 clone。"
+      echo -e "  ${CYAN}[DRY-RUN]${NC} clone 成功后，NanoBK 将准备好。"
+    fi
+    echo ""
+    echo "  NanoBK is ready."
+    echo "  Start here:"
+    echo ""
+    echo "    nanobk"
+    echo ""
+    echo "  Deployment is no longer started automatically."
+    echo "  To run the legacy Full Wizard explicitly:"
+    echo ""
+    echo "    nanobk install --mode full"
+    echo ""
+    echo -e "  ${CYAN}[DRY-RUN]${NC} 跳过 CLI 安装"
+    return 0
+  fi
+
+  # Attempt to install nanobk CLI symlink
+  local source_path="${INSTALL_DIR}/bin/nanobk"
+  local target="/usr/local/bin/nanobk"
+
+  echo ""
+  if [[ -f "$source_path" ]]; then
+    if [[ -e "$target" ]] || [[ -L "$target" ]]; then
+      local current_link
+      current_link=$(readlink "$target" 2>/dev/null || echo "")
+      if [[ "$current_link" == "$source_path" ]]; then
+        ok "nanobk CLI 已安装: ${target} → ${source_path}"
+      else
+        warn "目标已存在: ${target} → ${current_link}"
+        echo "  覆盖请运行: sudo ln -sf \"${source_path}\" \"${target}\""
+      fi
+    else
+      # Try to install symlink
+      local target_dir
+      target_dir=$(dirname "$target")
+      if [[ -w "$target_dir" ]] || [[ $EUID -eq 0 ]]; then
+        ln -sf "$source_path" "$target"
+        ok "nanobk CLI 已安装: ${target} → ${source_path}"
+      else
+        warn "目标目录需要 root 权限: ${target_dir}"
+        echo ""
+        echo "  请手动安装 CLI:"
+        echo "    sudo ln -sf \"${source_path}\" \"${target}\""
+      fi
+    fi
+  else
+    warn "nanobk 脚本未找到: ${source_path}"
+  fi
+
+  echo ""
+  echo "  NanoBK is ready."
+  echo "  Start here:"
+  echo ""
+  echo "    nanobk"
+  echo ""
+  echo "  Deployment is no longer started automatically."
+  echo "  To run the legacy Full Wizard explicitly:"
+  echo ""
+  echo "    nanobk install --mode full"
+  echo ""
+}
+
 # ── Launch installer ────────────────────────────────────────────────────────
 
 launch_installer() {
@@ -284,7 +359,7 @@ main() {
   echo "╔══════════════════════════════════════════════════════════╗"
   echo "║           NanoBK Proxy Suite — Bootstrap                ║"
   echo "║                                                          ║"
-  echo "║  获取仓库并启动交互式安装器                              ║"
+  echo "║  获取仓库并准备 NanoBK CLI                              ║"
   echo "╚══════════════════════════════════════════════════════════╝"
   echo ""
 
@@ -295,7 +370,14 @@ main() {
   log "分支: ${BRANCH}"
 
   handle_directory
-  launch_installer
+
+  # Default: install-only (no automatic deployment installer launch)
+  # Legacy path: pass arguments after -- to installer/install.sh
+  if [[ ${#INSTALL_ARGS[@]} -gt 0 ]]; then
+    launch_installer
+  else
+    install_only_complete
+  fi
 }
 
 main "$@"

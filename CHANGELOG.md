@@ -1,5 +1,41 @@
 # Changelog
 
+## v2.1.1 — Install Product Only Entry Skeleton
+
+### Changed
+
+- Bootstrap default no longer auto-launches deployment installer (`install.sh`).
+  Without arguments, bootstrap clones/updates the repo, prepares the `nanobk` CLI
+  entry, and exits with a product-ready message.
+- Explicit legacy installer path preserved: `bash installer/bootstrap.sh -- --mode full`
+  (and other `--mode` values) still launches `install.sh` as before.
+- `nanobk` with no arguments now shows a product entry screen listing available
+  commands instead of the raw help text.
+- `nanobk --help` still shows the full detailed help.
+- Version bumped to `2.1.1` across `bin/nanobk`, `installer/install.sh`,
+  `installer/bootstrap.sh`.
+
+### Not Changed
+
+- No DNS-01, Cloudflare Tunnel, Cloudflare Access, Worker custom domain, or cert
+  automation behavior changes.
+- No Cloudflare API calls added.
+- No DNS mutation.
+- No VPS deployment template changes.
+- No Bot/Web runtime behavior changes.
+- No protocol template changes.
+- No real env files read or printed.
+- No secrets, tokens, or keys exposed.
+- No release tag.
+
+### Safety
+
+- Default bootstrap is install-only; no automatic deployment.
+- All existing explicit deployment modes (`--mode full`, `--mode vps`, etc.) remain
+  fully functional.
+- All existing `nanobk` commands remain functional.
+- Bootstrap `--` passthrough to `install.sh` preserved.
+
 ## v2.0.22 — DNS and Full Wizard DNS Phase Closeout Record
 
 ### Documentation

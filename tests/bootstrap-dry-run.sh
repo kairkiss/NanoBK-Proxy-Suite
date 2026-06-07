@@ -58,7 +58,7 @@ fi
 # ── --dry-run (clone to temp dir) ───────────────────────────────────────────
 
 echo ""
-echo "--- --dry-run ---"
+echo "--- ---"
 echo ""
 
 DRY_OUTPUT=$(bash "$ROOT/installer/bootstrap.sh" --dry-run --install-dir /tmp/nanobk-bootstrap-dry-test-$$ 2>&1 | sed 's/\x1b\[[0-9;]*m//g')
@@ -77,10 +77,26 @@ else
   ERRORS=$((ERRORS + 1))
 fi
 
+# v2.1.1: default bootstrap should NOT launch install.sh
 if grep -q "install.sh" <<< "$DRY_OUTPUT"; then
-  pass "--dry-run shows install.sh launch"
+  fail "--dry-run default should NOT show install.sh launch"
+  ERRORS=$((ERRORS + 1))
 else
-  fail "--dry-run missing install.sh launch"
+  pass "--dry-run default does not show install.sh launch (install-only)"
+fi
+
+# v2.1.1: default bootstrap should show product-ready message
+if grep -q "NanoBK is ready" <<< "$DRY_OUTPUT"; then
+  pass "--dry-run default shows 'NanoBK is ready'"
+else
+  fail "--dry-run default missing 'NanoBK is ready' message"
+  ERRORS=$((ERRORS + 1))
+fi
+
+if grep -q "nanobk" <<< "$DRY_OUTPUT"; then
+  pass "--dry-run default shows 'nanobk' next step"
+else
+  fail "--dry-run default missing 'nanobk' next step"
   ERRORS=$((ERRORS + 1))
 fi
 
@@ -103,6 +119,14 @@ if grep -q "\-\-mode commands" <<< "$PASSTHROUGH_OUTPUT"; then
   pass "passthrough --mode commands"
 else
   fail "passthrough args not forwarded"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# v2.1.1: explicit passthrough should still show install.sh launch
+if grep -q "install.sh" <<< "$PASSTHROUGH_OUTPUT"; then
+  pass "passthrough shows install.sh launch (legacy path preserved)"
+else
+  fail "passthrough missing install.sh launch"
   ERRORS=$((ERRORS + 1))
 fi
 

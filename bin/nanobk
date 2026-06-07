@@ -18,7 +18,7 @@ set -Eeuo pipefail
 
 # ── Version ─────────────────────────────────────────────────────────────────
 
-NANOBK_VERSION="2.0.21"
+NANOBK_VERSION="2.1.1"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -180,6 +180,41 @@ run_script() {
 
 cmd_version() {
   echo "nanobk ${NANOBK_VERSION}"
+}
+
+cmd_entry() {
+  echo ""
+  echo -e "${BOLD}NanoBK Proxy Suite${NC} v${NANOBK_VERSION}"
+  echo ""
+  echo "  NanoBK is ready."
+  echo ""
+  echo "  Start here:"
+  echo "    nanobk status             Show current status"
+  echo "    nanobk doctor             Run environment diagnostics"
+  echo ""
+  echo "  Deployment (explicit):"
+  echo "    nanobk install --mode full        Full Wizard (VPS + Cloudflare + Bot + Web)"
+  echo "    nanobk install --mode vps         VPS only"
+  echo "    nanobk install --mode cloudflare  Cloudflare only"
+  echo "    nanobk install --mode bot         Telegram Bot only"
+  echo "    nanobk install --mode web         Web Panel only"
+  echo ""
+  echo "  DNS (Cloudflare):"
+  echo "    nanobk cf dns plan                Dry-run DNS plan"
+  echo "    nanobk cf dns validate-profile    Validate DNS profile"
+  echo "    nanobk cf dns apply --yes          Apply DNS records"
+  echo ""
+  echo "  Management:"
+  echo "    nanobk rotate <protocol>          Rotate keys"
+  echo "    nanobk export link <protocol>     Export protocol link"
+  echo "    nanobk export links               Export all links"
+  echo "    nanobk test                       Run local tests"
+  echo "    nanobk install-cli                Install nanobk to /usr/local/bin"
+  echo "    nanobk --help                     Full help"
+  echo ""
+  echo "  Deployment is not started automatically."
+  echo "  Use explicit commands above to deploy."
+  echo ""
 }
 
 cmd_help() {
@@ -1107,7 +1142,7 @@ main() {
     export)   cmd_export ${cmd_rest[@]+"${cmd_rest[@]}"} ;;
     test)     cmd_test ${cmd_rest[@]+"${cmd_rest[@]}"} ;;
     version)  cmd_version ;;
-    "")       cmd_help ;;
+    "")       cmd_entry ;;
     *)        die "Unknown command: ${command}. Use --help for usage." ;;
   esac
 }

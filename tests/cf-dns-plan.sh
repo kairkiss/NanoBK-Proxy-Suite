@@ -63,10 +63,10 @@ FIXTURE="$ROOT/tests/fixtures/cf-dns-profile.example.json"
 NANOBK="$ROOT/bin/nanobk"
 
 NANOBK_VERSION_OUTPUT=$(bash "$NANOBK" version 2>&1)
-if echo "$NANOBK_VERSION_OUTPUT" | grep -q "2.0.21"; then
-  pass "version outputs 2.0.21"
+if echo "$NANOBK_VERSION_OUTPUT" | grep -q "2.1.1"; then
+  pass "version outputs 2.1.1"
 else
-  fail "version should output 2.0.21, got: $NANOBK_VERSION_OUTPUT"
+  fail "version should output 2.1.1, got: $NANOBK_VERSION_OUTPUT"
   ERRORS=$((ERRORS + 1))
 fi
 
