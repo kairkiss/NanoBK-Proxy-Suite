@@ -1,5 +1,19 @@
 # Changelog
 
+## v2.0.12 — Record Real Cloudflare DNS Apply Validation
+
+### Documentation
+
+- Recorded first real Cloudflare DNS Apply validation (PASS).
+- Disposable A record `nanobk-test-ab12.biankai314.uk` created and cleaned up.
+- DNS-only / proxied=false confirmed via Cloudflare Dashboard and dig.
+- Idempotent no-op confirmed on second apply.
+- No token/env/protocol/subscription leakage observed.
+- No production DNS records touched.
+- No Full Wizard/certificate/Tunnel/Access/Worker changes.
+- No code behavior changes.
+- No release tag.
+
 ## v2.0.11 — Cloudflare DNS Apply Mainline Consistency Repair
 
 ### Fixed
