@@ -1,5 +1,28 @@
 # Changelog
 
+## v2.0.22 — DNS and Full Wizard DNS Phase Closeout Record
+
+### Documentation
+
+- Recorded v2.0 DNS / Full Wizard DNS phase closeout verdict: PASS.
+- Summarized v2.0.7–v2.0.21 DNS milestones: dry-run planning, apply CLI, real
+  validation, Full Wizard integration, dirty VPS preflight fix, version consistency.
+- Referenced real validation docs:
+  `docs/validation/cloudflare-dns-apply-real-test-v2.0.11.md`,
+  `docs/validation/full-wizard-dns-dirty-vps-real-test-v2.0.19.md`.
+- Documented DNS CLI final state, Full Wizard final state, security guardrails,
+  accepted limitations, test coverage summary, and recommended next phase.
+- No code behavior changes in this commit.
+- No DNS/Cloudflare mutation.
+- No certificate/Tunnel/Access/Worker changes.
+- No release tag.
+
+### Safety
+
+- No functional behavior changes.
+- No code files modified.
+- Documentation only.
+
 ## v2.0.21 — Version Display Consistency Polish
 
 ### Fixed
