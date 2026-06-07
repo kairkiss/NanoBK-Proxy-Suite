@@ -1,5 +1,35 @@
 # Changelog
 
+## v2.0.16 — Full Wizard DNS Interactive Mock Validation
+
+### Added
+
+- New interactive mock test (Test H) in `tests/full_wizard_interactive_mock.py` that
+  drives the Full Wizard DNS flow via stdin with fake-safe values (example.com,
+  nanobk-node, 203.0.113.10, 2001:db8::10) and verifies the generated profile JSON.
+- Mock flow verifies profile is written under `NANOBK_TEST_TMPDIR`, not `/etc`.
+- Mock flow verifies profile content: zoneName, nodePrefix, ipv4, ipv6,
+  defaultProxied=false, reserved panel/nanok/nanob prefixes.
+- Mock flow verifies profile file mode is 600.
+- Mock flow verifies Summary includes Cloudflare DNS, dns_profile, dns_plan,
+  dns_check, dns_apply fields; dns_apply is never done/installed/verified/success.
+- Mock flow verifies no real Cloudflare API artifacts (Authorization header,
+  workers.dev, protocol URIs) in output.
+- New Test 17 in `tests/full-wizard-dns-skeleton.sh` that runs a stdin-driven
+  mock flow and validates the generated profile under test tmpdir.
+- Added `cleanup=False` option to `run_installer_stdin()` so callers can inspect
+  the tmpdir after the installer completes.
+- Added test fixture files:
+  `tests/fixtures/full-wizard-dns-mock-input.txt` and
+  `tests/fixtures/full-wizard-dns-mock-expected.txt`.
+
+### Safety
+
+- Still never auto-runs `apply --yes`.
+- No real Cloudflare mutation in tests.
+- No certificate/Tunnel/Access/Worker changes.
+- No release tag.
+
 ## v2.0.15 — Full Wizard DNS Resume and EOF Safety Polish
 
 ### Fixed

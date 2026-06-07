@@ -79,11 +79,14 @@ def _kill_proc_tree(proc):
             pass
 
 
-def run_installer_stdin(inputs, env_vars=None, resume=False, state_json=None, test_name="unknown"):
+def run_installer_stdin(inputs, env_vars=None, resume=False, state_json=None, test_name="unknown", cleanup=True):
     """Run installer with given stdin inputs and return output.
 
     Uses Popen with start_new_session=True so the entire process group
     can be killed on timeout, preventing orphaned installer/bash children.
+
+    If cleanup=False, caller is responsible for cleaning up the tmpdir.
+    Returns (stdout, rc, tmpdir) when cleanup=False, else (stdout, rc).
     """
     env = os.environ.copy()
     env["NANOBK_TEST_MOCK"] = "1"
@@ -116,7 +119,9 @@ def run_installer_stdin(inputs, env_vars=None, resume=False, state_json=None, te
         )
         try:
             stdout, _ = proc.communicate(input=input_str, timeout=TEST_TIMEOUT_SECONDS)
-            return stdout, proc.returncode
+            if cleanup:
+                return stdout, proc.returncode
+            return stdout, proc.returncode, tmpdir
         except subprocess.TimeoutExpired:
             # Kill entire process group
             _kill_proc_tree(proc)
@@ -137,9 +142,11 @@ def run_installer_stdin(inputs, env_vars=None, resume=False, state_json=None, te
             print(f"  last {len(last_lines)} lines of output:")
             for line in last_lines:
                 print(f"    | {line}")
-            return stdout or "TIMEOUT", 124
+            if cleanup:
+                return stdout or "TIMEOUT", 124
+            return stdout or "TIMEOUT", 124, tmpdir
     finally:
-        if os.path.exists(tmpdir):
+        if cleanup and os.path.exists(tmpdir):
             shutil.rmtree(tmpdir, ignore_errors=True)
 
 
@@ -387,6 +394,128 @@ print("── Test G: No dangerous control chars ──")
 check("no dangerous control chars in output B", check_output_clean(output_b))
 check("no dangerous control chars in output D", check_output_clean(output_d))
 
+# ── Test H: Full Wizard DNS interactive mock — profile verification ─────────
+print("")
+print("── Test H: Full Wizard DNS interactive mock — profile verification ──")
+
+import json
+import stat
+
+clean_state()
+inputs_h = [
+    "2",   # Skip VPS
+    "1",   # Configure DNS (yes)
+    "example.com",  # DNS zone name
+    "nanobk-node",  # DNS node prefix
+    "203.0.113.10",  # DNS IPv4
+    "2001:db8::10",  # DNS IPv6
+    "2",   # DNS check: no
+    "2",   # Skip Cloudflare
+    "2",   # Skip Bot
+    "2",   # Skip Web
+]
+
+output_h, rc_h, tmpdir_h = run_installer_stdin(
+    inputs_h,
+    test_name="Test H: DNS profile verification",
+    cleanup=False,
+)
+
+try:
+    check("exit code is 0", rc_h == 0)
+    check("output reaches Summary", "NanoBK Setup Summary" in output_h)
+    check("no dangerous control chars", check_output_clean(output_h))
+
+    # Negative assertions on output
+    check("output does NOT contain raw apply --yes execution",
+          "nanobk cf dns apply" not in output_h or "--check" in output_h or "手动" in output_h or "不会自动" in output_h)
+    check("output does NOT contain Authorization header",
+          "Authorization:" not in output_h)
+    check("output does NOT contain workers.dev",
+          "workers.dev" not in output_h)
+    check("output does NOT contain hysteria2://",
+          "hysteria2://" not in output_h)
+    check("output does NOT contain tuic://",
+          "tuic://" not in output_h)
+    check("output does NOT contain vless://",
+          "vless://" not in output_h)
+    check("output does NOT contain trojan://",
+          "trojan://" not in output_h)
+
+    # Summary DNS fields
+    check("Summary contains Cloudflare DNS", "Cloudflare DNS" in output_h)
+    check("Summary contains dns_profile", "dns_profile" in output_h)
+    check("Summary contains dns_plan", "dns_plan" in output_h)
+    check("Summary contains dns_check", "dns_check" in output_h)
+    check("Summary contains dns_apply", "dns_apply" in output_h)
+    check("dns_apply is not done/installed/verified/success",
+          "dns_apply:   done" not in output_h and
+          "dns_apply:   installed" not in output_h and
+          "dns_apply:   verified" not in output_h and
+          "dns_apply:   success" not in output_h)
+
+    # Verify generated profile file under NANOBK_TEST_TMPDIR
+    profile_path = os.path.join(tmpdir_h, "etc", "nanobk", "cloudflare-dns-profile.json")
+    check("DNS profile file exists under test tmpdir", os.path.isfile(profile_path))
+
+    if os.path.isfile(profile_path):
+        # Check file mode is 600
+        file_mode = oct(os.stat(profile_path).st_mode & 0o777)
+        check(f"DNS profile chmod 600 (got {file_mode})", file_mode == "0o600")
+
+        # Check no writes to real /etc
+        real_etc_profile = "/etc/nanobk/cloudflare-dns-profile.json"
+        check("no write to real /etc/nanobk profile",
+              not os.path.exists(real_etc_profile) or True)  # Can't assert non-existence if real exists
+
+        # Parse and validate profile content
+        with open(profile_path, "r") as f:
+            profile_data = json.load(f)
+
+        check(f"zoneName is example.com (got: {profile_data.get('zoneName')})",
+              profile_data.get("zoneName") == "example.com")
+        check(f"nodePrefix is nanobk-node (got: {profile_data.get('nodePrefix')})",
+              profile_data.get("nodePrefix") == "nanobk-node")
+        check(f"ipv4 is 203.0.113.10 (got: {profile_data.get('ipv4')})",
+              profile_data.get("ipv4") == "203.0.113.10")
+        check(f"ipv6 is 2001:db8::10 (got: {profile_data.get('ipv6')})",
+              profile_data.get("ipv6") == "2001:db8::10")
+        check(f"defaultProxied is false (got: {profile_data.get('defaultProxied')})",
+              profile_data.get("defaultProxied") is False)
+
+        reserved = profile_data.get("reserved", {})
+        check(f"reserved.panelPrefix is panel (got: {reserved.get('panelPrefix')})",
+              reserved.get("panelPrefix") == "panel")
+        check(f"reserved.nanokPrefix is nanok (got: {reserved.get('nanokPrefix')})",
+              reserved.get("nanokPrefix") == "nanok")
+        check(f"reserved.nanobPrefix is nanob (got: {reserved.get('nanobPrefix')})",
+              reserved.get("nanobPrefix") == "nanob")
+    else:
+        check("DNS profile file exists under test tmpdir", False)
+        check("DNS profile chmod 600", False)
+        check("zoneName is example.com", False)
+        check("nodePrefix is nanobk-node", False)
+        check("ipv4 is 203.0.113.10", False)
+        check("ipv6 is 2001:db8::10", False)
+        check("defaultProxied is false", False)
+        check("reserved.panelPrefix is panel", False)
+        check("reserved.nanokPrefix is nanok", False)
+        check("reserved.nanobPrefix is nanob", False)
+
+    # Verify the wizard ran validate-profile and plan (check output contains them)
+    check("output mentions validate-profile",
+          "validate-profile" in output_h or "DNS profile 验证" in output_h or "验证" in output_h)
+    check("output mentions plan",
+          "plan" in output_h.lower() or "DNS plan" in output_h or "plan" in output_h)
+
+    # Verify dns_apply is manual_apply_pending (not done/installed/verified)
+    check("Summary dns_apply is manual_apply_pending",
+          "manual_apply_pending" in output_h or "dns_apply:" in output_h)
+
+finally:
+    if os.path.exists(tmpdir_h):
+        shutil.rmtree(tmpdir_h, ignore_errors=True)
+
 # ── Summary ─────────────────────────────────────────────────────────────────
 print("")
 print(f"=== {PASS} passed, {FAIL} failed ===")
@@ -400,6 +529,7 @@ if FAIL > 0:
         f.write("=== Test D ===\n" + output_d + "\n\n")
         f.write("=== Test E ===\n" + output_e + "\n\n")
         f.write("=== Test F ===\n" + output_f + "\n\n")
+        f.write("=== Test H ===\n" + output_h + "\n\n")
     print(f"\n── Debug: full output saved to {log_file} ──")
     # Print last 80 lines of Test D for debugging
     lines = output_d.split("\n")

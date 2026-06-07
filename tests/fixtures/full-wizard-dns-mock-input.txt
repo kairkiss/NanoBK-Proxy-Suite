@@ -1,0 +1,25 @@
+# Full Wizard DNS Interactive Mock — stdin input sequence
+# Used by tests/full_wizard_interactive_mock.py Test H
+#
+# Menu flow:
+#   2 = Skip VPS
+#   1 = Configure DNS (yes)
+#   example.com = zone name
+#   nanobk-node = node prefix
+#   203.0.113.10 = IPv4
+#   2001:db8::10 = IPv6
+#   2 = DNS check: no
+#   2 = Skip Cloudflare
+#   2 = Skip Bot
+#   2 = Skip Web
+
+2
+1
+example.com
+nanobk-node
+203.0.113.10
+2001:db8::10
+2
+2
+2
+2

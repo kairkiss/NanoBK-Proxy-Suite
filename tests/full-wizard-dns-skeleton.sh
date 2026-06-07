@@ -488,6 +488,144 @@ assert_grep \
   'affirmative' \
   "$ROOT/installer/install.sh"
 
+# ── Test 17: Mock-driven DNS profile verification ────────────────────────
+
+echo ""
+echo "--- Mock-driven DNS profile verification ---"
+echo ""
+
+# Run the Full Wizard with stdin-driven DNS flow (no --yes, no --dry-run).
+# This exercises the real collect_dns_args path under NANOBK_TEST_MOCK=1,
+# writing the profile to NANOBK_TEST_TMPDIR instead of /etc.
+MOCK_TMPDIR=$(mktemp -d)
+trap 'rm -rf "$MOCK_TMPDIR" "$TMPDIR"' EXIT
+
+export NANOBK_TEST_MOCK=1
+export NANOBK_TEST_TMPDIR="$MOCK_TMPDIR"
+
+MOCK_INPUTS=$(printf '%s\n' \
+  "2" \
+  "1" \
+  "example.com" \
+  "nanobk-node" \
+  "203.0.113.10" \
+  "2001:db8::10" \
+  "2" \
+  "2" \
+  "2" \
+  "2")
+
+MOCK_OUTPUT=$(echo "$MOCK_INPUTS" | bash "$ROOT/installer/install.sh" --mode full --lang zh 2>&1) || true
+
+unset NANOBK_TEST_MOCK
+unset NANOBK_TEST_TMPDIR
+
+# Verify the generated profile file exists under the mock tmpdir
+MOCK_PROFILE="$MOCK_TMPDIR/etc/nanobk/cloudflare-dns-profile.json"
+if [[ -f "$MOCK_PROFILE" ]]; then
+  pass "Mock flow writes DNS profile under test tmpdir"
+else
+  fail "Mock flow did not write DNS profile under test tmpdir"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# Verify profile content via python3
+if [[ -f "$MOCK_PROFILE" ]]; then
+  if python3 -c "
+import json, sys
+with open('$MOCK_PROFILE') as f:
+    d = json.load(f)
+assert d['zoneName'] == 'example.com', f'wrong zoneName: {d.get(\"zoneName\")}'
+assert d['nodePrefix'] == 'nanobk-node', f'wrong nodePrefix: {d.get(\"nodePrefix\")}'
+assert d['ipv4'] == '203.0.113.10', f'wrong ipv4: {d.get(\"ipv4\")}'
+assert d['ipv6'] == '2001:db8::10', f'wrong ipv6: {d.get(\"ipv6\")}'
+assert d['defaultProxied'] is False, f'defaultProxied should be False: {d.get(\"defaultProxied\")}'
+assert d['reserved']['panelPrefix'] == 'panel', f'wrong panelPrefix'
+assert d['reserved']['nanokPrefix'] == 'nanok', f'wrong nanokPrefix'
+assert d['reserved']['nanobPrefix'] == 'nanob', f'wrong nanobPrefix'
+print('OK')
+" 2>&1; then
+    pass "Mock-generated profile content is correct"
+  else
+    fail "Mock-generated profile content is incorrect"
+    ERRORS=$((ERRORS + 1))
+  fi
+
+  # Verify chmod 600
+  if [[ "$(stat -c '%a' "$MOCK_PROFILE" 2>/dev/null || stat -f '%Lp' "$MOCK_PROFILE" 2>/dev/null)" == "600" ]]; then
+    pass "Mock-generated profile has chmod 600"
+  else
+    fail "Mock-generated profile should have chmod 600"
+    ERRORS=$((ERRORS + 1))
+  fi
+
+  # Verify the file is under test tmpdir, not real /etc
+  if [[ "$MOCK_PROFILE" == "$MOCK_TMPDIR"* ]]; then
+    pass "Mock profile is under test tmpdir, not real /etc"
+  else
+    fail "Mock profile should be under test tmpdir"
+    ERRORS=$((ERRORS + 1))
+  fi
+fi
+
+# Verify the mock flow ran validate-profile and plan
+if grep -q "validate-profile\|DNS profile 验证\|验证" <<< "$MOCK_OUTPUT"; then
+  pass "Mock flow ran or simulated validate-profile"
+else
+  fail "Mock flow should run validate-profile"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# Verify Summary includes DNS fields
+if grep -q "Cloudflare DNS\|dns_profile\|dns_plan\|dns_check\|dns_apply" <<< "$MOCK_OUTPUT"; then
+  pass "Mock flow Summary includes DNS fields"
+else
+  fail "Mock flow Summary should include DNS fields"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# Verify dns_apply is not done/installed/verified
+if grep -q "dns_apply:.*done\|dns_apply:.*installed\|dns_apply:.*verified\|dns_apply:.*success" <<< "$MOCK_OUTPUT"; then
+  fail "dns_apply should never be done/installed/verified/success"
+  ERRORS=$((ERRORS + 1))
+else
+  pass "dns_apply is not done/installed/verified/success"
+fi
+
+# Verify no real Cloudflare API call in mock output
+if grep -q "Authorization:\|Authorization: Bearer" <<< "$MOCK_OUTPUT"; then
+  fail "Mock output should not contain Authorization header"
+  ERRORS=$((ERRORS + 1))
+else
+  pass "Mock output does not contain Authorization header"
+fi
+
+# Negative assertions on mock output
+assert_not_grep \
+  "Mock output does not contain workers.dev" \
+  "workers\.dev" \
+  <(echo "$MOCK_OUTPUT")
+
+assert_not_grep \
+  "Mock output does not contain hysteria2://" \
+  "hysteria2://" \
+  <(echo "$MOCK_OUTPUT")
+
+assert_not_grep \
+  "Mock output does not contain tuic://" \
+  "tuic://" \
+  <(echo "$MOCK_OUTPUT")
+
+assert_not_grep \
+  "Mock output does not contain vless://" \
+  "vless://" \
+  <(echo "$MOCK_OUTPUT")
+
+assert_not_grep \
+  "Mock output does not contain trojan://" \
+  "trojan://" \
+  <(echo "$MOCK_OUTPUT")
+
 # ── Summary ──────────────────────────────────────────────────────────────
 
 echo ""

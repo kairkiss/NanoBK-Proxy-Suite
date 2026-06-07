@@ -1,0 +1,27 @@
+# Full Wizard DNS Interactive Mock — expected output assertions
+# Used by tests/full_wizard_interactive_mock.py Test H
+#
+# The mock flow should produce output that includes:
+# - Cloudflare DNS section in Summary
+# - dns_profile, dns_plan, dns_check, dns_apply fields
+# - dns_apply must NOT be done/installed/verified/success
+# - manual_apply_pending or skipped for dns_apply
+#
+# The mock flow should NOT contain:
+# - Authorization header
+# - workers.dev
+# - hysteria2://
+# - tuic://
+# - vless://
+# - trojan://
+#
+# The generated profile (under NANOBK_TEST_TMPDIR) must contain:
+# - zoneName: example.com
+# - nodePrefix: nanobk-node
+# - ipv4: 203.0.113.10
+# - ipv6: 2001:db8::10
+# - defaultProxied: false
+# - reserved.panelPrefix: panel
+# - reserved.nanokPrefix: nanok
+# - reserved.nanobPrefix: nanob
+# - file mode: 600
