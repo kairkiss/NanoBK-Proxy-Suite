@@ -1,5 +1,28 @@
 # Changelog
 
+## v2.0.20 — Record Full Wizard DNS Dirty VPS Validation
+
+### Documentation
+
+- Recorded T19/T20 real VPS validation of Full Wizard DNS Plan/Check integration.
+- T19 exposed dirty VPS preflight blocking issue: existing proxy services occupied
+  HY2/TUIC/Reality/Trojan ports, causing Full Wizard to exit before DNS stage.
+- v2.0.19 fixed Full Wizard preflight split: Phase 0 now calls common-scope
+  preflight without protocol port checks; strict port checks deferred to VPS
+  deploy branch only.
+- T20 confirmed dirty VPS DNS plan/check PASS: Full Wizard started on dirty VPS,
+  Phase 0 Preflight passed without blocking on protocol ports, user skipped VPS,
+  DNS substage ran, profile written with chmod 600, validate/plan/check passed,
+  Summary showed `manual_apply_pending`.
+- Existing proxy services remained running and undamaged after the Wizard.
+- `apply --yes` was never executed; no DNS record was created; `dig` returned no
+  result before and after test.
+- No CF_API_TOKEN, Authorization header, raw env content, Reality private key,
+  subscription URL, protocol link, or workers.dev URL leaked.
+- No code behavior changes in this commit.
+- No certificate/Tunnel/Access/Worker changes.
+- No release tag.
+
 ## v2.0.19 — Full Wizard Preflight Split Correctness Fix
 
 ### Fixed
