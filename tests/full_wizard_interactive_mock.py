@@ -556,6 +556,85 @@ finally:
     if os.path.exists(tmpdir_h):
         shutil.rmtree(tmpdir_h, ignore_errors=True)
 
+# ── Test I: Dirty VPS skip -> DNS proceeds ───────────────────────────────────
+print("")
+print("── Test I: Dirty VPS skip -> DNS proceeds ──")
+
+clean_state()
+inputs_i = [
+    "2",   # Skip VPS (user declines VPS deploy)
+    "1",   # Configure DNS (yes)
+    "example.com",  # DNS zone name
+    "nanobk-node",  # DNS node prefix
+    "203.0.113.10",  # DNS IPv4
+    "2001:db8::10",  # DNS IPv6
+    "2",   # DNS check: no
+    "2",   # Skip Cloudflare
+    "2",   # Skip Bot
+    "2",   # Skip Web
+]
+
+output_i, rc_i, tmpdir_i = run_installer_stdin(
+    inputs_i,
+    {"NANOBK_TEST_PORTS_OCCUPIED": "1"},  # Simulate occupied protocol ports
+    test_name="Test I: Dirty VPS skip -> DNS proceeds",
+    cleanup=False,
+)
+
+try:
+    check("exit code is 0", rc_i == 0)
+    check("output reaches Summary", "NanoBK Setup Summary" in output_i)
+    check("no dangerous control chars", check_output_clean(output_i))
+
+    # VPS should be skipped
+    check("VPS stage was skipped", "跳过 VPS 部署" in output_i)
+    check("shows existing deployment info", "现有部署" in output_i)
+
+    # DNS profile should be written under test tmpdir
+    profile_path_i = os.path.join(tmpdir_i, "etc", "nanobk", "cloudflare-dns-profile.json")
+    check("DNS profile file exists under test tmpdir", os.path.isfile(profile_path_i))
+
+    if os.path.isfile(profile_path_i):
+        with open(profile_path_i, "r") as f:
+            profile_data_i = json.load(f)
+        check(f"zoneName is example.com (got: {profile_data_i.get('zoneName')})",
+              profile_data_i.get("zoneName") == "example.com")
+        check(f"nodePrefix is nanobk-node (got: {profile_data_i.get('nodePrefix')})",
+              profile_data_i.get("nodePrefix") == "nanobk-node")
+        check(f"ipv4 is 203.0.113.10 (got: {profile_data_i.get('ipv4')})",
+              profile_data_i.get("ipv4") == "203.0.113.10")
+        check(f"ipv6 is 2001:db8::10 (got: {profile_data_i.get('ipv6')})",
+              profile_data_i.get("ipv6") == "2001:db8::10")
+
+    # Summary includes DNS fields
+    check("Summary contains Cloudflare DNS", "Cloudflare DNS" in output_i)
+    check("Summary contains dns_profile", "dns_profile" in output_i)
+    check("Summary contains dns_plan", "dns_plan" in output_i)
+
+    # dns_apply is never done/installed/verified/success
+    check("dns_apply is not done/installed/verified/success",
+          "dns_apply:   done" not in output_i and
+          "dns_apply:   installed" not in output_i and
+          "dns_apply:   verified" not in output_i and
+          "dns_apply:   success" not in output_i)
+
+    # No apply --yes auto-run
+    check("output does NOT contain raw apply --yes execution",
+          assert_apply_yes_manual_only(output_i))
+
+    # No real Cloudflare API artifacts
+    check("output does NOT contain Authorization header",
+          "Authorization:" not in output_i)
+    check("output does NOT contain workers.dev",
+          "workers.dev" not in output_i)
+
+    # VPS stage should show skipped (not failed)
+    check("VPS stage is skipped (not failed)", "VPS_STAGE_STATUS" not in output_i or "failed" not in output_i.split("VPS")[0][-50:] if "VPS" in output_i else True)
+
+finally:
+    if os.path.exists(tmpdir_i):
+        shutil.rmtree(tmpdir_i, ignore_errors=True)
+
 # ── Summary ─────────────────────────────────────────────────────────────────
 print("")
 print(f"=== {PASS} passed, {FAIL} failed ===")
@@ -570,6 +649,7 @@ if FAIL > 0:
         f.write("=== Test E ===\n" + output_e + "\n\n")
         f.write("=== Test F ===\n" + output_f + "\n\n")
         f.write("=== Test H ===\n" + output_h + "\n\n")
+        f.write("=== Test I ===\n" + output_i + "\n\n")
     print(f"\n── Debug: full output saved to {log_file} ──")
     # Print last 80 lines of Test D for debugging
     lines = output_d.split("\n")

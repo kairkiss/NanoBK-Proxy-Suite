@@ -1,5 +1,36 @@
 # Changelog
 
+## v2.0.18 — Full Wizard DNS Dirty VPS Resume Preflight Polish
+
+### Fixed
+
+- Protocol port preflight (HY2:443/udp, TUIC:9443/udp, Reality:8443/tcp,
+  Trojan:2443/tcp) is now gated to VPS deploy/redeploy paths only. When user
+  skips VPS configuration, port checks are skipped and DNS stage proceeds.
+- Added `NANOBK_VPS_SKIP_PORTS=1` flag: set when user skips VPS in Full Wizard,
+  causes preflight to skip protocol port checks with informational message.
+- Added VPS port re-check before `collect_vps_args` when user chooses VPS deploy.
+  Port conflicts remain fatal for VPS reconfiguration.
+- Added `NANOBK_TEST_PORTS_OCCUPIED=1` test hook: simulates all 4 protocol ports
+  as occupied without starting real services. Used in tests only.
+- `handle_core_port_conflict()` is now non-fatal in mock mode (`NANOBK_TEST_MOCK=1`):
+  reports conflict and returns 1 instead of calling `die`.
+- Added Test 18 in `tests/full-wizard-dns-skeleton.sh`: dirty VPS + skip VPS ->
+  DNS proceeds, profile written under test tmpdir, Summary includes DNS fields.
+- Added Test 19: static source checks for port preflight gating.
+- Added Test I in `tests/full_wizard_interactive_mock.py`: interactive mock driving
+  dirty VPS skip flow with occupied ports, verifying DNS profile generation.
+
+### Safety
+
+- No production behavior changes to VPS deploy path.
+- Strict port conflict remains fatal for VPS reconfiguration.
+- Cloudflare/BotWeb resume still skips DNS.
+- Still never auto-runs `apply --yes`.
+- No real Cloudflare mutation in tests.
+- No certificate/Tunnel/Access/Worker changes.
+- No release tag.
+
 ## v2.0.17 — Full Wizard DNS Mock Assertion Polish
 
 ### Fixed

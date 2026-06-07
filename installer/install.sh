@@ -2588,6 +2588,12 @@ check_port_available() {
   local proto="$2"
   local label="$3"
 
+  # Test-only hook: simulate all protocol ports as occupied
+  if [[ "${NANOBK_TEST_PORTS_OCCUPIED:-}" == "1" ]]; then
+    preflight_fail "${label} :${port} (${proto}): occupied (test-simulated)"
+    return 1
+  fi
+
   if [[ "$DRY_RUN" == "1" ]] || [[ "${NANOBK_TEST_MOCK:-}" == "1" ]] || [[ "${NANOBK_ASSUME_PORTS_FREE:-}" == "1" ]]; then
     preflight_pass "${label} :${port} (${proto}): assumed free (mock/dry-run)"
     return 0
@@ -2620,6 +2626,12 @@ check_port_available() {
 handle_core_port_conflict() {
   local port="$1"
   local label="$2"
+
+  # In mock mode, don't die — just report the conflict for testing
+  if [[ "${NANOBK_TEST_MOCK:-}" == "1" ]]; then
+    preflight_fail "${label} :${port}: port conflict (mock — not fatal)"
+    return 1
+  fi
 
   echo ""
   say_yellow "端口 ${port} (${label}) 已被占用。"
@@ -2790,6 +2802,13 @@ run_unified_preflight() {
     preflight_pass "TUIC :9443 (udp): skipped (existing deployment resume)"
     preflight_pass "Reality :8443 (tcp): skipped (existing deployment resume)"
     preflight_pass "Trojan :2443 (tcp): skipped (existing deployment resume)"
+  elif [[ "${NANOBK_VPS_SKIP_PORTS:-}" == "1" ]]; then
+    # User chose to skip VPS deployment — existing services may own these ports
+    echo ""
+    preflight_pass "HY2 :443 (udp): skipped (VPS stage skipped)"
+    preflight_pass "TUIC :9443 (udp): skipped (VPS stage skipped)"
+    preflight_pass "Reality :8443 (tcp): skipped (VPS stage skipped)"
+    preflight_pass "Trojan :2443 (tcp): skipped (VPS stage skipped)"
   elif [[ "$os_name" == "Linux" ]]; then
     echo ""
     check_port_available 443 udp "HY2" || handle_core_port_conflict 443 "HY2" || true
@@ -3433,8 +3452,50 @@ run_full_wizard() {
   if [[ "$START_FROM_STAGE" == "cloudflare" ]] || [[ "$START_FROM_STAGE" == "botweb" ]]; then
     echo "  已跳过 VPS 部署（从 ${START_FROM_STAGE} 继续）。"
   elif ask_yes_no_menu "是否配置 VPS 部署？" "y"; then
+    # VPS protocol port preflight — only when actually deploying VPS
+    # These ports must be free for VPS deployment to succeed
+    if [[ "$DRY_RUN" != "1" ]] && [[ "${NANOBK_TEST_MOCK:-}" != "1" ]] && [[ "${NANOBK_ASSUME_PORTS_FREE:-}" != "1" ]]; then
+      echo ""
+      log "检查 VPS 协议端口..."
+      local vps_ports_ok=1
+      check_port_available 443 udp "HY2" || vps_ports_ok=0
+      check_port_available 9443 udp "TUIC" || vps_ports_ok=0
+      check_port_available 8443 tcp "Reality" || vps_ports_ok=0
+      check_port_available 2443 tcp "Trojan" || vps_ports_ok=0
+      if [[ "$vps_ports_ok" == "0" ]]; then
+        echo ""
+        say_yellow "VPS 协议端口冲突。请先释放占用的端口后重试。"
+        echo ""
+        echo "  恢复命令："
+        echo "    bash installer/install.sh --mode vps --lang zh"
+        echo ""
+        VPS_STAGE_STATUS="failed"
+        SUMMARY_HAS_FAILURES=1
+      fi
+    elif [[ "${NANOBK_TEST_PORTS_OCCUPIED:-}" == "1" ]]; then
+      # Test hook: simulate port conflicts during VPS deploy
+      echo ""
+      log "检查 VPS 协议端口..."
+      check_port_available 443 udp "HY2" || true
+      check_port_available 9443 udp "TUIC" || true
+      check_port_available 8443 tcp "Reality" || true
+      check_port_available 2443 tcp "Trojan" || true
+      echo ""
+      say_yellow "VPS 协议端口冲突（测试模拟）。"
+      echo ""
+      echo "  恢复命令："
+      echo "    bash installer/install.sh --mode vps --lang zh"
+      echo ""
+      VPS_STAGE_STATUS="failed"
+      SUMMARY_HAS_FAILURES=1
+    fi
+
     local vps_rc=0
-    collect_vps_args || vps_rc=$?
+    if [[ "${VPS_STAGE_STATUS:-}" != "failed" ]]; then
+      collect_vps_args || vps_rc=$?
+    else
+      vps_rc=1
+    fi
     case "$vps_rc" in
       0)
         # Check deploy result (saved before optional healthcheck/status checks)
@@ -3483,7 +3544,11 @@ run_full_wizard() {
     fi
   else
     VPS_STAGE_STATUS="skipped"
+    NANOBK_VPS_SKIP_PORTS=1
     echo "  跳过 VPS 部署。"
+    echo ""
+    echo "  注意：VPS 协议端口可能已被现有服务占用。"
+    echo "  VPS 阶段已跳过，将视为现有部署继续准备 Cloudflare DNS。"
   fi
 
   # Write wizard state

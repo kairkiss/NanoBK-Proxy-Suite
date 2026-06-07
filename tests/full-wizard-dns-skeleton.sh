@@ -626,6 +626,165 @@ assert_not_grep \
   "trojan://" \
   <(echo "$MOCK_OUTPUT")
 
+# ── Test 18: Dirty VPS + skip VPS -> DNS proceeds ───────────────────────
+
+echo ""
+echo "--- Dirty VPS + skip VPS -> DNS proceeds ---"
+echo ""
+
+# Simulate a dirty VPS with occupied protocol ports.
+# User skips VPS configuration. DNS stage should still proceed.
+DIRTY_VPS_TMPDIR=$(mktemp -d)
+trap 'rm -rf "$DIRTY_VPS_TMPDIR" "$MOCK_TMPDIR" "$TMPDIR"' EXIT
+
+export NANOBK_TEST_MOCK=1
+export NANOBK_TEST_TMPDIR="$DIRTY_VPS_TMPDIR"
+export NANOBK_TEST_PORTS_OCCUPIED=1
+
+# Inputs: skip VPS (2), configure DNS (1), zone, prefix, IPv4, IPv6, skip check (2),
+#         skip CF (2), skip Bot (2), skip Web (2)
+DIRTY_INPUTS=$(printf '%s\n' \
+  "2" \
+  "1" \
+  "example.com" \
+  "nanobk-node" \
+  "203.0.113.10" \
+  "2001:db8::10" \
+  "2" \
+  "2" \
+  "2" \
+  "2")
+
+DIRTY_OUTPUT=$(echo "$DIRTY_INPUTS" | bash "$ROOT/installer/install.sh" --mode full --lang zh 2>&1) || true
+
+unset NANOBK_TEST_MOCK
+unset NANOBK_TEST_TMPDIR
+unset NANOBK_TEST_PORTS_OCCUPIED
+
+# Verify VPS was skipped
+if grep -q "跳过 VPS 部署" <<< "$DIRTY_OUTPUT"; then
+  pass "Dirty VPS: VPS stage was skipped"
+else
+  fail "Dirty VPS: VPS stage should be skipped"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# Verify informational message about existing deployment
+if grep -q "现有部署" <<< "$DIRTY_OUTPUT"; then
+  pass "Dirty VPS: shows existing deployment info"
+else
+  fail "Dirty VPS: should show existing deployment info"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# Verify DNS profile was written under test tmpdir
+DIRTY_PROFILE="$DIRTY_VPS_TMPDIR/etc/nanobk/cloudflare-dns-profile.json"
+if [[ -f "$DIRTY_PROFILE" ]]; then
+  pass "Dirty VPS: DNS profile written under test tmpdir"
+else
+  fail "Dirty VPS: DNS profile should be written under test tmpdir"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# Verify DNS profile content
+if [[ -f "$DIRTY_PROFILE" ]]; then
+  if python3 -c "
+import json, sys
+with open('$DIRTY_PROFILE') as f:
+    d = json.load(f)
+assert d.get('zoneName') == 'example.com'
+assert d.get('nodePrefix') == 'nanobk-node'
+assert d.get('ipv4') == '203.0.113.10'
+assert d.get('ipv6') == '2001:db8::10'
+print('OK')
+" 2>&1; then
+    pass "Dirty VPS: DNS profile content is correct"
+  else
+    fail "Dirty VPS: DNS profile content is incorrect"
+    ERRORS=$((ERRORS + 1))
+  fi
+fi
+
+# Verify Summary includes DNS fields
+if grep -q "Cloudflare DNS" <<< "$DIRTY_OUTPUT"; then
+  pass "Dirty VPS: Summary includes Cloudflare DNS"
+else
+  fail "Dirty VPS: Summary should include Cloudflare DNS"
+  ERRORS=$((ERRORS + 1))
+fi
+
+if grep -q "dns_profile" <<< "$DIRTY_OUTPUT" && grep -q "dns_plan" <<< "$DIRTY_OUTPUT"; then
+  pass "Dirty VPS: Summary includes dns_profile and dns_plan"
+else
+  fail "Dirty VPS: Summary should include dns_profile and dns_plan"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# Verify dns_apply is never done/installed/verified/success
+if grep -q "dns_apply:.*done\|dns_apply:.*installed\|dns_apply:.*verified\|dns_apply:.*success" <<< "$DIRTY_OUTPUT"; then
+  fail "Dirty VPS: dns_apply should never be done/installed/verified/success"
+  ERRORS=$((ERRORS + 1))
+else
+  pass "Dirty VPS: dns_apply is not done/installed/verified/success"
+fi
+
+# Verify no apply --yes auto-run
+if grep -q "nanobk cf dns apply" <<< "$DIRTY_OUTPUT"; then
+  # If present, must be in manual context
+  if grep -B2 "nanobk cf dns apply" <<< "$DIRTY_OUTPUT" | grep -q "手动\|不会自动\|manual\|review\|注意\|请手动"; then
+    pass "Dirty VPS: apply --yes only in manual context"
+  else
+    fail "Dirty VPS: apply --yes should only appear in manual context"
+    ERRORS=$((ERRORS + 1))
+  fi
+else
+  pass "Dirty VPS: no apply --yes in output"
+fi
+
+# ── Test 19: VPS port preflight gated to VPS deploy path ───────────────
+
+echo ""
+echo "--- VPS port preflight gated to VPS deploy path ---"
+echo ""
+
+# Static check: protocol port checks in preflight are gated
+# The preflight should NOT fatal on occupied ports when VPS is skipped
+# Verify that NANOBK_VPS_SKIP_PORTS gates port checks
+assert_grep \
+  "Preflight skips ports when NANOBK_VPS_SKIP_PORTS=1" \
+  'NANOBK_VPS_SKIP_PORTS.*1' \
+  "$ROOT/installer/install.sh"
+
+# Verify that port checks happen in VPS deploy path
+assert_grep \
+  "VPS deploy path checks ports" \
+  'check_port_available.*443.*udp.*HY2' \
+  "$ROOT/installer/install.sh"
+
+# Verify NANOBK_TEST_PORTS_OCCUPIED hook exists
+assert_grep \
+  "Test ports occupied hook exists" \
+  'NANOBK_TEST_PORTS_OCCUPIED' \
+  "$ROOT/installer/install.sh"
+
+# Verify handle_core_port_conflict is non-fatal in mock mode
+assert_grep \
+  "Port conflict handler is non-fatal in mock mode" \
+  'port conflict.*mock.*not fatal' \
+  "$ROOT/installer/install.sh"
+
+# Verify skip VPS sets NANOBK_VPS_SKIP_PORTS
+assert_grep \
+  "Skip VPS sets NANOBK_VPS_SKIP_PORTS" \
+  'NANOBK_VPS_SKIP_PORTS=1' \
+  "$ROOT/installer/install.sh"
+
+# Verify informational message on skip
+assert_grep \
+  "Skip VPS shows existing deployment info" \
+  '现有部署.*继续准备.*Cloudflare DNS' \
+  "$ROOT/installer/install.sh"
+
 # ── Summary ──────────────────────────────────────────────────────────────
 
 echo ""
