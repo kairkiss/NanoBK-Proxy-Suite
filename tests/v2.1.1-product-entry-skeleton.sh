@@ -109,6 +109,7 @@ assert_contains "$ENTRY_OUTPUT" "nanobk status" "entry lists status command"
 assert_contains "$ENTRY_OUTPUT" "nanobk doctor" "entry lists doctor command"
 assert_contains "$ENTRY_OUTPUT" "nanobk install --mode full" "entry lists full wizard command"
 assert_contains "$ENTRY_OUTPUT" "Deployment is not started automatically" "entry explains no auto-deploy"
+assert_contains "$ENTRY_OUTPUT" "nanobk console" "entry mentions console command"
 
 # DNS section: safe read-only commands shown, apply --yes hidden
 assert_contains "$ENTRY_OUTPUT" "cf dns plan" "entry lists cf dns plan"

@@ -5,6 +5,8 @@
 # Designed for use by future Telegram Bot / Web Panel (1.x).
 #
 # Usage:
+#   nanobk                    Interactive console (TTY) or entry help
+#   nanobk console            Interactive console (explicit)
 #   nanobk status
 #   nanobk doctor
 #   nanobk install --mode commands
@@ -182,7 +184,191 @@ cmd_version() {
   echo "nanobk ${NANOBK_VERSION}"
 }
 
+# ── Console helpers ─────────────────────────────────────────────────────────
+
+# Returns 0 if both stdin and stdout are TTYs
+is_interactive_tty() {
+  [[ -t 0 ]] && [[ -t 1 ]]
+}
+
+print_console_header() {
+  echo ""
+  echo -e "${BOLD}╔══════════════════════════════════════════════════════════╗${NC}"
+  echo -e "${BOLD}║                    NanoBK Proxy Suite                   ║${NC}"
+  echo -e "${BOLD}║              VPS Proxy Automation Console               ║${NC}"
+  echo -e "${BOLD}╚══════════════════════════════════════════════════════════╝${NC}"
+  echo ""
+  echo "  NanoBK v${NANOBK_VERSION}"
+  echo "  Deployment is never started automatically."
+  echo ""
+}
+
+print_console_menu() {
+  echo "  1) Status"
+  echo "  2) Doctor / diagnostics"
+  echo "  3) New deployment / Full Wizard"
+  echo "  4) Cloudflare DNS tools"
+  echo "  5) Export protocol links"
+  echo "  6) Rotate keys"
+  echo "  7) Install / repair CLI"
+  echo "  8) Advanced commands / full help"
+  echo "  9) Exit"
+  echo ""
+}
+
+# DNS submenu — read-only actions only
+console_dns_submenu() {
+  echo ""
+  echo -e "  ${BOLD}Cloudflare DNS Tools${NC}"
+  echo ""
+  echo "  1) Preview DNS plan (dry-run)"
+  echo "  2) Validate DNS profile"
+  echo "  3) Read-only check (--check)"
+  echo "  4) Back"
+  echo ""
+  local choice
+  read -rp "  Select [1-4]: " choice || { echo ""; return; }
+  case "$choice" in
+    1)
+      echo ""
+      echo "  Running: nanobk cf dns plan"
+      echo ""
+      cmd_cf_dns plan || true
+      ;;
+    2)
+      echo ""
+      echo "  Running: nanobk cf dns validate-profile"
+      echo ""
+      cmd_cf_dns validate-profile || true
+      ;;
+    3)
+      echo ""
+      echo "  Read-only check requires a profile and api-env."
+      echo "  Run manually:"
+      echo ""
+      echo "    nanobk cf dns apply --profile /etc/nanobk/cloudflare-dns-profile.json \\"
+      echo "      --api-env /etc/nanobk/cloudflare-api.env --check"
+      echo ""
+      ;;
+    4|"")
+      return
+      ;;
+    *)
+      echo "  Invalid input. Please enter 1-4."
+      ;;
+  esac
+}
+
+# Console loop — interactive menu
+console_loop() {
+  while true; do
+    print_console_menu
+    local choice
+    read -rp "  Select [1-9]: " choice || { echo ""; break; }
+    case "$choice" in
+      1)
+        echo ""
+        cmd_status || true
+        ;;
+      2)
+        echo ""
+        cmd_doctor || true
+        ;;
+      3)
+        echo ""
+        echo "  This starts the legacy Full Wizard."
+        echo "  Command: nanobk install --mode full"
+        echo ""
+        echo "    1) Start Full Wizard"
+        echo "    2) Back"
+        echo ""
+        local deploy_choice
+        read -rp "  Select [1-2]: " deploy_choice || { echo ""; continue; }
+        case "$deploy_choice" in
+          1)
+            echo ""
+            echo "  Starting Full Wizard..."
+            echo ""
+            cmd_install --mode full || true
+            ;;
+          2|"")
+            continue
+            ;;
+          *)
+            echo "  Invalid input. Returning to menu."
+            ;;
+        esac
+        ;;
+      4)
+        console_dns_submenu
+        ;;
+      5)
+        echo ""
+        echo -e "  ${YELLOW}Protocol links are sensitive — do not share them.${NC}"
+        echo ""
+        echo "  Export commands:"
+        echo "    nanobk export link hy2"
+        echo "    nanobk export link tuic"
+        echo "    nanobk export link reality"
+        echo "    nanobk export link trojan"
+        echo "    nanobk export links"
+        echo ""
+        ;;
+      6)
+        echo ""
+        echo -e "  ${YELLOW}Rotating keys replaces existing protocol credentials.${NC}"
+        echo ""
+        echo "  Rotate commands:"
+        echo "    nanobk rotate all"
+        echo "    nanobk rotate hy2"
+        echo "    nanobk rotate tuic"
+        echo "    nanobk rotate reality"
+        echo "    nanobk rotate trojan"
+        echo ""
+        echo "  Run these commands explicitly when ready."
+        echo ""
+        ;;
+      7)
+        echo ""
+        cmd_install_cli || true
+        ;;
+      8)
+        echo ""
+        cmd_help
+        ;;
+      9|"")
+        echo ""
+        echo "  Goodbye."
+        echo ""
+        break
+        ;;
+      *)
+        echo "  Invalid input. Please enter 1-9."
+        ;;
+    esac
+  done
+}
+
+# Main console command
+cmd_console() {
+  if is_interactive_tty; then
+    print_console_header
+    console_loop
+  else
+    # Non-TTY: show safe entry text and exit
+    cmd_entry
+  fi
+}
+
 cmd_entry() {
+  # TTY: open interactive console
+  if is_interactive_tty; then
+    print_console_header
+    console_loop
+    return
+  fi
+
+  # Non-TTY: safe non-interactive entry screen
   echo ""
   echo -e "${BOLD}NanoBK Proxy Suite${NC} v${NANOBK_VERSION}"
   echo ""
@@ -211,6 +397,7 @@ cmd_entry() {
   echo "    nanobk export links               Export all links"
   echo "    nanobk test                       Run local tests"
   echo "    nanobk install-cli                Install nanobk to /usr/local/bin"
+  echo "    nanobk console                    Interactive console (TTY required)"
   echo "    nanobk --help                     Full help"
   echo ""
   echo "  Deployment is not started automatically."
@@ -234,6 +421,7 @@ NanoBK Proxy Suite — Unified CLI v${NANOBK_VERSION}
 命令:
   status [--config-dir PATH]  显示 VPS / Cloudflare / 聚合器状态
   doctor                      运行环境诊断
+  console                     交互式控制台（需要 TTY）
   install [args...]           启动交互式安装器
   install-cli                 安装 nanobk 到 /usr/local/bin
   cf deploy [args...]         部署 Cloudflare Workers
@@ -1143,6 +1331,7 @@ main() {
     export)   cmd_export ${cmd_rest[@]+"${cmd_rest[@]}"} ;;
     test)     cmd_test ${cmd_rest[@]+"${cmd_rest[@]}"} ;;
     version)  cmd_version ;;
+    console)  cmd_console ;;
     "")       cmd_entry ;;
     *)        die "Unknown command: ${command}. Use --help for usage." ;;
   esac

@@ -1,5 +1,29 @@
 # Changelog
 
+## v2.1.2 — Branded CLI/TUI Skeleton
+
+### Added
+
+- Branded interactive `nanobk console` for TTY sessions with numbered menu,
+  NanoBK logo header, and safe beginner-friendly navigation.
+- Menu options: Status, Doctor, Full Wizard (confirmation-gated), Cloudflare
+  DNS tools (read-only submenu), Export links (guidance-only), Rotate keys
+  (guidance-only), Install/repair CLI, Advanced help, Exit.
+- `nanobk` with no args on TTY now opens interactive console.
+- `nanobk` with no args in non-TTY (pipes, CI, scripts) shows safe non-interactive
+  entry screen and exits 0 — never blocks waiting for input.
+- Explicit `nanobk console` command; non-TTY fallback to safe entry text.
+- Full Wizard requires explicit confirmation before launching.
+- DNS submenu shows only read-only actions; `apply --yes` is not surfaced.
+- Rotate and Export remain guidance-only in the console menu.
+
+### Not Changed
+
+- No DNS/Cloudflare/cert/Tunnel/Access/Web/Bot runtime behavior changes.
+- No `nanobk cf dns apply --yes` removed or broken.
+- No real Cloudflare API calls.
+- No release tag.
+
 ## v2.1.1-polish — Safer Default DNS Entry Copy
 
 ### Changed
