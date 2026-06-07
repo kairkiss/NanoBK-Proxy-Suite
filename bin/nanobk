@@ -269,10 +269,11 @@ console_dns_submenu() {
   echo "  1) Preview DNS plan"
   echo "  2) Validate DNS profile"
   echo "  3) Read-only check (--check)"
-  echo "  4) Back"
+  echo "  4) DNS readiness report"
+  echo "  5) Back"
   echo ""
   local choice
-  read -rp "  Select [1-4]: " choice || { echo ""; return; }
+  read -rp "  Select [1-5]: " choice || { echo ""; return; }
   case "$choice" in
     1)
       echo ""
@@ -300,11 +301,20 @@ console_dns_submenu() {
       echo "      --api-env /etc/nanobk/cloudflare-api.env --check"
       console_pause
       ;;
-    4|"")
+    4)
+      echo ""
+      ui_safe_action "DNS readiness report (read-only):"
+      echo ""
+      echo "    nanobk cf dns readiness \\"
+      echo "      --api-env /etc/nanobk/cloudflare-api.env \\"
+      echo "      --profile /etc/nanobk/cloudflare-dns-profile.json"
+      console_pause
+      ;;
+    5|"")
       return
       ;;
     *)
-      echo "  Invalid input. Please enter 1-4."
+      echo "  Invalid input. Please enter 1-5."
       console_pause
       ;;
   esac
@@ -496,6 +506,7 @@ NanoBK Proxy Suite — Unified CLI v${NANOBK_VERSION}
   cf dns plan [options...]    Cloudflare DNS 干跑计划（不创建 DNS）
   cf dns validate-profile     验证 DNS 配置文件
   cf dns apply [options...]   应用 DNS 记录到 Cloudflare（需要 --yes）
+  cf dns readiness [--api-env PATH] [--profile PATH]  只读 DNS 就绪检查 [--json]
   cf zones list --api-env PATH  只读列出 Cloudflare zones [--json]
   rotate <protocol> [args.]  换密钥: all|hy2|tuic|reality|trojan
   export link <protocol>     导出单个协议链接: hy2|tuic|reality|trojan
@@ -1155,12 +1166,38 @@ cmd_cf_dns() {
       "${args[@]}"
       ;;
 
+    readiness)
+      local args=(python3 "$REPO_DIR/lib/nanobk_cf_dns_readiness.py")
+      while [[ $# -gt 0 ]]; do
+        case "$1" in
+          --api-env)
+            [[ $# -ge 2 ]] || die "cf dns readiness: --api-env needs a path argument"
+            args+=("$1" "$2"); shift 2 ;;
+          --profile)
+            [[ $# -ge 2 ]] || die "cf dns readiness: --profile needs a path argument"
+            args+=("$1" "$2"); shift 2 ;;
+          --json)
+            args+=("--json"); shift ;;
+          --help|-h)
+            args+=("--help"); shift ;;
+          --dry-run)
+            # readiness is already read-only; ignore
+            shift ;;
+          *)
+            die "cf dns readiness: unknown option: $1"
+            ;;
+        esac
+      done
+
+      "${args[@]}"
+      ;;
+
     "")
-      die "Usage: nanobk cf dns <plan|validate-profile|apply> [options...]"
+      die "Usage: nanobk cf dns <plan|validate-profile|apply|readiness> [options...]"
       ;;
 
     *)
-      die "Unknown cf dns subcommand: ${dns_sub}. Use: nanobk cf dns <plan|validate-profile|apply>"
+      die "Unknown cf dns subcommand: ${dns_sub}. Use: nanobk cf dns <plan|validate-profile|apply|readiness>"
       ;;
   esac
 }

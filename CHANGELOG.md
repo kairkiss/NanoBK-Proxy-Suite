@@ -1,5 +1,33 @@
 # Changelog
 
+## v2.1.5 — DNS Readiness Skeleton
+
+### Added
+
+- `nanobk cf dns readiness [--api-env PATH] [--profile PATH] [--json]` —
+  read-only DNS readiness report.
+- `lib/nanobk_cf_dns_readiness.py` — standalone Python helper that reuses
+  `nanobk_cf_zones` (env parsing, zone discovery) and `nanobk_cf_dns` (profile
+  validation, plan metadata).
+- Checks: api-env presence/permissions/parsing, zone discovery, DNS profile
+  presence/validation, local plan metadata, apply status.
+- `--api-env` and `--profile` are optional; omitted inputs report
+  `manual_pending`/`skipped` with safe next-step guidance.
+- JSON mode: `{"ok": bool, "mutation": false, "checks": [...], "dns_apply_status": "manual_apply_pending", "next_steps": [...]}`.
+- Console DNS submenu now includes option 4) DNS readiness report (guidance-only).
+- Focused test: `tests/cf-dns-readiness.sh` with 55+ assertions.
+
+### Not Changed
+
+- No DNS mutation (no create/update/delete).
+- No `cf dns apply` called from readiness.
+- No `apply --check` called from readiness.
+- No existing DNS apply behavior changes.
+- No Cloudflare POST/PATCH/DELETE.
+- No console auto-execution of readiness.
+- No `apply --yes` added anywhere.
+- No release tag.
+
 ## v2.1.4 — Cloudflare Read-Only Zone Discovery Skeleton
 
 ### Added

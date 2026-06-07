@@ -1,0 +1,12 @@
+{
+  "zoneName": "example.com",
+  "nodePrefix": "nanobk-node",
+  "ipv4": "203.0.113.10",
+  "ipv6": "2001:db8::10",
+  "defaultProxied": false,
+  "reserved": {
+    "panelPrefix": "panel",
+    "nanokPrefix": "nanok",
+    "nanobPrefix": "nanob"
+  }
+}
