@@ -62,6 +62,14 @@ echo ""
 FIXTURE="$ROOT/tests/fixtures/cf-dns-profile.example.json"
 NANOBK="$ROOT/bin/nanobk"
 
+NANOBK_VERSION_OUTPUT=$(bash "$NANOBK" version 2>&1)
+if echo "$NANOBK_VERSION_OUTPUT" | grep -q "2.0.11"; then
+  pass "version outputs 2.0.11"
+else
+  fail "version should output 2.0.11, got: $NANOBK_VERSION_OUTPUT"
+  ERRORS=$((ERRORS + 1))
+fi
+
 # ── Fixture exists ─────────────────────────────────────────────────────────
 
 echo "--- Fixture ---"
@@ -115,6 +123,12 @@ assert_contains "$PROFILE_OUTPUT" "Cloudflare DNS dry-run plan" "profile plan ha
 assert_contains "$PROFILE_OUTPUT" "node.example.com" "profile plan has node hostname"
 assert_contains "$PROFILE_OUTPUT" "proxied=false" "profile plan says proxied=false"
 assert_contains "$PROFILE_OUTPUT" "no mutation performed" "profile plan says no mutation"
+assert_not_contains "$PROFILE_OUTPUT" "not implemented yet" "profile plan does not say 'not implemented yet'"
+assert_contains "$PROFILE_OUTPUT" "next safe steps" "profile plan has next safe steps section"
+assert_contains "$PROFILE_OUTPUT" "cf dns apply" "profile plan mentions cf dns apply"
+assert_contains "$PROFILE_OUTPUT" "dry-run" "profile plan mentions dry-run"
+assert_contains "$PROFILE_OUTPUT" "--check" "profile plan mentions --check"
+assert_contains "$PROFILE_OUTPUT" "--yes" "profile plan mentions --yes"
 
 # ── JSON output ───────────────────────────────────────────────────────────
 

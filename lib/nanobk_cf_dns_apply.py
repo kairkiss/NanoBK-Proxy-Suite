@@ -946,23 +946,34 @@ def _handle_apply(args: argparse.Namespace) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="NanoBK Cloudflare DNS apply helper"
+        description="NanoBK Cloudflare DNS apply helper",
+        epilog=(
+            "Safety notes:\n"
+            "  --dry-run performs no Cloudflare API calls\n"
+            "  --check performs GET-only checks (no mutation)\n"
+            "  --yes is required before POST/PATCH mutations\n"
+            "  --force is reserved and not implemented\n"
+            "  No delete support.\n"
+            "  No Tunnel/Access/certificate/Worker changes.\n"
+            "\n"
+            "Usage:\n"
+            "  nanobk cf dns apply --profile PATH --api-env PATH [--dry-run|--check|--yes] [--json]\n"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
         "--profile",
-        required=True,
         help="Path to DNS profile JSON file",
     )
     parser.add_argument(
         "--api-env",
-        required=True,
         help="Path to Cloudflare API env file (CF_API_TOKEN, CF_ZONE_ID, CF_ZONE_NAME)",
     )
     parser.add_argument(
         "--dry-run",
         action="store_true",
         dest="dry_run",
-        help="Validate only, no API calls",
+        help="Validate only, no Cloudflare API calls",
     )
     parser.add_argument(
         "--check",
@@ -986,10 +997,15 @@ def main() -> None:
         "--force",
         action="store_true",
         dest="force",
-        help="Reserved for future use",
+        help="Reserved for future use (not implemented)",
     )
 
     args = parser.parse_args()
+
+    # Require --profile and --api-env for actual execution (not help)
+    if not args.profile or not args.api_env:
+        parser.error("--profile and --api-env are required")
+
     _handle_apply(args)
 
 

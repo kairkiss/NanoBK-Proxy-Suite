@@ -1,5 +1,31 @@
 # Changelog
 
+## v2.0.11 — Cloudflare DNS Apply Mainline Consistency Repair
+
+### Fixed
+
+- Updated version to 2.0.11 for mainline consistency.
+- `nanobk cf dns apply --help` and `-h` now work correctly (exits 0, prints usage).
+  Previously the bash wrapper rejected `--help` as an unknown option before it
+  reached the Python argparse handler.
+- Updated apply help text with safety notes: --dry-run performs no API calls,
+  --check is GET-only, --yes required for mutation, --force reserved, no delete,
+  no Tunnel/Access/certificate/Worker changes.
+- Removed stale "not implemented yet" wording from `nanobk cf dns plan` output.
+  Now correctly directs users to `nanobk cf dns apply --dry-run` as the next step.
+- Plan output now shows concrete next-step instructions: dry-run, check, then --yes.
+
+### Safety
+
+- No real Cloudflare API calls made.
+- No DNS records created or deleted.
+- No force overwrite implemented.
+- No Tunnel/Access/certificate/Worker changes.
+- No Bot runtime behavior changed.
+- No Web route/security behavior changed.
+- No installer scripts changed.
+- No release tag.
+
 ## v2.0.10 — Cloudflare DNS Apply Skeleton Security Polish
 
 ### Changed

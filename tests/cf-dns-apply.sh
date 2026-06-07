@@ -720,6 +720,23 @@ else
   ERRORS=$((ERRORS + 1))
 fi
 
+# Verify apply --help exits 0
+check "cf dns apply --help exits 0" bash "$NANOBK" cf dns apply --help
+
+# Verify apply -h exits 0
+check "cf dns apply -h exits 0" bash "$NANOBK" cf dns apply -h
+
+# Verify apply --help output contains key options
+APPLY_HELP=$(bash "$NANOBK" cf dns apply --help 2>&1 || true)
+assert_contains "$APPLY_HELP" "--dry-run" "apply help mentions --dry-run"
+assert_contains "$APPLY_HELP" "--check" "apply help mentions --check"
+assert_contains "$APPLY_HELP" "--yes" "apply help mentions --yes"
+assert_contains "$APPLY_HELP" "--api-env" "apply help mentions --api-env"
+assert_contains "$APPLY_HELP" "--profile" "apply help mentions --profile"
+assert_contains "$APPLY_HELP" "--force" "apply help mentions --force"
+assert_contains "$APPLY_HELP" "reserved" "apply help mentions reserved for --force"
+assert_contains "$APPLY_HELP" "no Cloudflare API calls" "apply help mentions no API calls for --dry-run"
+
 # ═══════════════════════════════════════════════════════════════════════════
 # Section 8: JSON output
 # ═══════════════════════════════════════════════════════════════════════════

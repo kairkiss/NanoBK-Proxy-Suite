@@ -18,7 +18,7 @@ set -Eeuo pipefail
 
 # ── Version ─────────────────────────────────────────────────────────────────
 
-NANOBK_VERSION="2.0.9"
+NANOBK_VERSION="2.0.11"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -837,6 +837,8 @@ cmd_cf_dns() {
       local args=(python3 "$apply_script")
       while [[ $# -gt 0 ]]; do
         case "$1" in
+          --help|-h)
+            args+=("--help"); shift ;;
           --profile)
             [[ $# -ge 2 ]] || die "cf dns apply: --profile needs a path argument"
             args+=("$1" "$2"); shift 2 ;;
