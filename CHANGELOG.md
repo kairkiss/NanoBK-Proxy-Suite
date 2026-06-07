@@ -1,5 +1,22 @@
 # Changelog
 
+## v2.1.2-polish — Console Test Hook and Safer DNS Guidance
+
+### Changed
+
+- Added test-only `NANOBK_TEST_FORCE_TTY=1` env override to exercise the
+  interactive console loop in automated tests without a real TTY.
+- DNS submenu is now guidance-first: options 1–3 show explicit commands to run
+  rather than auto-executing `cf dns plan` or `cf dns validate-profile`.
+- Console still hides `apply --yes`.
+
+### Not Changed
+
+- No DNS behavior changes.
+- No Cloudflare API behavior changes.
+- No `nanobk cf dns apply --yes` removed or broken.
+- No release tag.
+
 ## v2.1.2 — Branded CLI/TUI Skeleton
 
 ### Added
