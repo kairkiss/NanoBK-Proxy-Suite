@@ -1,5 +1,32 @@
 # Changelog
 
+## v2.0.13 — Full Wizard Cloudflare DNS Plan/Check Integration Skeleton
+
+### Added
+
+- Full Wizard can prepare Cloudflare DNS profile for node hostname (A/AAAA records).
+- DNS substage added between VPS deployment and Cloudflare Worker deployment.
+- Collects zoneName, nodePrefix, IPv4, optional IPv6 via numbered menu prompts.
+- Writes DNS profile to `/etc/nanobk/cloudflare-dns-profile.json` with chmod 600.
+- Runs `nanobk cf dns validate-profile` and `nanobk cf dns plan` automatically.
+- Optional explicit GET-only `--check` after user confirmation (requires api-env).
+- Shows manual `nanobk cf dns apply --yes` command but never executes it automatically.
+- Summary section shows `dns_profile`, `dns_plan`, `dns_check`, `dns_apply` fields.
+- `dns_apply` is always `manual_apply_pending`, `skipped`, or `failed` — never auto-run.
+- Added `tests/full-wizard-dns-skeleton.sh` for DNS profile rendering/check flow.
+- Added `ui_stage_card_cloudflare_dns` stage card in `installer/lib/ui.sh`.
+- Added DNS commands template to `--mode commands` output.
+- Added DNS tests to installer test matrix (groups 3 and 5).
+
+### Safety
+
+- Full Wizard NEVER automatically executes `nanobk cf dns apply --yes`.
+- No real Cloudflare API calls in tests.
+- No DNS records created or deleted in tests.
+- No token/env/protocol/subscription leakage.
+- No certificate/Tunnel/Access/Worker changes.
+- No release tag.
+
 ## v2.0.12 — Record Real Cloudflare DNS Apply Validation
 
 ### Documentation

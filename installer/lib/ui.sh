@@ -780,6 +780,17 @@ ui_stage_card_vps() {
     "dry-run 不会真实部署"
 }
 
+# Cloudflare DNS stage card
+ui_stage_card_cloudflare_dns() {
+  ui_stage_card \
+    "Cloudflare DNS" \
+    "本阶段会准备节点 DNS 记录（仅 A/AAAA）：" \
+    "只准备/检查 DNS 记录，不创建 Worker" \
+    "不创建 Tunnel / Access / 证书" \
+    "不会自动执行 apply --yes" \
+    "dry-run 不会调用 Cloudflare API"
+}
+
 # Cloudflare stage card
 ui_stage_card_cloudflare() {
   ui_stage_card \

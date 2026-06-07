@@ -690,6 +690,21 @@ mock_find_existing_kv() {
   return 1
 }
 
+mock_dns_validate_profile() {
+  mock_log "DNS profile 验证已模拟通过 (dry-run)"
+  return 0
+}
+
+mock_dns_plan() {
+  mock_log "DNS plan 已模拟完成 (dry-run)"
+  return 0
+}
+
+mock_dns_check() {
+  mock_log "DNS check 已模拟完成 (dry-run)"
+  return 0
+}
+
 TEST_FAILURES=0
 TEST_FAILED_NAMES=()
 
@@ -1525,6 +1540,248 @@ collect_vps_args() {
       esac
     fi
   fi
+}
+
+# ── Cloudflare DNS parameter collection ─────────────────────────────────────
+
+collect_dns_args() {
+  section_line "Cloudflare DNS 节点记录参数"
+
+  echo "  本步骤只准备/检查 A/AAAA DNS 记录。"
+  echo "  不会创建 Worker、Tunnel、Access 或证书。"
+  echo "  不会自动执行 apply --yes。"
+  echo ""
+
+  # Collect zone name
+  local zone_name=""
+  while true; do
+    prompt zone_name "域名（如 example.com）" "example.com"
+    if [[ -z "$zone_name" ]]; then
+      warn "域名不能为空。"
+      continue
+    fi
+    # Basic validation — must look like a domain
+    if [[ "$zone_name" =~ ^[a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?$ ]] && [[ "$zone_name" == *.* ]]; then
+      break
+    else
+      warn "请输入有效的域名（如 example.com）。"
+    fi
+  done
+
+  # Collect node prefix
+  local node_prefix=""
+  prompt node_prefix "节点主机名前缀" "nanobk-node"
+
+  # Validate node prefix — must be DNS-label-safe
+  if [[ ! "$node_prefix" =~ ^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?$ ]]; then
+    warn "节点前缀 '${node_prefix}' 不是合法的 DNS 标签，已修正为 nanobk-node。"
+    node_prefix="nanobk-node"
+  fi
+
+  local node_hostname="${node_prefix}.${zone_name}"
+
+  # Collect IPv4
+  local ipv4=""
+  while true; do
+    prompt ipv4 "节点 IPv4 地址" "203.0.113.10"
+    if [[ -z "$ipv4" ]]; then
+      warn "至少需要一个 IPv4 或 IPv6 地址。"
+      continue
+    fi
+    # Basic IPv4 validation
+    if [[ "$ipv4" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+      break
+    else
+      warn "请输入有效的 IPv4 地址（如 203.0.113.10）。"
+    fi
+  done
+
+  # Collect IPv6 (optional)
+  local ipv6=""
+  echo ""
+  echo "  IPv6 地址（可选，留空跳过）："
+  prompt ipv6 "节点 IPv6 地址" ""
+
+  # Confirmation summary
+  echo ""
+  section_line "DNS 记录确认"
+  echo ""
+  echo "  主机名:     ${node_hostname}"
+  echo "  A 记录:     ${node_hostname} -> ${ipv4}"
+  if [[ -n "$ipv6" ]]; then
+    echo "  AAAA 记录:  ${node_hostname} -> ${ipv6}"
+  else
+    echo "  AAAA 记录:  （跳过）"
+  fi
+  echo "  代理模式:   DNS-only / proxied=false"
+  echo ""
+
+  local profile_dir="/etc/nanobk"
+  local profile_path="${profile_dir}/cloudflare-dns-profile.json"
+  # Use test tmpdir if available
+  if [[ -n "${NANOBK_TEST_TMPDIR:-}" ]]; then
+    profile_dir="${NANOBK_TEST_TMPDIR}/etc/nanobk"
+    profile_path="${profile_dir}/cloudflare-dns-profile.json"
+  fi
+
+  echo "  配置文件:   ${profile_path}"
+  echo ""
+
+  # Write DNS profile
+  if [[ "$DRY_RUN" == "1" ]]; then
+    echo "  [DRY-RUN] 将写入 DNS profile: ${profile_path}"
+    DNS_PROFILE_STATUS="dry_run"
+    DNS_STAGE_STATUS="dry_run"
+    DNS_PLAN_STATUS="dry_run"
+    DNS_CHECK_STATUS="dry_run"
+    DNS_APPLY_STATUS="dry_run"
+    return 0
+  fi
+
+  mkdir -p "$profile_dir"
+  local tmp_profile="${profile_path}.tmp.$$"
+  {
+    echo "{"
+    echo "  \"zoneName\": \"${zone_name}\","
+    echo "  \"nodePrefix\": \"${node_prefix}\","
+    echo "  \"ipv4\": \"${ipv4}\","
+    if [[ -n "$ipv6" ]]; then
+      echo "  \"ipv6\": \"${ipv6}\","
+    fi
+    echo "  \"defaultProxied\": false,"
+    echo "  \"reserved\": {"
+    echo "    \"panelPrefix\": \"panel\","
+    echo "    \"nanokPrefix\": \"nanok\","
+    echo "    \"nanobPrefix\": \"nanob\""
+    echo "  }"
+    echo "}"
+  } > "$tmp_profile"
+  chmod 600 "$tmp_profile"
+  mv -f "$tmp_profile" "$profile_path"
+  ok "DNS profile 已写入: ${profile_path}"
+  DNS_PROFILE_STATUS="written"
+
+  # Run validate-profile
+  echo ""
+  log "运行 validate-profile ..."
+  local validate_rc=0
+  if bash "$REPO_DIR/bin/nanobk" cf dns validate-profile --profile "$profile_path"; then
+    ok "validate-profile 通过"
+    DNS_PLAN_STATUS="validated"
+  else
+    validate_rc=$?
+    warn "validate-profile 失败 (exit=${validate_rc})"
+    DNS_PLAN_STATUS="failed"
+    DNS_STAGE_STATUS="failed"
+    DNS_APPLY_STATUS="skipped"
+    SUMMARY_HAS_FAILURES=1
+    echo "  恢复命令："
+    echo "    bash bin/nanobk cf dns validate-profile --profile ${profile_path}"
+    return 1
+  fi
+
+  # Run plan
+  echo ""
+  log "运行 plan ..."
+  if bash "$REPO_DIR/bin/nanobk" cf dns plan --profile "$profile_path"; then
+    ok "plan 完成"
+    DNS_PLAN_STATUS="planned"
+  else
+    warn "plan 失败"
+    DNS_PLAN_STATUS="failed"
+    DNS_STAGE_STATUS="failed"
+    DNS_APPLY_STATUS="skipped"
+    SUMMARY_HAS_FAILURES=1
+    echo "  恢复命令："
+    echo "    bash bin/nanobk cf dns plan --profile ${profile_path}"
+    return 1
+  fi
+
+  # Offer optional GET-only check
+  echo ""
+  local api_env_path="/etc/nanobk/cloudflare-api.env"
+  if [[ -n "${NANOBK_TEST_TMPDIR:-}" ]]; then
+    api_env_path="${NANOBK_TEST_TMPDIR}/etc/nanobk/cloudflare-api.env"
+  fi
+
+  if ask_yes_no_menu "是否运行只读 Cloudflare 检查（不会修改 DNS）？" "n"; then
+    if [[ ! -f "$api_env_path" ]]; then
+      warn "cloudflare-api.env 不存在: ${api_env_path}"
+      echo ""
+      echo "  请先创建 api-env 文件："
+      echo "    mkdir -p /etc/nanobk"
+      echo "    cat > ${api_env_path} <<'EOF'"
+      echo "    CF_API_TOKEN=your-token-here"
+      echo "    CF_ZONE_ID=your-zone-id"
+      echo "    CF_ZONE_NAME=${zone_name}"
+      echo "    EOF"
+      echo "    chmod 600 ${api_env_path}"
+      echo ""
+      DNS_CHECK_STATUS="manual_pending"
+      DNS_APPLY_STATUS="manual_apply_pending"
+    else
+      log "运行 GET-only check ..."
+      local check_rc=0
+      bash "$REPO_DIR/bin/nanobk" cf dns apply \
+        --profile "$profile_path" \
+        --api-env "$api_env_path" \
+        --check || check_rc=$?
+      case "$check_rc" in
+        0)
+          ok "check 完成 — 记录已存在且匹配"
+          DNS_CHECK_STATUS="check_noop"
+          DNS_APPLY_STATUS="manual_apply_pending"
+          ;;
+        2)
+          ok "check 完成 — 需要创建记录"
+          DNS_CHECK_STATUS="check_passed_create_needed"
+          DNS_APPLY_STATUS="manual_apply_pending"
+          ;;
+        *)
+          warn "check 失败 (exit=${check_rc})"
+          DNS_CHECK_STATUS="failed"
+          DNS_APPLY_STATUS="manual_apply_pending"
+          ;;
+      esac
+    fi
+  else
+    DNS_CHECK_STATUS="skipped"
+    DNS_APPLY_STATUS="manual_apply_pending"
+  fi
+
+  # Finalize DNS stage status
+  if [[ "${DNS_STAGE_STATUS:-}" == "unknown" ]]; then
+    if [[ "${DNS_PLAN_STATUS:-}" == "planned" ]]; then
+      DNS_STAGE_STATUS="planned"
+    fi
+  fi
+
+  # Show manual apply command
+  echo ""
+  echo "  ┌─────────────────────────────────────────────────────────────────┐"
+  echo "  │  手动执行命令（Full Wizard 不会自动运行）：                      │"
+  echo "  │                                                                 │"
+  echo "  │  nanobk cf dns apply \\                                         │"
+  echo "  │    --profile ${profile_path} \\"
+  echo "  │    --api-env ${api_env_path} \\"
+  echo "  │    --yes                                                        │"
+  echo "  │                                                                 │"
+  echo "  │  请先确认主机名正确，然后手动执行。                              │"
+  echo "  │  它会创建/更新 DNS 记录。                                       │"
+  echo "  └─────────────────────────────────────────────────────────────────┘"
+  echo ""
+
+  # Mock override for test
+  if [[ "${NANOBK_TEST_MOCK:-}" == "1" ]]; then
+    DNS_PROFILE_STATUS="written"
+    DNS_PLAN_STATUS="planned"
+    DNS_CHECK_STATUS="check_passed_create_needed"
+    DNS_APPLY_STATUS="manual_apply_pending"
+    DNS_STAGE_STATUS="planned"
+    mock_log "DNS 准备步骤已模拟完成"
+  fi
+
+  return 0
 }
 
 # ── Cloudflare parameter collection ─────────────────────────────────────────
@@ -3022,6 +3279,11 @@ run_full_wizard() {
   VPS_DEPLOY_STATUS="unknown"
   VPS_HEALTHCHECK_STATUS="unknown"
   VPS_STATUS_CHECK_STATUS="unknown"
+  DNS_STAGE_STATUS="unknown"
+  DNS_PROFILE_STATUS="unknown"
+  DNS_PLAN_STATUS="unknown"
+  DNS_CHECK_STATUS="unknown"
+  DNS_APPLY_STATUS="unknown"
   CF_STAGE_STATUS="unknown"
   CF_NANOK_STATUS="unknown"
   CF_NANOB_STATUS="unknown"
@@ -3036,10 +3298,11 @@ run_full_wizard() {
   echo "  将引导你完成以下步骤："
   echo "    0. Preflight 环境预检"
   echo "    1. VPS 四协议部署"
-  echo "    2. Cloudflare nanok/nanob 订阅部署"
-  echo "    3. Telegram Bot 配置"
-  echo "    4. Web Panel 配置"
-  echo "    5. 最终摘要"
+  echo "    2. Cloudflare DNS 节点记录准备"
+  echo "    3. Cloudflare nanok/nanob 订阅部署"
+  echo "    4. Telegram Bot 配置"
+  echo "    5. Web Panel 配置"
+  echo "    6. 最终摘要"
   echo ""
   ui_token_reminder
   echo "    - 一错不崩，每一步失败都有恢复命令"
@@ -3188,8 +3451,25 @@ run_full_wizard() {
   # Write wizard state
   [[ "$DRY_RUN" != "1" ]] && wizard_state_write "vps_done" 2>/dev/null || true
 
-  # Phase 2: Cloudflare — strict dependency on VPS profile
-  ui_section "阶段 2：Cloudflare 部署" "2" "5"
+  # Phase 2: Cloudflare DNS — node hostname preparation/check
+  ui_section "阶段 2：Cloudflare DNS 节点记录" "2" "6"
+  ui_stage_card_cloudflare_dns
+
+  if [[ "$START_FROM_STAGE" == "botweb" ]]; then
+    echo "  已跳过 Cloudflare DNS（从 botweb 继续）。"
+    DNS_STAGE_STATUS="skipped"
+  elif ask_yes_no_menu "是否准备 Cloudflare DNS 节点记录？" "y"; then
+    collect_dns_args
+  else
+    DNS_STAGE_STATUS="skipped"
+    echo "  跳过 Cloudflare DNS 节点记录准备。"
+  fi
+
+  # Write wizard state
+  [[ "$DRY_RUN" != "1" ]] && wizard_state_write "dns_done" 2>/dev/null || true
+
+  # Phase 3: Cloudflare — strict dependency on VPS profile
+  ui_section "阶段 3：Cloudflare 部署" "3" "6"
   ui_stage_card_cloudflare
 
   # Check if profile exists (skip in dry-run) — unconditional dependency check
@@ -3323,8 +3603,8 @@ run_full_wizard() {
   # Write wizard state
   [[ "$DRY_RUN" != "1" ]] && wizard_state_write "cloudflare_done" 2>/dev/null || true
 
-  # Phase 3: Bot
-  ui_section "阶段 3：Telegram Bot" "3" "5"
+  # Phase 4: Bot
+  ui_section "阶段 4：Telegram Bot" "4" "6"
   ui_stage_card_bot
 
   # Control-plane-only warning if VPS/CF not ready
@@ -3356,8 +3636,8 @@ run_full_wizard() {
     echo "  跳过 Telegram Bot。"
   fi
 
-  # Phase 4: Web Panel
-  ui_section "阶段 4：Web Panel" "4" "5"
+  # Phase 5: Web Panel
+  ui_section "阶段 5：Web Panel" "5" "6"
   ui_stage_card_web
 
   # Control-plane-only warning if VPS/CF not ready
@@ -3403,7 +3683,7 @@ run_full_wizard() {
 
 print_summary() {
   echo ""
-  ui_section "NanoBK Setup Summary" "5" "5"
+  ui_section "NanoBK Setup Summary" "6" "6"
   ui_stage_card_summary
 
   # VPS — honest status
@@ -3466,6 +3746,30 @@ print_summary() {
     echo "    domain:  ${NANOBK_DOMAIN}"
     echo "    cert:    ${NANOBK_CERT_MODE:-unknown}"
     echo "    status:  configured / not verified"
+  else
+    echo "    status:  skipped"
+  fi
+
+  # Cloudflare DNS — honest status
+  echo ""
+  echo "  Cloudflare DNS:"
+  if [[ "${DNS_STAGE_STATUS:-}" == "dry_run" ]]; then
+    echo "    status:  planned / dry-run"
+  elif [[ "${DNS_STAGE_STATUS:-}" == "skipped" ]]; then
+    echo "    status:  skipped"
+  elif [[ "${DNS_STAGE_STATUS:-}" == "failed" ]]; then
+    echo "    status:  failed"
+    echo "    recover:"
+    echo "      bash bin/nanobk cf dns validate-profile --profile /etc/nanobk/cloudflare-dns-profile.json"
+  elif [[ "${DNS_STAGE_STATUS:-}" == "planned" ]] || [[ "${DNS_PROFILE_STATUS:-}" == "written" ]]; then
+    echo "    dns_profile: ${DNS_PROFILE_STATUS:-unknown}"
+    echo "    dns_plan:    ${DNS_PLAN_STATUS:-unknown}"
+    echo "    dns_check:   ${DNS_CHECK_STATUS:-skipped}"
+    echo "    dns_apply:   ${DNS_APPLY_STATUS:-manual_apply_pending}"
+    echo ""
+    echo "    注意: dns_apply 不会由 Full Wizard 自动执行。"
+    echo "    请手动审查主机名后执行："
+    echo "      nanobk cf dns apply --profile /etc/nanobk/cloudflare-dns-profile.json --api-env /etc/nanobk/cloudflare-api.env --yes"
   else
     echo "    status:  skipped"
   fi
@@ -3657,6 +3961,10 @@ print_summary() {
     echo "  Next commands:"
     echo "    nanobk status"
     echo "    nanobk cf verify"
+    if [[ "${DNS_APPLY_STATUS:-}" == "manual_apply_pending" ]]; then
+      echo "    # Review DNS hostname, then manually run:"
+      echo "    nanobk cf dns apply --profile /etc/nanobk/cloudflare-dns-profile.json --api-env /etc/nanobk/cloudflare-api.env --yes"
+    fi
     echo "    sudo bash /opt/nanobk/bin/rotate-keys.sh --yes --protocol tuic"
   fi
   echo ""
@@ -4118,6 +4426,9 @@ run_test_mode() {
       run_safe_test "$REPO_DIR/tests/cloudflare-kv-parser.sh" "KV parser"
       run_safe_test "$REPO_DIR/tests/cloudflare-installer-dry-run.sh" "CF installer dry-run"
       run_safe_test "$REPO_DIR/tests/cloudflare-profile-validation.sh" "profile validation"
+      run_safe_test "$REPO_DIR/tests/cf-dns-plan.sh" "CF DNS plan"
+      run_safe_test "$REPO_DIR/tests/cf-dns-apply.sh" "CF DNS apply"
+      run_safe_test "$REPO_DIR/tests/full-wizard-dns-skeleton.sh" "Full Wizard DNS skeleton"
       run_safe_test "$REPO_DIR/tests/nanob-fallback-static.sh" "nanob fallback"
       run_safe_test "$REPO_DIR/tests/nanob-status-env.sh" "nanob status env"
       run_safe_test "$REPO_DIR/tests/rotate-cloudflare-stale-read-static.sh" "stale read"
@@ -4140,6 +4451,9 @@ run_test_mode() {
       run_safe_test "$REPO_DIR/tests/cloudflare-kv-parser.sh" "KV parser"
       run_safe_test "$REPO_DIR/tests/cloudflare-installer-dry-run.sh" "CF installer dry-run"
       run_safe_test "$REPO_DIR/tests/cloudflare-profile-validation.sh" "profile validation"
+      run_safe_test "$REPO_DIR/tests/cf-dns-plan.sh" "CF DNS plan"
+      run_safe_test "$REPO_DIR/tests/cf-dns-apply.sh" "CF DNS apply"
+      run_safe_test "$REPO_DIR/tests/full-wizard-dns-skeleton.sh" "Full Wizard DNS skeleton"
       run_safe_test "$REPO_DIR/tests/nanob-fallback-static.sh" "nanob fallback"
       run_safe_test "$REPO_DIR/tests/nanob-status-env.sh" "nanob status env"
       run_safe_test "$REPO_DIR/tests/rotate-cloudflare-stale-read-static.sh" "stale read"
@@ -4199,6 +4513,26 @@ run_commands_mode() {
   section_line "Cloudflare preflight"
   echo ""
   echo "  bash installer/install-cloudflare.sh --preflight"
+  echo ""
+
+  section_line "Cloudflare DNS plan (dry-run)"
+  echo ""
+  echo "  bash bin/nanobk cf dns plan \\"
+  echo "    --profile /etc/nanobk/cloudflare-dns-profile.json"
+  echo ""
+
+  section_line "Cloudflare DNS validate-profile"
+  echo ""
+  echo "  bash bin/nanobk cf dns validate-profile \\"
+  echo "    --profile /etc/nanobk/cloudflare-dns-profile.json"
+  echo ""
+
+  section_line "Cloudflare DNS apply (manual)"
+  echo ""
+  echo "  bash bin/nanobk cf dns apply \\"
+  echo "    --profile /etc/nanobk/cloudflare-dns-profile.json \\"
+  echo "    --api-env /etc/nanobk/cloudflare-api.env \\"
+  echo "    --yes"
   echo ""
 
   section_line "Cloudflare profile validation"
