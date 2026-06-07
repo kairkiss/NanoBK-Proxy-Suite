@@ -1,5 +1,25 @@
 # Changelog
 
+## v2.0.17 — Full Wizard DNS Mock Assertion Polish
+
+### Fixed
+
+- Removed always-true `not os.path.exists(real_etc_profile) or True` assertion in
+  Test H; replaced with honest check that the generated profile path starts with
+  the test tmpdir, confirming `NANOBK_TEST_TMPDIR` redirection works.
+- Strengthened `apply --yes` assertion in Test H: new `assert_apply_yes_manual_only()`
+  helper checks every line containing both `nanobk cf dns apply` and `--yes` for
+  manual-context keywords, and rejects suspicious execution markers (`[run]`,
+  `Executing`, `Running`, `run_cmd`, `apply --yes: executed`).
+
+### Safety
+
+- No production behavior changes.
+- Still never auto-runs `apply --yes`.
+- No real Cloudflare mutation in tests.
+- No certificate/Tunnel/Access/Worker changes.
+- No release tag.
+
 ## v2.0.16 — Full Wizard DNS Interactive Mock Validation
 
 ### Added

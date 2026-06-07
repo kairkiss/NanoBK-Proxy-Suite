@@ -164,6 +164,46 @@ def check_output_clean(text):
     return True
 
 
+def assert_apply_yes_manual_only(output):
+    """Verify that any 'nanobk cf dns apply ... --yes' in output is a manual instruction only.
+
+    Returns True if safe, False if suspicious execution markers are found.
+    Safety rules:
+    - Lines mentioning both 'nanobk cf dns apply' and '--yes' must appear in
+      a manual-instruction context. We check the line itself and the two lines
+      above it for manual-context keywords (手动, 不会自动, manual, review,
+      Full Wizard did not run, 请手动, 注意).
+    - Suspicious execution markers ([run], Executing, Running, run_cmd,
+      apply --yes: executed) must never appear.
+    """
+    SUSPICIOUS_MARKERS = [
+        "[run] nanobk cf dns apply",
+        "Executing nanobk cf dns apply",
+        "Running nanobk cf dns apply",
+        "apply --yes: executed",
+    ]
+    MANUAL_KEYWORDS = [
+        "手动", "不会自动", "manual", "review",
+        "Full Wizard did not run", "请手动", "注意",
+    ]
+
+    # Check for suspicious execution markers anywhere in output
+    for marker in SUSPICIOUS_MARKERS:
+        if marker in output:
+            return False
+
+    # Find lines that mention both 'nanobk cf dns apply' and '--yes'
+    lines = output.splitlines()
+    for i, line in enumerate(lines):
+        if "nanobk cf dns apply" in line and "--yes" in line:
+            # Build context window: this line plus the two lines above
+            context_start = max(0, i - 2)
+            context_window = " ".join(lines[context_start:i + 1])
+            if not any(kw in context_window for kw in MANUAL_KEYWORDS):
+                return False
+    return True
+
+
 print("=== Full Wizard Real Stdin Mock Test ===")
 print(f"(per-test timeout: {TEST_TIMEOUT_SECONDS}s)")
 print("")
@@ -428,7 +468,7 @@ try:
 
     # Negative assertions on output
     check("output does NOT contain raw apply --yes execution",
-          "nanobk cf dns apply" not in output_h or "--check" in output_h or "手动" in output_h or "不会自动" in output_h)
+          assert_apply_yes_manual_only(output_h))
     check("output does NOT contain Authorization header",
           "Authorization:" not in output_h)
     check("output does NOT contain workers.dev",
@@ -463,10 +503,10 @@ try:
         file_mode = oct(os.stat(profile_path).st_mode & 0o777)
         check(f"DNS profile chmod 600 (got {file_mode})", file_mode == "0o600")
 
-        # Check no writes to real /etc
-        real_etc_profile = "/etc/nanobk/cloudflare-dns-profile.json"
-        check("no write to real /etc/nanobk profile",
-              not os.path.exists(real_etc_profile) or True)  # Can't assert non-existence if real exists
+        # Validate that the generated profile path is under the test tmpdir.
+        # This confirms NANOBK_TEST_TMPDIR redirection works, without touching real /etc.
+        check("generated profile path is under test tmpdir",
+              profile_path.startswith(tmpdir_h))
 
         # Parse and validate profile content
         with open(profile_path, "r") as f:
