@@ -1,5 +1,27 @@
 # Changelog
 
+## v2.2.4 — Cloudflare Onboarding Read-only Flow Design
+
+### Documentation
+
+- Added `docs/planning-v2.2.4-cloudflare-onboarding-read-only-flow.md`.
+- Defines the read-only-first Cloudflare onboarding target flow for the future `nanobk` console.
+- Covers credential discovery, zone/domain selection, VPS IPv4/IPv6 detection, `proxy.<domain>` / `web.<domain>` proposal, availability checks, DNS profile preview, DNS plan preview, readiness report, beginner Summary, advanced detail boundary, mutation boundary, fallback states, redaction rules, and future mock/static tests.
+- Clarifies the distinction between profile preview, temp-output profile generation, production profile writes, and actual DNS apply.
+
+### Not Changed
+
+- No runtime code changes.
+- No CLI behavior changes.
+- No installer behavior changes.
+- No Bot/Web behavior changes.
+- No real `/etc` writes.
+- No DNS mutation.
+- No Cloudflare mutation.
+- No DNS-01 implementation.
+- No Tunnel/Access implementation.
+- No release tag.
+
 ## v2.2.3 — Branded nanobk Console/TUI Mock Design and Tests
 
 ### Documentation
