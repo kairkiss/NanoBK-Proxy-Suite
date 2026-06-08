@@ -117,6 +117,11 @@ echo ""
 MISSING_OUT=$(run_readiness)
 assert_contains "$MISSING_OUT" "manual_pending" "missing inputs report manual_pending"
 assert_contains "$MISSING_OUT" "No DNS records were created" "missing inputs shows no-mutation"
+assert_contains "$MISSING_OUT" "Overall:" "missing inputs shows Overall line"
+assert_contains "$MISSING_OUT" "not ready" "missing inputs shows not ready"
+assert_not_contains "$MISSING_OUT" "cf dns apply" "missing inputs has no cf dns apply"
+assert_not_contains "$MISSING_OUT" "apply --check" "missing inputs has no apply --check"
+assert_not_contains "$MISSING_OUT" "apply --yes" "missing inputs has no apply --yes"
 assert_not_contains "$MISSING_OUT" "Traceback" "missing inputs has no traceback"
 
 echo ""
@@ -156,6 +161,10 @@ TOKEN_OUT=$(run_readiness --api-env "$TOKEN_ENV" --fake-response "$FIXTURES/cf-z
 assert_contains "$TOKEN_OUT" "ok" "token-only env shows ok status"
 assert_contains "$TOKEN_OUT" "2 zones found" "token-only shows zone count"
 assert_contains "$TOKEN_OUT" "manual_pending" "token-only dns_check_available is manual_pending"
+assert_contains "$TOKEN_OUT" "Overall:" "token-only shows Overall line"
+assert_contains "$TOKEN_OUT" "not ready" "token-only shows not ready (missing profile)"
+assert_not_contains "$TOKEN_OUT" "cf dns apply" "token-only has no cf dns apply"
+assert_not_contains "$TOKEN_OUT" "apply --check" "token-only has no apply --check"
 assert_not_contains "$TOKEN_OUT" "test_token_only" "no token in output"
 
 echo ""
@@ -168,6 +177,10 @@ echo ""
 FULL_ENV=$(make_env 600 "CF_API_TOKEN=test_token_full" "CF_ZONE_ID=zone_id_123" "CF_ZONE_NAME=example.com")
 FULL_OUT=$(run_readiness --api-env "$FULL_ENV" --fake-response "$FIXTURES/cf-zones-success.json")
 assert_contains "$FULL_OUT" "ok" "full env shows ok status"
+assert_contains "$FULL_OUT" "Overall:" "full env shows Overall line"
+assert_contains "$FULL_OUT" "not ready" "full env shows not ready (missing profile)"
+assert_not_contains "$FULL_OUT" "cf dns apply" "full env has no cf dns apply"
+assert_not_contains "$FULL_OUT" "apply --check" "full env has no apply --check"
 assert_not_contains "$FULL_OUT" "test_token_full" "no token in output"
 assert_not_contains "$FULL_OUT" "zone_id_123" "no raw zone id in output"
 
@@ -257,8 +270,13 @@ else
   fail "missing inputs JSON is invalid"
   ERRORS=$((ERRORS + 1))
 fi
+assert_contains "$JSON_MISSING" '"ok": true' "missing inputs JSON has ok: true"
+assert_contains "$JSON_MISSING" '"ready": false' "missing inputs JSON has ready: false"
 assert_contains "$JSON_MISSING" '"mutation": false' "missing inputs JSON has mutation: false"
 assert_contains "$JSON_MISSING" '"manual_apply_pending"' "missing inputs JSON has apply status"
+assert_not_contains "$JSON_MISSING" "cf dns apply" "missing inputs JSON has no cf dns apply"
+assert_not_contains "$JSON_MISSING" "apply --check" "missing inputs JSON has no apply --check"
+assert_not_contains "$JSON_MISSING" "apply --yes" "missing inputs JSON has no apply --yes"
 
 # Full success
 JSON_ENV=$(make_env 600 "CF_API_TOKEN=test_json")
@@ -270,7 +288,12 @@ else
   ERRORS=$((ERRORS + 1))
 fi
 assert_contains "$JSON_FULL" '"ok": true' "full success JSON has ok: true"
+assert_contains "$JSON_FULL" '"ready": true' "full success JSON has ready: true"
 assert_contains "$JSON_FULL" '"mutation": false' "full success JSON has mutation: false"
+assert_contains "$JSON_FULL" '"manual_apply_pending"' "full success JSON has apply status"
+assert_not_contains "$JSON_FULL" "cf dns apply" "full success JSON has no cf dns apply"
+assert_not_contains "$JSON_FULL" "apply --check" "full success JSON has no apply --check"
+assert_not_contains "$JSON_FULL" "apply --yes" "full success JSON has no apply --yes"
 assert_not_contains "$JSON_FULL" "test_json" "full success JSON has no token"
 assert_not_contains "$JSON_FULL" "example.com" "full success JSON has no raw domain"
 assert_not_contains "$JSON_FULL" "hysteria2://" "no hysteria2:// in JSON"

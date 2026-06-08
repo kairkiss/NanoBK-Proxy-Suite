@@ -1,5 +1,27 @@
 # Changelog
 
+## v2.1.5-polish — Honest Readiness State
+
+### Changed
+
+- Added explicit `ready` state (separate from `ok`) in readiness output.
+- `ok=true` means the command ran and produced a report; `ready=true` means
+  all required checks passed with no manual-pending, failed, or skipped
+  prerequisites.
+- Missing `--api-env`, missing `--profile`, token-only env (no zone ID/name),
+  invalid profile, failed zone discovery all produce `ready=false`.
+- Removed readiness next-step recommendation of `cf dns apply --check`.
+  Replaced with: "Review the readiness report before any Cloudflare record check."
+- Text output now includes "Overall: not ready" or "Overall: ready" summary line.
+- JSON output now includes `"ready": true/false` field.
+
+### Not Changed
+
+- No DNS apply/check calls.
+- No DNS mutation.
+- No `apply --yes` added.
+- No release tag.
+
 ## v2.1.5 — DNS Readiness Skeleton
 
 ### Added

@@ -49,6 +49,33 @@ def _check(name, status, message=None, **extra):
 
 # ── Readiness logic ─────────────────────────────────────────────────────────
 
+def compute_ready(checks):
+    """Compute overall readiness from checks.
+
+    ready=True only if all required checks are ok and none are
+    failed, warning, manual_pending, or blocking skipped.
+    """
+    blocking = {"failed", "warning", "manual_pending"}
+    for check in checks:
+        name = check["name"]
+        status = check["status"]
+        # dns_apply_status is always manual — it doesn't block readiness
+        if name == "dns_apply_status":
+            continue
+        # dns_check_available being manual_pending doesn't block readiness
+        # (token-only env is still valid for zone discovery)
+        if name == "dns_check_available" and status == "manual_pending":
+            continue
+        if status in blocking:
+            return False
+        if status == "skipped":
+            # Skipped checks that are prerequisites block readiness
+            if name in ("api_env_permissions", "api_env_parse", "zone_discovery",
+                        "dns_profile_validate", "dns_plan"):
+                return False
+    return True
+
+
 def run_readiness(api_env_path=None, profile_path=None):
     """Run all readiness checks. Returns (checks, next_steps, ok, error)."""
     checks = []
@@ -198,7 +225,7 @@ def run_readiness(api_env_path=None, profile_path=None):
     # ── 4. Next steps if none yet ──
     if not next_steps:
         next_steps.append(
-            "nanobk cf dns apply --profile <profile> --api-env <api-env> --check"
+            "Review the readiness report before any Cloudflare record check."
         )
 
     return checks, next_steps, all_ok
@@ -206,7 +233,7 @@ def run_readiness(api_env_path=None, profile_path=None):
 
 # ── Output ──────────────────────────────────────────────────────────────────
 
-def output_text(checks, next_steps):
+def output_text(checks, next_steps, ready):
     """Print human-readable readiness report."""
     print()
     print("  NanoBK DNS readiness")
@@ -252,6 +279,13 @@ def output_text(checks, next_steps):
     if apply_check:
         print(f"\n  apply status: {apply_check['message']}")
 
+    # Overall
+    print()
+    if ready:
+        print("  Overall: ready for the next explicit read-only check")
+    else:
+        print("  Overall: not ready — manual steps are still required")
+
     # Next steps
     if next_steps:
         print()
@@ -264,7 +298,7 @@ def output_text(checks, next_steps):
     print()
 
 
-def output_json(checks, next_steps, ok):
+def output_json(checks, next_steps, ok, ready):
     """Print sanitized JSON readiness report."""
     # Sanitize: remove any raw values that shouldn't be exposed
     sanitized = []
@@ -286,6 +320,7 @@ def output_json(checks, next_steps, ok):
 
     result = {
         "ok": ok,
+        "ready": ready,
         "mutation": False,
         "checks": sanitized,
         "dns_apply_status": "manual_apply_pending",
@@ -297,7 +332,7 @@ def output_json(checks, next_steps, ok):
 def output_error(message, json_mode=False):
     """Print error message."""
     if json_mode:
-        result = {"ok": False, "error": message, "mutation": False,
+        result = {"ok": False, "ready": False, "error": message, "mutation": False,
                   "checks": [], "dns_apply_status": "unknown", "next_steps": []}
         print(json.dumps(result, indent=2))
     else:
@@ -321,10 +356,12 @@ def main():
         output_error(str(e), args.json)
         sys.exit(1)
 
+    ready = compute_ready(checks)
+
     if args.json:
-        output_json(checks, next_steps, ok)
+        output_json(checks, next_steps, ok, ready)
     else:
-        output_text(checks, next_steps)
+        output_text(checks, next_steps, ready)
 
 
 if __name__ == "__main__":
