@@ -1,5 +1,26 @@
 # Changelog
 
+## v2.2.4-polish — Beginner Onboarding Copy Safety
+
+### Documentation
+
+- Updated `docs/planning-v2.2.4-cloudflare-onboarding-read-only-flow.md` to remove direct `apply --yes` command wording from the Beginner Summary mock.
+- Clarified that DNS apply belongs to a separate future explicit mutation flow with its own preview, confirmation, post-check, and recovery guidance.
+- Preserved the read-only-first onboarding boundary.
+
+### Not Changed
+
+- No runtime code changes.
+- No CLI behavior changes.
+- No installer behavior changes.
+- No Bot/Web behavior changes.
+- No real `/etc` writes.
+- No DNS mutation.
+- No Cloudflare mutation.
+- No DNS-01 implementation.
+- No Tunnel/Access implementation.
+- No release tag.
+
 ## v2.2.4 — Cloudflare Onboarding Read-only Flow Design
 
 ### Documentation

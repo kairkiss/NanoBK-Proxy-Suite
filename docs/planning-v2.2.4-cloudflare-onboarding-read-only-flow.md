@@ -490,9 +490,9 @@ summarizes what was detected, what was planned, and what was NOT changed.
   - No Bot/Web configuration changed
 
 - What requires explicit future confirmation:
-  - To apply DNS: `nanobk cf dns apply --yes`
-  - To generate profile: `nanobk cf dns profile generate`
-  - These are separate explicit steps, not part of onboarding
+  - DNS apply is a separate future flow with its own preview, confirmation, post-check, and recovery guidance.
+  - Profile generation is a separate explicit step and is not DNS applied.
+  - These are separate explicit steps, not part of onboarding.
 
 **Beginner Summary mock:**
 
@@ -519,10 +519,12 @@ summarizes what was detected, what was planned, and what was NOT changed.
     ✗ No production files written
 
   Next steps (explicit, not automatic):
-    1. Generate DNS profile:  nanobk cf dns profile generate ...
-    2. Apply DNS records:     nanobk cf dns apply --yes ...
+    1. Review this plan in Advanced mode if needed
+    2. Continue to the separate DNS apply flow when you are ready
 
-  These require separate explicit confirmation.
+  DNS apply is NOT part of onboarding.
+  NanoBK will show a separate preview, confirmation,
+  and recovery summary before any DNS changes.
   ════════════════════════════════════════
 ```
 
