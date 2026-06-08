@@ -1,5 +1,29 @@
 # Changelog
 
+## v2.1.25 — Real /etc Rollback Enablement Policy
+
+### Documentation
+
+- Added `docs/architecture/real-etc-dns-profile-rollback-policy-v2.1.25.md`.
+- Defines real `/etc` rollback production safety policy.
+- Recommends no real `/etc` implementation in v2.1.25.
+- Defines root / no-sudo model.
+- Defines exact path policy.
+- Defines `--enable-real-etc` and typed `real production rollback` confirmation.
+- Defines lock model (`/etc/nanobk/.nanobk-profile-lock`, `fcntl.flock()`).
+- Defines metadata / provenance requirement (sidecar JSON, legacy rejection).
+- Keeps DNS apply/check and Cloudflare separate.
+- Keeps Full Wizard / Web / Bot / console out of scope.
+- Docs-only. No runtime code changes.
+
+### Not Changed
+
+- No real `/etc` rollback implementation.
+- No runtime code changes.
+- No DNS apply/check.
+- No Cloudflare mutation.
+- No release tag.
+
 ## v2.1.24-polish-2 — Fix Rollback Execute Source Check Marker
 
 ### Fixed
