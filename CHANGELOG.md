@@ -1,5 +1,30 @@
 # Changelog
 
+## v2.1.19 — DNS Profile Replace Preview Skeleton
+
+### Added
+
+- Fake-root-only `nanobk cf dns profile replace preview` command.
+- Reads existing fake-root production profile and compares with new in-memory
+  candidate using redacted summaries and boolean diff.
+- Old profile statuses: `valid`, `missing`, `invalid_json`, `unreadable`,
+  `unsupported_schema`, `symlink_blocked`, `non_regular_file`.
+- `replace_execute_ready: false` always (rollback policy not implemented).
+- Redacted diff: boolean change flags only, no raw old/new values.
+- Confirmation required: `--allow-production-output` + `--confirm-hostname`.
+- Real `/etc` preview remains blocked.
+- Focused test: `tests/cf-dns-profile-replace-preview.sh` with 66 assertions.
+
+### Not Changed
+
+- No backup files.
+- No profile replacement.
+- No rollback.
+- No DNS apply/check.
+- No Cloudflare mutation.
+- No Full Wizard/Web/Bot integration.
+- No release tag.
+
 ## v2.1.18 — DNS Profile Backup / Replace Policy Design Spec
 
 ### Documentation

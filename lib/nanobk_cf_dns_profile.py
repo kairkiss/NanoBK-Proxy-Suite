@@ -760,6 +760,258 @@ def output_generate_error(message, json_mode=False):
     else:
         print(f"  Error: {message}", file=sys.stderr)
 
+
+# ── Replace preview logic ───────────────────────────────────────────────────
+
+def build_summary(profile_dict, zone=None):
+    """Build a redacted summary from a profile dict."""
+    summary = {}
+    z = profile_dict.get("zoneName", zone or "")
+    n = profile_dict.get("nodePrefix", "")
+    summary["zone_redacted"] = mask_domain(z) if z else "***"
+    summary["node"] = n if n else "***"
+    summary["hostname_redacted"] = mask_hostname(n, z) if n and z else "***"
+
+    ipv4 = profile_dict.get("ipv4")
+    ipv6 = profile_dict.get("ipv6")
+    if ipv4:
+        summary["ipv4_redacted"] = mask_ipv4(ipv4)
+    if ipv6:
+        summary["ipv6_redacted"] = mask_ipv6(ipv6)
+
+    # Stack mode
+    has_ipv4 = bool(ipv4)
+    has_ipv6 = bool(ipv6)
+    if has_ipv4 and has_ipv6:
+        summary["stack_mode"] = "dual_stack"
+    elif has_ipv4:
+        summary["stack_mode"] = "ipv4_only"
+    elif has_ipv6:
+        summary["stack_mode"] = "ipv6_only"
+    else:
+        summary["stack_mode"] = "none"
+
+    # Record types
+    record_types = []
+    if ipv4:
+        record_types.append("A")
+    if ipv6:
+        record_types.append("AAAA")
+    summary["record_types"] = record_types
+
+    summary["default_proxied"] = profile_dict.get("defaultProxied", False)
+    return summary
+
+
+def build_redacted_diff(old_summary, new_summary):
+    """Build boolean diff between old and new summaries."""
+    diff = {}
+    for key in ("zone_redacted", "node", "hostname_redacted", "ipv4_redacted",
+                "ipv6_redacted", "stack_mode", "default_proxied"):
+        old_val = old_summary.get(key)
+        new_val = new_summary.get(key)
+        diff[f"{key}_changed"] = (old_val != new_val)
+
+    # Record types diff
+    old_types = set(old_summary.get("record_types", []))
+    new_types = set(new_summary.get("record_types", []))
+    diff["record_types_changed"] = (old_types != new_types)
+
+    return diff
+
+
+REPLACE_ERROR_BASE = {"mutation": False, "local_file_mutation": False,
+                      "dns_mutation": False, "cloudflare_mutation": False,
+                      "dns_apply": False, "replace_preview": True,
+                      "backup_required": True, "backup_created": False,
+                      "profile_replaced": False}
+
+
+def run_replace_preview(zone, node, ipv4, ipv6, output_path, allow_docs,
+                        allow_production, confirm_hostname):
+    """Run replace preview. Returns result dict."""
+    # Validate inputs
+    zone_err = validate_zone(zone)
+    if zone_err:
+        return {"ok": False, "error": zone_err, **REPLACE_ERROR_BASE}
+
+    node_err = validate_node(node)
+    if node_err:
+        return {"ok": False, "error": node_err, **REPLACE_ERROR_BASE}
+
+    if not ipv4:
+        return {"ok": False, "error": "ipv4 is required", **REPLACE_ERROR_BASE}
+
+    ipv4_err = validate_ipv4(ipv4, allow_docs)
+    if ipv4_err:
+        return {"ok": False, "error": ipv4_err, **REPLACE_ERROR_BASE}
+
+    if ipv6:
+        ipv6_err = validate_ipv6(ipv6, allow_docs)
+        if ipv6_err:
+            return {"ok": False, "error": ipv6_err, **REPLACE_ERROR_BASE}
+
+    # Validate confirmation
+    if not confirm_hostname:
+        return {"ok": False, "error": "confirm-hostname is required for replace preview",
+                **REPLACE_ERROR_BASE}
+    expected_hostname = f"{node}.{zone}"
+    if confirm_hostname != expected_hostname:
+        return {"ok": False, "error": "confirmation hostname does not match target",
+                **REPLACE_ERROR_BASE}
+
+    # Validate production path
+    if not allow_production:
+        return {"ok": False, "error": "--allow-production-output is required",
+                **REPLACE_ERROR_BASE}
+
+    path_class, _, path_err = classify_output_path(output_path)
+    if path_class != "production":
+        return {"ok": False, "error": path_err or "unsupported output path",
+                **REPLACE_ERROR_BASE}
+
+    # Resolve fake-root physical path
+    physical_path, root_err = resolve_production_physical_path()
+    if root_err:
+        return {"ok": False, "error": root_err, **REPLACE_ERROR_BASE}
+
+    # Validate parent
+    parent_err = validate_production_parent(physical_path)
+    if parent_err:
+        return {"ok": False, "error": parent_err, **REPLACE_ERROR_BASE}
+
+    # Read existing profile
+    old_profile_status = "unknown"
+    old_profile_data = None
+
+    if not os.path.exists(physical_path):
+        old_profile_status = "missing"
+    elif os.path.islink(physical_path):
+        old_profile_status = "symlink_blocked"
+    elif not os.path.isfile(physical_path):
+        old_profile_status = "non_regular_file"
+    else:
+        try:
+            with open(physical_path, "r") as f:
+                old_profile_data = json.load(f)
+            old_profile_status = "valid"
+        except json.JSONDecodeError:
+            old_profile_status = "invalid_json"
+        except OSError:
+            old_profile_status = "unreadable"
+
+    # Validate old profile schema if loaded
+    if old_profile_status == "valid" and old_profile_data:
+        # Check for secret-like keys
+        has_secret = False
+        for key in old_profile_data:
+            key_lower = key.lower()
+            for secret in _SECRET_SUBSTRINGS:
+                if secret in key_lower and key not in _ALLOWED_KEYS:
+                    has_secret = True
+                    break
+            if has_secret:
+                break
+        if has_secret:
+            old_profile_status = "unsupported_schema"
+        # Check required fields
+        if "zoneName" not in old_profile_data or "nodePrefix" not in old_profile_data:
+            old_profile_status = "unsupported_schema"
+
+    # Build new candidate
+    new_candidate = build_profile_candidate(zone, node, ipv4, ipv6)
+    new_valid, new_errors = validate_profile_candidate(new_candidate, allow_docs)
+
+    # Build summaries
+    old_summary = {}
+    if old_profile_status == "valid" and old_profile_data:
+        old_summary = build_summary(old_profile_data)
+
+    new_summary = build_summary(new_candidate, zone)
+
+    # Build diff
+    redacted_diff = {}
+    if old_summary:
+        redacted_diff = build_redacted_diff(old_summary, new_summary)
+
+    # Preview ok means the preview itself succeeded, not that replacement is ready
+    ok = True
+
+    result = {
+        "ok": ok,
+        "mutation": False,
+        "local_file_mutation": False,
+        "dns_mutation": False,
+        "cloudflare_mutation": False,
+        "dns_apply": False,
+        "replace_preview": True,
+        "backup_required": True,
+        "backup_created": False,
+        "profile_replaced": False,
+        "old_profile_status": old_profile_status,
+        "new_profile_valid": new_valid,
+        "replace_execute_ready": False,
+        "replace_execute_blocked_reason": "rollback policy is not implemented",
+        "confirmation_required": True,
+        "confirmation_matched": True,
+        "old_summary": old_summary if old_summary else None,
+        "new_summary": new_summary,
+        "redacted_diff": redacted_diff if redacted_diff else None,
+    }
+
+    if not new_valid:
+        result["new_validation_errors"] = new_errors
+
+    return result
+
+
+def output_replace_preview_text(result):
+    """Print human-readable replace preview."""
+    print()
+    print("  NanoBK DNS profile replace preview")
+    print()
+    print("  Replace preview only.")
+    print("  No backup was created.")
+    print("  No profile was replaced.")
+    print("  DNS has not been applied.")
+    print("  Cloudflare was not called.")
+    print("  Replace execute is not implemented.")
+    print()
+
+    # Existing profile status
+    old_status = result.get("old_profile_status", "unknown")
+    print(f"  Existing profile status: {old_status}")
+
+    # New profile validation
+    new_valid = result.get("new_profile_valid", False)
+    print(f"  New profile validation: {'passed' if new_valid else 'failed'}")
+    print()
+
+    # Redacted diff
+    diff = result.get("redacted_diff")
+    if diff:
+        print("  Change summary (redacted):")
+        changed_keys = [k for k, v in diff.items() if v]
+        if changed_keys:
+            for k in changed_keys:
+                print(f"    {k}: true")
+        else:
+            print("    (no changes)")
+        print()
+
+    print("  Replace execute is not available.")
+    print("  rollback policy is not implemented.")
+    print()
+
+
+def output_replace_preview_error(message, json_mode=False):
+    """Print replace preview error message."""
+    if json_mode:
+        result = {"ok": False, "error": message, **REPLACE_ERROR_BASE}
+        print(json.dumps(result, indent=2))
+    else:
+        print(f"  Error: {message}", file=sys.stderr)
+
 def output_text(result):
     """Print human-readable preview."""
     print()
@@ -828,7 +1080,7 @@ def output_error(message, json_mode=False):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="NanoBK DNS Profile (preview / generate)"
+        description="NanoBK DNS Profile (preview / generate / replace preview)"
     )
     sub = parser.add_subparsers(dest="command")
 
@@ -857,6 +1109,24 @@ def main():
     generate_parser.add_argument("--json", action="store_true", help="JSON output")
     generate_parser.add_argument("--allow-documentation-ips", action="store_true",
                                  help="Allow documentation IP ranges (tests/examples only)")
+
+    # replace subcommand (with preview sub-subcommand)
+    replace_parser = sub.add_parser("replace", help="Profile replacement operations")
+    replace_sub = replace_parser.add_subparsers(dest="replace_command")
+
+    replace_preview_parser = replace_sub.add_parser("preview", help="Read-only replace preview (fake-root only)")
+    replace_preview_parser.add_argument("--zone", help="Domain zone (e.g. example.com)")
+    replace_preview_parser.add_argument("--node", help="Node prefix (e.g. proxy)")
+    replace_preview_parser.add_argument("--ipv4", help="IPv4 address for A record")
+    replace_preview_parser.add_argument("--ipv6", help="IPv6 address for AAAA record (optional)")
+    replace_preview_parser.add_argument("--output", help="Production output path")
+    replace_preview_parser.add_argument("--allow-production-output", action="store_true",
+                                        help="Allow production /etc/nanobk output path")
+    replace_preview_parser.add_argument("--confirm-hostname",
+                                        help="Exact hostname confirmation")
+    replace_preview_parser.add_argument("--json", action="store_true", help="JSON output")
+    replace_preview_parser.add_argument("--allow-documentation-ips", action="store_true",
+                                        help="Allow documentation IP ranges (tests/examples only)")
 
     args = parser.parse_args()
 
@@ -914,6 +1184,46 @@ def main():
             print(json.dumps(result, indent=2))
         else:
             output_generate_text(result)
+
+    elif args.command == "replace":
+        sub_cmd = getattr(args, "replace_command", None)
+        if sub_cmd == "preview":
+            if not args.zone:
+                output_replace_preview_error("zone is required", args.json)
+                sys.exit(1)
+            if not args.node:
+                output_replace_preview_error("node is required", args.json)
+                sys.exit(1)
+            if not args.ipv4:
+                output_replace_preview_error("ipv4 is required", args.json)
+                sys.exit(1)
+            if not args.output:
+                output_replace_preview_error("output path is required", args.json)
+                sys.exit(1)
+            if not args.allow_production_output:
+                output_replace_preview_error("--allow-production-output is required", args.json)
+                sys.exit(1)
+            if not args.confirm_hostname:
+                output_replace_preview_error("confirm-hostname is required for replace preview", args.json)
+                sys.exit(1)
+
+            result = run_replace_preview(
+                args.zone, args.node, args.ipv4, args.ipv6,
+                args.output, args.allow_documentation_ips,
+                args.allow_production_output, args.confirm_hostname
+            )
+
+            if not result.get("ok", False):
+                output_replace_preview_error(result.get("error", "unknown error"), args.json)
+                sys.exit(1)
+
+            if args.json:
+                print(json.dumps(result, indent=2))
+            else:
+                output_replace_preview_text(result)
+        else:
+            parser.print_help()
+            sys.exit(1)
 
     else:
         parser.print_help()

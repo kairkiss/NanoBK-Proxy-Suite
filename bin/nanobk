@@ -1463,11 +1463,68 @@ cmd_cf_dns() {
           fi
           "${args[@]}"
           ;;
+        replace)
+          local replace_sub="${1:-}"
+          shift 2>/dev/null || true
+          case "$replace_sub" in
+            preview)
+              local args=(python3 "$REPO_DIR/lib/nanobk_cf_dns_profile.py" replace preview)
+              while [[ $# -gt 0 ]]; do
+                case "$1" in
+                  --zone)
+                    [[ $# -ge 2 ]] || die "cf dns profile replace preview: --zone needs a value"
+                    args+=("$1" "$2"); shift 2 ;;
+                  --node)
+                    [[ $# -ge 2 ]] || die "cf dns profile replace preview: --node needs a value"
+                    args+=("$1" "$2"); shift 2 ;;
+                  --ipv4)
+                    [[ $# -ge 2 ]] || die "cf dns profile replace preview: --ipv4 needs a value"
+                    args+=("$1" "$2"); shift 2 ;;
+                  --ipv6)
+                    [[ $# -ge 2 ]] || die "cf dns profile replace preview: --ipv6 needs a value"
+                    args+=("$1" "$2"); shift 2 ;;
+                  --output)
+                    [[ $# -ge 2 ]] || die "cf dns profile replace preview: --output needs a path"
+                    args+=("$1" "$2"); shift 2 ;;
+                  --allow-production-output)
+                    args+=("--allow-production-output"); shift ;;
+                  --confirm-hostname)
+                    [[ $# -ge 2 ]] || die "cf dns profile replace preview: --confirm-hostname needs a value"
+                    args+=("$1" "$2"); shift 2 ;;
+                  --allow-documentation-ips)
+                    args+=("--allow-documentation-ips"); shift ;;
+                  --json)
+                    args+=("--json"); shift ;;
+                  --help|-h)
+                    args+=("--help"); shift ;;
+                  --dry-run)
+                    echo -e "  ${CYAN}[DRY-RUN]${NC} nanobk cf dns profile replace preview would run; raw zone, IP, confirmation, and output path arguments are hidden; no filesystem checks performed"
+                    return 0 ;;
+                  *)
+                    die "cf dns profile replace preview: unknown option: $1"
+                    ;;
+                esac
+              done
+              # Respect global --dry-run (sanitized)
+              if [[ "$DRY_RUN" == "1" ]]; then
+                echo -e "  ${CYAN}[DRY-RUN]${NC} nanobk cf dns profile replace preview would run; raw zone, IP, confirmation, and output path arguments are hidden; no filesystem checks performed"
+                return 0
+              fi
+              "${args[@]}"
+              ;;
+            "")
+              die "Usage: nanobk cf dns profile replace <preview> [options...]"
+              ;;
+            *)
+              die "Unknown cf dns profile replace subcommand: ${replace_sub}. Use: nanobk cf dns profile replace preview"
+              ;;
+          esac
+          ;;
         "")
-          die "Usage: nanobk cf dns profile <preview|generate> [options...]"
+          die "Usage: nanobk cf dns profile <preview|generate|replace> [options...]"
           ;;
         *)
-          die "Unknown cf dns profile subcommand: ${profile_sub}. Use: nanobk cf dns profile <preview|generate>"
+          die "Unknown cf dns profile subcommand: ${profile_sub}. Use: nanobk cf dns profile <preview|generate|replace>"
           ;;
       esac
       ;;
