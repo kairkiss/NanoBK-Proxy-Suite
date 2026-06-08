@@ -508,6 +508,7 @@ NanoBK Proxy Suite — Unified CLI v${NANOBK_VERSION}
   cf dns apply [options...]   应用 DNS 记录到 Cloudflare（需要 --yes）
   cf dns readiness [--api-env PATH] [--profile PATH]  只读 DNS 就绪检查 [--json]
   cf zones list --api-env PATH  只读列出 Cloudflare zones [--json]
+  vps ip detect               只读 VPS IP 候选检测 [--json]
   rotate <protocol> [args.]  换密钥: all|hy2|tuic|reality|trojan
   export link <protocol>     导出单个协议链接: hy2|tuic|reality|trojan
   export links               导出所有协议链接
@@ -1249,6 +1250,35 @@ cmd_cf_zones() {
   esac
 }
 
+# ── vps ip detect ────────────────────────────────────────────────────────
+
+cmd_vps_ip_detect() {
+  local args=(python3 "$REPO_DIR/lib/nanobk_ip_detect.py" detect)
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --json)
+        args+=("--json"); shift ;;
+      --help|-h)
+        echo "Usage: nanobk vps ip detect [--json]"
+        echo ""
+        echo "  Read-only VPS IP candidate detection and classification."
+        echo "  Uses test fixtures only (NANOBK_IP_DETECT_FIXTURE)."
+        echo "  Output is masked/redacted by default."
+        echo "  No DNS mutation. No Cloudflare calls."
+        return 0 ;;
+      --dry-run)
+        print_cmd "${args[@]}"
+        echo -e "  ${CYAN}[DRY-RUN]${NC} 跳过执行"
+        return 0 ;;
+      *)
+        die "vps ip detect: unknown option: $1"
+        ;;
+    esac
+  done
+
+  "${args[@]}"
+}
+
 # ── rotate ──────────────────────────────────────────────────────────────────
 
 cmd_rotate() {
@@ -1477,6 +1507,27 @@ main() {
         dns)     cmd_cf_dns ${cf_rest[@]+"${cf_rest[@]}"} ;;
         zones)   cmd_cf_zones ${cf_rest[@]+"${cf_rest[@]}"} ;;
         *)       die "Usage: nanobk cf <deploy|verify|install-admin-env|dns|zones> [args...]" ;;
+      esac
+      ;;
+    vps)
+      local vps_sub="${cmd_rest[0]:-}"
+      local vps_rest=()
+      if [[ ${#cmd_rest[@]} -gt 1 ]]; then
+        vps_rest=("${cmd_rest[@]:1}")
+      fi
+      case "$vps_sub" in
+        ip)
+          local ip_sub="${vps_rest[0]:-}"
+          local ip_rest=()
+          if [[ ${#vps_rest[@]} -gt 1 ]]; then
+            ip_rest=("${vps_rest[@]:1}")
+          fi
+          case "$ip_sub" in
+            detect)  cmd_vps_ip_detect ${ip_rest[@]+"${ip_rest[@]}"} ;;
+            *)       die "Usage: nanobk vps ip <detect> [args...]" ;;
+          esac
+          ;;
+        *)       die "Usage: nanobk vps <ip> [args...]" ;;
       esac
       ;;
     rotate)   cmd_rotate ${cmd_rest[@]+"${cmd_rest[@]}"} ;;

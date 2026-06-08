@@ -1,5 +1,34 @@
 # Changelog
 
+## v2.1.6 — VPS IP Detection Skeleton
+
+### Added
+
+- `nanobk vps ip detect [--json]` — read-only VPS IPv4/IPv6 candidate
+  detection and classification.
+- `lib/nanobk_ip_detect.py` — standalone Python helper with fixture-first
+  detection, IP classification (global/private/documentation/ULA/link-local/
+  loopback/multicast/reserved), and masked output.
+- Fixture hook: `NANOBK_IP_DETECT_FIXTURE=/path/to/fixture.json`.
+- Without fixture: returns `manual_pending` (live detection deferred).
+- IPv4 masking: `203.0.113.10` → `203.0.113.xxx`.
+- IPv6 masking: `2001:db8::10` → `2001:db8:…`.
+- Candidate selection: single usable IPv4/IPv6 → `dns_target_ready=true`;
+  multiple candidates or no usable → `manual_input_required=true`.
+- JSON output: `{"ok": true, "mutation": false, "dns_target_ready": bool, "dual_stack": bool, "manual_input_required": bool, "candidates": [...], "checks": [...]}`.
+- Test fixtures: dual-stack, ipv4-only, ipv6-only, private-only, multiple-ipv4,
+  link-local-ipv6-only, ula-ipv6-only, no-addresses, malformed.
+- Focused test: `tests/vps-ip-detect.sh` with 63 assertions.
+
+### Not Changed
+
+- No real external IP echo calls.
+- No real interface reads in tests.
+- No DNS profile writes.
+- No Cloudflare calls.
+- No DNS mutation.
+- No release tag.
+
 ## v2.1.5-polish-2 — Zone Binding Required for Ready State
 
 ### Changed

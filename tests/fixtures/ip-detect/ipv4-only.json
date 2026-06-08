@@ -1,0 +1,6 @@
+{
+  "source": "fixture",
+  "addresses": [
+    {"family": "ipv4", "address": "192.0.2.42", "source": "fixture-iface"}
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "source": "fixture",
+  "addresses": [
+    {"family": "ipv4", "address": "203.0.113.10", "source": "fixture-eth0"},
+    {"family": "ipv4", "address": "198.51.100.20", "source": "fixture-eth1"},
+    {"family": "ipv6", "address": "2001:db8::10", "source": "fixture-eth0"}
+  ]
+}
