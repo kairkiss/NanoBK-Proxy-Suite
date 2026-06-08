@@ -1,5 +1,24 @@
 # Changelog
 
+## v2.1.16 — Production DNS Profile Guardrails Design Spec
+
+### Documentation
+
+- Added `docs/architecture/production-dns-profile-guardrails-v2.1.16.md`.
+- Documents future production `/etc/nanobk/cloudflare-dns-profile.json` writer policy.
+- Defines typed confirmation, no-overwrite policy, backup/rollback deferral,
+  parent permission model, fake-root test model, dry-run model, and JSON/status
+  contract.
+- Docs-only. No runtime code changes.
+
+### Not Changed
+
+- No production profile writes.
+- No Cloudflare mutation.
+- No DNS mutation.
+- No `cf dns apply` or `apply --check`.
+- No release tag.
+
 ## v2.1.15-polish-2 — Post-write Finalization Failure Cleanup Test
 
 ### Changed
