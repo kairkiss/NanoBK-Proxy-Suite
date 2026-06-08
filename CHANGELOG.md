@@ -1,5 +1,29 @@
 # Changelog
 
+## v2.2.2 — Install Behavior Documentation Alignment
+
+### Documentation
+
+- Added `docs/planning-v2.2.2-install-behavior-doc-alignment.md`.
+- Updated README wording to align the beginner path with the current install-only product direction.
+- Clarified that one-line install prepares NanoBK and the `nanobk` command, but does not auto-deploy proxy services.
+- Clarified that users should start and maintain NanoBK through `nanobk`.
+- Kept legacy Full Wizard / advanced install modes as explicit commands, not default behavior.
+
+### Not Changed
+
+- No runtime code changes.
+- No installer behavior changes.
+- No bootstrap behavior changes.
+- No CLI behavior changes.
+- No Bot/Web behavior changes.
+- No real `/etc` writes.
+- No DNS mutation.
+- No Cloudflare mutation.
+- No DNS-01 implementation.
+- No Tunnel/Access implementation.
+- No release tag.
+
 ## v2.2.1 — Product Console + Cloudflare Onboarding Scope Proposal
 
 ### Documentation

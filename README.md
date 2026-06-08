@@ -6,7 +6,7 @@
 
 <br>
 
-![Stable](https://img.shields.io/badge/stable-v1.9.60-blue)
+![Version](https://img.shields.io/badge/version-v2.x-blue)
 ![License](https://img.shields.io/badge/license-private-red)
 ![Installer](https://img.shields.io/badge/installer-one--click-green)
 ![Language](https://img.shields.io/badge/language-中文%20%2F%20English-orange)
@@ -18,7 +18,7 @@
 
 <br>
 
-[快速安装](#-快速安装) ·
+[快速开始](#-快速开始) ·
 [核心能力](#-核心能力) ·
 [Cloudflare 依赖](#-cloudflare-依赖安装) ·
 [Cloudflare 隧道登录](#-无图形界面-vps-的-cloudflare-登录隧道) ·
@@ -37,21 +37,7 @@
 
 ---
 
-## 稳定版本
-
-| 项目 | 值 |
-|------|----|
-| **当前稳定 tag** | `v1.9.60` |
-| **推荐分支** | `v1.9.60`（不要使用 `main`） |
-| **v2.0 开发** | 独立进行中，与本 README 无关 |
-
-> **本 README 仅面向 v1.9.60 稳定版。**
-> 所有安装命令均使用 tag `v1.9.60`，确保可复现。
-> v2.0 开发内容不在本文档范围内。
-
----
-
-## 快速安装
+## 快速开始
 
 ### 前置条件
 
@@ -59,31 +45,69 @@
 - 以 **root** 用户登录（`ssh root@YOUR_VPS_IP`）
 - VPS 可正常访问外网
 
-### 一条命令安装（推荐新手）
+### 第一步：安装 NanoBK
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/kairkiss/NanoBK-Proxy-Suite/v1.9.60/installer/bootstrap.sh) --branch v1.9.60 -- --lang zh
+bash <(curl -fsSL https://raw.githubusercontent.com/kairkiss/NanoBK-Proxy-Suite/main/installer/bootstrap.sh)
 ```
 
-> 安装器会显示中文菜单，选择 **Full Wizard**（完整向导）即可。
-> 如果某个阶段失败，阅读 Summary 中的恢复提示。
+> 这条命令安装 NanoBK 仓库并准备 `nanobk` 命令。
+> **不会**自动部署代理服务、配置 Cloudflare 或启动 Bot/Web。
 
-### 两步安装（更保守）
+### 第二步：打开 NanoBK
 
 ```bash
-curl -fsSL -o /tmp/nanobk-bootstrap.sh https://raw.githubusercontent.com/kairkiss/NanoBK-Proxy-Suite/v1.9.60/installer/bootstrap.sh
-bash /tmp/nanobk-bootstrap.sh --branch v1.9.60 -- --lang zh
+nanobk
 ```
 
-> 第一步下载脚本，第二步执行。
-> 适合需要先检查脚本内容的用户。
+> 打开 NanoBK 控制台，查看状态、运行诊断、启动部署、配置 Cloudflare。
+> 这是日常使用的入口。
+
+### 第三步：启动部署（显式操作）
+
+从控制台选择部署选项，或直接运行：
+
+```bash
+nanobk install --mode full
+```
+
+> 部署需要显式确认，不会在安装时自动运行。
 
 ### 安装注意事项
 
-- **不要** 混用 `main` 分支或 v2.0 开发内容
-- **不要** 在安装过程中中断（Ctrl+C）
+- 安装完成后，使用 `nanobk` 进入控制台
 - 如果某个阶段失败，查看终端输出的 **Summary**，按照恢复提示操作
-- 安装完成后，Bot 和 Web 控制台会自动启动
+- Bot 和 Web 控制台需要通过部署阶段才会启动
+
+### 高级 / 旧版显式命令
+
+以下命令绕过控制台直接运行。大多数用户应使用 `nanobk`。
+
+```bash
+# 旧版完整向导（显式）
+bash installer/bootstrap.sh -- --mode full
+
+# 仅安装 Bot
+nanobk install --mode bot --lang zh
+
+# 仅安装 Web
+nanobk install --mode web --lang zh
+
+# 查看可用命令
+nanobk install --mode commands
+```
+
+> 旧版安装模式仍然可用，但默认入口是 `nanobk` 控制台。
+
+### 稳定版本说明
+
+| 项目 | 值 |
+|------|----|
+| **v1.9.60 稳定 tag** | 现有部署可继续使用 `v1.9.60` |
+| **main 分支** | v2.x 开发和新产品方向 |
+
+> 现有 v1.9.60 部署不受影响。
+> 新安装使用 `main` 分支，入口是 `nanobk`。
 
 ---
 
@@ -332,41 +356,43 @@ http://127.0.0.1:8080
 ## 常见命令
 
 ```bash
+# 打开 NanoBK 控制台（推荐入口）
+nanobk
+
 # 查看版本
 nanobk --version
 
 # 查看帮助
 nanobk help
 
+# 查看状态
+nanobk status
+
 # 查看状态（JSON 格式，适合脚本使用）
 nanobk --json status
 
-# 交互式安装器
-nanobk install
+# 运行诊断
+nanobk doctor
 
-# 仅安装 Bot 模式
-nanobk install --mode bot --lang zh
-
-# 仅安装 Web 模式
-nanobk install --mode web --lang zh
+# 交互式部署（显式）
+nanobk install --mode full
 ```
 
 ---
 
 ## 版本说明
 
-### 当前版本
+### 当前状态
 
 | 项目 | 值 |
 |------|----|
-| **Git tag** | `v1.9.60` |
-| **CLI 显示** | `nanobk 1.9.58` |
-| **是否正常** | 是，这是预期行为 |
+| **main 分支** | v2.x 开发中 |
+| **CLI 版本** | `nanobk 2.1.1` |
+| **产品入口** | `nanobk` 控制台 |
 
-> CLI 显示的版本号（`nanobk 1.9.58`）与 Git tag（`v1.9.60`）不同，这是正常的。
-> tag 代表发布点，CLI 版本号代表代码快照，两者可以不同步。
+### v1.9.60 稳定版
 
-### v1.9.60 包含
+现有 v1.9.60 部署可继续使用。v1.9.60 包含：
 
 - 中文优先的 Bot / Web 控制台
 - Web 面板中英文切换
@@ -378,16 +404,13 @@ nanobk install --mode web --lang zh
 - 真实 VPS 冒烟测试
 - AI 维护文档
 
-### v1.9.60 不包含
+### v2.x 产品方向
 
-- systemd Bot / Web 产品化
-- Web 生产环境运行器
-- UI 重新设计
-- 订阅二维码投递
-- 维修/重启自动化
-- Cloudflare 变更工作流
-- 指纹脱敏策略
-- v2.0 功能
+- `nanobk` 作为日常入口
+- 安装即准备，不自动部署
+- Cloudflare onboarding 只读优先
+- 生产安全门控
+- 详见 [v2.2.1 scope proposal](docs/planning-v2.2.1-product-console-cloudflare-onboarding.md)
 
 ---
 
