@@ -1,5 +1,29 @@
 # Changelog
 
+## v2.1.17-polish — Strict Production Path and Source Checks
+
+### Changed
+
+- Tightened production path classification so only exact
+  `/etc/nanobk/cloudflare-dns-profile.json` enters production class.
+- Non-exact `/etc/nanobk/*` paths (e.g. `foo.json`, `.bak`, `subdir/`) are
+  now forbidden and cannot map to fake-root output.
+- Added fake-root outside-temp test coverage.
+- Replaced `startswith` temp root check with `os.path.commonpath()`.
+- Strengthened source checks for PATCH/PUT method variants, external IP echo
+  services (`icanhazip`, `cloudflare.com/cdn-cgi`), and interface-read patterns
+  (`ip addr`, `ip route`, `ifconfig`).
+
+### Not Changed
+
+- No real `/etc` writes.
+- No behavior expansion.
+- No backup/replace.
+- No Cloudflare mutation.
+- No DNS mutation.
+- No `cf dns apply` or `apply --check`.
+- No release tag.
+
 ## v2.1.17 — Fake-root Production DNS Profile Writer Skeleton
 
 ### Added

@@ -350,6 +350,10 @@ def classify_output_path(output_path):
     path_class: "temp", "production", or "forbidden"
     physical_path: resolved actual path to write to
     error_string: error message if forbidden, else None
+
+    Production class is ONLY selected for the exact logical path:
+        /etc/nanobk/cloudflare-dns-profile.json
+    All other /etc/nanobk/* paths are forbidden.
     """
     if not output_path:
         return "forbidden", None, "output path is required"
@@ -357,15 +361,14 @@ def classify_output_path(output_path):
     if not os.path.isabs(output_path):
         return "forbidden", None, "output path must be absolute"
 
-    # Check if this is the production path
-    # Match both exact and resolved forms
+    # Strict production path check: only exact match
     is_production = False
     if output_path == PRODUCTION_PROFILE_PATH:
         is_production = True
     else:
         try:
             resolved = os.path.realpath(output_path)
-            if resolved == PRODUCTION_PROFILE_PATH or output_path.startswith("/etc/nanobk/"):
+            if resolved == PRODUCTION_PROFILE_PATH:
                 is_production = True
         except (OSError, ValueError):
             pass
@@ -373,20 +376,29 @@ def classify_output_path(output_path):
     if is_production:
         return "production", None, None
 
-    # Not production — must be temp class
+    # Not exact production path — check if it looks like a production path
+    # but is not the exact one (e.g. /etc/nanobk/foo.json)
     try:
         resolved = os.path.realpath(output_path)
     except (OSError, ValueError):
         return "forbidden", None, "cannot resolve output path"
 
-    # Check blocked prefixes for non-production paths
+    # Block any /etc/nanobk/* path that isn't the exact production path
+    if output_path.startswith("/etc/nanobk/") or resolved.startswith("/etc/nanobk/"):
+        return "forbidden", None, "unsupported production output path"
+
+    # Block other blocked prefixes
     for prefix in BLOCKED_PREFIXES:
         if output_path.startswith(prefix) or resolved.startswith(prefix):
             return "forbidden", None, "production profile path is not supported outside fake-root tests"
 
-    # Check allowed temp root
+    # Check allowed temp root using commonpath for safety
     allowed_root = get_allowed_temp_root()
-    if not resolved.startswith(allowed_root):
+    try:
+        common = os.path.commonpath([resolved, allowed_root])
+        if common != allowed_root:
+            return "forbidden", None, "output path must be under temp root"
+    except ValueError:
         return "forbidden", None, "output path must be under temp root"
 
     return "temp", output_path, None

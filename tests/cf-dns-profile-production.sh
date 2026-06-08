@@ -250,6 +250,88 @@ assert_contains "$BAD_MODE" "0700" "error mentions 0700"
 
 echo ""
 
+# ── I2. Non-exact /etc/nanobk paths are forbidden ───────────────────────────
+
+echo "--- I2. Non-exact /etc/nanobk paths are forbidden ---"
+echo ""
+
+GOOD_ROOT="$TEST_TMPDIR/strict-root"
+mkdir -p "$GOOD_ROOT/etc/nanobk"
+chmod 700 "$GOOD_ROOT/etc/nanobk"
+
+# /etc/nanobk/foo.json
+FOO_OUT=$(NANOBK_TEST_PRODUCTION_PROFILE_ROOT="$GOOD_ROOT" NANOBK_TEST_ALLOW_PRODUCTION_ROOT=1 NANOBK_TEST_TMPDIR="$TEST_TMPDIR" \
+  bash "$NANOBK" --repo-dir "$ROOT" cf dns profile generate \
+  --zone example.com --node proxy --ipv4 203.0.113.10 \
+  --output /etc/nanobk/foo.json \
+  --yes --allow-production-output --confirm-hostname proxy.example.com --allow-documentation-ips \
+  --json 2>&1 || true)
+assert_contains "$FOO_OUT" '"ok": false' "/etc/nanobk/foo.json forbidden"
+assert_not_contains "$FOO_OUT" "203.0.113.10" "foo.json has no raw IP"
+assert_not_contains "$FOO_OUT" "$GOOD_ROOT" "foo.json has no fake-root path"
+if [[ ! -f "$GOOD_ROOT/etc/nanobk/foo.json" ]]; then
+  pass "foo.json not created"
+else
+  fail "foo.json was created"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# /etc/nanobk/cloudflare-dns-profile.json.bak
+BAK_OUT=$(NANOBK_TEST_PRODUCTION_PROFILE_ROOT="$GOOD_ROOT" NANOBK_TEST_ALLOW_PRODUCTION_ROOT=1 NANOBK_TEST_TMPDIR="$TEST_TMPDIR" \
+  bash "$NANOBK" --repo-dir "$ROOT" cf dns profile generate \
+  --zone example.com --node proxy --ipv4 203.0.113.10 \
+  --output /etc/nanobk/cloudflare-dns-profile.json.bak \
+  --yes --allow-production-output --confirm-hostname proxy.example.com --allow-documentation-ips \
+  --json 2>&1 || true)
+assert_contains "$BAK_OUT" '"ok": false' ".bak file forbidden"
+assert_not_contains "$BAK_OUT" "$GOOD_ROOT" ".bak has no fake-root path"
+
+# /etc/nanobk/subdir/cloudflare-dns-profile.json
+SUB_OUT=$(NANOBK_TEST_PRODUCTION_PROFILE_ROOT="$GOOD_ROOT" NANOBK_TEST_ALLOW_PRODUCTION_ROOT=1 NANOBK_TEST_TMPDIR="$TEST_TMPDIR" \
+  bash "$NANOBK" --repo-dir "$ROOT" cf dns profile generate \
+  --zone example.com --node proxy --ipv4 203.0.113.10 \
+  --output /etc/nanobk/subdir/cloudflare-dns-profile.json \
+  --yes --allow-production-output --confirm-hostname proxy.example.com --allow-documentation-ips \
+  --json 2>&1 || true)
+assert_contains "$SUB_OUT" '"ok": false' "subdir path forbidden"
+assert_not_contains "$SUB_OUT" "$GOOD_ROOT" "subdir has no fake-root path"
+
+# /etc/other.json
+OTHER_OUT=$(NANOBK_TEST_PRODUCTION_PROFILE_ROOT="$GOOD_ROOT" NANOBK_TEST_ALLOW_PRODUCTION_ROOT=1 NANOBK_TEST_TMPDIR="$TEST_TMPDIR" \
+  bash "$NANOBK" --repo-dir "$ROOT" cf dns profile generate \
+  --zone example.com --node proxy --ipv4 203.0.113.10 \
+  --output /etc/other.json \
+  --yes --allow-production-output --confirm-hostname proxy.example.com --allow-documentation-ips \
+  --json 2>&1 || true)
+assert_contains "$OTHER_OUT" '"ok": false' "/etc/other.json forbidden"
+assert_not_contains "$OTHER_OUT" "$GOOD_ROOT" "other.json has no fake-root path"
+
+echo ""
+
+# ── I3. Fake-root outside temp fails ────────────────────────────────────────
+
+echo "--- I3. Fake-root outside temp fails ---"
+echo ""
+
+OUTSIDE_ROOT="/tmp/nanobk-outside-$$"
+mkdir -p "$OUTSIDE_ROOT/etc/nanobk"
+chmod 700 "$OUTSIDE_ROOT/etc/nanobk"
+OUTSIDE_TMP="$TEST_TMPDIR/inside-tmp"
+mkdir -p "$OUTSIDE_TMP"
+OUTSIDE_OUT=$(NANOBK_TEST_PRODUCTION_PROFILE_ROOT="$OUTSIDE_ROOT" NANOBK_TEST_ALLOW_PRODUCTION_ROOT=1 NANOBK_TEST_TMPDIR="$OUTSIDE_TMP" \
+  bash "$NANOBK" --repo-dir "$ROOT" cf dns profile generate \
+  --zone example.com --node proxy --ipv4 203.0.113.10 \
+  --output /etc/nanobk/cloudflare-dns-profile.json \
+  --yes --allow-production-output --confirm-hostname proxy.example.com --allow-documentation-ips \
+  --json 2>&1 || true)
+assert_contains "$OUTSIDE_OUT" '"ok": false' "outside-temp fake-root fails"
+assert_contains "$OUTSIDE_OUT" "temp root" "error mentions temp root"
+assert_not_contains "$OUTSIDE_OUT" "203.0.113.10" "outside-temp has no raw IP"
+assert_not_contains "$OUTSIDE_OUT" "$OUTSIDE_ROOT" "outside-temp has no fake-root path"
+rm -rf "$OUTSIDE_ROOT"
+
+echo ""
+
 # ── J. Fake-root success ────────────────────────────────────────────────────
 
 echo "--- J. Fake-root success ---"
@@ -373,18 +455,33 @@ assert_not_contains "$HELPER_SRC" "os.replace(" "no os.replace overwrite"
 assert_not_contains "$HELPER_SRC" "cf dns apply" "no cf dns apply"
 assert_not_contains "$HELPER_SRC" "apply --check" "no apply --check"
 
-# No HTTP mutation methods
-assert_not_contains "$HELPER_SRC" 'method="POST"' "no method=POST"
-assert_not_contains "$HELPER_SRC" 'method="DELETE"' "no method=DELETE"
+# No HTTP mutation methods (double-quote)
+assert_not_contains "$HELPER_SRC" 'method="POST"' "no method=\"POST\""
+assert_not_contains "$HELPER_SRC" 'method="PATCH"' "no method=\"PATCH\""
+assert_not_contains "$HELPER_SRC" 'method="DELETE"' "no method=\"DELETE\""
+assert_not_contains "$HELPER_SRC" 'method="PUT"' "no method=\"PUT\""
+
+# No HTTP mutation methods (single-quote)
 assert_not_contains "$HELPER_SRC" "method='POST'" "no method='POST'"
+assert_not_contains "$HELPER_SRC" "method='PATCH'" "no method='PATCH'"
 assert_not_contains "$HELPER_SRC" "method='DELETE'" "no method='DELETE'"
+assert_not_contains "$HELPER_SRC" "method='PUT'" "no method='PUT'"
 
 # No external tools
 assert_not_contains "$HELPER_SRC" "curl" "no curl"
 assert_not_contains "$HELPER_SRC" "wget" "no wget"
+
+# No external IP echo services
 assert_not_contains "$HELPER_SRC" "ifconfig.me" "no ifconfig.me"
 assert_not_contains "$HELPER_SRC" "ipify" "no ipify"
 assert_not_contains "$HELPER_SRC" "ident.me" "no ident.me"
+assert_not_contains "$HELPER_SRC" "icanhazip" "no icanhazip"
+assert_not_contains "$HELPER_SRC" "cloudflare.com/cdn-cgi" "no cloudflare trace"
+
+# No network interface reads
+assert_not_contains "$HELPER_SRC" "ip addr" "no ip addr"
+assert_not_contains "$HELPER_SRC" "ip route" "no ip route"
+assert_not_contains "$HELPER_SRC" "ifconfig" "no ifconfig"
 assert_not_contains "$HELPER_SRC" "/proc/net" "no /proc/net"
 
 echo ""
