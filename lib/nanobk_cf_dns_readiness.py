@@ -321,6 +321,7 @@ def output_json(checks, next_steps, ok, ready):
         "ok": ok,
         "ready": ready,
         "mutation": False,
+        "profile_write": False,
         "checks": sanitized,
         "dns_apply_status": "manual_apply_pending",
         "next_steps": next_steps,
@@ -332,7 +333,7 @@ def output_error(message, json_mode=False):
     """Print error message."""
     if json_mode:
         result = {"ok": False, "ready": False, "error": message, "mutation": False,
-                  "checks": [], "dns_apply_status": "unknown", "next_steps": []}
+                  "profile_write": False, "checks": [], "dns_apply_status": "unknown", "next_steps": []}
         print(json.dumps(result, indent=2))
     else:
         print(f"  Error: {message}", file=sys.stderr)

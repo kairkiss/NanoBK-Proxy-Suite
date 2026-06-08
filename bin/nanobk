@@ -1186,13 +1186,21 @@ cmd_cf_dns() {
           --help|-h)
             args+=("--help"); shift ;;
           --dry-run)
-            # readiness is already read-only; ignore
-            shift ;;
+            print_cmd "${args[@]}"
+            echo -e "  ${CYAN}[DRY-RUN]${NC} 跳过执行"
+            return 0 ;;
           *)
             die "cf dns readiness: unknown option: $1"
             ;;
         esac
       done
+
+      # Respect global --dry-run
+      if [[ "$DRY_RUN" == "1" ]]; then
+        print_cmd "${args[@]}"
+        echo -e "  ${CYAN}[DRY-RUN]${NC} 跳过执行"
+        return 0
+      fi
 
       "${args[@]}"
       ;;
@@ -1393,8 +1401,9 @@ cmd_cf_zones() {
           --help|-h)
             args+=("--help"); shift ;;
           --dry-run)
-            # cf zones list is already read-only; ignore global --dry-run
-            shift ;;
+            print_cmd "${args[@]}"
+            echo -e "  ${CYAN}[DRY-RUN]${NC} 跳过执行"
+            return 0 ;;
           *)
             die "cf zones list: unknown option: $1"
             ;;

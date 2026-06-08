@@ -300,6 +300,35 @@ assert_contains "$ZONES_ERR" "Unknown cf zones subcommand" "bad subcommand repor
 ZONES_EMPTY=$(bash "$NANOBK" --repo-dir "$ROOT" cf zones 2>&1 || true)
 assert_contains "$ZONES_EMPTY" "Usage" "missing subcommand shows usage"
 
+# JSON missing api-env
+ZONES_JSON_MISS=$(bash "$NANOBK" --repo-dir "$ROOT" cf zones list --json 2>&1 || true)
+if echo "$ZONES_JSON_MISS" | python3 -c "import json,sys; json.load(sys.stdin)" 2>/dev/null; then
+  pass "zones JSON missing api-env is valid JSON"
+else
+  fail "zones JSON missing api-env is NOT valid JSON"
+  ERRORS=$((ERRORS + 1))
+fi
+assert_contains "$ZONES_JSON_MISS" '"ok": false' "zones JSON missing has ok: false"
+assert_contains "$ZONES_JSON_MISS" '"mutation": false' "zones JSON missing has mutation: false"
+assert_not_contains "$ZONES_JSON_MISS" "Traceback" "zones JSON missing has no Traceback"
+
+echo ""
+
+# ── I. Dry-run ──────────────────────────────────────────────────────────────
+
+echo "--- I. Dry-run ---"
+echo ""
+
+# Command-level dry-run
+ZONES_DRY=$(bash "$NANOBK" --repo-dir "$ROOT" cf zones list --dry-run --api-env /tmp/f 2>&1)
+assert_contains "$ZONES_DRY" "DRY-RUN" "zones command-level dry-run shows DRY-RUN"
+assert_not_contains "$ZONES_DRY" "Cloudflare zones discovered" "zones dry-run does NOT execute helper"
+
+# Global dry-run
+ZONES_GDRY=$(bash "$NANOBK" --repo-dir "$ROOT" --dry-run cf zones list --api-env /tmp/f 2>&1)
+assert_contains "$ZONES_GDRY" "DRY-RUN" "zones global dry-run shows DRY-RUN"
+assert_not_contains "$ZONES_GDRY" "Cloudflare zones discovered" "zones global dry-run does NOT execute helper"
+
 echo ""
 
 # ── Summary ─────────────────────────────────────────────────────────────────

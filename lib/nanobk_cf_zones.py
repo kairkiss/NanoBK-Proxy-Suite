@@ -214,13 +214,18 @@ def main():
     sub = parser.add_subparsers(dest="command")
 
     list_parser = sub.add_parser("list", help="List Cloudflare zones (read-only)")
-    list_parser.add_argument("--api-env", required=True, help="Path to api-env file")
+    list_parser.add_argument("--api-env", help="Path to api-env file")
     list_parser.add_argument("--json", action="store_true", help="JSON output")
 
     args = parser.parse_args()
 
     if args.command != "list":
         parser.print_help()
+        sys.exit(1)
+
+    # Manual required-field validation (clean JSON errors in --json mode)
+    if not args.api_env:
+        output_error("api-env is required", args.json)
         sys.exit(1)
 
     # Parse env

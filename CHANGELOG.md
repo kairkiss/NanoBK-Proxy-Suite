@@ -1,5 +1,27 @@
 # Changelog
 
+## v2.1.11-polish — DNS Preparation JSON Contract and Dry-run Consistency
+
+### Changed
+
+- `cf zones list --json` missing `--api-env` now returns sanitized JSON error
+  instead of argparse stderr.
+- `cf dns readiness --json` now includes `profile_write: false` in both success
+  and error outputs.
+- `cf zones list` now respects both global and command-level `--dry-run`.
+- `cf dns readiness` now respects both global and command-level `--dry-run`.
+- Added shared DNS preparation contract smoke test (`tests/cf-dns-prep-contract.sh`).
+- Updated focused tests: `cf-zones-list.sh` (JSON missing api-env, dry-run),
+  `cf-dns-readiness.sh` (profile_write, dry-run).
+
+### Not Changed
+
+- No DNS profile writes.
+- No Cloudflare mutation.
+- No DNS apply/check.
+- No DNS mutation.
+- No release tag.
+
 ## v2.1.10-polish — DNS Report Source Safety Checks
 
 ### Changed

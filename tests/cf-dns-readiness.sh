@@ -273,6 +273,7 @@ fi
 assert_contains "$JSON_MISSING" '"ok": true' "missing inputs JSON has ok: true"
 assert_contains "$JSON_MISSING" '"ready": false' "missing inputs JSON has ready: false"
 assert_contains "$JSON_MISSING" '"mutation": false' "missing inputs JSON has mutation: false"
+assert_contains "$JSON_MISSING" '"profile_write": false' "missing inputs JSON has profile_write: false"
 assert_contains "$JSON_MISSING" '"manual_apply_pending"' "missing inputs JSON has apply status"
 assert_not_contains "$JSON_MISSING" "cf dns apply" "missing inputs JSON has no cf dns apply"
 assert_not_contains "$JSON_MISSING" "apply --check" "missing inputs JSON has no apply --check"
@@ -307,6 +308,7 @@ fi
 assert_contains "$JSON_FULL" '"ok": true' "full success JSON has ok: true"
 assert_contains "$JSON_FULL" '"ready": true' "full success JSON has ready: true"
 assert_contains "$JSON_FULL" '"mutation": false' "full success JSON has mutation: false"
+assert_contains "$JSON_FULL" '"profile_write": false' "full success JSON has profile_write: false"
 assert_contains "$JSON_FULL" '"manual_apply_pending"' "full success JSON has apply status"
 assert_not_contains "$JSON_FULL" "cf dns apply" "full success JSON has no cf dns apply"
 assert_not_contains "$JSON_FULL" "apply --check" "full success JSON has no apply --check"
@@ -327,6 +329,23 @@ else
   ERRORS=$((ERRORS + 1))
 fi
 assert_not_contains "$JSON_MAL" "test_json_mal" "malformed JSON has no token"
+
+echo ""
+
+# ── L. Dry-run ──────────────────────────────────────────────────────────────
+
+echo "--- L. Dry-run ---"
+echo ""
+
+# Command-level dry-run
+READY_DRY=$(bash "$NANOBK" --repo-dir "$ROOT" cf dns readiness --dry-run --api-env /tmp/f 2>&1)
+assert_contains "$READY_DRY" "DRY-RUN" "readiness command-level dry-run shows DRY-RUN"
+assert_not_contains "$READY_DRY" "NanoBK DNS readiness" "readiness dry-run does NOT execute helper"
+
+# Global dry-run
+READY_GDRY=$(bash "$NANOBK" --repo-dir "$ROOT" --dry-run cf dns readiness --api-env /tmp/f 2>&1)
+assert_contains "$READY_GDRY" "DRY-RUN" "readiness global dry-run shows DRY-RUN"
+assert_not_contains "$READY_GDRY" "NanoBK DNS readiness" "readiness global dry-run does NOT execute helper"
 
 echo ""
 
