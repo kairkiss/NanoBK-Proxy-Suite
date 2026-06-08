@@ -1,5 +1,32 @@
 # Changelog
 
+## v2.1.14 — DNS Profile Preview-only CLI Skeleton
+
+### Added
+
+- `nanobk cf dns profile preview --zone DOMAIN --node NODE --ipv4 VALUE [--ipv6 VALUE] [--json] [--allow-documentation-ips]` —
+  preview-only DNS profile validation.
+- `lib/nanobk_cf_dns_profile.py` — standalone Python helper that builds and
+  validates an in-memory DNS profile candidate, prints only redacted/masked output.
+- Production IP-scope validation: rejects private, loopback, link-local, multicast,
+  reserved, unspecified, and documentation IPs.
+- `--allow-documentation-ips` flag allows documentation ranges (192.0.2.0/24,
+  198.51.100.0/24, 203.0.113.0/24, 2001:db8::/32) for tests/examples only.
+- Global and command-level dry-run use sanitized output (no raw zone/IP leaked).
+- Preview-only: no file writes, no DNS profile writes, no Cloudflare mutation,
+  no DNS apply/check, no DNS mutation.
+- Focused test: `tests/cf-dns-profile-preview.sh` with 55+ assertions.
+
+### Not Changed
+
+- No file writes.
+- No DNS profile writes.
+- No Cloudflare mutation.
+- No `cf dns apply` or `apply --check`.
+- No DNS mutation.
+- No Full Wizard integration.
+- No release tag.
+
 ## v2.1.13 — Controlled DNS Profile Generator Design Spec
 
 ### Documentation
