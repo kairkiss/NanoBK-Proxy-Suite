@@ -1,5 +1,23 @@
 # Changelog
 
+## v2.1.12 — Read-only DNS Preparation Phase Closeout
+
+### Documentation
+
+- Added `docs/validation/dns-preparation-readonly-phase-closeout-v2.1.12.md`.
+- Closed the v2.1 read-only DNS preparation foundation.
+- Documents delivered commands, JSON contract, dry-run behavior, safety/privacy
+  boundaries, accepted limitations, and future work.
+- Docs-only. No runtime code changes.
+
+### Not Changed
+
+- No DNS profile writes.
+- No Cloudflare mutation.
+- No `cf dns apply` or `apply --check`.
+- No DNS mutation.
+- No release tag.
+
 ## v2.1.11-polish — DNS Preparation JSON Contract and Dry-run Consistency
 
 ### Changed
