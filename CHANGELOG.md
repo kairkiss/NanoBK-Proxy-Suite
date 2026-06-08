@@ -1,5 +1,24 @@
 # Changelog
 
+## v2.1.22 — Rollback Execute Policy Spec
+
+### Documentation
+
+- Added `docs/architecture/dns-profile-rollback-execute-policy-v2.1.22.md`.
+- Documents future rollback execute policy: command shape, fake-root model,
+  backup ID model, pre-rollback backup model, atomic replace model, allowed
+  replace primitive, post-replace failure policy, confirmation model, dry-run
+  model, JSON/text contract, test strategy, source-check strategy, roadmap.
+- Docs-only. No runtime code changes.
+
+### Not Changed
+
+- No rollback execute implementation.
+- No real `/etc` changes.
+- No DNS apply/check.
+- No Cloudflare mutation.
+- No release tag.
+
 ## v2.1.21-polish — Complete Rollback Preview Failure Coverage
 
 ### Changed
