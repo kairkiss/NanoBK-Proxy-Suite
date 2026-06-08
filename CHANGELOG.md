@@ -1,5 +1,29 @@
 # Changelog
 
+## v2.1.15 — Temp-output DNS Profile Writer Skeleton
+
+### Added
+
+- `nanobk cf dns profile generate --zone DOMAIN --node NODE --ipv4 VALUE [--ipv6 VALUE] --output PATH --yes [--json] [--allow-documentation-ips]` —
+  temp-output DNS profile writer.
+- Writes DNS profile JSON only to allowed temp/test output paths.
+- Rejects production `/etc/nanobk` path and refuses overwrite.
+- Writes with mode `600` via atomic temp file + hard link.
+- Validates profile before and after write.
+- Output hides raw IP/zone/hostname/path values.
+- Dry-run hides raw args and writes nothing.
+- Output path allowlist: `NANOBK_TEST_TMPDIR` or system temp root.
+- Focused test: `tests/cf-dns-profile-generate.sh` with 62 assertions.
+
+### Not Changed
+
+- No production `/etc/nanobk` path support.
+- No Cloudflare mutation.
+- No DNS mutation.
+- No `cf dns apply` or `apply --check`.
+- No Full Wizard integration.
+- No release tag.
+
 ## v2.1.14-polish — DNS Profile Preview Source Safety Checks
 
 ### Changed
