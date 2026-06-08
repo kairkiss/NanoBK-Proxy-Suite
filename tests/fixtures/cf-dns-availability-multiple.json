@@ -1,0 +1,21 @@
+{
+  "success": true,
+  "result": [
+    {
+      "id": "rec-multi1",
+      "type": "A",
+      "name": "proxy.example.com",
+      "content": "203.0.113.10",
+      "proxied": false,
+      "comment": null
+    },
+    {
+      "id": "rec-multi2",
+      "type": "AAAA",
+      "name": "proxy.example.com",
+      "content": "2001:db8::10",
+      "proxied": false,
+      "comment": null
+    }
+  ]
+}

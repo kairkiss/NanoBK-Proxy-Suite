@@ -1,5 +1,33 @@
 # Changelog
 
+## v2.1.8 — Subdomain Availability GET-only Skeleton
+
+### Added
+
+- `nanobk cf dns availability check --zone DOMAIN --node NODE --api-env PATH [--json]` —
+  GET-only, read-only subdomain availability check.
+- `lib/nanobk_cf_dns_availability.py` — standalone Python helper with zone/node
+  validation, api-env parsing (requires full zone binding), fake transport hook
+  (`NANOBK_CF_DNS_AVAILABILITY_FAKE_RESPONSE`), and sanitized output.
+- Status model: `available`, `nanobk_owned`, `conflict`, `manual_review`, `failed`.
+- NanoBK ownership detection via `managed-by=nanobk` comment marker.
+- Record sanitization: masked IPs/hostnames, redacted TXT/MX content, no raw
+  record IDs/comments.
+- Zone mismatch detection: `--zone` must match `CF_ZONE_NAME` in api-env.
+- JSON output: `{"ok": true, "mutation": false, "profile_write": false, "status": "...", "available": bool, ...}`.
+- Test fixtures: empty, unowned-a, owned-a, cname, proxied-a, multiple, txt,
+  auth-error, api-error, malformed.
+- Focused test: `tests/cf-dns-availability.sh` with 71 assertions.
+
+### Not Changed
+
+- No DNS mutation (no create/update/delete).
+- No Cloudflare POST/PATCH/DELETE.
+- No `cf dns apply` or `apply --check`.
+- No DNS profile writes.
+- No console auto-execution.
+- No release tag.
+
 ## v2.1.7-polish — DNS Target Preview JSON Error Contract
 
 ### Changed

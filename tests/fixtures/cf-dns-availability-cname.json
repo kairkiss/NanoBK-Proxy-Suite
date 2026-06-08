@@ -1,0 +1,13 @@
+{
+  "success": true,
+  "result": [
+    {
+      "id": "rec-cname456",
+      "type": "CNAME",
+      "name": "proxy.example.com",
+      "content": "other-host.example.net",
+      "proxied": false,
+      "comment": null
+    }
+  ]
+}

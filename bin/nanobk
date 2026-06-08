@@ -508,6 +508,7 @@ NanoBK Proxy Suite — Unified CLI v${NANOBK_VERSION}
   cf dns apply [options...]   应用 DNS 记录到 Cloudflare（需要 --yes）
   cf dns readiness [--api-env PATH] [--profile PATH]  只读 DNS 就绪检查 [--json]
   cf dns target preview --zone DOMAIN --ip-fixture PATH  只读 DNS 目标预览 [--json]
+  cf dns availability check --zone DOMAIN --node NODE --api-env PATH  只读子域名可用性检查 [--json]
   cf zones list --api-env PATH  只读列出 Cloudflare zones [--json]
   vps ip detect               只读 VPS IP 候选检测 [--json]
   rotate <protocol> [args.]  换密钥: all|hy2|tuic|reality|trojan
@@ -1241,12 +1242,59 @@ cmd_cf_dns() {
       esac
       ;;
 
+    availability)
+      local avail_sub="${1:-}"
+      shift 2>/dev/null || true
+      case "$avail_sub" in
+        check)
+          local args=(python3 "$REPO_DIR/lib/nanobk_cf_dns_availability.py")
+          while [[ $# -gt 0 ]]; do
+            case "$1" in
+              --zone)
+                [[ $# -ge 2 ]] || die "cf dns availability check: --zone needs a value"
+                args+=("$1" "$2"); shift 2 ;;
+              --node)
+                [[ $# -ge 2 ]] || die "cf dns availability check: --node needs a value"
+                args+=("$1" "$2"); shift 2 ;;
+              --api-env)
+                [[ $# -ge 2 ]] || die "cf dns availability check: --api-env needs a path"
+                args+=("$1" "$2"); shift 2 ;;
+              --json)
+                args+=("--json"); shift ;;
+              --help|-h)
+                args+=("--help"); shift ;;
+              --dry-run)
+                print_cmd "${args[@]}"
+                echo -e "  ${CYAN}[DRY-RUN]${NC} 跳过执行"
+                return 0 ;;
+              *)
+                die "cf dns availability check: unknown option: $1"
+                ;;
+            esac
+          done
+          # Respect global --dry-run
+          if [[ "$DRY_RUN" == "1" ]]; then
+            print_cmd "${args[@]}"
+            echo -e "  ${CYAN}[DRY-RUN]${NC} 跳过执行"
+            return 0
+          fi
+          "${args[@]}"
+          ;;
+        "")
+          die "Usage: nanobk cf dns availability <check> [options...]"
+          ;;
+        *)
+          die "Unknown cf dns availability subcommand: ${avail_sub}. Use: nanobk cf dns availability check"
+          ;;
+      esac
+      ;;
+
     "")
-      die "Usage: nanobk cf dns <plan|validate-profile|apply|readiness|target> [options...]"
+      die "Usage: nanobk cf dns <plan|validate-profile|apply|readiness|target|availability> [options...]"
       ;;
 
     *)
-      die "Unknown cf dns subcommand: ${dns_sub}. Use: nanobk cf dns <plan|validate-profile|apply|readiness|target>"
+      die "Unknown cf dns subcommand: ${dns_sub}. Use: nanobk cf dns <plan|validate-profile|apply|readiness|target|availability>"
       ;;
   esac
 }

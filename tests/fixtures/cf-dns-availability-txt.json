@@ -1,0 +1,13 @@
+{
+  "success": true,
+  "result": [
+    {
+      "id": "rec-txt999",
+      "type": "TXT",
+      "name": "proxy.example.com",
+      "content": "v=spf1 include:_spf.example.com ~all",
+      "proxied": false,
+      "comment": null
+    }
+  ]
+}
