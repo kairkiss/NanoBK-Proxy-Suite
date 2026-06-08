@@ -1,5 +1,27 @@
 # Changelog
 
+## v2.2.1 — Product Console + Cloudflare Onboarding Scope Proposal
+
+### Documentation
+
+- Added `docs/planning-v2.2.1-product-console-cloudflare-onboarding.md`.
+- Defines v2.2 as Product Console + Cloudflare Onboarding + Production Safety scope.
+- Records install-only product direction: install does not equal deploy, `nanobk` is the daily entry point.
+- Defines beginner/advanced mode boundary, Cloudflare onboarding read-only-first flow, proxy/web domain policy, production safety gates, and staged v2.2 roadmap.
+
+### Not Changed
+
+- No runtime code changes.
+- No installer behavior changes.
+- No CLI behavior changes.
+- No Bot/Web behavior changes.
+- No real `/etc` writes.
+- No DNS mutation.
+- No Cloudflare mutation.
+- No DNS-01 implementation.
+- No Tunnel/Access implementation.
+- No release tag.
+
 ## v2.1.26 — Fake-root DNS Profile Management Closeout
 
 ### Documentation
