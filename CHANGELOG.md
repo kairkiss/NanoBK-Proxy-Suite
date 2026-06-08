@@ -1,5 +1,27 @@
 # Changelog
 
+## v2.1.20 — Backup-only Fake-root DNS Profile Skeleton
+
+### Added
+
+- Fake-root-only `nanobk cf dns profile backup` command.
+- Copies valid existing fake-root production profile byte-for-byte to
+  `/etc/nanobk/backups` with timestamped filename.
+- Requires `--yes`, `--allow-production-output`, and matching `--confirm-hostname`.
+- Valid source profile and source mode `0600` required.
+- Backup dir mode `0700` and backup file mode `0600`.
+- SHA256 verification after copy.
+- Focused test: `tests/cf-dns-profile-backup.sh` with 95+ assertions.
+
+### Not Changed
+
+- No replace, no rollback.
+- No real `/etc` backup.
+- No DNS apply/check.
+- No Cloudflare mutation.
+- No Full Wizard/Web/Bot integration.
+- No release tag.
+
 ## v2.1.19-polish — Honest Replace Preview Status Contract
 
 ### Changed

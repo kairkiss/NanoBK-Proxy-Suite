@@ -13,10 +13,12 @@ Usage:
 
 import argparse
 import fcntl
+import hashlib
 import ipaddress
 import json
 import os
 import re
+import secrets
 import stat
 import sys
 import tempfile
@@ -1103,6 +1105,314 @@ def output_replace_preview_error(message, json_mode=False):
     else:
         print(f"  Error: {message}", file=sys.stderr)
 
+# ── backup-only start ──────────────────────────────────────────────────────
+
+BACKUP_ERROR_BASE = {"mutation": False, "local_file_mutation": False,
+                     "dns_mutation": False, "cloudflare_mutation": False,
+                     "dns_apply": False, "backup_only": True,
+                     "backup_created": False, "profile_replaced": False,
+                     "rollback_performed": False}
+
+
+def validate_source_profile(physical_path):
+    """Validate source profile for backup. Returns (status, data, error)."""
+    if not os.path.exists(physical_path):
+        return "source_missing", None, "source profile is missing"
+    if os.path.islink(physical_path):
+        return "source_symlink_blocked", None, "source profile symlink is blocked"
+    if not os.path.isfile(physical_path):
+        return "source_non_regular_file", None, "source profile is not a regular file"
+
+    # Check mode
+    try:
+        st = os.stat(physical_path)
+        mode = stat.S_IMODE(st.st_mode)
+        if mode != 0o600:
+            return "source_mode_invalid", None, f"source profile mode must be 0600, got {oct(mode)}"
+    except OSError:
+        return "source_unreadable", None, "source profile is unreadable"
+
+    # Read and parse
+    try:
+        with open(physical_path, "rb") as f:
+            raw_bytes = f.read()
+        data = json.loads(raw_bytes)
+    except json.JSONDecodeError:
+        return "source_invalid_json", None, "source profile is not valid JSON"
+    except OSError:
+        return "source_unreadable", None, "source profile is unreadable"
+
+    # Schema validation
+    if not isinstance(data, dict):
+        return "source_unsupported_schema", None, "source profile schema is unsupported"
+
+    # Check for secret-like keys
+    for key in data:
+        key_lower = key.lower()
+        for secret in _SECRET_SUBSTRINGS:
+            if secret in key_lower and key not in _ALLOWED_KEYS:
+                return "source_unsupported_schema", None, "source profile schema is unsupported"
+
+    # Required fields
+    if "zoneName" not in data or "nodePrefix" not in data:
+        return "source_unsupported_schema", None, "source profile schema is unsupported"
+
+    # Validate zone/node
+    if validate_zone(data.get("zoneName", "")):
+        return "source_unsupported_schema", None, "source profile schema is unsupported"
+    if validate_node(data.get("nodePrefix", "")):
+        return "source_unsupported_schema", None, "source profile schema is unsupported"
+
+    # Validate IPs
+    ipv4 = data.get("ipv4")
+    ipv6 = data.get("ipv6")
+    if not ipv4 and not ipv6:
+        return "source_unsupported_schema", None, "source profile schema is unsupported"
+    if ipv4 and validate_ipv4(ipv4, True):
+        return "source_unsupported_schema", None, "source profile schema is unsupported"
+    if ipv6 and validate_ipv6(ipv6, True):
+        return "source_unsupported_schema", None, "source profile schema is unsupported"
+
+    # defaultProxied
+    prox = data.get("defaultProxied")
+    if prox is not None and prox is not False:
+        return "source_unsupported_schema", None, "source profile schema is unsupported"
+
+    # Unknown keys
+    known_keys = {"zoneName", "nodePrefix", "ipv4", "ipv6",
+                  "defaultProxied", "zoneId", "reserved"}
+    for k in data:
+        if k not in known_keys:
+            return "source_unsupported_schema", None, "source profile schema is unsupported"
+
+    return "valid", data, None
+
+
+def create_backup_dir(backup_dir):
+    """Create or validate backup directory. Returns error string or None."""
+    if os.path.islink(backup_dir):
+        return "backup directory symlink is not allowed"
+    if os.path.exists(backup_dir):
+        if not os.path.isdir(backup_dir):
+            return "backup directory is not a directory"
+        try:
+            st = os.stat(backup_dir)
+            mode = stat.S_IMODE(st.st_mode)
+            if mode != 0o700:
+                return f"backup directory mode must be 0700, got {oct(mode)}"
+        except OSError:
+            return "cannot stat backup directory"
+        return None
+    # Create with mode 0700
+    try:
+        os.makedirs(backup_dir, mode=0o700, exist_ok=True)
+    except OSError as e:
+        return f"cannot create backup directory: {e}"
+    return None
+
+
+def create_backup_file(source_path, backup_path):
+    """Copy source to backup atomically. Returns (sha256_hex, error_string)."""
+    try:
+        with open(source_path, "rb") as f:
+            source_bytes = f.read()
+    except OSError as e:
+        return None, f"cannot read source: {e}"
+
+    source_sha = hashlib.sha256(source_bytes).hexdigest()
+
+    # Write with exclusive creation
+    tmp_fd = None
+    tmp_path = None
+    try:
+        tmp_fd, tmp_path = tempfile.mkstemp(
+            dir=os.path.dirname(backup_path),
+            prefix=".nanobk-backup-",
+            suffix=".tmp"
+        )
+        os.write(tmp_fd, source_bytes)
+        os.fsync(tmp_fd)
+        os.close(tmp_fd)
+        tmp_fd = None
+        os.chmod(tmp_path, 0o600)
+
+        # Hard-link to final path (no-overwrite)
+        try:
+            os.link(tmp_path, backup_path)
+            os.unlink(tmp_path)
+            tmp_path = None
+        except FileExistsError:
+            if tmp_path and os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+            return None, "backup file already exists"
+        except OSError:
+            if tmp_path and os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+            return None, "atomic backup finalize failed"
+
+    except OSError as e:
+        if tmp_fd is not None:
+            try:
+                os.close(tmp_fd)
+            except OSError:
+                pass
+        if tmp_path and os.path.exists(tmp_path):
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+        return None, f"backup write failed: {e}"
+
+    # Verify backup
+    try:
+        st = os.stat(backup_path)
+        if stat.S_IMODE(st.st_mode) != 0o600:
+            return source_sha, "backup file mode verification failed"
+        if st.st_size != len(source_bytes):
+            return source_sha, "backup file size mismatch"
+
+        with open(backup_path, "rb") as f:
+            backup_bytes = f.read()
+        if hashlib.sha256(backup_bytes).hexdigest() != source_sha:
+            return source_sha, "backup sha256 mismatch"
+
+        # Verify JSON parses
+        json.loads(backup_bytes)
+    except (OSError, json.JSONDecodeError) as e:
+        return source_sha, f"backup verification failed: {e}"
+
+    return source_sha, None
+
+
+def redact_backup_path(path):
+    """Redact backup path for display."""
+    if "/etc/nanobk/backups/" in path or path.startswith("/etc/nanobk/"):
+        filename = os.path.basename(path)
+        return f"[production]/backups/{filename}"
+    return "[production]/backups/..."
+
+
+def run_backup(profile_path, allow_production, confirm_hostname):
+    """Run profile backup. Returns result dict."""
+    # Validate production path
+    if not allow_production:
+        return {"ok": False, "error": "--allow-production-output is required",
+                **BACKUP_ERROR_BASE}
+
+    path_class, _, path_err = classify_output_path(profile_path)
+    if path_class != "production":
+        return {"ok": False, "error": path_err or "unsupported profile path",
+                **BACKUP_ERROR_BASE}
+
+    # Resolve fake-root
+    physical_source, root_err = resolve_production_physical_path()
+    if root_err:
+        return {"ok": False, "error": root_err, **BACKUP_ERROR_BASE}
+
+    # Validate parent
+    parent_err = validate_production_parent(physical_source)
+    if parent_err:
+        return {"ok": False, "error": parent_err, **BACKUP_ERROR_BASE}
+
+    # Validate source profile
+    source_status, source_data, source_err = validate_source_profile(physical_source)
+    if source_err:
+        return {"ok": False, "error": source_err,
+                "source_profile_status": source_status, **BACKUP_ERROR_BASE}
+
+    # Confirmation
+    if not confirm_hostname:
+        return {"ok": False, "error": "confirm-hostname is required for profile backup",
+                **BACKUP_ERROR_BASE}
+    node = source_data.get("nodePrefix", "")
+    zone = source_data.get("zoneName", "")
+    expected_hostname = f"{node}.{zone}"
+    if confirm_hostname != expected_hostname:
+        return {"ok": False, "error": "confirmation hostname does not match source profile",
+                **BACKUP_ERROR_BASE}
+
+    # Create backup directory
+    backup_dir = os.path.join(os.path.dirname(physical_source), "backups")
+    dir_err = create_backup_dir(backup_dir)
+    if dir_err:
+        return {"ok": False, "error": dir_err, **BACKUP_ERROR_BASE}
+
+    # Generate backup filename
+    from datetime import datetime, timezone
+    ts = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    rand = secrets.token_hex(4)
+    backup_filename = f"cloudflare-dns-profile.json.{ts}.{rand}.bak"
+    backup_path = os.path.join(backup_dir, backup_filename)
+
+    # Create backup
+    sha_hex, backup_err = create_backup_file(physical_source, backup_path)
+    if backup_err:
+        return {"ok": False, "error": backup_err,
+                "source_profile_status": "valid", **BACKUP_ERROR_BASE}
+
+    # Get backup dir mode
+    try:
+        dir_mode = oct(stat.S_IMODE(os.stat(backup_dir).st_mode))
+    except OSError:
+        dir_mode = "unknown"
+
+    return {
+        "ok": True,
+        "mutation": False,
+        "local_file_mutation": True,
+        "dns_mutation": False,
+        "cloudflare_mutation": False,
+        "dns_apply": False,
+        "backup_only": True,
+        "backup_created": True,
+        "profile_replaced": False,
+        "rollback_performed": False,
+        "source_profile_status": "valid",
+        "backup_path_redacted": redact_backup_path(backup_path),
+        "backup_mode": "600",
+        "backup_dir_mode": dir_mode,
+        "backup_sha256_computed": True,
+        "production_fake_root": True,
+        "confirmation_required": True,
+        "confirmation_matched": True,
+    }
+
+
+def output_backup_text(result):
+    """Print human-readable backup result."""
+    print()
+    if result.get("backup_created"):
+        print("  Backup created under fake-root test mode.")
+        print("  Source profile was copied byte-for-byte.")
+        print(f"  Backup mode: {result.get('backup_mode', '600')}.")
+        print("  DNS has not been applied.")
+        print("  No DNS records were created, updated, or deleted.")
+        print("  No profile was replaced.")
+        print("  Rollback was not performed.")
+        print("  Raw profile content and raw IP values were intentionally not printed.")
+    else:
+        print("  No backup was created.")
+    print()
+
+
+def output_backup_error(message, json_mode=False):
+    """Print backup error message."""
+    if json_mode:
+        result = {
+            "ok": False, "error": message,
+            "mutation": False, "local_file_mutation": False,
+            "dns_mutation": False, "cloudflare_mutation": False,
+            "dns_apply": False, "backup_only": True,
+            "backup_created": False, "profile_replaced": False,
+            "rollback_performed": False,
+        }
+        print(json.dumps(result, indent=2))
+    else:
+        print(f"  Error: {message}", file=sys.stderr)
+
+# ── backup-only end ────────────────────────────────────────────────────────
+
+
 def output_text(result):
     """Print human-readable preview."""
     print()
@@ -1171,7 +1481,7 @@ def output_error(message, json_mode=False):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="NanoBK DNS Profile (preview / generate / replace preview)"
+        description="NanoBK DNS Profile (preview / generate / replace preview / backup)"
     )
     sub = parser.add_subparsers(dest="command")
 
@@ -1218,6 +1528,16 @@ def main():
     replace_preview_parser.add_argument("--json", action="store_true", help="JSON output")
     replace_preview_parser.add_argument("--allow-documentation-ips", action="store_true",
                                         help="Allow documentation IP ranges (tests/examples only)")
+
+    # backup subcommand
+    backup_parser = sub.add_parser("backup", help="Backup existing fake-root production profile")
+    backup_parser.add_argument("--profile", help="Source profile path (exact /etc/nanobk/cloudflare-dns-profile.json)")
+    backup_parser.add_argument("--allow-production-output", action="store_true",
+                               help="Allow production /etc/nanobk path")
+    backup_parser.add_argument("--confirm-hostname",
+                               help="Exact hostname confirmation from source profile")
+    backup_parser.add_argument("--yes", action="store_true", help="Confirm backup write")
+    backup_parser.add_argument("--json", action="store_true", help="JSON output")
 
     args = parser.parse_args()
 
@@ -1317,6 +1637,34 @@ def main():
                 sys.exit(1)
         else:
             parser.print_help()
+            sys.exit(1)
+
+    elif args.command == "backup":
+        if not args.profile:
+            output_backup_error("profile path is required", args.json)
+            sys.exit(1)
+        if not args.allow_production_output:
+            output_backup_error("--allow-production-output is required", args.json)
+            sys.exit(1)
+        if not args.confirm_hostname:
+            output_backup_error("confirm-hostname is required for profile backup", args.json)
+            sys.exit(1)
+        if not args.yes:
+            output_backup_error("this command writes a backup file; --yes is required", args.json)
+            sys.exit(1)
+
+        result = run_backup(args.profile, args.allow_production_output,
+                            args.confirm_hostname)
+
+        if args.json:
+            print(json.dumps(result, indent=2))
+        else:
+            if result.get("ok"):
+                output_backup_text(result)
+            else:
+                output_backup_text(result)
+
+        if not result.get("ok", False):
             sys.exit(1)
 
     else:
