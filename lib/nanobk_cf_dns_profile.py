@@ -804,13 +804,25 @@ def build_summary(profile_dict, zone=None):
 
 
 def build_redacted_diff(old_summary, new_summary):
-    """Build boolean diff between old and new summaries."""
+    """Build boolean diff between old and new summaries.
+
+    Uses stable contract-friendly field names.
+    """
+    # Map summary keys to contract diff keys
+    key_map = {
+        "zone_redacted": "zone_changed",
+        "node": "node_changed",
+        "hostname_redacted": "hostname_changed",
+        "ipv4_redacted": "ipv4_changed",
+        "ipv6_redacted": "ipv6_changed",
+        "stack_mode": "stack_mode_changed",
+        "default_proxied": "default_proxied_changed",
+    }
     diff = {}
-    for key in ("zone_redacted", "node", "hostname_redacted", "ipv4_redacted",
-                "ipv6_redacted", "stack_mode", "default_proxied"):
-        old_val = old_summary.get(key)
-        new_val = new_summary.get(key)
-        diff[f"{key}_changed"] = (old_val != new_val)
+    for summary_key, diff_key in key_map.items():
+        old_val = old_summary.get(summary_key)
+        new_val = new_summary.get(summary_key)
+        diff[diff_key] = (old_val != new_val)
 
     # Record types diff
     old_types = set(old_summary.get("record_types", []))
@@ -883,13 +895,17 @@ def run_replace_preview(zone, node, ipv4, ipv6, output_path, allow_docs,
     # Read existing profile
     old_profile_status = "unknown"
     old_profile_data = None
+    old_error = None
 
     if not os.path.exists(physical_path):
         old_profile_status = "missing"
+        old_error = "existing profile is missing; use profile generate first"
     elif os.path.islink(physical_path):
         old_profile_status = "symlink_blocked"
+        old_error = "existing profile symlink is blocked"
     elif not os.path.isfile(physical_path):
         old_profile_status = "non_regular_file"
+        old_error = "existing profile is not a regular file"
     else:
         try:
             with open(physical_path, "r") as f:
@@ -897,45 +913,99 @@ def run_replace_preview(zone, node, ipv4, ipv6, output_path, allow_docs,
             old_profile_status = "valid"
         except json.JSONDecodeError:
             old_profile_status = "invalid_json"
+            old_error = "existing profile is not valid JSON"
         except OSError:
             old_profile_status = "unreadable"
+            old_error = "existing profile is unreadable"
 
     # Validate old profile schema if loaded
     if old_profile_status == "valid" and old_profile_data:
-        # Check for secret-like keys
-        has_secret = False
-        for key in old_profile_data:
-            key_lower = key.lower()
-            for secret in _SECRET_SUBSTRINGS:
-                if secret in key_lower and key not in _ALLOWED_KEYS:
-                    has_secret = True
+        # Must be a JSON object
+        if not isinstance(old_profile_data, dict):
+            old_profile_status = "unsupported_schema"
+            old_error = "existing profile schema is unsupported"
+        else:
+            # Check for secret-like keys
+            has_secret = False
+            for key in old_profile_data:
+                key_lower = key.lower()
+                for secret in _SECRET_SUBSTRINGS:
+                    if secret in key_lower and key not in _ALLOWED_KEYS:
+                        has_secret = True
+                        break
+                if has_secret:
                     break
             if has_secret:
-                break
-        if has_secret:
-            old_profile_status = "unsupported_schema"
-        # Check required fields
-        if "zoneName" not in old_profile_data or "nodePrefix" not in old_profile_data:
-            old_profile_status = "unsupported_schema"
+                old_profile_status = "unsupported_schema"
+                old_error = "existing profile schema is unsupported"
+            # Check required fields
+            elif "zoneName" not in old_profile_data or "nodePrefix" not in old_profile_data:
+                old_profile_status = "unsupported_schema"
+                old_error = "existing profile schema is unsupported"
+            # Validate zone/node/IP if present
+            else:
+                oz = old_profile_data.get("zoneName", "")
+                on = old_profile_data.get("nodePrefix", "")
+                if validate_zone(oz) or validate_node(on):
+                    old_profile_status = "unsupported_schema"
+                    old_error = "existing profile schema is unsupported"
+                # Check IP validity
+                oipv4 = old_profile_data.get("ipv4")
+                oipv6 = old_profile_data.get("ipv6")
+                if not oipv4 and not oipv6:
+                    old_profile_status = "unsupported_schema"
+                    old_error = "existing profile schema is unsupported"
+                else:
+                    if oipv4 and validate_ipv4(oipv4, True):
+                        old_profile_status = "unsupported_schema"
+                        old_error = "existing profile schema is unsupported"
+                    if oipv6 and validate_ipv6(oipv6, True):
+                        old_profile_status = "unsupported_schema"
+                        old_error = "existing profile schema is unsupported"
+                # Check defaultProxied
+                if old_profile_status == "valid":
+                    prox = old_profile_data.get("defaultProxied")
+                    if prox is not None and prox is not False:
+                        old_profile_status = "unsupported_schema"
+                        old_error = "existing profile schema is unsupported"
+                # Check for unknown keys
+                if old_profile_status == "valid":
+                    known_keys = {"zoneName", "nodePrefix", "ipv4", "ipv6",
+                                  "defaultProxied", "zoneId", "reserved"}
+                    for k in old_profile_data:
+                        if k not in known_keys:
+                            old_profile_status = "unsupported_schema"
+                            old_error = "existing profile schema is unsupported"
+                            break
 
     # Build new candidate
     new_candidate = build_profile_candidate(zone, node, ipv4, ipv6)
     new_valid, new_errors = validate_profile_candidate(new_candidate, allow_docs)
 
-    # Build summaries
+    # Honest ok: true only when old is valid AND new is valid
+    ok = (old_profile_status == "valid") and new_valid
+
+    # Build summaries only when safe
     old_summary = {}
     if old_profile_status == "valid" and old_profile_data:
         old_summary = build_summary(old_profile_data)
 
-    new_summary = build_summary(new_candidate, zone)
+    new_summary = {}
+    if new_valid:
+        new_summary = build_summary(new_candidate, zone)
 
-    # Build diff
+    # Build diff only when both summaries are available
     redacted_diff = {}
-    if old_summary:
+    if old_summary and new_summary:
         redacted_diff = build_redacted_diff(old_summary, new_summary)
 
-    # Preview ok means the preview itself succeeded, not that replacement is ready
-    ok = True
+    # Error message for non-ok cases
+    error_msg = None
+    if not ok:
+        if old_error:
+            error_msg = old_error
+        elif not new_valid:
+            error_msg = "new profile candidate is invalid"
 
     result = {
         "ok": ok,
@@ -954,10 +1024,17 @@ def run_replace_preview(zone, node, ipv4, ipv6, output_path, allow_docs,
         "replace_execute_blocked_reason": "rollback policy is not implemented",
         "confirmation_required": True,
         "confirmation_matched": True,
-        "old_summary": old_summary if old_summary else None,
-        "new_summary": new_summary,
-        "redacted_diff": redacted_diff if redacted_diff else None,
     }
+
+    if error_msg:
+        result["error"] = error_msg
+
+    if old_summary:
+        result["old_summary"] = old_summary
+    if new_summary:
+        result["new_summary"] = new_summary
+    if redacted_diff:
+        result["redacted_diff"] = redacted_diff
 
     if not new_valid:
         result["new_validation_errors"] = new_errors
@@ -1007,7 +1084,21 @@ def output_replace_preview_text(result):
 def output_replace_preview_error(message, json_mode=False):
     """Print replace preview error message."""
     if json_mode:
-        result = {"ok": False, "error": message, **REPLACE_ERROR_BASE}
+        result = {
+            "ok": False,
+            "error": message,
+            "mutation": False,
+            "local_file_mutation": False,
+            "dns_mutation": False,
+            "cloudflare_mutation": False,
+            "dns_apply": False,
+            "replace_preview": True,
+            "backup_required": True,
+            "backup_created": False,
+            "profile_replaced": False,
+            "replace_execute_ready": False,
+            "replace_execute_blocked_reason": "rollback policy is not implemented",
+        }
         print(json.dumps(result, indent=2))
     else:
         print(f"  Error: {message}", file=sys.stderr)
@@ -1213,14 +1304,17 @@ def main():
                 args.allow_production_output, args.confirm_hostname
             )
 
-            if not result.get("ok", False):
-                output_replace_preview_error(result.get("error", "unknown error"), args.json)
-                sys.exit(1)
-
+            # Always output full result (including status fields on failure)
             if args.json:
                 print(json.dumps(result, indent=2))
             else:
-                output_replace_preview_text(result)
+                if result.get("ok"):
+                    output_replace_preview_text(result)
+                else:
+                    output_replace_preview_text(result)
+
+            if not result.get("ok", False):
+                sys.exit(1)
         else:
             parser.print_help()
             sys.exit(1)

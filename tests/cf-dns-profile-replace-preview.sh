@@ -225,10 +225,11 @@ MISSING_PROF=$(NANOBK_TEST_PRODUCTION_PROFILE_ROOT="$MISSING_ROOT" NANOBK_TEST_A
   --zone example.com --node proxy --ipv4 203.0.113.10 \
   --output /etc/nanobk/cloudflare-dns-profile.json \
   --allow-production-output --confirm-hostname proxy.example.com --allow-documentation-ips \
-  --json 2>&1)
-assert_contains "$MISSING_PROF" '"ok": true' "missing profile ok: true"
+  --json 2>&1 || true)
+assert_contains "$MISSING_PROF" '"ok": false' "missing profile ok: false"
 assert_contains "$MISSING_PROF" '"old_profile_status": "missing"' "old status is missing"
 assert_contains "$MISSING_PROF" '"replace_execute_ready": false' "execute not ready"
+assert_contains "$MISSING_PROF" "generate" "error mentions generate"
 assert_not_contains "$MISSING_PROF" "203.0.113.10" "no raw IP"
 
 echo ""
@@ -246,8 +247,31 @@ SYMLINK_PROF=$(NANOBK_TEST_PRODUCTION_PROFILE_ROOT="$SYMLINK_PROF_ROOT" NANOBK_T
   --zone example.com --node proxy --ipv4 203.0.113.10 \
   --output /etc/nanobk/cloudflare-dns-profile.json \
   --allow-production-output --confirm-hostname proxy.example.com --allow-documentation-ips \
-  --json 2>&1)
+  --json 2>&1 || true)
+assert_contains "$SYMLINK_PROF" '"ok": false' "symlink profile ok: false"
 assert_contains "$SYMLINK_PROF" '"old_profile_status": "symlink_blocked"' "symlink profile blocked"
+
+echo ""
+
+# ── G2. Old profile non-regular ─────────────────────────────────────────────
+
+echo "--- G2. Old profile non-regular ---"
+echo ""
+
+NONREG_ROOT="$TEST_TMPDIR/nonreg-root"
+setup_fake_root "$NONREG_ROOT"
+mkdir -p "$NONREG_ROOT/etc/nanobk/cloudflare-dns-profile.json"
+NONREG_PROF=$(NANOBK_TEST_PRODUCTION_PROFILE_ROOT="$NONREG_ROOT" NANOBK_TEST_ALLOW_PRODUCTION_ROOT=1 NANOBK_TEST_TMPDIR="$TEST_TMPDIR" \
+  bash "$NANOBK" --repo-dir "$ROOT" cf dns profile replace preview \
+  --zone example.com --node proxy --ipv4 203.0.113.10 \
+  --output /etc/nanobk/cloudflare-dns-profile.json \
+  --allow-production-output --confirm-hostname proxy.example.com --allow-documentation-ips \
+  --json 2>&1 || true)
+assert_contains "$NONREG_PROF" '"ok": false' "non-regular ok: false"
+assert_contains "$NONREG_PROF" '"old_profile_status": "non_regular_file"' "non-regular detected"
+assert_not_contains "$NONREG_PROF" "203.0.113.10" "no raw IP"
+assert_not_contains "$NONREG_PROF" "example.com" "no raw zone"
+assert_not_contains "$NONREG_PROF" "$NONREG_ROOT" "no physical path"
 
 echo ""
 
@@ -265,7 +289,8 @@ INVALID_PROF=$(NANOBK_TEST_PRODUCTION_PROFILE_ROOT="$INVALID_ROOT" NANOBK_TEST_A
   --zone example.com --node proxy --ipv4 203.0.113.10 \
   --output /etc/nanobk/cloudflare-dns-profile.json \
   --allow-production-output --confirm-hostname proxy.example.com --allow-documentation-ips \
-  --json 2>&1)
+  --json 2>&1 || true)
+assert_contains "$INVALID_PROF" '"ok": false' "invalid JSON ok: false"
 assert_contains "$INVALID_PROF" '"old_profile_status": "invalid_json"' "invalid JSON detected"
 assert_not_contains "$INVALID_PROF" "broken" "no raw content leaked"
 
@@ -285,7 +310,8 @@ UNSUP_PROF=$(NANOBK_TEST_PRODUCTION_PROFILE_ROOT="$UNSUP_ROOT" NANOBK_TEST_ALLOW
   --zone example.com --node proxy --ipv4 203.0.113.10 \
   --output /etc/nanobk/cloudflare-dns-profile.json \
   --allow-production-output --confirm-hostname proxy.example.com --allow-documentation-ips \
-  --json 2>&1)
+  --json 2>&1 || true)
+assert_contains "$UNSUP_PROF" '"ok": false' "unsupported schema ok: false"
 assert_contains "$UNSUP_PROF" '"old_profile_status": "unsupported_schema"' "unsupported schema detected"
 assert_not_contains "$UNSUP_PROF" "abc" "no raw secret value"
 
@@ -323,7 +349,7 @@ assert_contains "$VALID_OUT" '"old_profile_status": "valid"' "old status valid"
 assert_contains "$VALID_OUT" '"new_profile_valid": true' "new valid"
 assert_contains "$VALID_OUT" '"replace_execute_ready": false' "execute not ready"
 assert_contains "$VALID_OUT" '"rollback policy is not implemented"' "blocked reason present"
-assert_contains "$VALID_OUT" '"ipv4_redacted_changed": true' "IP changed detected"
+assert_contains "$VALID_OUT" '"ipv4_changed": true' "IP changed detected"
 assert_contains "$VALID_OUT" '"old_summary"' "old_summary present"
 assert_contains "$VALID_OUT" '"new_summary"' "new_summary present"
 assert_not_contains "$VALID_OUT" "203.0.113.10" "no raw old IP"

@@ -1378,7 +1378,7 @@ cmd_cf_dns() {
       shift 2>/dev/null || true
       case "$profile_sub" in
         preview)
-          local args=(python3 "$REPO_DIR/lib/nanobk_cf_dns_profile.py")
+          local args=(python3 "$REPO_DIR/lib/nanobk_cf_dns_profile.py" preview)
           while [[ $# -gt 0 ]]; do
             case "$1" in
               --zone)

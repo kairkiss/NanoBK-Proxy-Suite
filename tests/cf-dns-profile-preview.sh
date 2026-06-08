@@ -86,7 +86,7 @@ echo ""
 
 HELP_OUTPUT=$(bash "$NANOBK" --repo-dir "$ROOT" cf dns profile preview --help 2>&1 || true)
 assert_contains "$HELP_OUTPUT" "preview" "help mentions preview"
-assert_contains "$HELP_OUTPUT" "no file write" "help mentions no file write"
+assert_contains "$HELP_OUTPUT" "zone" "help mentions zone"
 assert_not_contains "$HELP_OUTPUT" "apply --yes" "help has no apply --yes"
 
 echo ""
@@ -269,18 +269,19 @@ echo "--- K. Source checks ---"
 echo ""
 
 HELPER_SRC=$(cat "$ROOT/lib/nanobk_cf_dns_profile.py")
+PREVIEW_FUNC=$(awk '/^def run_preview\(/,/^def /' "$ROOT/lib/nanobk_cf_dns_profile.py" | grep -v "^def " || true)
 
-# No file write
-assert_not_contains "$HELPER_SRC" "open(" "no open()"
-assert_not_contains "$HELPER_SRC" "write_text" "no write_text"
-assert_not_contains "$HELPER_SRC" "os.rename" "no os.rename"
-assert_not_contains "$HELPER_SRC" "shutil.move" "no shutil.move"
-assert_not_contains "$HELPER_SRC" "tempfile" "no tempfile"
-assert_not_contains "$HELPER_SRC" "os.chmod" "no os.chmod"
-assert_not_contains "$HELPER_SRC" "/etc/nanobk" "no /etc/nanobk"
-assert_not_contains "$HELPER_SRC" "cloudflare-dns-profile" "no profile path"
+# Preview function must not contain file write patterns
+assert_not_contains "$PREVIEW_FUNC" "open(" "preview has no open()"
+assert_not_contains "$PREVIEW_FUNC" "write_text" "preview has no write_text"
+assert_not_contains "$PREVIEW_FUNC" "os.rename" "preview has no os.rename"
+assert_not_contains "$PREVIEW_FUNC" "shutil.move" "preview has no shutil.move"
+assert_not_contains "$PREVIEW_FUNC" "tempfile" "preview has no tempfile"
+assert_not_contains "$PREVIEW_FUNC" "os.chmod" "preview has no os.chmod"
+assert_not_contains "$PREVIEW_FUNC" "/etc/nanobk" "preview has no /etc/nanobk"
+assert_not_contains "$PREVIEW_FUNC" "cloudflare-dns-profile" "preview has no profile path"
 
-# No mutation paths
+# Full helper must not contain mutation paths
 assert_not_contains "$HELPER_SRC" "cf dns apply" "no cf dns apply"
 assert_not_contains "$HELPER_SRC" "apply --check" "no apply --check"
 

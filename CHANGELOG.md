@@ -1,5 +1,32 @@
 # Changelog
 
+## v2.1.19-polish — Honest Replace Preview Status Contract
+
+### Changed
+
+- Replace preview now returns `ok=false` when existing profile is missing,
+  invalid JSON, unsupported schema, symlink-blocked, unreadable, or non-regular.
+- Replace preview returns `ok=true` only when old profile is valid AND new
+  candidate is valid.
+- Old profile schema validation is stricter: validates zone, node, IP syntax,
+  `defaultProxied`, unknown keys, secret-like keys.
+- Redacted diff fields renamed to stable contract names (`ipv4_changed` instead
+  of `ipv4_redacted_changed`).
+- Replace preview always outputs full status fields on failure (not a stripped
+  error-only envelope).
+- Added non-regular existing profile test coverage.
+- Fixed `cf dns profile preview` dispatch to pass `preview` subcommand.
+- Fixed `os.link` grep test to use file-based grep instead of `echo | grep`
+  (avoids `pipefail` + `echo` backslash issue on macOS).
+
+### Not Changed
+
+- No backup, replace, or rollback.
+- No real `/etc` preview.
+- No DNS apply/check.
+- No Cloudflare mutation.
+- No release tag.
+
 ## v2.1.19 — DNS Profile Replace Preview Skeleton
 
 ### Added

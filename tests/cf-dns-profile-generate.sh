@@ -392,7 +392,7 @@ assert_not_contains "$HELPER_SRC" "os.rename(tmp_path" "no os.rename fallback"
 assert_not_contains "$HELPER_SRC" "os.replace(" "no os.replace overwrite"
 
 # No-overwrite primitive present
-if echo "$HELPER_SRC" | grep -q "os.link(" ; then
+if grep -q "os.link(" "$ROOT/lib/nanobk_cf_dns_profile.py"; then
   pass "helper uses os.link (no-overwrite primitive)"
 else
   fail "helper missing os.link (no-overwrite primitive)"
