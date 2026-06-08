@@ -1,5 +1,29 @@
 # Changelog
 
+## v2.2.5 — Profile Backup Metadata/Provenance Design
+
+### Documentation
+
+- Added `docs/planning-v2.2.5-profile-backup-metadata-provenance.md`.
+- Defines the metadata/provenance sidecar design for future Cloudflare DNS profile backups.
+- Covers backup identity, metadata schema fields, backup purpose policy, source profile identity, schema marker, file mode and owner expectations, sha256/fingerprint policy, legacy backup fail-closed policy, fake-root implementation prerequisites, real `/etc` runtime gate, rollback/lock/auto-restore relationship, redaction rules, and future tests.
+- Records that metadata/provenance is required before real production profile rollback can be considered.
+
+### Not Changed
+
+- No runtime code changes.
+- No CLI behavior changes.
+- No installer behavior changes.
+- No Bot/Web behavior changes.
+- No fake-root metadata implementation.
+- No real `/etc` writes.
+- No real rollback.
+- No lock implementation.
+- No auto-restore implementation.
+- No DNS mutation.
+- No Cloudflare mutation.
+- No release tag.
+
 ## v2.2.4-polish — Beginner Onboarding Copy Safety
 
 ### Documentation
