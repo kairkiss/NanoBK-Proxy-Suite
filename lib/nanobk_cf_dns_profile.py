@@ -2104,6 +2104,21 @@ def run_rollback_execute(backup_id, allow_production, confirm_hostname,
                     "pre_rollback_backup_created": True,
                     "pre_rollback_backup_id_redacted": _redact_pre_rollback_backup_id(pre_backup_filename)}
 
+        # ── Test hook: CHANGE_BEFORE_REPLACE ──
+        if os.environ.get("NANOBK_TEST_FORCE_ROLLBACK_CHANGE_BEFORE_REPLACE") == "1":
+            # Simulate current profile changing after temp validation
+            try:
+                modified_data = dict(current_data)
+                modified_data["_hook_marker"] = "changed"
+                modified_bytes = json.dumps(modified_data, indent=2, sort_keys=True).encode("utf-8") + b"\n"
+                with open(physical_source, "wb") as f:
+                    f.write(modified_bytes)
+                    f.flush()
+                    os.fsync(f.fileno())
+                os.chmod(physical_source, 0o600)
+            except OSError:
+                pass
+
         # ── Step 16: Re-stat current immediately before replace ──
         try:
             final_pre_stat = os.stat(physical_source)
@@ -2111,6 +2126,50 @@ def run_rollback_execute(backup_id, allow_production, confirm_hostname,
             if tmp_replace_path and os.path.exists(tmp_replace_path):
                 os.unlink(tmp_replace_path)
             return {**base_err, "ok": False, "error": "cannot stat current profile before replace",
+                    "local_file_mutation": True,
+                    "current_profile_status": current_status,
+                    "backup_profile_status": backup_status,
+                    "confirmation_required": True, "confirmation_matched": True,
+                    "rollback_phrase_required": True, "rollback_phrase_matched": True,
+                    "current_identity_checked": True,
+                    "pre_rollback_backup_created": True,
+                    "pre_rollback_backup_id_redacted": _redact_pre_rollback_backup_id(pre_backup_filename)}
+
+        # ── Step 16b: Final pre-replace identity guard ──
+        if (final_pre_stat.st_ino != current_inode or
+                final_pre_stat.st_mtime_ns != current_mtime or
+                final_pre_stat.st_size != current_size):
+            if tmp_replace_path and os.path.exists(tmp_replace_path):
+                os.unlink(tmp_replace_path)
+            return {**base_err, "ok": False, "error": "current profile changed before rollback",
+                    "local_file_mutation": True,
+                    "current_profile_status": current_status,
+                    "backup_profile_status": backup_status,
+                    "confirmation_required": True, "confirmation_matched": True,
+                    "rollback_phrase_required": True, "rollback_phrase_matched": True,
+                    "current_identity_checked": True,
+                    "pre_rollback_backup_created": True,
+                    "pre_rollback_backup_id_redacted": _redact_pre_rollback_backup_id(pre_backup_filename)}
+
+        try:
+            with open(physical_source, "rb") as f:
+                final_pre_bytes = f.read()
+            if _compute_sha256_hex(final_pre_bytes) != current_sha:
+                if tmp_replace_path and os.path.exists(tmp_replace_path):
+                    os.unlink(tmp_replace_path)
+                return {**base_err, "ok": False, "error": "current profile changed before rollback",
+                        "local_file_mutation": True,
+                        "current_profile_status": current_status,
+                        "backup_profile_status": backup_status,
+                        "confirmation_required": True, "confirmation_matched": True,
+                        "rollback_phrase_required": True, "rollback_phrase_matched": True,
+                        "current_identity_checked": True,
+                        "pre_rollback_backup_created": True,
+                        "pre_rollback_backup_id_redacted": _redact_pre_rollback_backup_id(pre_backup_filename)}
+        except OSError:
+            if tmp_replace_path and os.path.exists(tmp_replace_path):
+                os.unlink(tmp_replace_path)
+            return {**base_err, "ok": False, "error": "cannot read current profile for final identity check",
                     "local_file_mutation": True,
                     "current_profile_status": current_status,
                     "backup_profile_status": backup_status,

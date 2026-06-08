@@ -822,12 +822,59 @@ echo ""
 echo "--- R. Current identity guard ---"
 echo ""
 
-# This is best tested via the AFTER_PREBACKUP_FAIL hook which triggers
-# between pre-backup creation and the replace. If the identity check
-# passes (as it does in the hook), the pre-backup is reported as created.
-# A real identity change would require filesystem-level race simulation.
-# The hook test in Q-B validates the code path exists.
+# Existing identity check paths verified via hooks
 assert_contains "$QPB_OUT" '"current_identity_checked": true' "identity checked in after-prebackup path"
+
+# R-1: CHANGE_BEFORE_REPLACE — simulate current profile changing after temp validation
+R1_ROOT="$TEST_TMPDIR/r1-change-before"
+setup_fake_root "$R1_ROOT"
+write_current_profile "$R1_ROOT" "$PROFILE_A"
+write_backup_profile "$R1_ROOT" "$VALID_BACKUP_ID" "$PROFILE_B"
+
+# Record original current content for later comparison
+ORIGINAL_R1_CURRENT=$(cat "$R1_ROOT/etc/nanobk/cloudflare-dns-profile.json")
+
+R1_OUT=$(NANOBK_TEST_FORCE_ROLLBACK_CHANGE_BEFORE_REPLACE=1 \
+  NANOBK_TEST_PRODUCTION_PROFILE_ROOT="$R1_ROOT" NANOBK_TEST_ALLOW_PRODUCTION_ROOT=1 NANOBK_TEST_TMPDIR="$TEST_TMPDIR" \
+  bash "$NANOBK" --repo-dir "$ROOT" cf dns profile rollback execute \
+  --backup-id "$VALID_BACKUP_ID" \
+  --allow-production-output \
+  --confirm-hostname proxy.example.com \
+  --confirm-rollback-profile "$ROLLBACK_PHRASE" \
+  --yes --json 2>&1 || true)
+
+assert_contains "$R1_OUT" '"ok": false' "CHANGE_BEFORE_REPLACE: ok false"
+assert_contains "$R1_OUT" "current profile changed before rollback" "CHANGE_BEFORE_REPLACE: sanitized error"
+assert_contains "$R1_OUT" '"profile_replaced": false' "CHANGE_BEFORE_REPLACE: no replace"
+assert_contains "$R1_OUT" '"pre_rollback_backup_created": true' "CHANGE_BEFORE_REPLACE: pre-backup created"
+assert_contains "$R1_OUT" '"manual_recovery_required": false' "CHANGE_BEFORE_REPLACE: no manual recovery"
+assert_contains "$R1_OUT" '"current_identity_checked": true' "CHANGE_BEFORE_REPLACE: identity checked"
+
+# Final current should NOT equal selected backup (PROFILE_B)
+R1_FINAL=$(cat "$R1_ROOT/etc/nanobk/cloudflare-dns-profile.json")
+EXPECTED_B=$(printf '%s' "$PROFILE_B")
+if [[ "$R1_FINAL" != "$EXPECTED_B" ]]; then
+  pass "CHANGE_BEFORE_REPLACE: final current is not selected backup"
+else
+  fail "CHANGE_BEFORE_REPLACE: final current equals selected backup (replace happened!)"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# No raw values in output
+assert_not_contains "$R1_OUT" "203.0.113.10" "CHANGE_BEFORE_REPLACE: no raw current IP"
+assert_not_contains "$R1_OUT" "198.51.100.20" "CHANGE_BEFORE_REPLACE: no raw backup IP"
+assert_not_contains "$R1_OUT" "example.com" "CHANGE_BEFORE_REPLACE: no raw zone"
+assert_not_contains "$R1_OUT" "proxy.example.com" "CHANGE_BEFORE_REPLACE: no raw hostname"
+assert_not_contains "$R1_OUT" "$R1_ROOT" "CHANGE_BEFORE_REPLACE: no physical path"
+
+# No temp leftovers
+R1_TEMPS=$(find "$R1_ROOT/etc/nanobk/" -name "*.tmp" -type f 2>/dev/null | wc -l | tr -d ' ')
+if [[ "$R1_TEMPS" == "0" ]]; then
+  pass "CHANGE_BEFORE_REPLACE: no temp leftovers"
+else
+  fail "CHANGE_BEFORE_REPLACE: temp leftovers found"
+  ERRORS=$((ERRORS + 1))
+fi
 
 echo ""
 

@@ -1882,6 +1882,13 @@ cmd_test() {
       "$REPO_DIR/tests/wrangler-nanob-dry-run.sh"
       "$REPO_DIR/tests/cf-dns-plan.sh"
       "$REPO_DIR/tests/cf-dns-apply.sh"
+      "$REPO_DIR/tests/cf-dns-profile-preview.sh"
+      "$REPO_DIR/tests/cf-dns-profile-generate.sh"
+      "$REPO_DIR/tests/cf-dns-profile-production.sh"
+      "$REPO_DIR/tests/cf-dns-profile-backup.sh"
+      "$REPO_DIR/tests/cf-dns-profile-replace-preview.sh"
+      "$REPO_DIR/tests/cf-dns-profile-rollback-preview.sh"
+      "$REPO_DIR/tests/cf-dns-profile-rollback-execute.sh"
     )
   fi
 

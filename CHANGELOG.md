@@ -1,5 +1,27 @@
 # Changelog
 
+## v2.1.24-polish — Tighten Rollback Execute Identity Guard
+
+### Changed
+
+- Added final pre-replace current identity comparison (stat + sha256) immediately
+  before `os.replace()`. If current profile changed in that window, replace is
+  aborted with sanitized error.
+- Added `NANOBK_TEST_FORCE_ROLLBACK_CHANGE_BEFORE_REPLACE` test hook that
+  modifies current profile after temp validation to simulate a race.
+- Added test coverage for final pre-replace identity guard (13 assertions).
+- Added newer profile tests to `nanobk test --all`: preview, generate, production,
+  backup, replace-preview, rollback-preview, rollback-execute.
+- Fixed `ls` glob + `set -e` incompatibility in temp-leftovers assertion.
+
+### Not Changed
+
+- No real `/etc` rollback.
+- No DNS apply/check integration.
+- No Cloudflare mutation.
+- No Full Wizard/Web/Bot integration.
+- No release tag.
+
 ## v2.1.23-polish — Fix Pre-rollback Backup Filename Random Suffix
 
 ### Fixed
