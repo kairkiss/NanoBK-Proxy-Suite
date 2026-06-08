@@ -1,5 +1,22 @@
 # Changelog
 
+## v2.1.10-polish — DNS Report Source Safety Checks
+
+### Changed
+
+- Strengthened report helper source checks for `method="PATCH"` and single-quote
+  HTTP method variants (`method='POST'`, `method='PATCH'`, `method='DELETE'`,
+  `method='PUT'`).
+
+### Not Changed
+
+- No behavior changes.
+- No DNS profile writes.
+- No Cloudflare mutation.
+- No DNS apply/check.
+- No DNS mutation.
+- No release tag.
+
 ## v2.1.10 — Combined DNS Preparation Report Skeleton
 
 ### Added
