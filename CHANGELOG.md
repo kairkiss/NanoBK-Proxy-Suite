@@ -1,5 +1,23 @@
 # Changelog
 
+## v2.1.13 — Controlled DNS Profile Generator Design Spec
+
+### Documentation
+
+- Added `docs/architecture/controlled-dns-profile-generator-v2.1.13.md`.
+- Documents future profile schema, input model, output/redaction model,
+  file-write model, confirmation model, status model, validation rules,
+  tests, risks, and roadmap.
+- Docs-only. No runtime code changes.
+
+### Not Changed
+
+- No DNS profile writes.
+- No Cloudflare mutation.
+- No `cf dns apply` or `apply --check`.
+- No DNS mutation.
+- No release tag.
+
 ## v2.1.12 — Read-only DNS Preparation Phase Closeout
 
 ### Documentation
