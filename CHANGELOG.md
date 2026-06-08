@@ -1,5 +1,29 @@
 # Changelog
 
+## v2.1.21-polish — Complete Rollback Preview Failure Coverage
+
+### Changed
+
+- Added current parent failure coverage (missing, symlink, mode 0755).
+- Added current profile non-regular/invalid-json/unsupported-schema/mode-invalid coverage.
+- Added backup profile symlink/non-regular/unsupported-schema/mode-invalid coverage.
+- Added backup dir regular-file coverage.
+- Added extra backup-id traversal/path validation (absolute path, nested, physical-looking).
+- Stabilized confirmation failure JSON with `confirmation_required: true` and
+  `confirmation_matched: false` for all confirmation-related failure paths.
+- Removed duplicate `--confirm-hostname` validation from `main()` (now handled
+  entirely by `run_rollback_preview()`).
+
+### Not Changed
+
+- No rollback execute.
+- No profile replacement.
+- No pre-rollback backup.
+- No real `/etc` rollback.
+- No DNS apply/check.
+- No Cloudflare mutation.
+- No release tag.
+
 ## v2.1.21 — Rollback Preview Skeleton
 
 ### Added

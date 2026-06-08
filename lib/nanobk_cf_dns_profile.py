@@ -1566,7 +1566,9 @@ def run_rollback_preview(backup_id, allow_production, confirm_hostname):
     if not confirm_hostname:
         return {"ok": False, "error": "confirm-hostname is required for rollback preview",
                 "current_profile_status": current_status,
-                "backup_profile_status": backup_status, **ROLLBACK_PREVIEW_ERROR_BASE}
+                "backup_profile_status": backup_status,
+                "confirmation_required": True, "confirmation_matched": False,
+                **ROLLBACK_PREVIEW_ERROR_BASE}
 
     # Compute hostnames if both profiles are valid
     if current_status == "valid" and backup_status == "valid":
@@ -1581,12 +1583,16 @@ def run_rollback_preview(backup_id, allow_production, confirm_hostname):
         if current_hostname != backup_hostname:
             return {"ok": False, "error": "current and backup hostnames do not match",
                     "current_profile_status": current_status,
-                    "backup_profile_status": backup_status, **ROLLBACK_PREVIEW_ERROR_BASE}
+                    "backup_profile_status": backup_status,
+                    "confirmation_required": True, "confirmation_matched": False,
+                    **ROLLBACK_PREVIEW_ERROR_BASE}
 
         if confirm_hostname != current_hostname:
             return {"ok": False, "error": "confirmation hostname does not match rollback target",
                     "current_profile_status": current_status,
-                    "backup_profile_status": backup_status, **ROLLBACK_PREVIEW_ERROR_BASE}
+                    "backup_profile_status": backup_status,
+                    "confirmation_required": True, "confirmation_matched": False,
+                    **ROLLBACK_PREVIEW_ERROR_BASE}
 
     # Determine overall ok
     ok = (current_status == "valid" and backup_status == "valid")
@@ -1971,9 +1977,6 @@ def main():
                 sys.exit(1)
             if not args.allow_production_output:
                 output_rollback_preview_error("--allow-production-output is required", args.json)
-                sys.exit(1)
-            if not args.confirm_hostname:
-                output_rollback_preview_error("confirm-hostname is required for rollback preview", args.json)
                 sys.exit(1)
 
             result = run_rollback_preview(

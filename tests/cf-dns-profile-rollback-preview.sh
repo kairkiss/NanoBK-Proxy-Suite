@@ -215,6 +215,100 @@ SYM_CUR=$(NANOBK_TEST_PRODUCTION_PROFILE_ROOT="$SYM_ROOT" NANOBK_TEST_ALLOW_PROD
 assert_contains "$SYM_CUR" '"ok": false' "current symlink fails"
 assert_contains "$SYM_CUR" "symlink_blocked" "current symlink status"
 
+# Current parent missing
+PARENT_MISS_ROOT="$TEST_TMPDIR/parent-miss"
+mkdir -p "$PARENT_MISS_ROOT/etc"
+# Do NOT create nanobk subdir
+PARENT_MISS=$(NANOBK_TEST_PRODUCTION_PROFILE_ROOT="$PARENT_MISS_ROOT" NANOBK_TEST_ALLOW_PRODUCTION_ROOT=1 NANOBK_TEST_TMPDIR="$TEST_TMPDIR" \
+  bash "$NANOBK" --repo-dir "$ROOT" cf dns profile rollback preview \
+  --backup-id "$VALID_BACKUP_ID" \
+  --allow-production-output --confirm-hostname proxy.example.com \
+  --json 2>&1 || true)
+assert_contains "$PARENT_MISS" '"ok": false' "parent missing fails"
+assert_not_contains "$PARENT_MISS" "$PARENT_MISS_ROOT" "no physical path"
+
+# Current parent symlink
+PARENT_SYM_ROOT="$TEST_TMPDIR/parent-sym"
+mkdir -p "$PARENT_SYM_ROOT/etc"
+ln -sf /tmp "$PARENT_SYM_ROOT/etc/nanobk"
+PARENT_SYM=$(NANOBK_TEST_PRODUCTION_PROFILE_ROOT="$PARENT_SYM_ROOT" NANOBK_TEST_ALLOW_PRODUCTION_ROOT=1 NANOBK_TEST_TMPDIR="$TEST_TMPDIR" \
+  bash "$NANOBK" --repo-dir "$ROOT" cf dns profile rollback preview \
+  --backup-id "$VALID_BACKUP_ID" \
+  --allow-production-output --confirm-hostname proxy.example.com \
+  --json 2>&1 || true)
+assert_contains "$PARENT_SYM" '"ok": false' "parent symlink fails"
+assert_not_contains "$PARENT_SYM" "$PARENT_SYM_ROOT" "no physical path"
+
+# Current parent mode 0755
+PARENT_MODE_ROOT="$TEST_TMPDIR/parent-mode"
+mkdir -p "$PARENT_MODE_ROOT/etc/nanobk"
+chmod 755 "$PARENT_MODE_ROOT/etc/nanobk"
+PARENT_MODE=$(NANOBK_TEST_PRODUCTION_PROFILE_ROOT="$PARENT_MODE_ROOT" NANOBK_TEST_ALLOW_PRODUCTION_ROOT=1 NANOBK_TEST_TMPDIR="$TEST_TMPDIR" \
+  bash "$NANOBK" --repo-dir "$ROOT" cf dns profile rollback preview \
+  --backup-id "$VALID_BACKUP_ID" \
+  --allow-production-output --confirm-hostname proxy.example.com \
+  --json 2>&1 || true)
+assert_contains "$PARENT_MODE" '"ok": false' "parent mode 0755 fails"
+assert_not_contains "$PARENT_MODE" "$PARENT_MODE_ROOT" "no physical path"
+
+# Current non_regular_file (directory)
+NONREG_CUR_ROOT="$TEST_TMPDIR/nonreg-cur"
+setup_fake_root "$NONREG_CUR_ROOT"
+mkdir -p "$NONREG_CUR_ROOT/etc/nanobk/cloudflare-dns-profile.json"
+write_backup_profile "$NONREG_CUR_ROOT" "$VALID_BACKUP_ID"
+NONREG_CUR=$(NANOBK_TEST_PRODUCTION_PROFILE_ROOT="$NONREG_CUR_ROOT" NANOBK_TEST_ALLOW_PRODUCTION_ROOT=1 NANOBK_TEST_TMPDIR="$TEST_TMPDIR" \
+  bash "$NANOBK" --repo-dir "$ROOT" cf dns profile rollback preview \
+  --backup-id "$VALID_BACKUP_ID" \
+  --allow-production-output --confirm-hostname proxy.example.com \
+  --json 2>&1 || true)
+assert_contains "$NONREG_CUR" '"ok": false' "current non-regular fails"
+assert_contains "$NONREG_CUR" "non_regular_file" "current non-regular status"
+assert_not_contains "$NONREG_CUR" "$NONREG_CUR_ROOT" "no physical path"
+
+# Current invalid_json
+INV_CUR_ROOT="$TEST_TMPDIR/inv-cur"
+setup_fake_root "$INV_CUR_ROOT"
+echo '{broken' > "$INV_CUR_ROOT/etc/nanobk/cloudflare-dns-profile.json"
+chmod 600 "$INV_CUR_ROOT/etc/nanobk/cloudflare-dns-profile.json"
+write_backup_profile "$INV_CUR_ROOT" "$VALID_BACKUP_ID"
+INV_CUR=$(NANOBK_TEST_PRODUCTION_PROFILE_ROOT="$INV_CUR_ROOT" NANOBK_TEST_ALLOW_PRODUCTION_ROOT=1 NANOBK_TEST_TMPDIR="$TEST_TMPDIR" \
+  bash "$NANOBK" --repo-dir "$ROOT" cf dns profile rollback preview \
+  --backup-id "$VALID_BACKUP_ID" \
+  --allow-production-output --confirm-hostname proxy.example.com \
+  --json 2>&1 || true)
+assert_contains "$INV_CUR" '"ok": false' "current invalid JSON fails"
+assert_contains "$INV_CUR" "invalid_json" "current invalid JSON status"
+assert_not_contains "$INV_CUR" "broken" "no raw content"
+
+# Current unsupported_schema (secret-like key)
+UNSUP_CUR_ROOT="$TEST_TMPDIR/unsup-cur"
+setup_fake_root "$UNSUP_CUR_ROOT"
+echo '{"secretToken":"abc","nodePrefix":"proxy"}' > "$UNSUP_CUR_ROOT/etc/nanobk/cloudflare-dns-profile.json"
+chmod 600 "$UNSUP_CUR_ROOT/etc/nanobk/cloudflare-dns-profile.json"
+write_backup_profile "$UNSUP_CUR_ROOT" "$VALID_BACKUP_ID"
+UNSUP_CUR=$(NANOBK_TEST_PRODUCTION_PROFILE_ROOT="$UNSUP_CUR_ROOT" NANOBK_TEST_ALLOW_PRODUCTION_ROOT=1 NANOBK_TEST_TMPDIR="$TEST_TMPDIR" \
+  bash "$NANOBK" --repo-dir "$ROOT" cf dns profile rollback preview \
+  --backup-id "$VALID_BACKUP_ID" \
+  --allow-production-output --confirm-hostname proxy.example.com \
+  --json 2>&1 || true)
+assert_contains "$UNSUP_CUR" '"ok": false' "current unsupported schema fails"
+assert_contains "$UNSUP_CUR" "unsupported_schema" "current unsupported schema status"
+assert_not_contains "$UNSUP_CUR" "abc" "no raw secret value"
+
+# Current mode_invalid (0644)
+MODE_CUR_ROOT="$TEST_TMPDIR/mode-cur"
+setup_fake_root "$MODE_CUR_ROOT"
+write_current_profile "$MODE_CUR_ROOT"
+chmod 644 "$MODE_CUR_ROOT/etc/nanobk/cloudflare-dns-profile.json"
+write_backup_profile "$MODE_CUR_ROOT" "$VALID_BACKUP_ID"
+MODE_CUR=$(NANOBK_TEST_PRODUCTION_PROFILE_ROOT="$MODE_CUR_ROOT" NANOBK_TEST_ALLOW_PRODUCTION_ROOT=1 NANOBK_TEST_TMPDIR="$TEST_TMPDIR" \
+  bash "$NANOBK" --repo-dir "$ROOT" cf dns profile rollback preview \
+  --backup-id "$VALID_BACKUP_ID" \
+  --allow-production-output --confirm-hostname proxy.example.com \
+  --json 2>&1 || true)
+assert_contains "$MODE_CUR" '"ok": false' "current mode invalid fails"
+assert_contains "$MODE_CUR" "mode_invalid" "current mode invalid status"
+
 echo ""
 
 # ── F. Backup dir failures ──────────────────────────────────────────────────
@@ -258,6 +352,18 @@ BDIR_MODE=$(NANOBK_TEST_PRODUCTION_PROFILE_ROOT="$BDIR_MODE_ROOT" NANOBK_TEST_AL
   --json 2>&1 || true)
 assert_contains "$BDIR_MODE" '"ok": false' "backup dir bad mode fails"
 
+# Backup dir regular file
+BDIR_FILE_ROOT="$TEST_TMPDIR/bdir-file"
+setup_fake_root "$BDIR_FILE_ROOT"
+write_current_profile "$BDIR_FILE_ROOT"
+echo "not a dir" > "$BDIR_FILE_ROOT/etc/nanobk/backups"
+BDIR_FILE=$(NANOBK_TEST_PRODUCTION_PROFILE_ROOT="$BDIR_FILE_ROOT" NANOBK_TEST_ALLOW_PRODUCTION_ROOT=1 NANOBK_TEST_TMPDIR="$TEST_TMPDIR" \
+  bash "$NANOBK" --repo-dir "$ROOT" cf dns profile rollback preview \
+  --backup-id "$VALID_BACKUP_ID" \
+  --allow-production-output --confirm-hostname proxy.example.com \
+  --json 2>&1 || true)
+assert_contains "$BDIR_FILE" '"ok": false' "backup dir regular file fails"
+
 echo ""
 
 # ── G. Backup profile failures ──────────────────────────────────────────────
@@ -293,6 +399,68 @@ assert_contains "$BINV" '"ok": false' "backup invalid JSON fails"
 assert_contains "$BINV" "not valid JSON" "backup invalid JSON error"
 assert_not_contains "$BINV" "broken" "no raw content"
 
+# Backup symlink
+BSYM_ROOT="$TEST_TMPDIR/bsym"
+setup_fake_root "$BSYM_ROOT"
+write_current_profile "$BSYM_ROOT"
+mkdir -p "$BSYM_ROOT/etc/nanobk/backups"
+chmod 700 "$BSYM_ROOT/etc/nanobk/backups"
+ln -sf /dev/null "$BSYM_ROOT/etc/nanobk/backups/$VALID_BACKUP_ID"
+BSYM=$(NANOBK_TEST_PRODUCTION_PROFILE_ROOT="$BSYM_ROOT" NANOBK_TEST_ALLOW_PRODUCTION_ROOT=1 NANOBK_TEST_TMPDIR="$TEST_TMPDIR" \
+  bash "$NANOBK" --repo-dir "$ROOT" cf dns profile rollback preview \
+  --backup-id "$VALID_BACKUP_ID" \
+  --allow-production-output --confirm-hostname proxy.example.com \
+  --json 2>&1 || true)
+assert_contains "$BSYM" '"ok": false' "backup symlink fails"
+assert_contains "$BSYM" "symlink_blocked" "backup symlink status"
+assert_not_contains "$BSYM" "/dev/null" "no symlink target path"
+
+# Backup non_regular_file (directory at backup path)
+BNON_ROOT="$TEST_TMPDIR/bnon"
+setup_fake_root "$BNON_ROOT"
+write_current_profile "$BNON_ROOT"
+mkdir -p "$BNON_ROOT/etc/nanobk/backups"
+chmod 700 "$BNON_ROOT/etc/nanobk/backups"
+mkdir -p "$BNON_ROOT/etc/nanobk/backups/$VALID_BACKUP_ID"
+BNON=$(NANOBK_TEST_PRODUCTION_PROFILE_ROOT="$BNON_ROOT" NANOBK_TEST_ALLOW_PRODUCTION_ROOT=1 NANOBK_TEST_TMPDIR="$TEST_TMPDIR" \
+  bash "$NANOBK" --repo-dir "$ROOT" cf dns profile rollback preview \
+  --backup-id "$VALID_BACKUP_ID" \
+  --allow-production-output --confirm-hostname proxy.example.com \
+  --json 2>&1 || true)
+assert_contains "$BNON" '"ok": false' "backup non-regular fails"
+assert_contains "$BNON" "non_regular_file" "backup non-regular status"
+
+# Backup unsupported_schema
+BUNSUP_ROOT="$TEST_TMPDIR/bunsup"
+setup_fake_root "$BUNSUP_ROOT"
+write_current_profile "$BUNSUP_ROOT"
+mkdir -p "$BUNSUP_ROOT/etc/nanobk/backups"
+chmod 700 "$BUNSUP_ROOT/etc/nanobk/backups"
+echo '{"secretToken":"abc","nodePrefix":"proxy"}' > "$BUNSUP_ROOT/etc/nanobk/backups/$VALID_BACKUP_ID"
+chmod 600 "$BUNSUP_ROOT/etc/nanobk/backups/$VALID_BACKUP_ID"
+BUNSUP=$(NANOBK_TEST_PRODUCTION_PROFILE_ROOT="$BUNSUP_ROOT" NANOBK_TEST_ALLOW_PRODUCTION_ROOT=1 NANOBK_TEST_TMPDIR="$TEST_TMPDIR" \
+  bash "$NANOBK" --repo-dir "$ROOT" cf dns profile rollback preview \
+  --backup-id "$VALID_BACKUP_ID" \
+  --allow-production-output --confirm-hostname proxy.example.com \
+  --json 2>&1 || true)
+assert_contains "$BUNSUP" '"ok": false' "backup unsupported schema fails"
+assert_contains "$BUNSUP" "unsupported_schema" "backup unsupported schema status"
+assert_not_contains "$BUNSUP" "abc" "no raw secret value"
+
+# Backup mode_invalid (0644)
+BMODE_ROOT="$TEST_TMPDIR/bmode"
+setup_fake_root "$BMODE_ROOT"
+write_current_profile "$BMODE_ROOT"
+write_backup_profile "$BMODE_ROOT" "$VALID_BACKUP_ID"
+chmod 644 "$BMODE_ROOT/etc/nanobk/backups/$VALID_BACKUP_ID"
+BMODE=$(NANOBK_TEST_PRODUCTION_PROFILE_ROOT="$BMODE_ROOT" NANOBK_TEST_ALLOW_PRODUCTION_ROOT=1 NANOBK_TEST_TMPDIR="$TEST_TMPDIR" \
+  bash "$NANOBK" --repo-dir "$ROOT" cf dns profile rollback preview \
+  --backup-id "$VALID_BACKUP_ID" \
+  --allow-production-output --confirm-hostname proxy.example.com \
+  --json 2>&1 || true)
+assert_contains "$BMODE" '"ok": false' "backup mode invalid fails"
+assert_contains "$BMODE" "mode_invalid" "backup mode invalid status"
+
 echo ""
 
 # ── H. Backup ID validation ────────────────────────────────────────────────
@@ -325,6 +493,33 @@ BADFMT=$(NANOBK_TEST_PRODUCTION_PROFILE_ROOT="$FAKE_ROOT" NANOBK_TEST_ALLOW_PROD
   --json 2>&1 || true)
 assert_contains "$BADFMT" '"ok": false' "invalid format rejected"
 
+# Absolute path
+ABSPATH=$(NANOBK_TEST_PRODUCTION_PROFILE_ROOT="$FAKE_ROOT" NANOBK_TEST_ALLOW_PRODUCTION_ROOT=1 NANOBK_TEST_TMPDIR="$TEST_TMPDIR" \
+  bash "$NANOBK" --repo-dir "$ROOT" cf dns profile rollback preview \
+  --backup-id "/tmp/x" \
+  --allow-production-output --confirm-hostname proxy.example.com \
+  --json 2>&1 || true)
+assert_contains "$ABSPATH" '"ok": false' "absolute path rejected"
+assert_not_contains "$ABSPATH" "/tmp/x" "no raw /tmp/x in output"
+
+# Nested valid-looking id
+NESTED=$(NANOBK_TEST_PRODUCTION_PROFILE_ROOT="$FAKE_ROOT" NANOBK_TEST_ALLOW_PRODUCTION_ROOT=1 NANOBK_TEST_TMPDIR="$TEST_TMPDIR" \
+  bash "$NANOBK" --repo-dir "$ROOT" cf dns profile rollback preview \
+  --backup-id "cloudflare-dns-profile.json.20260608-120000.deadbeef.bak/evil" \
+  --allow-production-output --confirm-hostname proxy.example.com \
+  --json 2>&1 || true)
+assert_contains "$NESTED" '"ok": false' "nested path rejected"
+assert_not_contains "$NESTED" "/evil" "no raw nested path"
+
+# Physical-looking path
+PHYSICAL=$(NANOBK_TEST_PRODUCTION_PROFILE_ROOT="$FAKE_ROOT" NANOBK_TEST_ALLOW_PRODUCTION_ROOT=1 NANOBK_TEST_TMPDIR="$TEST_TMPDIR" \
+  bash "$NANOBK" --repo-dir "$ROOT" cf dns profile rollback preview \
+  --backup-id "$TEST_TMPDIR/fake-root/etc/nanobk/backups/$VALID_BACKUP_ID" \
+  --allow-production-output --confirm-hostname proxy.example.com \
+  --json 2>&1 || true)
+assert_contains "$PHYSICAL" '"ok": false' "physical path rejected"
+assert_not_contains "$PHYSICAL" "$TEST_TMPDIR" "no physical path in output"
+
 echo ""
 
 # ── I. Missing/mismatch confirm ─────────────────────────────────────────────
@@ -332,13 +527,18 @@ echo ""
 echo "--- I. Missing/mismatch confirm ---"
 echo ""
 
-# Missing confirm
+# Missing confirm (set up current profile and backup in FAKE_ROOT)
+setup_fake_root "$FAKE_ROOT"
+write_current_profile "$FAKE_ROOT"
+write_backup_profile "$FAKE_ROOT" "$VALID_BACKUP_ID"
 NO_CONF=$(NANOBK_TEST_PRODUCTION_PROFILE_ROOT="$FAKE_ROOT" NANOBK_TEST_ALLOW_PRODUCTION_ROOT=1 NANOBK_TEST_TMPDIR="$TEST_TMPDIR" \
   bash "$NANOBK" --repo-dir "$ROOT" cf dns profile rollback preview \
   --backup-id "$VALID_BACKUP_ID" \
   --allow-production-output \
   --json 2>&1 || true)
 assert_contains "$NO_CONF" '"ok": false' "missing confirm fails"
+assert_contains "$NO_CONF" "confirmation_required" "missing confirm has confirmation_required"
+assert_contains "$NO_CONF" "confirmation_matched" "missing confirm has confirmation_matched"
 
 # Mismatch confirm (set up current profile and backup in FAKE_ROOT)
 setup_fake_root "$FAKE_ROOT"
@@ -351,6 +551,8 @@ MISMATCH=$(NANOBK_TEST_PRODUCTION_PROFILE_ROOT="$FAKE_ROOT" NANOBK_TEST_ALLOW_PR
   --json 2>&1 || true)
 assert_contains "$MISMATCH" '"ok": false' "mismatch confirm fails"
 assert_contains "$MISMATCH" "does not match" "mismatch confirm error"
+assert_contains "$MISMATCH" "confirmation_required" "mismatch has confirmation_required"
+assert_contains "$MISMATCH" "confirmation_matched" "mismatch has confirmation_matched"
 assert_not_contains "$MISMATCH" "proxy.example.com" "no raw expected hostname"
 assert_not_contains "$MISMATCH" "wrong.example.com" "no raw provided hostname"
 
