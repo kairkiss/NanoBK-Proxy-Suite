@@ -162,7 +162,7 @@ assert_contains "$TOKEN_OUT" "ok" "token-only env shows ok status"
 assert_contains "$TOKEN_OUT" "2 zones found" "token-only shows zone count"
 assert_contains "$TOKEN_OUT" "manual_pending" "token-only dns_check_available is manual_pending"
 assert_contains "$TOKEN_OUT" "Overall:" "token-only shows Overall line"
-assert_contains "$TOKEN_OUT" "not ready" "token-only shows not ready (missing profile)"
+assert_contains "$TOKEN_OUT" "not ready" "token-only shows not ready"
 assert_not_contains "$TOKEN_OUT" "cf dns apply" "token-only has no cf dns apply"
 assert_not_contains "$TOKEN_OUT" "apply --check" "token-only has no apply --check"
 assert_not_contains "$TOKEN_OUT" "test_token_only" "no token in output"
@@ -278,9 +278,26 @@ assert_not_contains "$JSON_MISSING" "cf dns apply" "missing inputs JSON has no c
 assert_not_contains "$JSON_MISSING" "apply --check" "missing inputs JSON has no apply --check"
 assert_not_contains "$JSON_MISSING" "apply --yes" "missing inputs JSON has no apply --yes"
 
-# Full success
-JSON_ENV=$(make_env 600 "CF_API_TOKEN=test_json")
-JSON_FULL=$(run_readiness --api-env "$JSON_ENV" --profile "$FIXTURES/cf-dns-profile-valid.json" --fake-response "$FIXTURES/cf-zones-success.json" --json)
+# Token-only env + profile — ready=false (missing zone binding)
+JSON_TOKENONLY_ENV=$(make_env 600 "CF_API_TOKEN=test_json_tokenonly")
+JSON_TOKENONLY=$(run_readiness --api-env "$JSON_TOKENONLY_ENV" --profile "$FIXTURES/cf-dns-profile-valid.json" --fake-response "$FIXTURES/cf-zones-success.json" --json)
+if echo "$JSON_TOKENONLY" | python3 -c "import json,sys; json.load(sys.stdin)" 2>/dev/null; then
+  pass "token-only + profile JSON is valid"
+else
+  fail "token-only + profile JSON is invalid"
+  ERRORS=$((ERRORS + 1))
+fi
+assert_contains "$JSON_TOKENONLY" '"ok": true' "token-only JSON has ok: true"
+assert_contains "$JSON_TOKENONLY" '"ready": false' "token-only JSON has ready: false"
+assert_contains "$JSON_TOKENONLY" '"manual_pending"' "token-only JSON has manual_pending"
+assert_not_contains "$JSON_TOKENONLY" "test_json_tokenonly" "token-only JSON has no token"
+assert_not_contains "$JSON_TOKENONLY" "cf dns apply" "token-only JSON has no cf dns apply"
+assert_not_contains "$JSON_TOKENONLY" "apply --check" "token-only JSON has no apply --check"
+assert_not_contains "$JSON_TOKENONLY" "apply --yes" "token-only JSON has no apply --yes"
+
+# Full success — token+zone env + profile — ready=true
+JSON_FULL_ENV=$(make_env 600 "CF_API_TOKEN=test_json_full" "CF_ZONE_ID=zone_id_abc" "CF_ZONE_NAME=example.com")
+JSON_FULL=$(run_readiness --api-env "$JSON_FULL_ENV" --profile "$FIXTURES/cf-dns-profile-valid.json" --fake-response "$FIXTURES/cf-zones-success.json" --json)
 if echo "$JSON_FULL" | python3 -c "import json,sys; json.load(sys.stdin)" 2>/dev/null; then
   pass "full success JSON is valid"
 else
@@ -294,7 +311,8 @@ assert_contains "$JSON_FULL" '"manual_apply_pending"' "full success JSON has app
 assert_not_contains "$JSON_FULL" "cf dns apply" "full success JSON has no cf dns apply"
 assert_not_contains "$JSON_FULL" "apply --check" "full success JSON has no apply --check"
 assert_not_contains "$JSON_FULL" "apply --yes" "full success JSON has no apply --yes"
-assert_not_contains "$JSON_FULL" "test_json" "full success JSON has no token"
+assert_not_contains "$JSON_FULL" "test_json_full" "full success JSON has no token"
+assert_not_contains "$JSON_FULL" "zone_id_abc" "full success JSON has no raw zone id"
 assert_not_contains "$JSON_FULL" "example.com" "full success JSON has no raw domain"
 assert_not_contains "$JSON_FULL" "hysteria2://" "no hysteria2:// in JSON"
 assert_not_contains "$JSON_FULL" "workers.dev" "no workers.dev in JSON"

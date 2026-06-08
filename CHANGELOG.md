@@ -1,5 +1,23 @@
 # Changelog
 
+## v2.1.5-polish-2 — Zone Binding Required for Ready State
+
+### Changed
+
+- Token-only Cloudflare env can pass zone discovery but no longer counts as
+  fully ready (`ready=false`).
+- Missing `CF_ZONE_ID` / `CF_ZONE_NAME` now blocks readiness via
+  `dns_check_available=manual_pending`.
+- Full ready state (`ready=true`) requires zone binding plus valid profile
+  and local plan.
+
+### Not Changed
+
+- No DNS apply/check calls.
+- No DNS mutation.
+- No `apply --yes` added.
+- No release tag.
+
 ## v2.1.5-polish — Honest Readiness State
 
 ### Changed

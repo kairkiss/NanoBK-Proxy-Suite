@@ -54,6 +54,9 @@ def compute_ready(checks):
 
     ready=True only if all required checks are ok and none are
     failed, warning, manual_pending, or blocking skipped.
+
+    dns_apply_status is excluded (always manual_pending).
+    dns_check_available=manual_pending blocks readiness (zone binding required).
     """
     blocking = {"failed", "warning", "manual_pending"}
     for check in checks:
@@ -61,10 +64,6 @@ def compute_ready(checks):
         status = check["status"]
         # dns_apply_status is always manual — it doesn't block readiness
         if name == "dns_apply_status":
-            continue
-        # dns_check_available being manual_pending doesn't block readiness
-        # (token-only env is still valid for zone discovery)
-        if name == "dns_check_available" and status == "manual_pending":
             continue
         if status in blocking:
             return False
