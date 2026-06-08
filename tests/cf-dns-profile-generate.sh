@@ -339,9 +339,50 @@ fi
 
 echo ""
 
-# ── K. Source checks ────────────────────────────────────────────────────────
+# ── K. Post-write finalization failure cleanup ──────────────────────────────
 
-echo "--- J. Source checks ---"
+echo "--- K. Post-write finalization failure cleanup ---"
+echo ""
+
+# Test hook: simulate failure after temp write/chmod but before hard-link
+POSTWRITE_DIR="$TEST_TMPDIR/postwrite-$(date +%s%N)"
+mkdir -p "$POSTWRITE_DIR"
+POSTWRITE_PATH="$POSTWRITE_DIR/profile.json"
+POSTWRITE_OUT=$(NANOBK_TEST_TMPDIR="$TEST_TMPDIR" NANOBK_TEST_FORCE_PROFILE_FINALIZE_FAIL_AFTER_WRITE=1 bash "$NANOBK" --repo-dir "$ROOT" cf dns profile generate --zone example.com --node proxy --ipv4 203.0.113.10 --output "$POSTWRITE_PATH" --yes --allow-documentation-ips --json 2>&1 || true)
+if echo "$POSTWRITE_OUT" | python3 -c "import json,sys; json.load(sys.stdin)" 2>/dev/null; then
+  pass "post-write-fail JSON is valid"
+else
+  fail "post-write-fail JSON is invalid"
+  ERRORS=$((ERRORS + 1))
+fi
+assert_contains "$POSTWRITE_OUT" '"ok": false' "post-write-fail has ok: false"
+assert_contains "$POSTWRITE_OUT" '"profile_written": false' "post-write-fail has profile_written: false"
+assert_contains "$POSTWRITE_OUT" '"local_file_mutation": false' "post-write-fail has local_file_mutation: false"
+assert_not_contains "$POSTWRITE_OUT" "203.0.113.10" "post-write-fail has no raw IP"
+assert_not_contains "$POSTWRITE_OUT" "example.com" "post-write-fail has no raw zone"
+
+# No final file created
+if [[ ! -f "$POSTWRITE_PATH" ]]; then
+  pass "post-write-fail creates no final file"
+else
+  fail "post-write-fail created a final file"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# No leftover temp files
+LEFTOVER_TMP=$(find "$POSTWRITE_DIR" -name '.nanobk-profile-*.tmp' 2>/dev/null | head -1)
+if [[ -z "$LEFTOVER_TMP" ]]; then
+  pass "post-write-fail leaves no temp files"
+else
+  fail "post-write-fail left temp file: $LEFTOVER_TMP"
+  ERRORS=$((ERRORS + 1))
+fi
+
+echo ""
+
+# ── L. Source checks ────────────────────────────────────────────────────────
+
+echo "--- L. Source checks ---"
 echo ""
 
 HELPER_SRC=$(cat "$ROOT/lib/nanobk_cf_dns_profile.py")

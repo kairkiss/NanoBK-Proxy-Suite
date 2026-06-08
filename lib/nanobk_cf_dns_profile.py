@@ -437,6 +437,12 @@ def write_profile_atomic(candidate, output_path):
         # chmod 600
         os.chmod(tmp_path, 0o600)
 
+        # Test-only hook: simulate failure after write/chmod, before hard-link
+        if os.environ.get("NANOBK_TEST_FORCE_PROFILE_FINALIZE_FAIL_AFTER_WRITE") == "1":
+            if tmp_path and os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+            return "atomic finalize failed (test hook)"
+
         # Hard-link to final path (no-overwrite: link fails if final exists)
         try:
             os.link(tmp_path, output_path)

@@ -1,5 +1,24 @@
 # Changelog
 
+## v2.1.15-polish-2 — Post-write Finalization Failure Cleanup Test
+
+### Changed
+
+- Added `NANOBK_TEST_FORCE_PROFILE_FINALIZE_FAIL_AFTER_WRITE` test hook that
+  simulates failure after temp file write/chmod but before final hard-link.
+- Verifies cleanup: no final file, no leftover `.nanobk-profile-*.tmp` temp files.
+- Tests confirm `local_file_mutation: false` on post-write failure.
+
+### Not Changed
+
+- No behavior expansion.
+- No production `/etc/nanobk` writes.
+- No DNS profile overwrite.
+- No Cloudflare mutation.
+- No DNS mutation.
+- No `cf dns apply` or `apply --check`.
+- No release tag.
+
 ## v2.1.15-polish — No-overwrite Atomic Finalization
 
 ### Changed
