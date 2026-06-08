@@ -1,5 +1,26 @@
 # Changelog
 
+## v2.2.3 — Branded nanobk Console/TUI Mock Design and Tests
+
+### Documentation
+
+- Added `docs/planning-v2.2.3-branded-nanobk-console-tui.md`.
+- Defines the target branded `nanobk` console/TUI UX, beginner/advanced mode boundary, main screen mock, menu structure, status cards, state vocabulary, logs policy, safety/redaction rules, and future mock/static test strategy.
+- Keeps the console direction aligned with install-only bootstrap and `nanobk` as the daily entry point.
+
+### Not Changed
+
+- No runtime code changes.
+- No CLI behavior changes.
+- No installer behavior changes.
+- No Bot/Web behavior changes.
+- No real `/etc` writes.
+- No DNS mutation.
+- No Cloudflare mutation.
+- No DNS-01 implementation.
+- No Tunnel/Access implementation.
+- No release tag.
+
 ## v2.2.2 — Install Behavior Documentation Alignment
 
 ### Documentation
