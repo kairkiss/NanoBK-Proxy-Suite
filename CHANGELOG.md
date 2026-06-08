@@ -1,5 +1,21 @@
 # Changelog
 
+## v2.1.8-polish — Availability GET-only Source Checks
+
+### Changed
+
+- Strengthened tests to guard against urllib `method="POST"`, `method="PATCH"`,
+  `method="DELETE"`, `method="PUT"` (both single and double quote variants).
+- Tests now assert the helper uses `method="GET"`.
+
+### Not Changed
+
+- No availability behavior changes.
+- No DNS profile writes.
+- No Cloudflare mutation.
+- No DNS apply/check.
+- No release tag.
+
 ## v2.1.8 — Subdomain Availability GET-only Skeleton
 
 ### Added
