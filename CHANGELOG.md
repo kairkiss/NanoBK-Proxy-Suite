@@ -1,5 +1,28 @@
 # Changelog
 
+## v2.1.10 — Combined DNS Preparation Report Skeleton
+
+### Added
+
+- `nanobk cf dns report --zone DOMAIN --api-env PATH --ip-fixture PATH [--nodes proxy,web] [--json]` —
+  combined DNS preparation report.
+- `lib/nanobk_cf_dns_report.py` — composition helper that imports `run_preview()`
+  from `nanobk_cf_dns_targets` and `run_summary()` from `nanobk_cf_dns_availability`.
+- Target preview: redacted A/AAAA for `proxy` node from fixture-backed IP candidates.
+- Availability summary: high-level status for all requested nodes (default: proxy,web).
+- `ready_for_profile_generation`: conservative readiness computed from target + availability.
+- JSON output: `{"ok": true, "mutation": false, "profile_write": false, "ready_for_profile_generation": bool, "target_preview": {...}, "availability_summary": {...}}`.
+- Focused test: `tests/cf-dns-report.sh` with 52 assertions.
+
+### Not Changed
+
+- No DNS profile writes.
+- No Cloudflare mutation.
+- No `cf dns apply` or `apply --check`.
+- No DNS mutation.
+- No console auto-execution.
+- No release tag.
+
 ## v2.1.9 — Multi-host Availability Summary Skeleton
 
 ### Added
