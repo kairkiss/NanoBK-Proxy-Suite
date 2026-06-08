@@ -1,5 +1,25 @@
 # Changelog
 
+## v2.1.14-polish — DNS Profile Preview Source Safety Checks
+
+### Changed
+
+- Strengthened `tests/cf-dns-profile-preview.sh` source checks for HTTP method
+  variants (`method="POST"`, `method="PATCH"`, `method="DELETE"`, `method="PUT"`
+  and single-quote variants), external IP echo services (`ident.me`, `icanhazip`,
+  `cloudflare.com/cdn-cgi`), and interface-read patterns (`ip addr`, `ip route`,
+  `ifconfig`).
+
+### Not Changed
+
+- No behavior changes.
+- No file writes.
+- No DNS profile writes.
+- No Cloudflare mutation.
+- No DNS apply/check.
+- No DNS mutation.
+- No release tag.
+
 ## v2.1.14 — DNS Profile Preview-only CLI Skeleton
 
 ### Added

@@ -283,14 +283,34 @@ assert_not_contains "$HELPER_SRC" "cloudflare-dns-profile" "no profile path"
 # No mutation paths
 assert_not_contains "$HELPER_SRC" "cf dns apply" "no cf dns apply"
 assert_not_contains "$HELPER_SRC" "apply --check" "no apply --check"
-assert_not_contains "$HELPER_SRC" 'method="POST"' "no method=POST"
-assert_not_contains "$HELPER_SRC" 'method="DELETE"' "no method=DELETE"
+
+# No HTTP mutation methods (double-quote variants)
+assert_not_contains "$HELPER_SRC" 'method="POST"' "no method=\"POST\""
+assert_not_contains "$HELPER_SRC" 'method="PATCH"' "no method=\"PATCH\""
+assert_not_contains "$HELPER_SRC" 'method="DELETE"' "no method=\"DELETE\""
+assert_not_contains "$HELPER_SRC" 'method="PUT"' "no method=\"PUT\""
+
+# No HTTP mutation methods (single-quote variants)
+assert_not_contains "$HELPER_SRC" "method='POST'" "no method='POST'"
+assert_not_contains "$HELPER_SRC" "method='PATCH'" "no method='PATCH'"
+assert_not_contains "$HELPER_SRC" "method='DELETE'" "no method='DELETE'"
+assert_not_contains "$HELPER_SRC" "method='PUT'" "no method='PUT'"
 
 # No external tools
 assert_not_contains "$HELPER_SRC" "curl" "no curl"
 assert_not_contains "$HELPER_SRC" "wget" "no wget"
+
+# No external IP echo services
 assert_not_contains "$HELPER_SRC" "ifconfig.me" "no ifconfig.me"
 assert_not_contains "$HELPER_SRC" "ipify" "no ipify"
+assert_not_contains "$HELPER_SRC" "ident.me" "no ident.me"
+assert_not_contains "$HELPER_SRC" "icanhazip" "no icanhazip"
+assert_not_contains "$HELPER_SRC" "cloudflare.com/cdn-cgi" "no cloudflare trace"
+
+# No network interface reads
+assert_not_contains "$HELPER_SRC" "ip addr" "no ip addr"
+assert_not_contains "$HELPER_SRC" "ip route" "no ip route"
+assert_not_contains "$HELPER_SRC" "ifconfig" "no ifconfig"
 assert_not_contains "$HELPER_SRC" "/proc/net" "no /proc/net"
 
 echo ""
