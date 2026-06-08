@@ -25,7 +25,8 @@ _DNS_LABEL_RE = re.compile(r"^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$")
 
 
 def validate_zone(zone):
-    """Validate zone/domain. Returns error string or None."""
+    """Validate zone/domain. Returns error string or None.
+    Does not echo raw zone in error messages."""
     if not zone:
         return "zone is required"
     if "://" in zone:
@@ -45,12 +46,13 @@ def validate_zone(zone):
         if not label:
             return "zone must not have empty labels"
         if not _DNS_LABEL_RE.match(label):
-            return f"invalid label: '{label}'"
+            return "invalid zone label"
     return None
 
 
 def validate_node(node):
-    """Validate node prefix. Returns error string or None."""
+    """Validate node prefix. Returns error string or None.
+    Does not echo raw node in error messages."""
     if not node:
         return "node is required"
     if "/" in node:
@@ -64,7 +66,7 @@ def validate_node(node):
     if len(node) > 63:
         return "node is too long"
     if not _DNS_LABEL_RE.match(node):
-        return f"invalid node: '{node}'"
+        return "invalid node label"
     return None
 
 
@@ -275,11 +277,19 @@ def main():
     parser = argparse.ArgumentParser(
         description="NanoBK DNS Target Preview (read-only, preview-only)"
     )
-    parser.add_argument("--zone", required=True, help="Domain zone (e.g. example.com)")
+    parser.add_argument("--zone", help="Domain zone (e.g. example.com)")
     parser.add_argument("--node", default="proxy", help="Node prefix (default: proxy)")
-    parser.add_argument("--ip-fixture", required=True, help="Path to IP fixture JSON")
+    parser.add_argument("--ip-fixture", help="Path to IP fixture JSON")
     parser.add_argument("--json", action="store_true", help="JSON output")
     args = parser.parse_args()
+
+    # Manual required-field validation (clean JSON errors in --json mode)
+    if not args.zone:
+        output_error("zone is required", args.json)
+        sys.exit(1)
+    if not args.ip_fixture:
+        output_error("ip fixture is required", args.json)
+        sys.exit(1)
 
     result = run_preview(args.zone, args.node, args.ip_fixture)
 

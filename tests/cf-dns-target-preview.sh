@@ -91,6 +91,22 @@ MISSING_ZONE=$(run_preview --ip-fixture "$FIXTURES/dual-stack.json" 2>&1 || true
 assert_contains "$MISSING_ZONE" "required" "missing zone reports required"
 assert_not_contains "$MISSING_ZONE" "Traceback" "missing zone has no traceback"
 
+# Missing zone JSON
+MISSING_ZONE_JSON=$(bash "$NANOBK" --repo-dir "$ROOT" cf dns target preview --json --ip-fixture "$FIXTURES/dual-stack.json" 2>&1 || true)
+if echo "$MISSING_ZONE_JSON" | python3 -c "import json,sys; json.load(sys.stdin)" 2>/dev/null; then
+  pass "missing zone JSON is valid"
+else
+  fail "missing zone JSON is invalid"
+  ERRORS=$((ERRORS + 1))
+fi
+assert_contains "$MISSING_ZONE_JSON" '"ok": false' "missing zone JSON has ok: false"
+assert_contains "$MISSING_ZONE_JSON" '"mutation": false' "missing zone JSON has mutation: false"
+assert_contains "$MISSING_ZONE_JSON" '"profile_write": false' "missing zone JSON has profile_write: false"
+assert_contains "$MISSING_ZONE_JSON" '"target_ready": false' "missing zone JSON has target_ready: false"
+assert_contains "$MISSING_ZONE_JSON" "zone is required" "missing zone JSON has message"
+assert_not_contains "$MISSING_ZONE_JSON" "Traceback" "missing zone JSON has no Traceback"
+assert_not_contains "$MISSING_ZONE_JSON" "example.com" "missing zone JSON has no raw zone"
+
 echo ""
 
 # ── C. Missing ip-fixture ───────────────────────────────────────────────────
@@ -99,8 +115,23 @@ echo "--- C. Missing ip-fixture ---"
 echo ""
 
 MISSING_FIX=$(run_preview --zone example.com 2>&1 || true)
-assert_contains "$MISSING_FIX" "error" "missing fixture reports error"
+assert_contains "$MISSING_FIX" "required" "missing fixture reports required"
 assert_not_contains "$MISSING_FIX" "Traceback" "missing fixture has no traceback"
+
+# Missing ip-fixture JSON
+MISSING_FIX_JSON=$(bash "$NANOBK" --repo-dir "$ROOT" cf dns target preview --json --zone example.com 2>&1 || true)
+if echo "$MISSING_FIX_JSON" | python3 -c "import json,sys; json.load(sys.stdin)" 2>/dev/null; then
+  pass "missing fixture JSON is valid"
+else
+  fail "missing fixture JSON is invalid"
+  ERRORS=$((ERRORS + 1))
+fi
+assert_contains "$MISSING_FIX_JSON" '"ok": false' "missing fixture JSON has ok: false"
+assert_contains "$MISSING_FIX_JSON" '"mutation": false' "missing fixture JSON has mutation: false"
+assert_contains "$MISSING_FIX_JSON" '"profile_write": false' "missing fixture JSON has profile_write: false"
+assert_contains "$MISSING_FIX_JSON" '"target_ready": false' "missing fixture JSON has target_ready: false"
+assert_contains "$MISSING_FIX_JSON" "ip fixture is required" "missing fixture JSON has message"
+assert_not_contains "$MISSING_FIX_JSON" "Traceback" "missing fixture JSON has no Traceback"
 
 echo ""
 
@@ -123,6 +154,12 @@ echo ""
 BAD_ZONE=$(run_preview --zone "http://example.com/path" --ip-fixture "$FIXTURES/dual-stack.json" 2>&1 || true)
 assert_contains "$BAD_ZONE" "Error" "invalid zone reports Error"
 assert_not_contains "$BAD_ZONE" "Traceback" "invalid zone has no traceback"
+assert_not_contains "$BAD_ZONE" "http://example.com" "invalid zone does not echo raw URL"
+
+# Invalid zone label — sanitized (no raw value)
+BAD_LABEL=$(run_preview --zone "ex@mple.com" --ip-fixture "$FIXTURES/dual-stack.json" 2>&1 || true)
+assert_contains "$BAD_LABEL" "invalid zone label" "invalid label shows sanitized message"
+assert_not_contains "$BAD_LABEL" "ex@mple.com" "invalid label does not echo raw zone"
 
 echo ""
 
@@ -134,6 +171,12 @@ echo ""
 BAD_NODE=$(run_preview --zone example.com --node "../bad" --ip-fixture "$FIXTURES/dual-stack.json" 2>&1 || true)
 assert_contains "$BAD_NODE" "Error" "invalid node reports Error"
 assert_not_contains "$BAD_NODE" "Traceback" "invalid node has no traceback"
+assert_not_contains "$BAD_NODE" "../bad" "invalid node does not echo raw node"
+
+# Invalid node label — sanitized (no raw value)
+BAD_NODE_LABEL=$(run_preview --zone example.com --node "bad@node" --ip-fixture "$FIXTURES/dual-stack.json" 2>&1 || true)
+assert_contains "$BAD_NODE_LABEL" "invalid node label" "invalid node label shows sanitized message"
+assert_not_contains "$BAD_NODE_LABEL" "bad@node" "invalid node label does not echo raw value"
 
 echo ""
 

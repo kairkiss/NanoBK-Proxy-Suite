@@ -1,5 +1,23 @@
 # Changelog
 
+## v2.1.7-polish — DNS Target Preview JSON Error Contract
+
+### Changed
+
+- Missing required `--zone` / `--ip-fixture` now return valid sanitized JSON
+  in `--json` mode instead of raw argparse stderr.
+- Validation errors no longer echo raw zone/node/label values in messages.
+- `--zone` and `--ip-fixture` changed from argparse `required=True` to manual
+  post-parse validation for clean error handling.
+
+### Not Changed
+
+- No DNS profile writes.
+- No Cloudflare calls.
+- No DNS apply/check.
+- No DNS mutation.
+- No release tag.
+
 ## v2.1.7 — DNS Target Preview Skeleton
 
 ### Added
