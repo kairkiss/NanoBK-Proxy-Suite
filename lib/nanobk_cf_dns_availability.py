@@ -168,6 +168,41 @@ def fetch_records(token, zone_id, hostname):
     return fetch_records_real(token, zone_id, hostname)
 
 
+def fetch_records_for_node(node, zone, zone_id, token, fake_map=None):
+    """Fetch records for a single node, using fake map if provided."""
+    hostname = f"{node}.{zone}"
+    if fake_map is not None:
+        if node in fake_map:
+            node_response = fake_map[node]
+            if not node_response.get("success", False):
+                errors = node_response.get("errors", [])
+                msg = "; ".join(str(e.get("message", "unknown")) for e in errors) or "unknown error"
+                raise RuntimeError(f"Cloudflare API error: {msg}")
+            return node_response.get("result", [])
+        else:
+            raise RuntimeError(f"Node '{node}' not found in fake response map")
+    return fetch_records(token, zone_id, hostname)
+
+
+def load_fake_map():
+    """Load fake response map if env var is set. Returns dict or None."""
+    map_path = os.environ.get("NANOBK_CF_DNS_AVAILABILITY_FAKE_RESPONSE_MAP")
+    if not map_path:
+        return None
+    try:
+        with open(map_path, "r") as f:
+            data = json.load(f)
+    except FileNotFoundError:
+        raise RuntimeError(f"Fake response map not found: {map_path}") from None
+    except json.JSONDecodeError:
+        raise RuntimeError("Fake response map contains invalid JSON") from None
+    except OSError as e:
+        raise RuntimeError(f"Cannot read fake response map: {e}") from None
+    if not isinstance(data, dict):
+        raise RuntimeError("Fake response map must be a JSON object")
+    return data
+
+
 # ── Availability logic ──────────────────────────────────────────────────────
 
 def analyze_records(records, zone):
@@ -368,39 +403,299 @@ def output_error(message, json_mode=False):
         print(f"  Error: {message}", file=sys.stderr)
 
 
+# ── Summary logic ───────────────────────────────────────────────────────────
+
+def parse_nodes(nodes_str):
+    """Parse comma-separated node labels. Returns (nodes_list, error_string)."""
+    if not nodes_str:
+        return ["proxy", "web"], None
+    nodes = [n.strip() for n in nodes_str.split(",") if n.strip()]
+    if not nodes:
+        return None, "no valid nodes provided"
+    # Validate each node
+    for node in nodes:
+        err = validate_node(node)
+        if err:
+            return None, err
+    # Check duplicates
+    if len(nodes) != len(set(nodes)):
+        return None, "duplicate nodes are not allowed"
+    return nodes, None
+
+
+def validate_env_for_summary(api_env_path, zone):
+    """Validate api-env for summary. Returns (env_dict, error_string)."""
+    try:
+        env = parse_env_file(api_env_path)
+    except FileNotFoundError:
+        return None, "api-env file not found"
+    except PermissionError as e:
+        return None, str(e)
+    except ValueError as e:
+        return None, str(e)
+
+    token = env.get("CF_API_TOKEN")
+    zone_id = env.get("CF_ZONE_ID")
+    zone_name = env.get("CF_ZONE_NAME")
+
+    if not token:
+        return None, "CF_API_TOKEN is required"
+    if not zone_id:
+        return None, "CF_ZONE_ID is required for availability check"
+    if not zone_name:
+        return None, "CF_ZONE_NAME is required for availability check"
+
+    if zone.lower() != zone_name.lower():
+        return None, "zone mismatch: --zone does not match CF_ZONE_NAME in api-env"
+
+    return env, None
+
+
+def run_summary(zone, nodes, api_env_path):
+    """Run multi-host availability summary. Returns result dict."""
+    # Validate zone
+    zone_err = validate_zone(zone)
+    if zone_err:
+        return {"ok": False, "error": zone_err, "mutation": False,
+                "profile_write": False, "overall_status": "failed",
+                "all_available": False, "any_conflict": False,
+                "manual_review_required": True}
+
+    # Validate nodes
+    nodes_list, nodes_err = parse_nodes(",".join(nodes))
+    if nodes_err:
+        return {"ok": False, "error": nodes_err, "mutation": False,
+                "profile_write": False, "overall_status": "failed",
+                "all_available": False, "any_conflict": False,
+                "manual_review_required": True}
+
+    # Validate env
+    env, env_err = validate_env_for_summary(api_env_path, zone)
+    if env_err:
+        return {"ok": False, "error": env_err, "mutation": False,
+                "profile_write": False, "overall_status": "failed",
+                "all_available": False, "any_conflict": False,
+                "manual_review_required": True}
+
+    token = env["CF_API_TOKEN"]
+    zone_id = env["CF_ZONE_ID"]
+
+    # Load fake map if available
+    try:
+        fake_map = load_fake_map()
+    except RuntimeError as e:
+        return {"ok": False, "error": str(e), "mutation": False,
+                "profile_write": False, "overall_status": "failed",
+                "all_available": False, "any_conflict": False,
+                "manual_review_required": True}
+
+    # Check each node
+    hosts = []
+    any_failed = False
+    any_conflict = False
+    any_manual = False
+    any_owned = False
+    all_available = True
+
+    for node in nodes_list:
+        try:
+            records = fetch_records_for_node(node, zone, zone_id, token, fake_map)
+        except RuntimeError as e:
+            hosts.append({
+                "node": node,
+                "hostname_redacted": f"{node}.{mask_domain(zone)}",
+                "status": "failed",
+                "available": False,
+                "records_found": 0,
+                "manual_review_required": True,
+                "error": str(e),
+            })
+            any_failed = True
+            all_available = False
+            continue
+
+        analysis = analyze_records(records, zone)
+        host_result = {
+            "node": node,
+            "hostname_redacted": f"{node}.{mask_domain(zone)}",
+            "status": analysis["status"],
+            "available": analysis["available"],
+            "records_found": analysis["records_found"],
+            "manual_review_required": analysis["manual_review_required"],
+        }
+        hosts.append(host_result)
+
+        if analysis["status"] == "failed":
+            any_failed = True
+            all_available = False
+        elif analysis["status"] == "conflict":
+            any_conflict = True
+            all_available = False
+        elif analysis["status"] == "manual_review":
+            any_manual = True
+            all_available = False
+        elif analysis["status"] == "nanobk_owned":
+            any_owned = True
+            all_available = False
+        elif not analysis["available"]:
+            all_available = False
+
+    # Compute overall status
+    if any_failed:
+        overall_status = "failed"
+        ok = False
+        manual_review_required = True
+        # Propagate first failure error
+        first_failure = next((h for h in hosts if h.get("status") == "failed"), None)
+        error_msg = first_failure.get("error", "unknown error") if first_failure else "unknown error"
+    elif any_conflict or any_manual:
+        overall_status = "manual_review"
+        ok = True
+        manual_review_required = True
+    elif all_available:
+        overall_status = "available"
+        ok = True
+        manual_review_required = False
+    elif any_owned and not any_conflict:
+        overall_status = "partially_owned"
+        ok = True
+        manual_review_required = False
+    else:
+        overall_status = "manual_review"
+        ok = True
+        manual_review_required = True
+
+    result = {
+        "ok": ok,
+        "mutation": False,
+        "profile_write": False,
+        "zone_redacted": mask_domain(zone),
+        "nodes": nodes_list,
+        "overall_status": overall_status,
+        "all_available": all_available and not any_failed,
+        "any_conflict": any_conflict,
+        "manual_review_required": manual_review_required,
+        "hosts": hosts,
+    }
+    if any_failed:
+        result["error"] = error_msg
+    return result
+
+
+def output_summary_text(result):
+    """Print human-readable summary report."""
+    print()
+    print("  NanoBK DNS availability summary")
+    print()
+
+    print("  Zone:")
+    print(f"    {result.get('zone_redacted', '***')}")
+    print()
+
+    hosts = result.get("hosts", [])
+    if hosts:
+        print("  Hosts:")
+        for h in hosts:
+            hostname = h.get("hostname_redacted", "***")
+            status = h.get("status", "unknown")
+            records = h.get("records_found", 0)
+            manual = str(h.get("manual_review_required", True)).lower()
+            print(f"    {hostname:30s} {status:16s} records={records}  manual_review={manual}")
+        print()
+
+    print("  Overall:")
+    print(f"    status: {result.get('overall_status', 'unknown')}")
+    print(f"    all_available: {str(result.get('all_available', False)).lower()}")
+    print(f"    any_conflict: {str(result.get('any_conflict', False)).lower()}")
+    print(f"    manual_review_required: {str(result.get('manual_review_required', True)).lower()}")
+    print(f"    mutation: false")
+    print(f"    profile_write: false")
+    print()
+    print("  No DNS records were created, updated, or deleted.")
+    print("  No DNS profile was written.")
+    print()
+
+
+def output_summary_error(message, json_mode=False):
+    """Print summary error message."""
+    if json_mode:
+        result = {"ok": False, "error": message, "mutation": False,
+                  "profile_write": False, "overall_status": "failed",
+                  "all_available": False, "any_conflict": False,
+                  "manual_review_required": True,
+                  "zone_redacted": "***", "nodes": [], "hosts": []}
+        print(json.dumps(result, indent=2))
+    else:
+        print(f"  Error: {message}", file=sys.stderr)
+
+
 # ── Main ────────────────────────────────────────────────────────────────────
 
 def main():
     parser = argparse.ArgumentParser(
-        description="NanoBK DNS Subdomain Availability Check (GET-only, read-only)"
+        description="NanoBK DNS Subdomain Availability (GET-only, read-only)"
     )
-    parser.add_argument("--zone", help="Domain zone (e.g. example.com)")
-    parser.add_argument("--node", help="Node prefix (e.g. proxy)")
-    parser.add_argument("--api-env", help="Path to Cloudflare api-env file")
-    parser.add_argument("--json", action="store_true", help="JSON output")
+    sub = parser.add_subparsers(dest="command")
+
+    # check subcommand
+    check_parser = sub.add_parser("check", help="Check one hostname availability")
+    check_parser.add_argument("--zone", help="Domain zone (e.g. example.com)")
+    check_parser.add_argument("--node", help="Node prefix (e.g. proxy)")
+    check_parser.add_argument("--api-env", help="Path to Cloudflare api-env file")
+    check_parser.add_argument("--json", action="store_true", help="JSON output")
+
+    # summary subcommand
+    summary_parser = sub.add_parser("summary", help="Summarize multi-host availability")
+    summary_parser.add_argument("--zone", help="Domain zone (e.g. example.com)")
+    summary_parser.add_argument("--api-env", help="Path to Cloudflare api-env file")
+    summary_parser.add_argument("--nodes", default="proxy,web", help="Comma-separated node labels (default: proxy,web)")
+    summary_parser.add_argument("--json", action="store_true", help="JSON output")
+
     args = parser.parse_args()
 
-    # Manual required-field validation
-    if not args.zone:
-        output_error("zone is required", args.json)
-        sys.exit(1)
-    if not args.node:
-        output_error("node is required", args.json)
-        sys.exit(1)
-    if not args.api_env:
-        output_error("api-env is required", args.json)
-        sys.exit(1)
+    if args.command == "check":
+        if not args.zone:
+            output_error("zone is required", args.json)
+            sys.exit(1)
+        if not args.node:
+            output_error("node is required", args.json)
+            sys.exit(1)
+        if not args.api_env:
+            output_error("api-env is required", args.json)
+            sys.exit(1)
 
-    result = run_check(args.zone, args.node, args.api_env)
+        result = run_check(args.zone, args.node, args.api_env)
+        if not result.get("ok", False):
+            output_error(result.get("error", "unknown error"), args.json)
+            sys.exit(1)
 
-    if not result.get("ok", False):
-        output_error(result.get("error", "unknown error"), args.json)
-        sys.exit(1)
+        if args.json:
+            print(json.dumps(result, indent=2))
+        else:
+            output_text(result)
 
-    if args.json:
-        print(json.dumps(result, indent=2))
+    elif args.command == "summary":
+        if not args.zone:
+            output_summary_error("zone is required", args.json)
+            sys.exit(1)
+        if not args.api_env:
+            output_summary_error("api-env is required", args.json)
+            sys.exit(1)
+
+        nodes = [n.strip() for n in args.nodes.split(",") if n.strip()]
+        result = run_summary(args.zone, nodes, args.api_env)
+        if not result.get("ok", False):
+            output_summary_error(result.get("error", "unknown error"), args.json)
+            sys.exit(1)
+
+        if args.json:
+            print(json.dumps(result, indent=2))
+        else:
+            output_summary_text(result)
+
     else:
-        output_text(result)
+        parser.print_help()
+        sys.exit(1)
 
 
 if __name__ == "__main__":

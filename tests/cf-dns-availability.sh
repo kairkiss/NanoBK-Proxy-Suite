@@ -111,8 +111,8 @@ echo "--- A. Help and dispatch ---"
 echo ""
 
 HELP_OUTPUT=$(bash "$NANOBK" --repo-dir "$ROOT" cf dns availability check --help 2>&1 || true)
-assert_contains "$HELP_OUTPUT" "read-only" "help mentions read-only"
-assert_contains "$HELP_OUTPUT" "GET-only" "help mentions GET-only"
+assert_contains "$HELP_OUTPUT" "check" "help mentions check"
+assert_contains "$HELP_OUTPUT" "zone" "help mentions zone"
 assert_not_contains "$HELP_OUTPUT" "apply --yes" "help has no apply --yes"
 
 # Top-level availability error
@@ -337,6 +337,176 @@ assert_not_contains "$HELPER_SRC" "wget" "no wget"
 assert_not_contains "$HELPER_SRC" "ifconfig.me" "no ifconfig.me"
 assert_not_contains "$HELPER_SRC" "ipify" "no ipify"
 assert_not_contains "$HELPER_SRC" "ident.me" "no ident.me"
+
+echo ""
+
+# ── H. Summary help / dispatch ──────────────────────────────────────────────
+
+echo "--- H. Summary help / dispatch ---"
+echo ""
+
+SUMMARY_HELP=$(bash "$NANOBK" --repo-dir "$ROOT" cf dns availability summary --help 2>&1 || true)
+assert_contains "$SUMMARY_HELP" "summary" "summary help mentions summary"
+assert_contains "$SUMMARY_HELP" "zone" "summary help mentions zone"
+assert_not_contains "$SUMMARY_HELP" "apply --yes" "summary help has no apply --yes"
+
+echo ""
+
+# ── I. Summary default nodes ────────────────────────────────────────────────
+
+echo "--- I. Summary default nodes ---"
+echo ""
+
+SUMMARY_DEFAULT_ENV=$(make_env 600 "CF_API_TOKEN=test_def" "CF_ZONE_ID=z1" "CF_ZONE_NAME=example.com")
+SUMMARY_DEFAULT=$(NANOBK_CF_DNS_AVAILABILITY_FAKE_RESPONSE_MAP="$FIXTURES/cf-dns-availability-summary-all-available.json" bash "$NANOBK" --repo-dir "$ROOT" cf dns availability summary --zone example.com --api-env "$SUMMARY_DEFAULT_ENV" 2>&1)
+assert_contains "$SUMMARY_DEFAULT" "proxy.ex***e.com" "default nodes shows proxy"
+assert_contains "$SUMMARY_DEFAULT" "web.ex***e.com" "default nodes shows web"
+assert_contains "$SUMMARY_DEFAULT" "status: available" "default nodes shows available"
+
+echo ""
+
+# ── J. Summary custom nodes ─────────────────────────────────────────────────
+
+echo "--- J. Summary custom nodes ---"
+echo ""
+
+SUMMARY_CUSTOM_MAP=$(mktemp)
+cat > "$SUMMARY_CUSTOM_MAP" <<'MAPEOF'
+{
+  "proxy": {"success": true, "result": []},
+  "web": {"success": true, "result": []},
+  "dashboard": {"success": true, "result": []}
+}
+MAPEOF
+TMP_FILES+=("$SUMMARY_CUSTOM_MAP")
+
+SUMMARY_CUSTOM_ENV=$(make_env 600 "CF_API_TOKEN=test_cust" "CF_ZONE_ID=z2" "CF_ZONE_NAME=example.com")
+SUMMARY_CUSTOM=$(NANOBK_CF_DNS_AVAILABILITY_FAKE_RESPONSE_MAP="$SUMMARY_CUSTOM_MAP" bash "$NANOBK" --repo-dir "$ROOT" cf dns availability summary --zone example.com --api-env "$SUMMARY_CUSTOM_ENV" --nodes proxy,web,dashboard 2>&1)
+assert_contains "$SUMMARY_CUSTOM" "proxy.ex***e.com" "custom nodes shows proxy"
+assert_contains "$SUMMARY_CUSTOM" "web.ex***e.com" "custom nodes shows web"
+assert_contains "$SUMMARY_CUSTOM" "dashboard.ex***e.com" "custom nodes shows dashboard"
+
+echo ""
+
+# ── K. Summary duplicate nodes ───────────────────────────────────────────────
+
+echo "--- K. Summary duplicate nodes ---"
+echo ""
+
+SUMMARY_DUP_ENV=$(make_env 600 "CF_API_TOKEN=test_dup" "CF_ZONE_ID=z3" "CF_ZONE_NAME=example.com")
+SUMMARY_DUP=$(NANOBK_CF_DNS_AVAILABILITY_FAKE_RESPONSE_MAP="$FIXTURES/cf-dns-availability-summary-all-available.json" bash "$NANOBK" --repo-dir "$ROOT" cf dns availability summary --zone example.com --api-env "$SUMMARY_DUP_ENV" --nodes proxy,proxy 2>&1 || true)
+assert_contains "$SUMMARY_DUP" "duplicate" "duplicate nodes reports error"
+assert_not_contains "$SUMMARY_DUP" "Traceback" "duplicate nodes has no traceback"
+
+echo ""
+
+# ── L. Summary invalid node ─────────────────────────────────────────────────
+
+echo "--- L. Summary invalid node ---"
+echo ""
+
+SUMMARY_INV_ENV=$(make_env 600 "CF_API_TOKEN=test_inv" "CF_ZONE_ID=z4" "CF_ZONE_NAME=example.com")
+SUMMARY_INV=$(NANOBK_CF_DNS_AVAILABILITY_FAKE_RESPONSE_MAP="$FIXTURES/cf-dns-availability-summary-all-available.json" bash "$NANOBK" --repo-dir "$ROOT" cf dns availability summary --zone example.com --api-env "$SUMMARY_INV_ENV" --nodes "../bad" 2>&1 || true)
+assert_contains "$SUMMARY_INV" "Error" "invalid node reports error"
+assert_not_contains "$SUMMARY_INV" "../bad" "invalid node does not echo raw value"
+assert_not_contains "$SUMMARY_INV" "Traceback" "invalid node has no traceback"
+
+echo ""
+
+# ── M. Summary fake map cases ───────────────────────────────────────────────
+
+echo "--- M. Summary fake map cases ---"
+echo ""
+
+# All available
+SUMMARY_ALL_ENV=$(make_env 600 "CF_API_TOKEN=test_all" "CF_ZONE_ID=z5" "CF_ZONE_NAME=example.com")
+SUMMARY_ALL=$(NANOBK_CF_DNS_AVAILABILITY_FAKE_RESPONSE_MAP="$FIXTURES/cf-dns-availability-summary-all-available.json" bash "$NANOBK" --repo-dir "$ROOT" cf dns availability summary --zone example.com --api-env "$SUMMARY_ALL_ENV" 2>&1)
+assert_contains "$SUMMARY_ALL" "status: available" "all available shows status available"
+assert_contains "$SUMMARY_ALL" "all_available: true" "all available shows all_available true"
+assert_contains "$SUMMARY_ALL" "manual_review_required: false" "all available no manual review"
+
+# Proxy available / web conflict
+SUMMARY_MIX_ENV=$(make_env 600 "CF_API_TOKEN=test_mix" "CF_ZONE_ID=z6" "CF_ZONE_NAME=example.com")
+SUMMARY_MIX=$(NANOBK_CF_DNS_AVAILABILITY_FAKE_RESPONSE_MAP="$FIXTURES/cf-dns-availability-summary-proxy-available-web-conflict.json" bash "$NANOBK" --repo-dir "$ROOT" cf dns availability summary --zone example.com --api-env "$SUMMARY_MIX_ENV" 2>&1)
+assert_contains "$SUMMARY_MIX" "status: manual_review" "mix shows manual_review"
+assert_contains "$SUMMARY_MIX" "any_conflict: true" "mix shows any_conflict true"
+assert_contains "$SUMMARY_MIX" "manual_review_required: true" "mix requires manual review"
+assert_not_contains "$SUMMARY_MIX" "198.51.100.10" "mix has no full IPv4"
+
+# Proxy owned / web available
+SUMMARY_OWNED_ENV=$(make_env 600 "CF_API_TOKEN=test_owned" "CF_ZONE_ID=z7" "CF_ZONE_NAME=example.com")
+SUMMARY_OWNED=$(NANOBK_CF_DNS_AVAILABILITY_FAKE_RESPONSE_MAP="$FIXTURES/cf-dns-availability-summary-proxy-owned-web-available.json" bash "$NANOBK" --repo-dir "$ROOT" cf dns availability summary --zone example.com --api-env "$SUMMARY_OWNED_ENV" 2>&1)
+assert_contains "$SUMMARY_OWNED" "status: partially_owned" "owned shows partially_owned"
+assert_contains "$SUMMARY_OWNED" "all_available: false" "owned shows all_available false"
+assert_contains "$SUMMARY_OWNED" "manual_review_required: false" "owned no manual review"
+assert_not_contains "$SUMMARY_OWNED" "managed-by=nanobk" "owned has no raw marker"
+
+# One failed
+SUMMARY_FAIL_ENV=$(make_env 600 "CF_API_TOKEN=test_fail" "CF_ZONE_ID=z8" "CF_ZONE_NAME=example.com")
+SUMMARY_FAIL=$(NANOBK_CF_DNS_AVAILABILITY_FAKE_RESPONSE_MAP="$FIXTURES/cf-dns-availability-summary-one-failed.json" bash "$NANOBK" --repo-dir "$ROOT" cf dns availability summary --zone example.com --api-env "$SUMMARY_FAIL_ENV" 2>&1 || true)
+assert_contains "$SUMMARY_FAIL" "Authentication error" "failed shows error message"
+assert_not_contains "$SUMMARY_FAIL" "test_fail" "failed has no token"
+
+# Missing node in map
+SUMMARY_MISS_ENV=$(make_env 600 "CF_API_TOKEN=test_miss" "CF_ZONE_ID=z9" "CF_ZONE_NAME=example.com")
+SUMMARY_MISS=$(NANOBK_CF_DNS_AVAILABILITY_FAKE_RESPONSE_MAP="$FIXTURES/cf-dns-availability-summary-missing-node.json" bash "$NANOBK" --repo-dir "$ROOT" cf dns availability summary --zone example.com --api-env "$SUMMARY_MISS_ENV" 2>&1 || true)
+assert_contains "$SUMMARY_MISS" "Error" "missing node reports error"
+assert_not_contains "$SUMMARY_MISS" "Traceback" "missing node has no traceback"
+
+# Malformed map
+SUMMARY_MAL_ENV=$(make_env 600 "CF_API_TOKEN=test_mal" "CF_ZONE_ID=z10" "CF_ZONE_NAME=example.com")
+SUMMARY_MAL=$(NANOBK_CF_DNS_AVAILABILITY_FAKE_RESPONSE_MAP="$FIXTURES/cf-dns-availability-summary-malformed.json" bash "$NANOBK" --repo-dir "$ROOT" cf dns availability summary --zone example.com --api-env "$SUMMARY_MAL_ENV" --json 2>&1 || true)
+if echo "$SUMMARY_MAL" | python3 -c "import json,sys; json.load(sys.stdin)" 2>/dev/null; then
+  pass "malformed map JSON is valid"
+else
+  fail "malformed map JSON is invalid"
+  ERRORS=$((ERRORS + 1))
+fi
+assert_contains "$SUMMARY_MAL" '"ok": false' "malformed map JSON has ok: false"
+assert_not_contains "$SUMMARY_MAL" "Traceback" "malformed map has no Traceback"
+
+echo ""
+
+# ── N. Summary JSON safety ──────────────────────────────────────────────────
+
+echo "--- N. Summary JSON safety ---"
+echo ""
+
+SUMMARY_JSON_ENV=$(make_env 600 "CF_API_TOKEN=test_json_s" "CF_ZONE_ID=z11" "CF_ZONE_NAME=example.com")
+SUMMARY_JSON=$(NANOBK_CF_DNS_AVAILABILITY_FAKE_RESPONSE_MAP="$FIXTURES/cf-dns-availability-summary-all-available.json" bash "$NANOBK" --repo-dir "$ROOT" cf dns availability summary --zone example.com --api-env "$SUMMARY_JSON_ENV" --json 2>&1)
+if echo "$SUMMARY_JSON" | python3 -c "import json,sys; json.load(sys.stdin)" 2>/dev/null; then
+  pass "summary JSON is valid"
+else
+  fail "summary JSON is invalid"
+  ERRORS=$((ERRORS + 1))
+fi
+assert_contains "$SUMMARY_JSON" '"ok": true' "summary JSON has ok: true"
+assert_contains "$SUMMARY_JSON" '"mutation": false' "summary JSON has mutation: false"
+assert_contains "$SUMMARY_JSON" '"profile_write": false' "summary JSON has profile_write: false"
+assert_contains "$SUMMARY_JSON" '"overall_status": "available"' "summary JSON has overall_status"
+assert_contains "$SUMMARY_JSON" '"all_available": true' "summary JSON has all_available"
+assert_not_contains "$SUMMARY_JSON" "example.com" "summary JSON has no raw zone"
+assert_not_contains "$SUMMARY_JSON" "proxy.example.com" "summary JSON has no raw hostname"
+assert_not_contains "$SUMMARY_JSON" "test_json_s" "summary JSON has no token"
+assert_not_contains "$SUMMARY_JSON" '"records":' "summary JSON has no records array"
+assert_not_contains "$SUMMARY_JSON" "hysteria2://" "summary JSON has no protocol URI"
+assert_not_contains "$SUMMARY_JSON" "workers.dev" "summary JSON has no workers.dev"
+
+echo ""
+
+# ── O. Summary dry-run ──────────────────────────────────────────────────────
+
+echo "--- O. Summary dry-run ---"
+echo ""
+
+SUMMARY_DRY_ENV=$(make_env 600 "CF_API_TOKEN=test_dry" "CF_ZONE_ID=z12" "CF_ZONE_NAME=example.com")
+DRY_SUMMARY_GLOBAL=$(bash "$NANOBK" --repo-dir "$ROOT" --dry-run cf dns availability summary --zone example.com --api-env "$SUMMARY_DRY_ENV" 2>&1)
+assert_contains "$DRY_SUMMARY_GLOBAL" "DRY-RUN" "summary global dry-run shows DRY-RUN"
+assert_not_contains "$DRY_SUMMARY_GLOBAL" "NanoBK DNS availability" "summary global dry-run does NOT execute"
+
+DRY_SUMMARY_LOCAL=$(bash "$NANOBK" --repo-dir "$ROOT" cf dns availability summary --zone example.com --api-env "$SUMMARY_DRY_ENV" --dry-run 2>&1)
+assert_contains "$DRY_SUMMARY_LOCAL" "DRY-RUN" "summary command-level dry-run shows DRY-RUN"
+assert_not_contains "$DRY_SUMMARY_LOCAL" "NanoBK DNS availability" "summary command-level dry-run does NOT execute"
 
 echo ""
 

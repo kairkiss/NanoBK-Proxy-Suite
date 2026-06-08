@@ -1,0 +1,10 @@
+{
+  "proxy": {
+    "success": false,
+    "errors": [{"code": 10000, "message": "Authentication error"}]
+  },
+  "web": {
+    "success": true,
+    "result": []
+  }
+}

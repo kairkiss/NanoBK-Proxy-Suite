@@ -1,5 +1,30 @@
 # Changelog
 
+## v2.1.9 — Multi-host Availability Summary Skeleton
+
+### Added
+
+- `nanobk cf dns availability summary --zone DOMAIN --api-env PATH [--nodes proxy,web] [--json]` —
+  multi-host DNS availability summary.
+- Defaults to checking `proxy` and `web` nodes.
+- Summary output is high-level only (no detailed record arrays).
+- Node-keyed fake map hook: `NANOBK_CF_DNS_AVAILABILITY_FAKE_RESPONSE_MAP`.
+- Overall status: `available`, `partially_owned`, `manual_review`, `failed`.
+- Existing one-host `nanobk cf dns availability check` unchanged.
+- Test fixtures: all-available, proxy-available-web-conflict, proxy-owned-web-available,
+  one-failed, missing-node, malformed.
+- Extended test: summary help, default nodes, custom nodes, duplicate/invalid nodes,
+  all fake map cases, JSON safety, dry-run.
+
+### Not Changed
+
+- No DNS mutation (no create/update/delete).
+- No Cloudflare POST/PATCH/DELETE.
+- No `cf dns apply` or `apply --check`.
+- No DNS profile writes.
+- No console auto-execution.
+- No release tag.
+
 ## v2.1.8-polish — Availability GET-only Source Checks
 
 ### Changed

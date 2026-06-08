@@ -1,0 +1,19 @@
+{
+  "proxy": {
+    "success": true,
+    "result": [
+      {
+        "id": "rec-proxy-owned",
+        "type": "A",
+        "name": "proxy.example.com",
+        "content": "203.0.113.10",
+        "proxied": false,
+        "comment": "managed-by=nanobk; component=cf-dns-apply; hostname=proxy.example.com"
+      }
+    ]
+  },
+  "web": {
+    "success": true,
+    "result": []
+  }
+}

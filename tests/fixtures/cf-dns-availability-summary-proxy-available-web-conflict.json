@@ -1,0 +1,19 @@
+{
+  "proxy": {
+    "success": true,
+    "result": []
+  },
+  "web": {
+    "success": true,
+    "result": [
+      {
+        "id": "rec-web123",
+        "type": "A",
+        "name": "web.example.com",
+        "content": "198.51.100.10",
+        "proxied": false,
+        "comment": null
+      }
+    ]
+  }
+}
