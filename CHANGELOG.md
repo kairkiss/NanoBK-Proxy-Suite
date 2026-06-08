@@ -1,5 +1,21 @@
 # Changelog
 
+## v2.1.25-polish — Tighten Legacy Backup Policy
+
+### Changed
+
+- Removed undesigned `--accept-legacy-backup` exception from real `/etc` rollback policy.
+- Legacy backups without metadata must fail closed.
+- Any legacy override requires a separate future design.
+
+### Not Changed
+
+- No runtime code changes.
+- No real `/etc` rollback.
+- No DNS apply/check.
+- No Cloudflare mutation.
+- No release tag.
+
 ## v2.1.25 — Real /etc Rollback Enablement Policy
 
 ### Documentation

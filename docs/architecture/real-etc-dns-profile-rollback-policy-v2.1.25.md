@@ -197,7 +197,9 @@ Required fields:
 - Full sha256 stored but **not printed** by default
 - Metadata must be validated before real rollback
 - Metadata tampering (hash mismatch) must fail closed
-- Metadata missing must fail closed (unless explicit `--accept-legacy-backup`)
+- Metadata missing must fail closed
+- Legacy backups without metadata are not accepted by the initial real `/etc` rollback policy
+- Any legacy backup override would require a separate future design/spec and explicit approval
 
 ---
 
