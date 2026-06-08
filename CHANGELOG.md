@@ -1,5 +1,21 @@
 # Changelog
 
+## v2.1.24-polish-2 — Fix Rollback Execute Source Check Marker
+
+### Fixed
+
+- Fixed rollback-execute source-check marker matching: test awk patterns now
+  match inline `# rollback-execute start` / `# rollback-execute end` markers.
+- Closed parent directory fsync fd in best-effort fsync path (was leaking fd).
+
+### Not Changed
+
+- No behavior expansion.
+- No real `/etc` rollback.
+- No DNS apply/check.
+- No Cloudflare mutation.
+- No release tag.
+
 ## v2.1.24-polish — Tighten Rollback Execute Identity Guard
 
 ### Changed

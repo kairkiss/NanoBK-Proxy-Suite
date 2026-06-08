@@ -883,7 +883,7 @@ echo ""
 echo "--- S. Source checks ---"
 echo ""
 
-EXECUTE_BLOCK=$(awk '/^# ── rollback-execute start/,/^# ── rollback-execute end/' "$PROFILE_PY")
+EXECUTE_BLOCK=$(awk '/# rollback-execute start/,/# rollback-execute end/' "$PROFILE_PY")
 
 # Exactly one os.replace inside the marker block
 REPLACE_COUNT=$(echo "$EXECUTE_BLOCK" | grep -c "os\.replace(" || true)
@@ -896,8 +896,8 @@ fi
 
 # No os.replace outside the marker block
 OUTSIDE_BLOCK=$(awk '
-  /^# ── rollback-execute start/ { inside=1; next }
-  /^# ── rollback-execute end/ { inside=0; next }
+  /# rollback-execute start/ { inside=1; next }
+  /# rollback-execute end/ { inside=0; next }
   !inside { print }
 ' "$PROFILE_PY")
 OUTSIDE_REPLACE=$(echo "$OUTSIDE_BLOCK" | grep -c "os\.replace(" || true)

@@ -2183,10 +2183,18 @@ def run_rollback_execute(backup_id, allow_production, confirm_hostname,
         # rollback-execute start
         os.replace(tmp_replace_path, physical_source)
         tmp_replace_path = None  # consumed by replace
+        dir_fd = None
         try:
-            os.fsync(os.open(parent_dir, os.O_RDONLY))
+            dir_fd = os.open(parent_dir, os.O_RDONLY)
+            os.fsync(dir_fd)
         except OSError:
             pass  # best-effort fsync
+        finally:
+            if dir_fd is not None:
+                try:
+                    os.close(dir_fd)
+                except OSError:
+                    pass
         # rollback-execute end
 
         # ── Step 18: Re-read final profile ──
