@@ -1714,7 +1714,7 @@ ROLLBACK_EXECUTE_ERROR_BASE = {
 }
 
 _PRE_ROLLBACK_BACKUP_ID_RE = re.compile(
-    r"^cloudflare-dns-profile\.json\.pre-rollback\.\d{8}-\d{6}\.\.bak$"
+    r"^cloudflare-dns-profile\.json\.pre-rollback\.\d{8}-\d{6}\.[0-9a-f]{8}\.bak$"
 )
 
 
@@ -1723,9 +1723,10 @@ def _redact_pre_rollback_backup_id(backup_filename):
     if not backup_filename:
         return "***"
     parts = backup_filename.split(".")
-    if len(parts) >= 6:
+    if len(parts) >= 7:
         ts = parts[4] if len(parts) > 4 else "***"
-        return f"cloudflare-dns-profile.json.pre-rollback.{ts}..bak"
+        hex8 = parts[5] if len(parts) > 5 else "***"
+        return f"cloudflare-dns-profile.json.pre-rollback.{ts}.{hex8}.bak"
     return "***"
 
 
@@ -1892,7 +1893,8 @@ def run_rollback_execute(backup_id, allow_production, confirm_hostname,
     # ── Step 12: Create pre-rollback backup ──
     from datetime import datetime, timezone
     ts = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
-    pre_backup_filename = f"cloudflare-dns-profile.json.pre-rollback.{ts}..bak"
+    rand = secrets.token_hex(4)
+    pre_backup_filename = f"cloudflare-dns-profile.json.pre-rollback.{ts}.{rand}.bak"
     pre_backup_path = os.path.join(backup_dir, pre_backup_filename)
 
     pre_backup_created = False

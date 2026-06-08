@@ -596,6 +596,24 @@ fi
 PRE_BACKUP=$(ls "$VALID_ROOT/etc/nanobk/backups/" | grep "pre-rollback" | head -1)
 if [[ -n "$PRE_BACKUP" ]]; then
   pass "pre-rollback backup exists"
+
+  # Check pre-rollback backup filename matches required regex
+  PRE_BACKUP_RE='^cloudflare-dns-profile\.json\.pre-rollback\.[0-9]{8}-[0-9]{6}\.[0-9a-f]{8}\.bak$'
+  if echo "$PRE_BACKUP" | grep -qE "$PRE_BACKUP_RE"; then
+    pass "pre-rollback backup filename matches required regex"
+  else
+    fail "pre-rollback backup filename does not match regex: $PRE_BACKUP"
+    ERRORS=$((ERRORS + 1))
+  fi
+
+  # Assert no double-dot .bak pattern (old bug)
+  if echo "$PRE_BACKUP" | grep -q '\.\.bak'; then
+    fail "pre-rollback backup has old ..bak pattern"
+    ERRORS=$((ERRORS + 1))
+  else
+    pass "pre-rollback backup has no ..bak pattern"
+  fi
+
   PRE_BACKUP_BYTES=$(cat "$VALID_ROOT/etc/nanobk/backups/$PRE_BACKUP")
   EXPECTED_A=$(printf '%s' "$PROFILE_A")
   if [[ "$PRE_BACKUP_BYTES" == "$EXPECTED_A" ]]; then
@@ -617,6 +635,12 @@ else
   fail "pre-rollback backup not found"
   ERRORS=$((ERRORS + 1))
 fi
+
+# Assert JSON output includes pre_rollback_backup_id_redacted
+assert_contains "$VALID_OUT" "pre_rollback_backup_id_redacted" "has pre_rollback_backup_id_redacted"
+
+# Assert no physical fake-root path in output
+assert_not_contains "$VALID_OUT" "$VALID_ROOT" "no physical path in JSON output"
 
 # Check backup dir mode
 BDIR_MODE=$(stat -f '%Lp' "$VALID_ROOT/etc/nanobk/backups" 2>/dev/null || stat -c '%a' "$VALID_ROOT/etc/nanobk/backups" 2>/dev/null)
@@ -839,6 +863,9 @@ fi
 
 # No os.rename anywhere in the execute block
 assert_not_contains "$EXECUTE_BLOCK" "os.rename(" "no os.rename in execute block"
+
+# Pre-backup filename uses random8 suffix, not double-dot pattern
+assert_not_contains "$EXECUTE_BLOCK" 'pre-rollback.{ts}..bak' "no old double-dot pre-backup pattern"
 
 # No cf dns apply
 assert_not_contains "$EXECUTE_BLOCK" "cf dns apply" "no cf dns apply"

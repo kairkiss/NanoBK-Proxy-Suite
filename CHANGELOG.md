@@ -1,5 +1,25 @@
 # Changelog
 
+## v2.1.23-polish — Fix Pre-rollback Backup Filename Random Suffix
+
+### Fixed
+
+- Fixed pre-rollback backup filename to include `secrets.token_hex(4)` random8
+  suffix: `cloudflare-dns-profile.json.pre-rollback.YYYYMMDD-HHMMSS.<hex8>.bak`.
+- Previous format had double-dot `..bak` instead of `.<hex8>.bak`.
+- Fixed `_PRE_ROLLBACK_BACKUP_ID_RE` regex to match new filename format.
+- Fixed `_redact_pre_rollback_backup_id()` to preserve filename shape with hex8.
+- Added test assertion for pre-rollback backup filename regex.
+- Added source check for old double-dot pre-backup pattern.
+
+### Not Changed
+
+- No behavior expansion.
+- No real `/etc` rollback.
+- No DNS apply/check.
+- No Cloudflare mutation.
+- No release tag.
+
 ## v2.1.23 — Fake-root Rollback Execute Skeleton
 
 ### Added
