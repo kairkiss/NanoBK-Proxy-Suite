@@ -332,6 +332,7 @@ def run_preview(zone, node, ipv4, ipv6, allow_docs):
 # ── Output path validation ──────────────────────────────────────────────────
 
 BLOCKED_PREFIXES = ["/etc", "/root", "/home"]
+PRODUCTION_PROFILE_PATH = "/etc/nanobk/cloudflare-dns-profile.json"
 
 
 def get_allowed_temp_root():
@@ -342,49 +343,178 @@ def get_allowed_temp_root():
     return os.path.realpath(tempfile.gettempdir())
 
 
-def validate_output_path(output_path):
-    """Validate output path against allowlist. Returns error string or None."""
+def classify_output_path(output_path):
+    """Classify output path as temp, production, or forbidden.
+
+    Returns (path_class, physical_path, error_string).
+    path_class: "temp", "production", or "forbidden"
+    physical_path: resolved actual path to write to
+    error_string: error message if forbidden, else None
+    """
     if not output_path:
-        return "output path is required"
+        return "forbidden", None, "output path is required"
 
-    # Must be absolute
     if not os.path.isabs(output_path):
-        return "output path must be absolute"
+        return "forbidden", None, "output path must be absolute"
 
-    # Check blocked prefixes on both original and resolved paths
-    # (macOS /etc resolves to /private/etc)
+    # Check if this is the production path
+    # Match both exact and resolved forms
+    is_production = False
+    if output_path == PRODUCTION_PROFILE_PATH:
+        is_production = True
+    else:
+        try:
+            resolved = os.path.realpath(output_path)
+            if resolved == PRODUCTION_PROFILE_PATH or output_path.startswith("/etc/nanobk/"):
+                is_production = True
+        except (OSError, ValueError):
+            pass
+
+    if is_production:
+        return "production", None, None
+
+    # Not production — must be temp class
     try:
         resolved = os.path.realpath(output_path)
     except (OSError, ValueError):
-        return "cannot resolve output path"
+        return "forbidden", None, "cannot resolve output path"
 
+    # Check blocked prefixes for non-production paths
     for prefix in BLOCKED_PREFIXES:
         if output_path.startswith(prefix) or resolved.startswith(prefix):
-            return "production profile path is not supported in v2.1.15"
+            return "forbidden", None, "production profile path is not supported outside fake-root tests"
 
     # Check allowed temp root
     allowed_root = get_allowed_temp_root()
     if not resolved.startswith(allowed_root):
-        return "output path must be under temp root"
+        return "forbidden", None, "output path must be under temp root"
 
-    # Check if final path is a symlink
-    if os.path.islink(output_path):
-        return "output path symlink is not allowed"
+    return "temp", output_path, None
 
-    # Check if parent is a symlink
-    parent = os.path.dirname(output_path)
+
+def resolve_production_physical_path():
+    """Resolve the physical path for production output under fake-root.
+
+    Returns (physical_path, error_string).
+    """
+    fake_root = os.environ.get("NANOBK_TEST_PRODUCTION_PROFILE_ROOT", "")
+    allow_root = os.environ.get("NANOBK_TEST_ALLOW_PRODUCTION_ROOT", "")
+
+    if not fake_root and not allow_root:
+        return None, "production profile writes are not enabled outside fake-root tests"
+    if not fake_root:
+        return None, "production profile writes are not enabled outside fake-root tests"
+    if allow_root != "1":
+        return None, "production profile writes are not enabled outside fake-root tests"
+
+    if not os.path.isabs(fake_root):
+        return None, "fake-root must be absolute"
+
+    if os.path.islink(fake_root):
+        return None, "fake-root symlink is not allowed"
+
+    # Fake root must be under temp root
+    try:
+        resolved_root = os.path.realpath(fake_root)
+    except (OSError, ValueError):
+        return None, "cannot resolve fake-root"
+
+    allowed_temp = get_allowed_temp_root()
+    try:
+        common = os.path.commonpath([resolved_root, allowed_temp])
+    except ValueError:
+        return None, "fake-root must be under temp root"
+
+    if common != allowed_temp:
+        return None, "fake-root must be under temp root"
+
+    # Map logical path to physical
+    # /etc/nanobk/cloudflare-dns-profile.json -> $FAKE_ROOT/etc/nanobk/cloudflare-dns-profile.json
+    rel_path = PRODUCTION_PROFILE_PATH.lstrip("/")
+    physical = os.path.join(resolved_root, rel_path)
+    return physical, None
+
+
+def validate_production_parent(physical_path):
+    """Validate production parent directory. Returns error string or None."""
+    parent = os.path.dirname(physical_path)
+
+    if not os.path.isdir(parent):
+        return "production parent directory does not exist"
+
     if os.path.islink(parent):
-        return "output path parent symlink is not allowed"
+        return "production parent symlink is not allowed"
 
-    # Check if file already exists
-    if os.path.exists(output_path):
-        return "output file already exists"
+    # Check parent mode is 0700
+    try:
+        st = os.stat(parent)
+        mode = st.st_mode & 0o7777
+        if mode != 0o700:
+            return f"production parent mode must be 0700, got {oct(mode)}"
+    except OSError:
+        return "cannot stat production parent directory"
 
     return None
 
 
+def validate_output_path(output_path, allow_production=False, confirm_hostname=None, zone=None, node=None):
+    """Validate output path against allowlist. Returns (path_class, physical_path, error_string)."""
+    path_class, physical, err = classify_output_path(output_path)
+
+    if path_class == "forbidden":
+        return "forbidden", None, err
+
+    if path_class == "production":
+        if not allow_production:
+            return "forbidden", None, "--allow-production-output is required for production path"
+
+        # Validate confirmation
+        if not confirm_hostname:
+            return "forbidden", None, "--confirm-hostname is required for production output"
+
+        expected = f"{node}.{zone}"
+        if confirm_hostname != expected:
+            return "forbidden", None, "confirmation hostname does not match target"
+
+        # Resolve physical path via fake-root
+        physical, err = resolve_production_physical_path()
+        if err:
+            return "forbidden", None, err
+
+        # Validate parent
+        parent_err = validate_production_parent(physical)
+        if parent_err:
+            return "forbidden", None, parent_err
+
+        # Check if file already exists
+        if os.path.exists(physical):
+            return "forbidden", None, "production profile already exists"
+
+        # Check symlink
+        if os.path.islink(physical):
+            return "forbidden", None, "output path symlink is not allowed"
+
+        return "production", physical, None
+
+    # Temp class
+    if os.path.islink(output_path):
+        return "forbidden", None, "output path symlink is not allowed"
+
+    parent = os.path.dirname(output_path)
+    if os.path.islink(parent):
+        return "forbidden", None, "output path parent symlink is not allowed"
+
+    if os.path.exists(output_path):
+        return "forbidden", None, "output file already exists"
+
+    return "temp", output_path, None
+
+
 def redact_output_path(output_path):
     """Redact output path for display."""
+    # Never print physical paths
+    if output_path == PRODUCTION_PROFILE_PATH or output_path.startswith("/etc/nanobk/"):
+        return "[production]/cloudflare-dns-profile.json"
     allowed_root = get_allowed_temp_root()
     try:
         resolved = os.path.realpath(output_path)
@@ -507,11 +637,13 @@ def verify_written_profile(output_path):
 
 # ── Generate logic ──────────────────────────────────────────────────────────
 
-def run_generate(zone, node, ipv4, ipv6, output_path, allow_docs):
+def run_generate(zone, node, ipv4, ipv6, output_path, allow_docs,
+                 allow_production=False, confirm_hostname=None):
     """Run profile generate. Returns result dict."""
     error_base = {"mutation": False, "local_file_mutation": False,
                   "dns_mutation": False, "cloudflare_mutation": False,
                   "dns_apply": False, "profile_written": False,
+                  "production_profile_written": False,
                   "profile_write_mode": "temp_output"}
 
     # Validate inputs
@@ -536,8 +668,10 @@ def run_generate(zone, node, ipv4, ipv6, output_path, allow_docs):
         if ipv6_err:
             return {"ok": False, "error": ipv6_err, **error_base}
 
-    # Validate output path
-    path_err = validate_output_path(output_path)
+    # Validate output path (handles both temp and production)
+    path_class, physical_path, path_err = validate_output_path(
+        output_path, allow_production, confirm_hostname, zone, node
+    )
     if path_err:
         return {"ok": False, "error": path_err, **error_base}
 
@@ -548,17 +682,19 @@ def run_generate(zone, node, ipv4, ipv6, output_path, allow_docs):
         return {"ok": False, "error": "profile validation failed",
                 "validation_errors": errors, **error_base}
 
-    # Write atomically
-    write_err = write_profile_atomic(candidate, output_path)
+    # Write atomically (uses physical path for production)
+    write_err = write_profile_atomic(candidate, physical_path)
     if write_err:
         return {"ok": False, "error": write_err, **error_base}
 
     # Verify written file
-    verify_err = verify_written_profile(output_path)
+    verify_err = verify_written_profile(physical_path)
     if verify_err:
         return {"ok": False, "error": verify_err, **error_base}
 
-    return {
+    is_production = (path_class == "production")
+
+    result = {
         "ok": True,
         "mutation": False,
         "local_file_mutation": True,
@@ -566,8 +702,9 @@ def run_generate(zone, node, ipv4, ipv6, output_path, allow_docs):
         "cloudflare_mutation": False,
         "dns_apply": False,
         "profile_written": True,
-        "profile_write_mode": "temp_output",
-        "output_path_class": "temp",
+        "production_profile_written": is_production,
+        "profile_write_mode": "production" if is_production else "temp_output",
+        "output_path_class": path_class,
         "output_path_redacted": redact_output_path(output_path),
         "file_mode": "600",
         "profile_valid": True,
@@ -576,14 +713,25 @@ def run_generate(zone, node, ipv4, ipv6, output_path, allow_docs):
         "test_mode": allow_docs,
     }
 
+    if is_production:
+        result["confirmation_required"] = True
+        result["confirmation_matched"] = True
+        result["production_fake_root"] = True
+
+    return result
+
 
 def output_generate_text(result):
     """Print human-readable generate result."""
     print()
     if result.get("profile_written"):
-        print("  Local profile file written.")
-        print("  Raw IP values were written to the profile file and intentionally not printed.")
-        print("  No DNS records were changed.")
+        if result.get("production_profile_written"):
+            print("  Local production DNS profile was written under fake-root test mode.")
+        else:
+            print("  Local profile file written.")
+        print("  Raw IP values were stored and intentionally not printed.")
+        print("  DNS has not been applied.")
+        print("  No DNS records were created, updated, or deleted.")
     else:
         print("  No profile file was written.")
     print()
@@ -683,13 +831,17 @@ def main():
                                 help="Allow documentation IP ranges (tests/examples only)")
 
     # generate subcommand
-    generate_parser = sub.add_parser("generate", help="Write DNS profile to temp output path (temp-only in v2.1.15)")
+    generate_parser = sub.add_parser("generate", help="Write DNS profile to output path")
     generate_parser.add_argument("--zone", help="Domain zone (e.g. example.com)")
     generate_parser.add_argument("--node", help="Node prefix (e.g. proxy)")
     generate_parser.add_argument("--ipv4", help="IPv4 address for A record")
     generate_parser.add_argument("--ipv6", help="IPv6 address for AAAA record (optional)")
-    generate_parser.add_argument("--output", help="Output file path (must be under temp root)")
+    generate_parser.add_argument("--output", help="Output file path")
     generate_parser.add_argument("--yes", action="store_true", help="Confirm file write")
+    generate_parser.add_argument("--allow-production-output", action="store_true",
+                                 help="Allow production /etc/nanobk output path")
+    generate_parser.add_argument("--confirm-hostname",
+                                 help="Exact hostname confirmation for production output")
     generate_parser.add_argument("--json", action="store_true", help="JSON output")
     generate_parser.add_argument("--allow-documentation-ips", action="store_true",
                                  help="Allow documentation IP ranges (tests/examples only)")
@@ -739,7 +891,8 @@ def main():
             sys.exit(1)
 
         result = run_generate(args.zone, args.node, args.ipv4, args.ipv6,
-                              args.output, args.allow_documentation_ips)
+                              args.output, args.allow_documentation_ips,
+                              args.allow_production_output, args.confirm_hostname)
 
         if not result.get("ok", False):
             output_generate_error(result.get("error", "unknown error"), args.json)

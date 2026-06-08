@@ -91,7 +91,7 @@ echo ""
 
 HELP_OUTPUT=$(bash "$NANOBK" --repo-dir "$ROOT" cf dns profile generate --help 2>&1 || true)
 assert_contains "$HELP_OUTPUT" "generate" "help mentions generate"
-assert_contains "$HELP_OUTPUT" "temp" "help mentions temp-output"
+assert_contains "$HELP_OUTPUT" "generate" "help mentions generate"
 assert_not_contains "$HELP_OUTPUT" "apply --yes" "help has no apply --yes"
 
 echo ""

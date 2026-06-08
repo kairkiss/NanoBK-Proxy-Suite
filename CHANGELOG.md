@@ -1,5 +1,30 @@
 # Changelog
 
+## v2.1.17 — Fake-root Production DNS Profile Writer Skeleton
+
+### Added
+
+- Fake-root production writer skeleton for `nanobk cf dns profile generate`.
+- Added `--allow-production-output` and `--confirm-hostname` flags.
+- Real `/etc/nanobk/cloudflare-dns-profile.json` writes remain disabled.
+- Production behavior works only under fake-root test hooks
+  (`NANOBK_TEST_PRODUCTION_PROFILE_ROOT` + `NANOBK_TEST_ALLOW_PRODUCTION_ROOT=1`).
+- Requires `--yes`, `--allow-production-output`, and matching `--confirm-hostname`.
+- Existing production profile is refused; no overwrite, no replace, no backup.
+- Fake-root parent must pre-exist, be non-symlink, and mode `0700`.
+- Output hides raw IP/zone/hostname/confirmation/path.
+- Focused test: `tests/cf-dns-profile-production.sh` with 56 assertions.
+
+### Not Changed
+
+- No real `/etc/nanobk` writes.
+- No Cloudflare mutation.
+- No DNS mutation.
+- No `cf dns apply` or `apply --check`.
+- No Full Wizard integration.
+- No backup/replace/rollback.
+- No release tag.
+
 ## v2.1.16 — Production DNS Profile Guardrails Design Spec
 
 ### Documentation
