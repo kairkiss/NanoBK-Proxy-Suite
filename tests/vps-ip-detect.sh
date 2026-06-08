@@ -103,6 +103,25 @@ assert_not_contains "$NOFIX_OUT" "Traceback" "no fixture has no traceback"
 
 echo ""
 
+# ── B2. Global dry-run ──────────────────────────────────────────────────────
+
+echo "--- B2. Global dry-run ---"
+echo ""
+
+DRY_GLOBAL=$(bash "$NANOBK" --repo-dir "$ROOT" --dry-run vps ip detect 2>&1)
+assert_contains "$DRY_GLOBAL" "DRY-RUN" "global dry-run shows DRY-RUN"
+assert_contains "$DRY_GLOBAL" "nanobk_ip_detect.py" "global dry-run shows helper path"
+assert_not_contains "$DRY_GLOBAL" "NanoBK VPS IP detection" "global dry-run does NOT execute helper"
+assert_not_contains "$DRY_GLOBAL" "manual_input_required" "global dry-run has no helper output"
+
+# Command-level dry-run
+DRY_LOCAL=$(bash "$NANOBK" --repo-dir "$ROOT" vps ip detect --dry-run 2>&1)
+assert_contains "$DRY_LOCAL" "DRY-RUN" "command-level dry-run shows DRY-RUN"
+assert_contains "$DRY_LOCAL" "nanobk_ip_detect.py" "command-level dry-run shows helper path"
+assert_not_contains "$DRY_LOCAL" "NanoBK VPS IP detection" "command-level dry-run does NOT execute helper"
+
+echo ""
+
 # ── C. Dual-stack fixture ───────────────────────────────────────────────────
 
 echo "--- C. Dual-stack fixture ---"
@@ -249,6 +268,18 @@ assert_contains "$JSON_NOFIX" '"manual_input_required": true' "no-fixture JSON r
 JSON_PRIV=$(run_detect --fixture "$FIXTURES/private-only.json" --json)
 assert_contains "$JSON_PRIV" '"dns_target_ready": false' "private JSON has dns_target_ready: false"
 assert_not_contains "$JSON_PRIV" "10.0.0.1" "private JSON has no full IP"
+
+# Malformed fixture JSON mode
+JSON_MAL=$(NANOBK_IP_DETECT_FIXTURE="$FIXTURES/malformed.json" bash "$NANOBK" --repo-dir "$ROOT" vps ip detect --json 2>&1 || true)
+if echo "$JSON_MAL" | python3 -c "import json,sys; json.load(sys.stdin)" 2>/dev/null; then
+  pass "malformed fixture JSON is valid"
+else
+  fail "malformed fixture JSON is invalid"
+  ERRORS=$((ERRORS + 1))
+fi
+assert_contains "$JSON_MAL" '"ok": false' "malformed JSON has ok: false"
+assert_contains "$JSON_MAL" '"mutation": false' "malformed JSON has mutation: false"
+assert_not_contains "$JSON_MAL" "Traceback" "malformed JSON has no Traceback"
 
 echo ""
 

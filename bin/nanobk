@@ -1276,6 +1276,13 @@ cmd_vps_ip_detect() {
     esac
   done
 
+  # Respect global --dry-run
+  if [[ "$DRY_RUN" == "1" ]]; then
+    print_cmd "${args[@]}"
+    echo -e "  ${CYAN}[DRY-RUN]${NC} 跳过执行"
+    return 0
+  fi
+
   "${args[@]}"
 }
 

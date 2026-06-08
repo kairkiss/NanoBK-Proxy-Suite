@@ -1,5 +1,21 @@
 # Changelog
 
+## v2.1.6-polish — Dry Run Guard for VPS IP Detect
+
+### Changed
+
+- `nanobk --dry-run vps ip detect` now prints the helper command and does not
+  execute detection (respects global `--dry-run`).
+- Command-level `nanobk vps ip detect --dry-run` remains supported.
+- Added dry-run regression coverage in tests.
+- Added malformed fixture JSON mode test.
+
+### Not Changed
+
+- No live IP detection added.
+- No DNS/profile/Cloudflare behavior changes.
+- No release tag.
+
 ## v2.1.6 — VPS IP Detection Skeleton
 
 ### Added
