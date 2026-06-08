@@ -1,5 +1,26 @@
 # Changelog
 
+## v2.1.18 — DNS Profile Backup / Replace Policy Design Spec
+
+### Documentation
+
+- Added `docs/architecture/dns-profile-backup-replace-policy-v2.1.18.md`.
+- Documents future backup/replace policy for production DNS profile.
+- Recommends separate `profile replace preview`/`execute` command family.
+- Defines mandatory backup, rollback-before-execute policy, redacted diff,
+  confirmation model, fake-root test model, JSON/status contract, and non-goals.
+- Docs-only. No runtime code changes.
+
+### Not Changed
+
+- No backup files.
+- No profile replacement.
+- No real `/etc` changes.
+- No Cloudflare mutation.
+- No DNS mutation.
+- No `cf dns apply` or `apply --check`.
+- No release tag.
+
 ## v2.1.17-polish — Strict Production Path and Source Checks
 
 ### Changed
