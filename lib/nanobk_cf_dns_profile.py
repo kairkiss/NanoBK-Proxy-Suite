@@ -399,7 +399,13 @@ def redact_output_path(output_path):
 # ── Atomic file write ───────────────────────────────────────────────────────
 
 def write_profile_atomic(candidate, output_path):
-    """Write profile JSON atomically. Returns error string or None."""
+    """Write profile JSON atomically with no-overwrite guarantee.
+
+    Uses hard-link finalization: temp file is written, fsynced, and chmod'd,
+    then hard-linked to the final path. If the link fails (e.g. final exists),
+    the temp file is cleaned up and an error is returned. No rename/replace
+    fallback is used, so an existing final path is never overwritten.
+    """
     parent_dir = os.path.dirname(output_path)
 
     # Create parent directory if needed (restrictive permissions)
@@ -411,6 +417,10 @@ def write_profile_atomic(candidate, output_path):
     # Serialize JSON
     profile_json = json.dumps(candidate, indent=2, sort_keys=True) + "\n"
     profile_bytes = profile_json.encode("utf-8")
+
+    # Test-only hook: simulate finalization failure
+    if os.environ.get("NANOBK_TEST_FORCE_PROFILE_FINALIZE_FAIL") == "1":
+        return "atomic finalize failed (test hook)"
 
     # Write to temp file with exclusive creation
     tmp_fd = None
@@ -427,15 +437,21 @@ def write_profile_atomic(candidate, output_path):
         # chmod 600
         os.chmod(tmp_path, 0o600)
 
-        # Hard-link to final path (avoids overwrite)
+        # Hard-link to final path (no-overwrite: link fails if final exists)
         try:
             os.link(tmp_path, output_path)
             os.unlink(tmp_path)
             tmp_path = None
+        except FileExistsError:
+            # Final path already exists — clean temp, return error
+            if tmp_path and os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+            return "output file already exists"
         except OSError:
-            # Hard link not supported; fall back (but we already checked existence)
-            os.rename(tmp_path, output_path)
-            tmp_path = None
+            # Other link failure — clean temp, return error
+            if tmp_path and os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+            return "atomic finalize failed"
 
     except OSError as e:
         # Clean up on failure

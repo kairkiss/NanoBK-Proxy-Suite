@@ -1,5 +1,27 @@
 # Changelog
 
+## v2.1.15-polish — No-overwrite Atomic Finalization
+
+### Changed
+
+- Removed unsafe `os.rename()` fallback from DNS profile temp writer finalization.
+- Finalization now fails closed on hard-link failure instead of falling back to
+  a potentially overwriting rename.
+- Added `NANOBK_TEST_FORCE_PROFILE_FINALIZE_FAIL` test hook for simulating
+  finalization failure without touching the filesystem.
+- Added source checks: no `os.rename(tmp_path`, no `os.replace(`; must have
+  `os.link(`.
+
+### Not Changed
+
+- No behavior expansion.
+- No production `/etc/nanobk` writes.
+- No DNS profile overwrite.
+- No Cloudflare mutation.
+- No DNS mutation.
+- No `cf dns apply` or `apply --check`.
+- No release tag.
+
 ## v2.1.15 — Temp-output DNS Profile Writer Skeleton
 
 ### Added

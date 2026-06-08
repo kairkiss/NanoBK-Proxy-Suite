@@ -311,12 +311,52 @@ fi
 
 echo ""
 
-# ── J. Source checks ────────────────────────────────────────────────────────
+# ── J. Finalization failure does not overwrite ──────────────────────────────
+
+echo "--- J. Finalization failure does not overwrite ---"
+echo ""
+
+# Test hook: simulate finalization failure
+FAIL_PATH="$TEST_TMPDIR/fail-$(date +%s%N).json"
+FAIL_OUT=$(NANOBK_TEST_TMPDIR="$TEST_TMPDIR" NANOBK_TEST_FORCE_PROFILE_FINALIZE_FAIL=1 bash "$NANOBK" --repo-dir "$ROOT" cf dns profile generate --zone example.com --node proxy --ipv4 203.0.113.10 --output "$FAIL_PATH" --yes --allow-documentation-ips --json 2>&1 || true)
+if echo "$FAIL_OUT" | python3 -c "import json,sys; json.load(sys.stdin)" 2>/dev/null; then
+  pass "finalize-fail JSON is valid"
+else
+  fail "finalize-fail JSON is invalid"
+  ERRORS=$((ERRORS + 1))
+fi
+assert_contains "$FAIL_OUT" '"ok": false' "finalize-fail has ok: false"
+assert_contains "$FAIL_OUT" '"profile_written": false' "finalize-fail has profile_written: false"
+assert_not_contains "$FAIL_OUT" "203.0.113.10" "finalize-fail has no raw IP"
+
+# No final file created
+if [[ ! -f "$FAIL_PATH" ]]; then
+  pass "finalize-fail creates no final file"
+else
+  fail "finalize-fail created a final file"
+  ERRORS=$((ERRORS + 1))
+fi
+
+echo ""
+
+# ── K. Source checks ────────────────────────────────────────────────────────
 
 echo "--- J. Source checks ---"
 echo ""
 
 HELPER_SRC=$(cat "$ROOT/lib/nanobk_cf_dns_profile.py")
+
+# No-overwrite finalization: no rename/replace fallback
+assert_not_contains "$HELPER_SRC" "os.rename(tmp_path" "no os.rename fallback"
+assert_not_contains "$HELPER_SRC" "os.replace(" "no os.replace overwrite"
+
+# No-overwrite primitive present
+if echo "$HELPER_SRC" | grep -q "os.link(" ; then
+  pass "helper uses os.link (no-overwrite primitive)"
+else
+  fail "helper missing os.link (no-overwrite primitive)"
+  ERRORS=$((ERRORS + 1))
+fi
 
 # No mutation paths
 assert_not_contains "$HELPER_SRC" "cf dns apply" "no cf dns apply"
