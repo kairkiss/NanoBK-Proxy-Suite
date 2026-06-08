@@ -67,7 +67,7 @@ Rollback execute accepts backup filename only.
 Pattern:
 
 ```
-^cloudflare-dns-profile.json.[0-9]{8}-[0-9]{6}.[0-9a-f]{8}.bak$
+^cloudflare-dns-profile\.json\.[0-9]{8}-[0-9]{6}\.[0-9a-f]{8}\.bak$
 ```
 
 Reject:

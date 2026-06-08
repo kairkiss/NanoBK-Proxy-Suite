@@ -1,5 +1,20 @@
 # Changelog
 
+## v2.1.22-polish — Fix Rollback Execute Backup ID Regex
+
+### Changed
+
+- Corrected backup-id regex in rollback execute policy to escape literal dots.
+- Docs-only. No runtime code changes.
+
+### Not Changed
+
+- No rollback execute implementation.
+- No real `/etc` changes.
+- No DNS apply/check.
+- No Cloudflare mutation.
+- No release tag.
+
 ## v2.1.22 — Rollback Execute Policy Spec
 
 ### Documentation
