@@ -1,5 +1,32 @@
 # Changelog
 
+## v2.1.23 — Fake-root Rollback Execute Skeleton
+
+### Added
+
+- Fake-root-only `nanobk cf dns profile rollback execute` command.
+- Requires `--yes`, `--allow-production-output`, matching `--confirm-hostname`,
+  and exact `--confirm-rollback-profile "rollback profile"`.
+- Creates verified pre-rollback backup before replacing current profile.
+- Uses marker-scoped `os.replace()` only in rollback-execute block.
+- Adds current identity guard (inode/mtime/size + sha256) before replace.
+- No auto-restore; post-replace validation failure reports
+  `manual_recovery_required: true`.
+- Test hooks: `NANOBK_TEST_FORCE_ROLLBACK_PREBACKUP_FAIL`,
+  `NANOBK_TEST_FORCE_ROLLBACK_AFTER_PREBACKUP_FAIL`,
+  `NANOBK_TEST_FORCE_ROLLBACK_TEMP_WRITE_FAIL`,
+  `NANOBK_TEST_FORCE_ROLLBACK_AFTER_TEMP_WRITE_FAIL`,
+  `NANOBK_TEST_FORCE_ROLLBACK_AFTER_REPLACE_VALIDATE_FAIL`.
+- Focused test: `tests/cf-dns-profile-rollback-execute.sh`.
+
+### Not Changed
+
+- Real `/etc` rollback remains blocked.
+- No DNS apply/check.
+- No Cloudflare mutation.
+- No Full Wizard/Web/Bot integration.
+- No release tag.
+
 ## v2.1.22-polish — Fix Rollback Execute Backup ID Regex
 
 ### Changed

@@ -1588,11 +1588,47 @@ cmd_cf_dns() {
               fi
               "${args[@]}"
               ;;
+            execute)
+              local args=(python3 "$REPO_DIR/lib/nanobk_cf_dns_profile.py" rollback execute)
+              while [[ $# -gt 0 ]]; do
+                case "$1" in
+                  --backup-id)
+                    [[ $# -ge 2 ]] || die "cf dns profile rollback execute: --backup-id needs a value"
+                    args+=("$1" "$2"); shift 2 ;;
+                  --allow-production-output)
+                    args+=("--allow-production-output"); shift ;;
+                  --confirm-hostname)
+                    [[ $# -ge 2 ]] || die "cf dns profile rollback execute: --confirm-hostname needs a value"
+                    args+=("$1" "$2"); shift 2 ;;
+                  --confirm-rollback-profile)
+                    [[ $# -ge 2 ]] || die "cf dns profile rollback execute: --confirm-rollback-profile needs a value"
+                    args+=("$1" "$2"); shift 2 ;;
+                  --yes)
+                    args+=("--yes"); shift ;;
+                  --json)
+                    args+=("--json"); shift ;;
+                  --help|-h)
+                    args+=("--help"); shift ;;
+                  --dry-run)
+                    echo -e "  ${CYAN}[DRY-RUN]${NC} nanobk cf dns profile rollback execute would run; raw backup-id, confirmation, and rollback phrase arguments are hidden; no filesystem checks performed"
+                    return 0 ;;
+                  *)
+                    die "cf dns profile rollback execute: unknown option: $1"
+                    ;;
+                esac
+              done
+              # Respect global --dry-run (sanitized)
+              if [[ "$DRY_RUN" == "1" ]]; then
+                echo -e "  ${CYAN}[DRY-RUN]${NC} nanobk cf dns profile rollback execute would run; raw backup-id, confirmation, and rollback phrase arguments are hidden; no filesystem checks performed"
+                return 0
+              fi
+              "${args[@]}"
+              ;;
             "")
-              die "Usage: nanobk cf dns profile rollback <preview> [options...]"
+              die "Usage: nanobk cf dns profile rollback <preview|execute> [options...]"
               ;;
             *)
-              die "Unknown cf dns profile rollback subcommand: ${rollback_sub}. Use: nanobk cf dns profile rollback preview"
+              die "Unknown cf dns profile rollback subcommand: ${rollback_sub}. Use: nanobk cf dns profile rollback <preview|execute>"
               ;;
           esac
           ;;

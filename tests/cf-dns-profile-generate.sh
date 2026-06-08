@@ -387,9 +387,16 @@ echo ""
 
 HELPER_SRC=$(cat "$ROOT/lib/nanobk_cf_dns_profile.py")
 
-# No-overwrite finalization: no rename/replace fallback
-assert_not_contains "$HELPER_SRC" "os.rename(tmp_path" "no os.rename fallback"
-assert_not_contains "$HELPER_SRC" "os.replace(" "no os.replace overwrite"
+# Check outside rollback-execute block (os.replace is allowed inside it)
+HELPER_SRC_OUTSIDE_ROLLBACK=$(awk '
+  /^# ── rollback-execute start/ { inside=1; next }
+  /^# ── rollback-execute end/ { inside=0; next }
+  !inside { print }
+' "$ROOT/lib/nanobk_cf_dns_profile.py")
+
+# No-overwrite finalization: no rename/replace fallback (outside rollback-execute)
+assert_not_contains "$HELPER_SRC_OUTSIDE_ROLLBACK" "os.rename(tmp_path" "no os.rename fallback"
+assert_not_contains "$HELPER_SRC_OUTSIDE_ROLLBACK" "os.replace(" "no os.replace overwrite"
 
 # No-overwrite primitive present
 if grep -q "os.link(" "$ROOT/lib/nanobk_cf_dns_profile.py"; then

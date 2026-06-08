@@ -1702,6 +1702,618 @@ def output_rollback_preview_error(message, json_mode=False):
 
 # ── rollback-preview end ───────────────────────────────────────────────────
 
+# ── rollback-execute start ────────────────────────────────────────────────
+
+ROLLBACK_EXECUTE_ERROR_BASE = {
+    "mutation": False, "local_file_mutation": False,
+    "dns_mutation": False, "cloudflare_mutation": False,
+    "dns_apply": False, "rollback_execute": True,
+    "rollback_performed": False, "profile_replaced": False,
+    "pre_rollback_backup_created": False,
+    "manual_recovery_required": False,
+}
+
+_PRE_ROLLBACK_BACKUP_ID_RE = re.compile(
+    r"^cloudflare-dns-profile\.json\.pre-rollback\.\d{8}-\d{6}\.\.bak$"
+)
+
+
+def _redact_pre_rollback_backup_id(backup_filename):
+    """Redact pre-rollback backup filename for display."""
+    if not backup_filename:
+        return "***"
+    parts = backup_filename.split(".")
+    if len(parts) >= 6:
+        ts = parts[4] if len(parts) > 4 else "***"
+        return f"cloudflare-dns-profile.json.pre-rollback.{ts}..bak"
+    return "***"
+
+
+def _compute_sha256_hex(data_bytes):
+    """Compute sha256 hex digest of bytes."""
+    return hashlib.sha256(data_bytes).hexdigest()
+
+
+def run_rollback_execute(backup_id, allow_production, confirm_hostname,
+                         confirm_rollback_phrase, yes_flag):
+    """Run rollback execute. Returns result dict."""
+    base_err = dict(ROLLBACK_EXECUTE_ERROR_BASE)
+
+    # ── Step 0: Validate yes flag ──
+    if not yes_flag:
+        return {"ok": False, "error": "--yes is required for rollback execute",
+                **base_err}
+
+    # ── Step 1: Validate fake-root ──
+    if not allow_production:
+        return {"ok": False, "error": "--allow-production-output is required",
+                **base_err}
+
+    physical_source, root_err = resolve_production_physical_path()
+    if root_err:
+        return {"ok": False, "error": root_err, **base_err}
+
+    # ── Step 2: Validate current parent ──
+    parent_err = validate_production_parent(physical_source)
+    if parent_err:
+        return {"ok": False, "error": parent_err, **base_err}
+
+    # ── Step 3: Validate backup dir ──
+    backup_dir = os.path.join(os.path.dirname(physical_source), "backups")
+    if os.path.islink(backup_dir):
+        return {"ok": False, "error": "backup directory symlink is not allowed",
+                **base_err}
+    if not os.path.exists(backup_dir):
+        # Create under fake-root only
+        try:
+            os.makedirs(backup_dir, mode=0o700, exist_ok=True)
+        except OSError:
+            return {"ok": False, "error": "cannot create backup directory",
+                    **base_err}
+    if not os.path.isdir(backup_dir):
+        return {"ok": False, "error": "backup directory is not a directory",
+                **base_err}
+    try:
+        dir_mode = stat.S_IMODE(os.stat(backup_dir).st_mode)
+        if dir_mode != 0o700:
+            return {"ok": False, "error": "backup directory mode must be 0700",
+                    **base_err}
+    except OSError:
+        return {"ok": False, "error": "cannot stat backup directory", **base_err}
+
+    # ── Step 4: Validate backup ID ──
+    id_err = validate_backup_id(backup_id)
+    if id_err:
+        return {"ok": False, "error": id_err, **base_err}
+
+    # ── Step 5: Validate current profile ──
+    current_status, current_data, current_err = load_and_validate_profile(
+        physical_source, "current profile"
+    )
+    if current_err:
+        return {"ok": False, "error": current_err,
+                "current_profile_status": current_status, **base_err}
+
+    # ── Step 6: Validate backup profile ──
+    backup_path = os.path.join(backup_dir, backup_id)
+    backup_status, backup_data, backup_err = load_and_validate_profile(
+        backup_path, "backup profile"
+    )
+    if backup_err:
+        return {"ok": False, "error": backup_err,
+                "current_profile_status": current_status,
+                "backup_profile_status": backup_status, **base_err}
+
+    # ── Step 7: Validate hostname match ──
+    current_node = current_data.get("nodePrefix", "")
+    current_zone = current_data.get("zoneName", "")
+    current_hostname = f"{current_node}.{current_zone}"
+
+    backup_node = backup_data.get("nodePrefix", "")
+    backup_zone = backup_data.get("zoneName", "")
+    backup_hostname = f"{backup_node}.{backup_zone}"
+
+    if current_hostname != backup_hostname:
+        return {"ok": False, "error": "current and backup hostnames do not match",
+                "current_profile_status": current_status,
+                "backup_profile_status": backup_status,
+                "confirmation_required": True, "confirmation_matched": False,
+                **base_err}
+
+    # ── Step 8: Validate confirm-hostname ──
+    if not confirm_hostname:
+        return {"ok": False, "error": "confirm-hostname is required for rollback execute",
+                "current_profile_status": current_status,
+                "backup_profile_status": backup_status,
+                "confirmation_required": True, "confirmation_matched": False,
+                **base_err}
+    if confirm_hostname != current_hostname:
+        return {"ok": False, "error": "confirmation hostname does not match rollback target",
+                "current_profile_status": current_status,
+                "backup_profile_status": backup_status,
+                "confirmation_required": True, "confirmation_matched": False,
+                **base_err}
+
+    # ── Step 9: Validate rollback phrase ──
+    if not confirm_rollback_phrase:
+        return {"ok": False, "error": "confirm-rollback-profile is required for rollback execute",
+                "current_profile_status": current_status,
+                "backup_profile_status": backup_status,
+                "confirmation_required": True, "confirmation_matched": True,
+                "rollback_phrase_required": True, "rollback_phrase_matched": False,
+                **base_err}
+    if confirm_rollback_phrase != "rollback profile":
+        return {"ok": False, "error": "rollback phrase does not match",
+                "current_profile_status": current_status,
+                "backup_profile_status": backup_status,
+                "confirmation_required": True, "confirmation_matched": True,
+                "rollback_phrase_required": True, "rollback_phrase_matched": False,
+                **base_err}
+
+    # ── Step 10: Read selected backup bytes ──
+    try:
+        with open(backup_path, "rb") as f:
+            backup_bytes = f.read()
+    except OSError:
+        return {"ok": False, "error": "cannot read backup profile",
+                "current_profile_status": current_status,
+                "backup_profile_status": backup_status,
+                "confirmation_required": True, "confirmation_matched": True,
+                "rollback_phrase_required": True, "rollback_phrase_matched": True,
+                **base_err}
+
+    # ── Step 11: Capture current identity ──
+    try:
+        with open(physical_source, "rb") as f:
+            current_bytes = f.read()
+        current_sha = _compute_sha256_hex(current_bytes)
+        current_stat = os.stat(physical_source)
+        current_inode = current_stat.st_ino
+        current_mtime = current_stat.st_mtime_ns
+        current_size = current_stat.st_size
+    except OSError:
+        return {"ok": False, "error": "cannot read current profile for identity check",
+                "current_profile_status": current_status,
+                "backup_profile_status": backup_status,
+                "confirmation_required": True, "confirmation_matched": True,
+                "rollback_phrase_required": True, "rollback_phrase_matched": True,
+                **base_err}
+
+    # ── Test hook: PREBACKUP_FAIL ──
+    if os.environ.get("NANOBK_TEST_FORCE_ROLLBACK_PREBACKUP_FAIL") == "1":
+        return {"ok": False, "error": "pre-rollback backup failed (test hook)",
+                "current_profile_status": current_status,
+                "backup_profile_status": backup_status,
+                "confirmation_required": True, "confirmation_matched": True,
+                "rollback_phrase_required": True, "rollback_phrase_matched": True,
+                "current_identity_checked": True,
+                **base_err}
+
+    # ── Step 12: Create pre-rollback backup ──
+    from datetime import datetime, timezone
+    ts = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    pre_backup_filename = f"cloudflare-dns-profile.json.pre-rollback.{ts}..bak"
+    pre_backup_path = os.path.join(backup_dir, pre_backup_filename)
+
+    pre_backup_created = False
+    try:
+        tmp_fd, tmp_path = tempfile.mkstemp(
+            dir=backup_dir, prefix=".nanobk-pre-rollback-", suffix=".tmp"
+        )
+        os.write(tmp_fd, current_bytes)
+        os.fsync(tmp_fd)
+        os.close(tmp_fd)
+        tmp_fd = None
+        os.chmod(tmp_path, 0o600)
+
+        # Hard-link to final path
+        try:
+            os.link(tmp_path, pre_backup_path)
+            os.unlink(tmp_path)
+            tmp_path = None
+        except (FileExistsError, OSError):
+            if tmp_path and os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+            return {"ok": False, "error": "pre-rollback backup finalize failed",
+                    "current_profile_status": current_status,
+                    "backup_profile_status": backup_status,
+                    "confirmation_required": True, "confirmation_matched": True,
+                    "rollback_phrase_required": True, "rollback_phrase_matched": True,
+                    "current_identity_checked": True,
+                    **base_err}
+
+        # Verify pre-backup
+        pre_st = os.stat(pre_backup_path)
+        if stat.S_IMODE(pre_st.st_mode) != 0o600:
+            return {"ok": False, "error": "pre-rollback backup mode verification failed",
+                    "current_profile_status": current_status,
+                    "backup_profile_status": backup_status,
+                    "confirmation_required": True, "confirmation_matched": True,
+                    "rollback_phrase_required": True, "rollback_phrase_matched": True,
+                    "current_identity_checked": True,
+                    **base_err}
+        if pre_st.st_size != len(current_bytes):
+            return {"ok": False, "error": "pre-rollback backup size mismatch",
+                    "current_profile_status": current_status,
+                    "backup_profile_status": backup_status,
+                    "confirmation_required": True, "confirmation_matched": True,
+                    "rollback_phrase_required": True, "rollback_phrase_matched": True,
+                    "current_identity_checked": True,
+                    **base_err}
+
+        with open(pre_backup_path, "rb") as f:
+            verify_bytes = f.read()
+        if _compute_sha256_hex(verify_bytes) != current_sha:
+            return {"ok": False, "error": "pre-rollback backup sha256 mismatch",
+                    "current_profile_status": current_status,
+                    "backup_profile_status": backup_status,
+                    "confirmation_required": True, "confirmation_matched": True,
+                    "rollback_phrase_required": True, "rollback_phrase_matched": True,
+                    "current_identity_checked": True,
+                    **base_err}
+
+        # Verify JSON parses
+        json.loads(verify_bytes)
+        pre_backup_created = True
+
+    except (OSError, json.JSONDecodeError) as e:
+        if tmp_fd is not None:
+            try:
+                os.close(tmp_fd)
+            except OSError:
+                pass
+        if tmp_path and os.path.exists(tmp_path):
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+        return {"ok": False, "error": "pre-rollback backup failed",
+                "current_profile_status": current_status,
+                "backup_profile_status": backup_status,
+                "confirmation_required": True, "confirmation_matched": True,
+                "rollback_phrase_required": True, "rollback_phrase_matched": True,
+                "current_identity_checked": True,
+                **base_err}
+
+    # ── Test hook: AFTER_PREBACKUP_FAIL ──
+    if os.environ.get("NANOBK_TEST_FORCE_ROLLBACK_AFTER_PREBACKUP_FAIL") == "1":
+        return {"ok": False, "error": "rollback aborted after pre-backup (test hook)",
+                "local_file_mutation": True,
+                "current_profile_status": current_status,
+                "backup_profile_status": backup_status,
+                "confirmation_required": True, "confirmation_matched": True,
+                "rollback_phrase_required": True, "rollback_phrase_matched": True,
+                "current_identity_checked": True,
+                "pre_rollback_backup_created": True,
+                "pre_rollback_backup_id_redacted": _redact_pre_rollback_backup_id(pre_backup_filename),
+                "manual_recovery_required": False,
+                "mutation": False,
+                "dns_mutation": False,
+                "cloudflare_mutation": False,
+                "dns_apply": False,
+                "rollback_execute": True,
+                "rollback_performed": False,
+                "profile_replaced": False,
+            }
+
+    # ── Step 13: Re-check current identity ──
+    try:
+        re_stat = os.stat(physical_source)
+        re_inode = re_stat.st_ino
+        re_mtime = re_stat.st_mtime_ns
+        re_size = re_stat.st_size
+        if re_inode != current_inode or re_mtime != current_mtime or re_size != current_size:
+            return {**base_err, "ok": False, "error": "current profile changed before rollback",
+                    "local_file_mutation": True,
+                    "current_profile_status": current_status,
+                    "backup_profile_status": backup_status,
+                    "confirmation_required": True, "confirmation_matched": True,
+                    "rollback_phrase_required": True, "rollback_phrase_matched": True,
+                    "current_identity_checked": True,
+                    "pre_rollback_backup_created": True,
+                    "pre_rollback_backup_id_redacted": _redact_pre_rollback_backup_id(pre_backup_filename)}
+
+        with open(physical_source, "rb") as f:
+            re_bytes = f.read()
+        if _compute_sha256_hex(re_bytes) != current_sha:
+            return {**base_err, "ok": False, "error": "current profile changed before rollback",
+                    "local_file_mutation": True,
+                    "current_profile_status": current_status,
+                    "backup_profile_status": backup_status,
+                    "confirmation_required": True, "confirmation_matched": True,
+                    "rollback_phrase_required": True, "rollback_phrase_matched": True,
+                    "current_identity_checked": True,
+                    "pre_rollback_backup_created": True,
+                    "pre_rollback_backup_id_redacted": _redact_pre_rollback_backup_id(pre_backup_filename)}
+    except OSError:
+        return {**base_err, "ok": False, "error": "cannot re-check current profile identity",
+                "local_file_mutation": True,
+                "current_profile_status": current_status,
+                "backup_profile_status": backup_status,
+                "confirmation_required": True, "confirmation_matched": True,
+                "rollback_phrase_required": True, "rollback_phrase_matched": True,
+                "current_identity_checked": True,
+                "pre_rollback_backup_created": True,
+                "pre_rollback_backup_id_redacted": _redact_pre_rollback_backup_id(pre_backup_filename)}
+
+    # ── Step 14: Create temp file ──
+    parent_dir = os.path.dirname(physical_source)
+    tmp_replace_fd = None
+    tmp_replace_path = None
+
+    try:
+        tmp_replace_fd, tmp_replace_path = tempfile.mkstemp(
+            dir=parent_dir, prefix=".nanobk-rollback-", suffix=".tmp"
+        )
+
+        # ── Test hook: TEMP_WRITE_FAIL ──
+        if os.environ.get("NANOBK_TEST_FORCE_ROLLBACK_TEMP_WRITE_FAIL") == "1":
+            os.close(tmp_replace_fd)
+            tmp_replace_fd = None
+            if tmp_replace_path and os.path.exists(tmp_replace_path):
+                os.unlink(tmp_replace_path)
+                tmp_replace_path = None
+            return {**base_err, "ok": False, "error": "temp write failed (test hook)",
+                    "local_file_mutation": True,
+                    "current_profile_status": current_status,
+                    "backup_profile_status": backup_status,
+                    "confirmation_required": True, "confirmation_matched": True,
+                    "rollback_phrase_required": True, "rollback_phrase_matched": True,
+                    "current_identity_checked": True,
+                    "pre_rollback_backup_created": True,
+                    "pre_rollback_backup_id_redacted": _redact_pre_rollback_backup_id(pre_backup_filename)}
+
+        os.write(tmp_replace_fd, backup_bytes)
+        os.fsync(tmp_replace_fd)
+        os.close(tmp_replace_fd)
+        tmp_replace_fd = None
+        os.chmod(tmp_replace_path, 0o600)
+
+        # ── Step 15: Validate temp ──
+        try:
+            with open(tmp_replace_path, "rb") as f:
+                tmp_bytes = f.read()
+            json.loads(tmp_bytes)
+        except (json.JSONDecodeError, OSError):
+            if tmp_replace_path and os.path.exists(tmp_replace_path):
+                os.unlink(tmp_replace_path)
+            return {**base_err, "ok": False, "error": "temp file validation failed",
+                    "local_file_mutation": True,
+                    "current_profile_status": current_status,
+                    "backup_profile_status": backup_status,
+                    "confirmation_required": True, "confirmation_matched": True,
+                    "rollback_phrase_required": True, "rollback_phrase_matched": True,
+                    "current_identity_checked": True,
+                    "pre_rollback_backup_created": True,
+                    "pre_rollback_backup_id_redacted": _redact_pre_rollback_backup_id(pre_backup_filename)}
+
+        # ── Test hook: AFTER_TEMP_WRITE_FAIL ──
+        if os.environ.get("NANOBK_TEST_FORCE_ROLLBACK_AFTER_TEMP_WRITE_FAIL") == "1":
+            if tmp_replace_path and os.path.exists(tmp_replace_path):
+                os.unlink(tmp_replace_path)
+                tmp_replace_path = None
+            return {**base_err, "ok": False, "error": "temp write validation failed (test hook)",
+                    "local_file_mutation": True,
+                    "current_profile_status": current_status,
+                    "backup_profile_status": backup_status,
+                    "confirmation_required": True, "confirmation_matched": True,
+                    "rollback_phrase_required": True, "rollback_phrase_matched": True,
+                    "current_identity_checked": True,
+                    "pre_rollback_backup_created": True,
+                    "pre_rollback_backup_id_redacted": _redact_pre_rollback_backup_id(pre_backup_filename)}
+
+        # ── Step 16: Re-stat current immediately before replace ──
+        try:
+            final_pre_stat = os.stat(physical_source)
+        except OSError:
+            if tmp_replace_path and os.path.exists(tmp_replace_path):
+                os.unlink(tmp_replace_path)
+            return {**base_err, "ok": False, "error": "cannot stat current profile before replace",
+                    "local_file_mutation": True,
+                    "current_profile_status": current_status,
+                    "backup_profile_status": backup_status,
+                    "confirmation_required": True, "confirmation_matched": True,
+                    "rollback_phrase_required": True, "rollback_phrase_matched": True,
+                    "current_identity_checked": True,
+                    "pre_rollback_backup_created": True,
+                    "pre_rollback_backup_id_redacted": _redact_pre_rollback_backup_id(pre_backup_filename)}
+
+        # ── Step 17: rollback-execute marker block ──
+        # rollback-execute start
+        os.replace(tmp_replace_path, physical_source)
+        tmp_replace_path = None  # consumed by replace
+        try:
+            os.fsync(os.open(parent_dir, os.O_RDONLY))
+        except OSError:
+            pass  # best-effort fsync
+        # rollback-execute end
+
+        # ── Step 18: Re-read final profile ──
+        try:
+            with open(physical_source, "rb") as f:
+                final_bytes = f.read()
+        except OSError:
+            return {**base_err, "ok": False, "error": "cannot read final profile after replace",
+                    "local_file_mutation": True,
+                    "profile_replaced": True,
+                    "current_profile_status": current_status,
+                    "backup_profile_status": backup_status,
+                    "final_profile_status": "unreadable",
+                    "confirmation_required": True, "confirmation_matched": True,
+                    "rollback_phrase_required": True, "rollback_phrase_matched": True,
+                    "current_identity_checked": True,
+                    "pre_rollback_backup_created": True,
+                    "pre_rollback_backup_id_redacted": _redact_pre_rollback_backup_id(pre_backup_filename),
+                    "manual_recovery_required": True}
+
+        # ── Step 19: Validate final profile ──
+        try:
+            final_data = json.loads(final_bytes)
+        except json.JSONDecodeError:
+            return {**base_err, "ok": False, "error": "final profile is not valid JSON after replace",
+                    "local_file_mutation": True,
+                    "profile_replaced": True,
+                    "current_profile_status": current_status,
+                    "backup_profile_status": backup_status,
+                    "final_profile_status": "invalid_json",
+                    "confirmation_required": True, "confirmation_matched": True,
+                    "rollback_phrase_required": True, "rollback_phrase_matched": True,
+                    "current_identity_checked": True,
+                    "pre_rollback_backup_created": True,
+                    "pre_rollback_backup_id_redacted": _redact_pre_rollback_backup_id(pre_backup_filename),
+                    "manual_recovery_required": True}
+
+        if not isinstance(final_data, dict):
+            final_status = "unsupported_schema"
+        elif "zoneName" not in final_data or "nodePrefix" not in final_data:
+            final_status = "unsupported_schema"
+        else:
+            final_status = "valid"
+
+        # ── Test hook: AFTER_REPLACE_VALIDATE_FAIL ──
+        if os.environ.get("NANOBK_TEST_FORCE_ROLLBACK_AFTER_REPLACE_VALIDATE_FAIL") == "1":
+            return {**base_err, "ok": False, "error": "post-replace validation failed (test hook)",
+                    "local_file_mutation": True,
+                    "profile_replaced": True,
+                    "current_profile_status": current_status,
+                    "backup_profile_status": backup_status,
+                    "final_profile_status": final_status,
+                    "confirmation_required": True, "confirmation_matched": True,
+                    "rollback_phrase_required": True, "rollback_phrase_matched": True,
+                    "current_identity_checked": True,
+                    "pre_rollback_backup_created": True,
+                    "pre_rollback_backup_id_redacted": _redact_pre_rollback_backup_id(pre_backup_filename),
+                    "manual_recovery_required": True}
+
+        # ── Step 20: Compare final to selected backup ──
+        final_sha = _compute_sha256_hex(final_bytes)
+        backup_sha = _compute_sha256_hex(backup_bytes)
+        bytes_match = (final_sha == backup_sha)
+
+        if not bytes_match:
+            return {**base_err, "ok": False, "error": "final profile does not match selected backup",
+                    "local_file_mutation": True,
+                    "profile_replaced": True,
+                    "current_profile_status": current_status,
+                    "backup_profile_status": backup_status,
+                    "final_profile_status": final_status,
+                    "confirmation_required": True, "confirmation_matched": True,
+                    "rollback_phrase_required": True, "rollback_phrase_matched": True,
+                    "current_identity_checked": True,
+                    "pre_rollback_backup_created": True,
+                    "pre_rollback_backup_id_redacted": _redact_pre_rollback_backup_id(pre_backup_filename),
+                    "manual_recovery_required": True}
+
+        if final_status != "valid":
+            return {**base_err, "ok": False, "error": "final profile validation failed",
+                    "local_file_mutation": True,
+                    "profile_replaced": True,
+                    "current_profile_status": current_status,
+                    "backup_profile_status": backup_status,
+                    "final_profile_status": final_status,
+                    "confirmation_required": True, "confirmation_matched": True,
+                    "rollback_phrase_required": True, "rollback_phrase_matched": True,
+                    "current_identity_checked": True,
+                    "pre_rollback_backup_created": True,
+                    "pre_rollback_backup_id_redacted": _redact_pre_rollback_backup_id(pre_backup_filename),
+                    "manual_recovery_required": True}
+
+        # ── Step 21: Success ──
+        try:
+            dir_mode = format(stat.S_IMODE(os.stat(backup_dir).st_mode), "03o")
+        except OSError:
+            dir_mode = "unknown"
+
+        return {
+            "ok": True,
+            "mutation": False,
+            "local_file_mutation": True,
+            "dns_mutation": False,
+            "cloudflare_mutation": False,
+            "dns_apply": False,
+            "rollback_execute": True,
+            "rollback_performed": True,
+            "profile_replaced": True,
+            "pre_rollback_backup_created": True,
+            "current_profile_status_before": current_status,
+            "backup_profile_status": backup_status,
+            "final_profile_status": "valid",
+            "backup_id_redacted": backup_id,
+            "pre_rollback_backup_id_redacted": _redact_pre_rollback_backup_id(pre_backup_filename),
+            "confirmation_required": True,
+            "confirmation_matched": True,
+            "rollback_phrase_required": True,
+            "rollback_phrase_matched": True,
+            "current_identity_checked": True,
+            "production_fake_root": True,
+            "manual_recovery_required": False,
+        }
+
+    except OSError as e:
+        # Clean up temp on failure
+        if tmp_replace_fd is not None:
+            try:
+                os.close(tmp_replace_fd)
+            except OSError:
+                pass
+        if tmp_replace_path and os.path.exists(tmp_replace_path):
+            try:
+                os.unlink(tmp_replace_path)
+            except OSError:
+                pass
+        return {**base_err, "ok": False, "error": "rollback execute failed",
+                "local_file_mutation": True,
+                "current_profile_status": current_status,
+                "backup_profile_status": backup_status,
+                "confirmation_required": True, "confirmation_matched": True,
+                "rollback_phrase_required": True, "rollback_phrase_matched": True,
+                "current_identity_checked": True,
+                "pre_rollback_backup_created": pre_backup_created,
+                "pre_rollback_backup_id_redacted": _redact_pre_rollback_backup_id(pre_backup_filename) if pre_backup_created else "***"}
+
+
+def output_rollback_execute_text(result):
+    """Print human-readable rollback execute result."""
+    print()
+    if result.get("ok"):
+        print("  Rollback executed under fake-root test mode.")
+        print("  Current profile was replaced with selected backup profile.")
+        print("  Pre-rollback backup was created.")
+        print("  DNS has not been applied.")
+        print("  Cloudflare was not called.")
+        print("  Raw profile and backup content were intentionally not printed.")
+    else:
+        print("  Rollback execute failed.")
+        error = result.get("error")
+        if error:
+            print(f"  Error: {error}")
+        if result.get("pre_rollback_backup_created"):
+            print("  Pre-rollback backup was created.")
+        if result.get("profile_replaced"):
+            print("  Profile was replaced.")
+        if result.get("manual_recovery_required"):
+            print("  Manual recovery may be required.")
+    print()
+
+
+def output_rollback_execute_error(message, json_mode=False):
+    """Print rollback execute error message."""
+    if json_mode:
+        result = {
+            "ok": False, "error": message,
+            "mutation": False, "local_file_mutation": False,
+            "dns_mutation": False, "cloudflare_mutation": False,
+            "dns_apply": False, "rollback_execute": True,
+            "rollback_performed": False, "profile_replaced": False,
+            "pre_rollback_backup_created": False,
+            "manual_recovery_required": False,
+        }
+        print(json.dumps(result, indent=2))
+    else:
+        print(f"  Error: {message}", file=sys.stderr)
+
+# ── rollback-execute end ──────────────────────────────────────────────────
+
 
 def output_text(result):
     """Print human-readable preview."""
@@ -1840,6 +2452,18 @@ def main():
     rollback_preview_parser.add_argument("--confirm-hostname",
                                          help="Exact hostname confirmation")
     rollback_preview_parser.add_argument("--json", action="store_true", help="JSON output")
+
+    rollback_execute_parser = rollback_sub.add_parser("execute", help="Execute rollback (fake-root only)")
+    rollback_execute_parser.add_argument("--backup-id", help="Backup filename")
+    rollback_execute_parser.add_argument("--allow-production-output", action="store_true",
+                                         help="Allow production /etc/nanobk path")
+    rollback_execute_parser.add_argument("--confirm-hostname",
+                                         help="Exact hostname confirmation")
+    rollback_execute_parser.add_argument("--confirm-rollback-profile",
+                                         help='Exact rollback phrase (must be "rollback profile")')
+    rollback_execute_parser.add_argument("--yes", action="store_true",
+                                         help="Confirm rollback execution")
+    rollback_execute_parser.add_argument("--json", action="store_true", help="JSON output")
 
     args = parser.parse_args()
 
@@ -1990,6 +2614,30 @@ def main():
                     output_rollback_preview_text(result)
                 else:
                     output_rollback_preview_text(result)
+
+            if not result.get("ok", False):
+                sys.exit(1)
+        elif sub_cmd == "execute":
+            if not args.backup_id:
+                output_rollback_execute_error("backup-id is required", args.json)
+                sys.exit(1)
+            if not args.allow_production_output:
+                output_rollback_execute_error("--allow-production-output is required", args.json)
+                sys.exit(1)
+            if not args.yes:
+                output_rollback_execute_error("--yes is required for rollback execute", args.json)
+                sys.exit(1)
+
+            result = run_rollback_execute(
+                args.backup_id, args.allow_production_output,
+                args.confirm_hostname, args.confirm_rollback_profile,
+                args.yes
+            )
+
+            if args.json:
+                print(json.dumps(result, indent=2))
+            else:
+                output_rollback_execute_text(result)
 
             if not result.get("ok", False):
                 sys.exit(1)
