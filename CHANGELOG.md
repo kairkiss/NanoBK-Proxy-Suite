@@ -1,5 +1,30 @@
 # Changelog
 
+## v2.1.7 — DNS Target Preview Skeleton
+
+### Added
+
+- `nanobk cf dns target preview --zone DOMAIN [--node NODE] --ip-fixture PATH [--json]` —
+  read-only DNS target preview combining zone/node with fixture-backed IP candidates.
+- `lib/nanobk_cf_dns_targets.py` — standalone Python helper with zone/node validation,
+  IP candidate consumption from `nanobk_ip_detect`, and masked output.
+- `--node` defaults to `proxy`.
+- Record preview: A from usable IPv4, AAAA from usable IPv6, with masking.
+- Stack mode: `dual_stack`, `ipv4_only`, `ipv6_only`, `none`.
+- JSON output: `{"ok": true, "mutation": false, "profile_write": false, "target_ready": bool, ...}`.
+- Input validation: zone must be a domain (no URL/slash/space/wildcard); node must be a single label.
+- Global and command-level `--dry-run` both supported.
+- Focused test: `tests/cf-dns-target-preview.sh` with 62 assertions.
+
+### Not Changed
+
+- No DNS profile writes.
+- No Cloudflare calls.
+- No `cf dns apply` or `apply --check`.
+- No DNS mutation.
+- No live IP detection.
+- No release tag.
+
 ## v2.1.6-polish — Dry Run Guard for VPS IP Detect
 
 ### Changed
