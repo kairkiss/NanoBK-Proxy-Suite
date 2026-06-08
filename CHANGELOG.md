@@ -1,5 +1,23 @@
 # Changelog
 
+## v2.1.26 — Fake-root DNS Profile Management Closeout
+
+### Documentation
+
+- Added `docs/validation/fake-root-dns-profile-management-closeout-v2.1.26.md`.
+- Summarizes v2.1 fake-root profile management: completed scope, safety guarantees,
+  test coverage, explicitly not implemented items, real `/etc` policy status,
+  v1.9.60 compatibility, and future roadmap.
+- Docs-only closeout. No runtime code changes.
+
+### Not Changed
+
+- No runtime code changes.
+- No real `/etc` rollback.
+- No DNS apply/check.
+- No Cloudflare mutation.
+- No release tag.
+
 ## v2.1.25-polish — Tighten Legacy Backup Policy
 
 ### Changed
