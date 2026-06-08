@@ -1416,6 +1416,286 @@ def output_backup_error(message, json_mode=False):
 
 # ── backup-only end ────────────────────────────────────────────────────────
 
+# ── rollback-preview start ─────────────────────────────────────────────────
+
+ROLLBACK_PREVIEW_ERROR_BASE = {
+    "mutation": False, "local_file_mutation": False,
+    "dns_mutation": False, "cloudflare_mutation": False,
+    "dns_apply": False, "rollback_preview": True,
+    "rollback_performed": False, "profile_replaced": False,
+    "pre_rollback_backup_created": False,
+}
+
+_BACKUP_ID_RE = re.compile(
+    r"^cloudflare-dns-profile\.json\.\d{8}-\d{6}\.[0-9a-f]{8}\.bak$"
+)
+
+
+def validate_backup_id(backup_id):
+    """Validate backup ID. Returns error string or None."""
+    if not backup_id:
+        return "backup-id is required"
+    if "/" in backup_id or "\\" in backup_id:
+        return "backup-id must not contain path separators"
+    if ".." in backup_id:
+        return "backup-id must not contain traversal"
+    if not _BACKUP_ID_RE.match(backup_id):
+        return "backup-id format is invalid"
+    return None
+
+
+def load_and_validate_profile(path, label="profile"):
+    """Load and validate a profile file. Returns (status, data, error)."""
+    if os.path.islink(path):
+        return "symlink_blocked", None, f"{label} symlink is blocked"
+    if not os.path.exists(path):
+        return "missing", None, f"{label} is missing"
+    if not os.path.isfile(path):
+        return "non_regular_file", None, f"{label} is not a regular file"
+
+    try:
+        st = os.stat(path)
+        mode = stat.S_IMODE(st.st_mode)
+        if mode != 0o600:
+            return "mode_invalid", None, f"{label} mode must be 0600, got {format(mode, '03o')}"
+    except OSError:
+        return "unreadable", None, f"{label} is unreadable"
+
+    try:
+        with open(path, "rb") as f:
+            raw_bytes = f.read()
+        data = json.loads(raw_bytes)
+    except json.JSONDecodeError:
+        return "invalid_json", None, f"{label} is not valid JSON"
+    except OSError:
+        return "unreadable", None, f"{label} is unreadable"
+
+    if not isinstance(data, dict):
+        return "unsupported_schema", None, f"{label} schema is unsupported"
+
+    for key in data:
+        key_lower = key.lower()
+        for secret in _SECRET_SUBSTRINGS:
+            if secret in key_lower and key not in _ALLOWED_KEYS:
+                return "unsupported_schema", None, f"{label} schema is unsupported"
+
+    if "zoneName" not in data or "nodePrefix" not in data:
+        return "unsupported_schema", None, f"{label} schema is unsupported"
+
+    if validate_zone(data.get("zoneName", "")):
+        return "unsupported_schema", None, f"{label} schema is unsupported"
+    if validate_node(data.get("nodePrefix", "")):
+        return "unsupported_schema", None, f"{label} schema is unsupported"
+
+    ipv4 = data.get("ipv4")
+    ipv6 = data.get("ipv6")
+    if not ipv4 and not ipv6:
+        return "unsupported_schema", None, f"{label} schema is unsupported"
+    if ipv4 and validate_ipv4(ipv4, True):
+        return "unsupported_schema", None, f"{label} schema is unsupported"
+    if ipv6 and validate_ipv6(ipv6, True):
+        return "unsupported_schema", None, f"{label} schema is unsupported"
+
+    prox = data.get("defaultProxied")
+    if prox is not None and prox is not False:
+        return "unsupported_schema", None, f"{label} schema is unsupported"
+
+    known_keys = {"zoneName", "nodePrefix", "ipv4", "ipv6",
+                  "defaultProxied", "zoneId", "reserved"}
+    for k in data:
+        if k not in known_keys:
+            return "unsupported_schema", None, f"{label} schema is unsupported"
+
+    return "valid", data, None
+
+
+def run_rollback_preview(backup_id, allow_production, confirm_hostname):
+    """Run rollback preview. Returns result dict."""
+    # Validate backup ID first (before any filesystem access)
+    id_err = validate_backup_id(backup_id)
+    if id_err:
+        return {"ok": False, "error": id_err, **ROLLBACK_PREVIEW_ERROR_BASE}
+
+    # Validate production path
+    if not allow_production:
+        return {"ok": False, "error": "--allow-production-output is required",
+                **ROLLBACK_PREVIEW_ERROR_BASE}
+
+    # Resolve fake-root
+    physical_source, root_err = resolve_production_physical_path()
+    if root_err:
+        return {"ok": False, "error": root_err, **ROLLBACK_PREVIEW_ERROR_BASE}
+
+    # Validate parent
+    parent_err = validate_production_parent(physical_source)
+    if parent_err:
+        return {"ok": False, "error": parent_err, **ROLLBACK_PREVIEW_ERROR_BASE}
+
+    # Validate current profile
+    current_status, current_data, current_err = load_and_validate_profile(
+        physical_source, "current profile"
+    )
+
+    # Validate backup dir
+    backup_dir = os.path.join(os.path.dirname(physical_source), "backups")
+    if os.path.islink(backup_dir):
+        return {"ok": False, "error": "backup directory symlink is not allowed",
+                "current_profile_status": current_status, **ROLLBACK_PREVIEW_ERROR_BASE}
+    if not os.path.exists(backup_dir):
+        return {"ok": False, "error": "backup directory does not exist",
+                "current_profile_status": current_status, **ROLLBACK_PREVIEW_ERROR_BASE}
+    if not os.path.isdir(backup_dir):
+        return {"ok": False, "error": "backup directory is not a directory",
+                "current_profile_status": current_status, **ROLLBACK_PREVIEW_ERROR_BASE}
+    try:
+        dir_mode = stat.S_IMODE(os.stat(backup_dir).st_mode)
+        if dir_mode != 0o700:
+            return {"ok": False, "error": "backup directory mode must be 0700",
+                    "current_profile_status": current_status, **ROLLBACK_PREVIEW_ERROR_BASE}
+    except OSError:
+        return {"ok": False, "error": "cannot stat backup directory",
+                "current_profile_status": current_status, **ROLLBACK_PREVIEW_ERROR_BASE}
+
+    # Validate backup file
+    backup_path = os.path.join(backup_dir, backup_id)
+    backup_status, backup_data, backup_err = load_and_validate_profile(
+        backup_path, "backup profile"
+    )
+
+    # Confirmation validation
+    if not confirm_hostname:
+        return {"ok": False, "error": "confirm-hostname is required for rollback preview",
+                "current_profile_status": current_status,
+                "backup_profile_status": backup_status, **ROLLBACK_PREVIEW_ERROR_BASE}
+
+    # Compute hostnames if both profiles are valid
+    if current_status == "valid" and backup_status == "valid":
+        current_node = current_data.get("nodePrefix", "")
+        current_zone = current_data.get("zoneName", "")
+        current_hostname = f"{current_node}.{current_zone}"
+
+        backup_node = backup_data.get("nodePrefix", "")
+        backup_zone = backup_data.get("zoneName", "")
+        backup_hostname = f"{backup_node}.{backup_zone}"
+
+        if current_hostname != backup_hostname:
+            return {"ok": False, "error": "current and backup hostnames do not match",
+                    "current_profile_status": current_status,
+                    "backup_profile_status": backup_status, **ROLLBACK_PREVIEW_ERROR_BASE}
+
+        if confirm_hostname != current_hostname:
+            return {"ok": False, "error": "confirmation hostname does not match rollback target",
+                    "current_profile_status": current_status,
+                    "backup_profile_status": backup_status, **ROLLBACK_PREVIEW_ERROR_BASE}
+
+    # Determine overall ok
+    ok = (current_status == "valid" and backup_status == "valid")
+
+    # Build summaries
+    current_summary = {}
+    if current_status == "valid" and current_data:
+        current_summary = build_summary(current_data)
+
+    backup_summary = {}
+    if backup_status == "valid" and backup_data:
+        backup_summary = build_summary(backup_data)
+
+    # Build diff
+    redacted_diff = {}
+    if current_summary and backup_summary:
+        redacted_diff = build_redacted_diff(current_summary, backup_summary)
+
+    # Error message for non-ok cases
+    error_msg = None
+    if not ok:
+        if current_err:
+            error_msg = current_err
+        elif backup_err:
+            error_msg = backup_err
+
+    result = {
+        "ok": ok,
+        "mutation": False,
+        "local_file_mutation": False,
+        "dns_mutation": False,
+        "cloudflare_mutation": False,
+        "dns_apply": False,
+        "rollback_preview": True,
+        "rollback_performed": False,
+        "profile_replaced": False,
+        "pre_rollback_backup_created": False,
+        "current_profile_status": current_status,
+        "backup_profile_status": backup_status,
+        "backup_id_redacted": backup_id,
+        "rollback_execute_ready": False,
+        "rollback_execute_blocked_reason": "rollback execute is not implemented",
+        "confirmation_required": True,
+        "confirmation_matched": ok,
+    }
+
+    if error_msg:
+        result["error"] = error_msg
+    if current_summary:
+        result["current_summary"] = current_summary
+    if backup_summary:
+        result["backup_summary"] = backup_summary
+    if redacted_diff:
+        result["redacted_diff"] = redacted_diff
+
+    return result
+
+
+def output_rollback_preview_text(result):
+    """Print human-readable rollback preview."""
+    print()
+    print("  NanoBK DNS profile rollback preview")
+    print()
+    print("  Rollback preview only.")
+    print("  No profile was changed.")
+    print("  No pre-rollback backup was created.")
+    print("  Rollback execute is not implemented.")
+    print("  DNS has not been applied.")
+    print("  Cloudflare was not called.")
+    print()
+    print(f"  Current profile status: {result.get('current_profile_status', 'unknown')}")
+    print(f"  Backup profile status: {result.get('backup_profile_status', 'unknown')}")
+    print()
+
+    diff = result.get("redacted_diff")
+    if diff:
+        print("  Change summary (redacted):")
+        changed = [k for k, v in diff.items() if v]
+        if changed:
+            for k in changed:
+                print(f"    {k}: true")
+        else:
+            print("    (no changes)")
+        print()
+
+    print("  Rollback execute is not available.")
+    print("  Raw profile and backup content intentionally not printed.")
+    print()
+
+
+def output_rollback_preview_error(message, json_mode=False):
+    """Print rollback preview error message."""
+    if json_mode:
+        result = {
+            "ok": False, "error": message,
+            "mutation": False, "local_file_mutation": False,
+            "dns_mutation": False, "cloudflare_mutation": False,
+            "dns_apply": False, "rollback_preview": True,
+            "rollback_performed": False, "profile_replaced": False,
+            "pre_rollback_backup_created": False,
+            "rollback_execute_ready": False,
+            "rollback_execute_blocked_reason": "rollback execute is not implemented",
+        }
+        print(json.dumps(result, indent=2))
+    else:
+        print(f"  Error: {message}", file=sys.stderr)
+
+# ── rollback-preview end ───────────────────────────────────────────────────
+
 
 def output_text(result):
     """Print human-readable preview."""
@@ -1543,6 +1823,18 @@ def main():
     backup_parser.add_argument("--yes", action="store_true", help="Confirm backup write")
     backup_parser.add_argument("--json", action="store_true", help="JSON output")
 
+    # rollback subcommand (with preview sub-subcommand)
+    rollback_parser = sub.add_parser("rollback", help="Rollback operations")
+    rollback_sub = rollback_parser.add_subparsers(dest="rollback_command")
+
+    rollback_preview_parser = rollback_sub.add_parser("preview", help="Read-only rollback preview (fake-root only)")
+    rollback_preview_parser.add_argument("--backup-id", help="Backup filename (e.g. cloudflare-dns-profile.json.TIMESTAMP.HEX.bak)")
+    rollback_preview_parser.add_argument("--allow-production-output", action="store_true",
+                                         help="Allow production /etc/nanobk path")
+    rollback_preview_parser.add_argument("--confirm-hostname",
+                                         help="Exact hostname confirmation")
+    rollback_preview_parser.add_argument("--json", action="store_true", help="JSON output")
+
     args = parser.parse_args()
 
     if args.command == "preview":
@@ -1669,6 +1961,37 @@ def main():
                 output_backup_text(result)
 
         if not result.get("ok", False):
+            sys.exit(1)
+
+    elif args.command == "rollback":
+        sub_cmd = getattr(args, "rollback_command", None)
+        if sub_cmd == "preview":
+            if not args.backup_id:
+                output_rollback_preview_error("backup-id is required", args.json)
+                sys.exit(1)
+            if not args.allow_production_output:
+                output_rollback_preview_error("--allow-production-output is required", args.json)
+                sys.exit(1)
+            if not args.confirm_hostname:
+                output_rollback_preview_error("confirm-hostname is required for rollback preview", args.json)
+                sys.exit(1)
+
+            result = run_rollback_preview(
+                args.backup_id, args.allow_production_output, args.confirm_hostname
+            )
+
+            if args.json:
+                print(json.dumps(result, indent=2))
+            else:
+                if result.get("ok"):
+                    output_rollback_preview_text(result)
+                else:
+                    output_rollback_preview_text(result)
+
+            if not result.get("ok", False):
+                sys.exit(1)
+        else:
+            parser.print_help()
             sys.exit(1)
 
     else:

@@ -1,5 +1,27 @@
 # Changelog
 
+## v2.1.21 — Rollback Preview Skeleton
+
+### Added
+
+- Fake-root-only `nanobk cf dns profile rollback preview` command.
+- Compares current fake-root production profile with selected backup profile
+  using redacted summaries and boolean diff.
+- Backup ID accepts backup filename only; rejects traversal/raw paths.
+- Real `/etc` rollback preview remains blocked.
+- `rollback_execute_ready: false` always (execute not implemented).
+- Focused test: `tests/cf-dns-profile-rollback-preview.sh` with 80+ assertions.
+
+### Not Changed
+
+- No rollback execute.
+- No profile replacement.
+- No pre-rollback backup creation.
+- No DNS apply/check.
+- No Cloudflare mutation.
+- No Full Wizard/Web/Bot integration.
+- No release tag.
+
 ## v2.1.20-polish — Sanitize Backup Errors and Mode Contract
 
 ### Changed
