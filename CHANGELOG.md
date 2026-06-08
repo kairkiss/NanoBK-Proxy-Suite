@@ -1,5 +1,26 @@
 # Changelog
 
+## v2.1.20-polish — Sanitize Backup Errors and Mode Contract
+
+### Changed
+
+- Sanitized backup `OSError`-derived failures so physical fake-root/source/backup
+  paths are not exposed in error messages.
+- Non-JSON backup failures now include sanitized error reason (e.g. "source profile
+  is missing").
+- Normalized `backup_dir_mode` to `"700"` (was `"0o700"`).
+- Broken source symlinks now correctly report `source_symlink_blocked` instead of
+  `source_missing`.
+- Added assertions that full 64-character sha256 is not printed in output.
+
+### Not Changed
+
+- No replace, no rollback.
+- No real `/etc` backup.
+- No DNS apply/check.
+- No Cloudflare mutation.
+- No release tag.
+
 ## v2.1.20 — Backup-only Fake-root DNS Profile Skeleton
 
 ### Added

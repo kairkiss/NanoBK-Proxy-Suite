@@ -1116,10 +1116,11 @@ BACKUP_ERROR_BASE = {"mutation": False, "local_file_mutation": False,
 
 def validate_source_profile(physical_path):
     """Validate source profile for backup. Returns (status, data, error)."""
-    if not os.path.exists(physical_path):
-        return "source_missing", None, "source profile is missing"
+    # Check symlink first (catches broken symlinks too)
     if os.path.islink(physical_path):
         return "source_symlink_blocked", None, "source profile symlink is blocked"
+    if not os.path.exists(physical_path):
+        return "source_missing", None, "source profile is missing"
     if not os.path.isfile(physical_path):
         return "source_non_regular_file", None, "source profile is not a regular file"
 
@@ -1206,8 +1207,8 @@ def create_backup_dir(backup_dir):
     # Create with mode 0700
     try:
         os.makedirs(backup_dir, mode=0o700, exist_ok=True)
-    except OSError as e:
-        return f"cannot create backup directory: {e}"
+    except OSError:
+        return "cannot create backup directory"
     return None
 
 
@@ -1216,8 +1217,8 @@ def create_backup_file(source_path, backup_path):
     try:
         with open(source_path, "rb") as f:
             source_bytes = f.read()
-    except OSError as e:
-        return None, f"cannot read source: {e}"
+    except OSError:
+        return None, "cannot read source profile"
 
     source_sha = hashlib.sha256(source_bytes).hexdigest()
 
@@ -1261,7 +1262,7 @@ def create_backup_file(source_path, backup_path):
                 os.unlink(tmp_path)
             except OSError:
                 pass
-        return None, f"backup write failed: {e}"
+        return None, "backup write failed"
 
     # Verify backup
     try:
@@ -1278,8 +1279,8 @@ def create_backup_file(source_path, backup_path):
 
         # Verify JSON parses
         json.loads(backup_bytes)
-    except (OSError, json.JSONDecodeError) as e:
-        return source_sha, f"backup verification failed: {e}"
+    except (OSError, json.JSONDecodeError):
+        return source_sha, "backup verification failed"
 
     return source_sha, None
 
@@ -1350,9 +1351,9 @@ def run_backup(profile_path, allow_production, confirm_hostname):
         return {"ok": False, "error": backup_err,
                 "source_profile_status": "valid", **BACKUP_ERROR_BASE}
 
-    # Get backup dir mode
+    # Get backup dir mode (normalized to 3-digit octal string)
     try:
-        dir_mode = oct(stat.S_IMODE(os.stat(backup_dir).st_mode))
+        dir_mode = format(stat.S_IMODE(os.stat(backup_dir).st_mode), "03o")
     except OSError:
         dir_mode = "unknown"
 
@@ -1392,6 +1393,9 @@ def output_backup_text(result):
         print("  Raw profile content and raw IP values were intentionally not printed.")
     else:
         print("  No backup was created.")
+        error = result.get("error")
+        if error:
+            print(f"  Error: {error}")
     print()
 
 

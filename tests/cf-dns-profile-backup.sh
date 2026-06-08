@@ -225,6 +225,15 @@ MISSING_SRC=$(NANOBK_TEST_PRODUCTION_PROFILE_ROOT="$MISSING_SRC_ROOT" NANOBK_TES
 assert_contains "$MISSING_SRC" '"ok": false' "source missing fails"
 assert_contains "$MISSING_SRC" "missing" "error says missing"
 
+# Non-JSON text failure includes error reason
+MISSING_TEXT=$(NANOBK_TEST_PRODUCTION_PROFILE_ROOT="$MISSING_SRC_ROOT" NANOBK_TEST_ALLOW_PRODUCTION_ROOT=1 NANOBK_TEST_TMPDIR="$TEST_TMPDIR" \
+  bash "$NANOBK" --repo-dir "$ROOT" cf dns profile backup \
+  --profile /etc/nanobk/cloudflare-dns-profile.json \
+  --allow-production-output --confirm-hostname proxy.example.com --yes 2>&1 || true)
+assert_contains "$MISSING_TEXT" "No backup was created" "text failure says no backup"
+assert_contains "$MISSING_TEXT" "source profile is missing" "text failure includes sanitized error"
+assert_not_contains "$MISSING_TEXT" "$MISSING_SRC_ROOT" "text failure has no physical path"
+
 echo ""
 
 # ── G. Source symlink fails ──────────────────────────────────────────────────
@@ -241,6 +250,22 @@ SYMLINK_SRC=$(NANOBK_TEST_PRODUCTION_PROFILE_ROOT="$SYMLINK_SRC_ROOT" NANOBK_TES
   --allow-production-output --confirm-hostname proxy.example.com --yes \
   --json 2>&1 || true)
 assert_contains "$SYMLINK_SRC" '"ok": false' "source symlink fails"
+assert_contains "$SYMLINK_SRC" "symlink_blocked" "source symlink reports symlink_blocked"
+assert_not_contains "$SYMLINK_SRC" "source_missing" "source symlink NOT classified as missing"
+
+# Broken symlink (target does not exist)
+BROKEN_SYM_ROOT="$TEST_TMPDIR/broken-sym-root"
+setup_fake_root "$BROKEN_SYM_ROOT"
+ln -sf "/nonexistent/target" "$BROKEN_SYM_ROOT/etc/nanobk/cloudflare-dns-profile.json"
+BROKEN_SYM=$(NANOBK_TEST_PRODUCTION_PROFILE_ROOT="$BROKEN_SYM_ROOT" NANOBK_TEST_ALLOW_PRODUCTION_ROOT=1 NANOBK_TEST_TMPDIR="$TEST_TMPDIR" \
+  bash "$NANOBK" --repo-dir "$ROOT" cf dns profile backup \
+  --profile /etc/nanobk/cloudflare-dns-profile.json \
+  --allow-production-output --confirm-hostname proxy.example.com --yes \
+  --json 2>&1 || true)
+assert_contains "$BROKEN_SYM" '"ok": false' "broken symlink fails"
+assert_contains "$BROKEN_SYM" "symlink_blocked" "broken symlink reports symlink_blocked"
+assert_not_contains "$BROKEN_SYM" "source_missing" "broken symlink NOT classified as missing"
+assert_not_contains "$BROKEN_SYM" "nonexistent" "broken symlink does not reveal target path"
 
 echo ""
 
@@ -462,11 +487,20 @@ assert_contains "$SUCCESS_OUT" '"cloudflare_mutation": false' "cloudflare_mutati
 assert_contains "$SUCCESS_OUT" '"dns_apply": false' "dns_apply: false"
 assert_contains "$SUCCESS_OUT" '"backup_sha256_computed": true' "sha256 computed"
 assert_contains "$SUCCESS_OUT" '"backup_mode": "600"' "backup mode 600"
+assert_contains "$SUCCESS_OUT" '"backup_dir_mode": "700"' "backup dir mode 700"
 assert_contains "$SUCCESS_OUT" '"production_fake_root": true' "fake root true"
 assert_not_contains "$SUCCESS_OUT" "203.0.113.10" "no raw IP"
 assert_not_contains "$SUCCESS_OUT" "example.com" "no raw zone"
 assert_not_contains "$SUCCESS_OUT" "proxy.example.com" "no raw hostname"
 assert_not_contains "$SUCCESS_OUT" "$SUCCESS_ROOT" "no physical path"
+
+# Full sha256 must not be printed (64-char lowercase hex)
+if echo "$SUCCESS_OUT" | grep -Eq '[a-f0-9]{64}'; then
+  fail "full sha256 not printed"
+  ERRORS=$((ERRORS + 1))
+else
+  pass "full sha256 not printed"
+fi
 
 # Verify backup file exists and matches source
 BACKUP_DIR="$SUCCESS_ROOT/etc/nanobk/backups"
