@@ -1,5 +1,38 @@
 # Changelog
 
+## v2.2.15 — Fake-only DNS Apply Helper Boundary Prototype
+
+### Added
+
+- Added `lib/nanobk_cf_dns_apply_helper_boundary_mock.py`, a hidden/test-only fake-only prototype proving the low-level DNS apply helper can be invoked only after strict fake transport preflight.
+- Added `tests/v2.2.15-dns-apply-helper-boundary-mock.sh` to validate fake transport preflight, sterile subprocess invocation, captured stdout/stderr, safe derived output, redaction, fake transport sentinel proof, and no public integration.
+
+### Safety
+
+- The prototype requires `NANOBK_CF_DNS_FAKE_TRANSPORT` before helper invocation.
+- Missing, empty, nonexistent, directory, malformed, or empty fake transport fixtures fail closed before helper execution.
+- Helper stdout/stderr are captured and never printed directly.
+- Helper JSON is parsed only to derive safe counts/status buckets; raw helper fields are never forwarded.
+- Output remains fake/test-only and says no live Cloudflare verification was performed.
+- The prototype is not referenced by `bin/nanobk`, installer, Bot, or Web.
+
+### Not Changed
+
+- No changes to `lib/nanobk_cf_dns_apply.py`.
+- No changes to `lib/nanobk_cf_dns_apply_ux_mock.py`.
+- No public `bin/nanobk` integration.
+- No beginner console apply button.
+- No Bot/Web apply button.
+- No installer behavior changes.
+- No real Cloudflare calls.
+- No real DNS mutation.
+- No DNS apply execution against real transport.
+- No DNS-01 implementation.
+- No Tunnel/Access implementation.
+- No real `/etc` writes.
+- No real rollback.
+- No release tag.
+
 ## v2.2.14-polish — Fix DNS Apply Fixture Live-call Wording Drift
 
 ### Polished
