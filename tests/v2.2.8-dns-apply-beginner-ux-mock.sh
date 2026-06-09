@@ -202,6 +202,18 @@ assert_contains "$SUCCESS" "Status: applied" "success status is applied"
 
 echo ""
 
+# ── 13b. Post-check success fake/test-only wording ──────────────────────────
+
+echo "--- 13b. Success fake/test-only wording ---"
+echo ""
+
+assert_not_contains "$SUCCESS" "Cloudflare was called" "success: no old live-call wording"
+assert_contains "$SUCCESS" "Simulated DNS create/update flow completed under fake transport" "success: simulated wording"
+assert_contains "$SUCCESS" "Test mode: fake transport only" "success: fake transport only"
+assert_contains "$SUCCESS" "No live Cloudflare verification was performed" "success: no live verification"
+
+echo ""
+
 # ── 14. Post-check failure Status: uncertain ─────────────────────────────────
 
 echo "--- 14. Post-check failure status ---"

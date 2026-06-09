@@ -1,5 +1,33 @@
 # Changelog
 
+## v2.2.14-polish — Fix DNS Apply Fixture Live-call Wording Drift
+
+### Polished
+
+- Updated `tests/fixtures/v2.2.8/dns-apply-postcheck-success.txt` to remove live-call-like wording.
+- Aligned the v2.2.8 success fixture with v2.2.11-polish runtime wrapper wording:
+  - `Simulated DNS create/update flow completed under fake transport.`
+  - `Test mode: fake transport only.`
+  - `No live Cloudflare verification was performed.`
+- Strengthened v2.2.8 static assertions so the old wording cannot reappear.
+
+### Not Changed
+
+- No runtime code changes.
+- No public `bin/nanobk` integration.
+- No beginner console apply button.
+- No Bot/Web apply button.
+- No installer behavior changes.
+- No helper invocation implementation.
+- No real Cloudflare calls.
+- No real DNS mutation.
+- No DNS apply execution against real transport.
+- No DNS-01 implementation.
+- No Tunnel/Access implementation.
+- No real `/etc` writes.
+- No real rollback.
+- No release tag.
+
 ## v2.2.13 — Fake-only DNS Apply Helper Boundary Design
 
 ### Documentation
