@@ -1,5 +1,37 @@
 # Changelog
 
+## v2.2.18 — DNS Apply Post-check Contract and Failure Policy
+
+### Added
+
+- Added `docs/planning-v2.2.18-dns-apply-postcheck-contract.md` to define future DNS Apply post-check semantics, status mapping, stop-on-first-failure policy, safe beginner output requirements, and remaining live-test gates.
+- Added `tests/v2.2.18-dns-apply-postcheck-contract.sh` to validate the post-check contract remains explicit about fake/live honesty, verified-vs-applied semantics, forbidden output classes, and no public integration.
+
+### Safety
+
+- v2.2.18 is docs/mock-only.
+- No helper invocation is performed.
+- No Cloudflare API calls are performed.
+- No DNS records are created, updated, or deleted.
+- `verified` is reserved for post-check-proven state.
+- `applied` must not be treated as verified.
+- `fake_only` must never claim live verification.
+
+### Not Changed
+
+- No changes to `lib/`.
+- No public `bin/nanobk` integration.
+- No beginner console apply button.
+- No Bot/Web apply button.
+- No installer behavior changes.
+- No real Cloudflare calls.
+- No real DNS mutation.
+- No DNS-01 implementation.
+- No Tunnel/Access implementation.
+- No real `/etc` writes.
+- No real rollback.
+- No release tag.
+
 ## v2.2.17-polish — Clarify Fake Integration Proof and Helper Exit Semantics
 
 ### Polished
