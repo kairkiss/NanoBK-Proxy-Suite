@@ -25,7 +25,9 @@ Scenarios:
 from __future__ import annotations
 
 import argparse
+import json
 import os
+from pathlib import Path
 import sys
 
 # ── Constants ────────────────────────────────────────────────────────────────
@@ -42,17 +44,46 @@ FAKE_TRANSPORT_ENV = "NANOBK_CF_DNS_FAKE_TRANSPORT"
 
 # ── Fake transport guard ─────────────────────────────────────────────────────
 
+_SAFE_ERROR_MSG = (
+    "NanoBK DNS Apply UX mock is fake-transport-only.\n"
+    "A valid local fake transport fixture is required.\n"
+    "No DNS changes were made."
+)
+
+
 def check_fake_transport() -> bool:
-    """Check that fake transport env var is set. Returns True if safe."""
+    """Validate fake transport env var and fixture file. Returns True if safe.
+
+    Requirements:
+    1. NANOBK_CF_DNS_FAKE_TRANSPORT is set and non-empty.
+    2. Path exists.
+    3. Path is a regular file (not a directory).
+    4. Path content is valid JSON.
+
+    Error messages are safe: no raw path, no JSON content, no env values.
+    """
     val = os.environ.get(FAKE_TRANSPORT_ENV, "")
     if not val:
-        print(
-            "NanoBK DNS Apply UX mock is fake-transport-only.\n"
-            "Set NANOBK_CF_DNS_FAKE_TRANSPORT to a test fixture path.\n"
-            "No DNS changes were made.",
-            file=sys.stderr,
-        )
+        print(_SAFE_ERROR_MSG, file=sys.stderr)
         return False
+
+    path = Path(val)
+
+    if not path.exists():
+        print(_SAFE_ERROR_MSG, file=sys.stderr)
+        return False
+
+    if not path.is_file():
+        print(_SAFE_ERROR_MSG, file=sys.stderr)
+        return False
+
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            json.load(f)
+    except (json.JSONDecodeError, OSError):
+        print(_SAFE_ERROR_MSG, file=sys.stderr)
+        return False
+
     return True
 
 
@@ -112,7 +143,7 @@ def render_confirmation() -> str:
 
 
 def render_success() -> str:
-    """Render applied state (post-check verified)."""
+    """Render applied state (simulated post-check)."""
     return (
         "NanoBK DNS Apply — Final Summary\n"
         "Status: applied\n"
@@ -132,12 +163,13 @@ def render_success() -> str:
         "Cloudflare was called for DNS create/update only.\n"
         "No records were deleted.\n"
         "\n"
-        "Note: This run used fake transport only. No real Cloudflare API was called.\n"
+        "Test mode: fake transport only.\n"
+        "No live Cloudflare verification was performed.\n"
     )
 
 
 def render_postcheck_failure() -> str:
-    """Render post-check failure state."""
+    """Render post-check failure state (simulated)."""
     return (
         "NanoBK DNS Apply — Final Summary\n"
         "Status: uncertain\n"
@@ -157,6 +189,9 @@ def render_postcheck_failure() -> str:
         "Post-check did not verify the final state.\n"
         "This is not reported as success.\n"
         "\n"
+        "Test mode: fake transport only.\n"
+        "This is simulated post-check output, not live Cloudflare verification.\n"
+        "\n"
         "Recovery:\n"
         "  Do not retry blindly.\n"
         "  Review the current DNS records in Cloudflare.\n"
@@ -165,7 +200,7 @@ def render_postcheck_failure() -> str:
 
 
 def render_partial_failure() -> str:
-    """Render partial failure state."""
+    """Render partial failure state (simulated)."""
     return (
         "NanoBK DNS Apply — Final Summary\n"
         "Status: partial\n"
@@ -180,6 +215,9 @@ def render_partial_failure() -> str:
         "  Some records could not be verified.\n"
         "\n"
         "This is not reported as success.\n"
+        "\n"
+        "Test mode: fake transport only.\n"
+        "This is simulated partial failure output, not live Cloudflare verification.\n"
         "\n"
         "Recovery:\n"
         "  Do not retry blindly.\n"

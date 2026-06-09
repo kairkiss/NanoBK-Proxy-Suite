@@ -1,5 +1,30 @@
 # Changelog
 
+## v2.2.11 — Fake DNS Apply UX Wrapper Safety Hardening
+
+### Hardened
+
+- Strengthened hidden/test-only DNS Apply UX mock wrapper fake-transport validation.
+- Added fail-closed handling for missing, empty, nonexistent, directory, and malformed fake transport fixtures.
+- Clarified fake/test-only post-check wording so mock output cannot be mistaken for live Cloudflare verification.
+- Added or strengthened tests proving the wrapper remains simulated, does not import the low-level apply helper, does not expose public `bin/nanobk` integration, has no network imports, and keeps output redacted.
+
+### Not Changed
+
+- No public `bin/nanobk` integration.
+- No beginner console apply button.
+- No Bot/Web apply button.
+- No installer behavior changes.
+- No real Cloudflare calls.
+- No real DNS mutation.
+- No DNS apply execution against real transport.
+- No invocation of low-level `lib/nanobk_cf_dns_apply.py`.
+- No DNS-01 implementation.
+- No Tunnel/Access implementation.
+- No real `/etc` writes.
+- No real rollback.
+- No release tag.
+
 ## v2.2.10 — Fake-transport-only DNS Apply UX Wrapper
 
 ### Added
