@@ -1,5 +1,29 @@
 # Changelog
 
+## v2.2.7 — DNS Apply Execution Design Gate
+
+### Documentation
+
+- Added `docs/planning-v2.2.7-dns-apply-execution-gate.md`.
+- Defines the future DNS apply execution gate for product-console integration.
+- Documents the current low-level `cf dns apply` safety properties and why it is not yet beginner-console-ready.
+- Covers readiness, plan preview, GET-only conflict check, beginner Summary, advanced details, explicit confirmation, mutation boundary, post-check, final honest Summary, recovery guidance, redaction, conflict handling, Bot/Web boundary, risk map, and future fake-transport-only tests.
+- Records that v2.2.7 is docs-only and does not implement DNS mutation.
+
+### Not Changed
+
+- No runtime code changes.
+- No CLI behavior changes.
+- No installer behavior changes.
+- No Bot/Web behavior changes.
+- No DNS mutation.
+- No Cloudflare mutation.
+- No DNS-01 implementation.
+- No Tunnel/Access implementation.
+- No real `/etc` writes.
+- No real rollback.
+- No release tag.
+
 ## v2.2.6-polish — Backup Metadata Failure Safety
 
 ### Fixed
