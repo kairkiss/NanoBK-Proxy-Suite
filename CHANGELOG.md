@@ -1,5 +1,38 @@
 # Changelog
 
+## v2.2.24-polish — Classify Malformed Placeholder Input as Uncertain
+
+### Fixed
+
+- Updated `lib/nanobk_cf_dns_apply_one_record_live_runbook_validator_mock.py` so missing required policy gate sections are classified as `uncertain` instead of `blocked`.
+- Updated `tests/fixtures/v2.2.24/uncertain_malformed_input.json` and `tests/v2.2.24-one-record-live-runbook-validator-mock.sh` to lock malformed/ambiguous placeholder input semantics.
+- Preserved first-failure fields while keeping beginner-facing blocked reasons reserved for known policy failures.
+
+### Safety
+
+- v2.2.24-polish remains mock-only.
+- No helper invocation is performed.
+- No Cloudflare API calls are performed.
+- No DNS records are created, updated, or deleted.
+- No real env files are read.
+- `ready_for_future_owner_approved_live_plan` still does not allow live mutation.
+- Actual live tests, live Cloudflare calls, real DNS mutation, and public apply remain blocked.
+
+### Not Changed
+
+- No changes to existing DNS apply helper modules.
+- No public `bin/nanobk` integration.
+- No beginner console apply button.
+- No Bot/Web apply button.
+- No installer behavior changes.
+- No real Cloudflare calls.
+- No real DNS mutation.
+- No DNS-01 implementation.
+- No Tunnel/Access implementation.
+- No real `/etc` writes.
+- No real rollback.
+- No release tag.
+
 ## v2.2.24 — One-Record Live Runbook Validator Mock
 
 ### Added

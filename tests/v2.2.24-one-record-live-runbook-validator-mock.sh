@@ -288,10 +288,30 @@ fi
 # C13. uncertain_malformed_input -> uncertain (missing public_ux_policy)
 C13=$(validate_fixture "$FIXTURES/uncertain_malformed_input.json")
 C13_STATUS=$(echo "$C13" | python3 -c "import sys,json; print(json.load(sys.stdin)['status'])")
-if [[ "$C13_STATUS" == "blocked" ]]; then
-  pass "C13: uncertain_malformed_input -> blocked (missing gate = fail)"
+C13_GATE=$(echo "$C13" | python3 -c "import sys,json; print(json.load(sys.stdin)['first_failed_gate'])")
+C13_REASON=$(echo "$C13" | python3 -c "import sys,json; print(json.load(sys.stdin)['first_blocked_reason'])")
+C13_BLOCKED=$(echo "$C13" | python3 -c "import sys,json; print(len(json.load(sys.stdin)['blocked_reasons']))")
+C13_DIAG=$(echo "$C13" | python3 -c "import sys,json; print(len(json.load(sys.stdin).get('diagnostic_blocked_reasons',[])))")
+if [[ "$C13_STATUS" == "uncertain" ]] && [[ "$C13_GATE" == "public_ux_policy" ]] && [[ "$C13_REASON" == "malformed placeholder input" ]]; then
+  pass "C13: uncertain_malformed_input -> uncertain + public_ux_policy + malformed"
 else
-  fail "C13: expected blocked for missing gate, got '$C13_STATUS'"
+  fail "C13: expected uncertain + public_ux_policy + malformed, got '$C13_STATUS' '$C13_GATE' '$C13_REASON'"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# C14. uncertain_malformed_input blocked_reasons is empty
+if [[ "$C13_BLOCKED" == "0" ]]; then
+  pass "C14: uncertain_malformed_input blocked_reasons is empty"
+else
+  fail "C14: uncertain_malformed_input blocked_reasons should be empty, got $C13_BLOCKED"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# C15. uncertain_malformed_input diagnostic_blocked_reasons has at least 1
+if [[ "$C13_DIAG" -ge 1 ]]; then
+  pass "C15: uncertain_malformed_input diagnostic has $C13_DIAG reasons"
+else
+  fail "C15: uncertain_malformed_input diagnostic should have >= 1 reason, got $C13_DIAG"
   ERRORS=$((ERRORS + 1))
 fi
 
@@ -325,6 +345,16 @@ assert_contains "$D11_OUT" "First blocked reason: placeholder gate failed" "D13:
 assert_not_contains "$D11_OUT" "credential policy gate failed" "D14: no credential reason in output"
 assert_not_contains "$D11_OUT" "record identity policy gate failed" "D15: no record reason in output"
 assert_not_contains "$D11_OUT" "public UX policy gate failed" "D16: no public UX reason in output"
+
+# D17-D22. Uncertain malformed fixture output checks
+D17_OUT=$(render_fixture "$FIXTURES/uncertain_malformed_input.json")
+assert_contains "$D17_OUT" "Status: uncertain" "D17: uncertain status"
+assert_contains "$D17_OUT" "First failed gate: public_ux_policy" "D18: first failed gate shown"
+assert_contains "$D17_OUT" "First blocked reason: malformed placeholder input" "D19: malformed reason shown"
+assert_contains "$D17_OUT" "Actual live test is not allowed" "D20: live test not allowed"
+assert_not_contains "$D17_OUT" "Status: blocked" "D21: no blocked status in uncertain output"
+assert_not_contains "$D17_OUT" "ready_for_future_owner_approved_live_plan" "D22: no ready status in uncertain output"
+assert_not_contains "$D17_OUT" "public UX policy gate failed" "D23: no policy reason in uncertain output"
 
 echo ""
 

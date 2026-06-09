@@ -72,6 +72,8 @@ _VALIDATOR_SAFE_ERROR_MSG = (
     "No DNS changes were made."
 )
 
+_REASON_MALFORMED = "malformed placeholder input"
+
 # ── Blocked reason categories (safe generic) ─────────────────────────────────
 
 _REASON_PLACEHOLDERS = "placeholder gate failed"
@@ -250,17 +252,19 @@ def validate_one_record_live_runbook_placeholders(data: dict) -> dict:
     diagnostic_blocked_reasons: list[str] = []
     first_failed_gate = "none"
     first_blocked_reason = "none"
+    has_missing_gate = False
 
     # Evaluate all gates in order
     for gate_key, reason in _GATE_ORDER:
         gate_data = data.get(gate_key)
         if gate_data is None:
-            # Missing gate section is treated as malformed -> uncertain
+            # Missing gate section is malformed/ambiguous -> uncertain
             checks[gate_key] = "fail"
-            diagnostic_blocked_reasons.append(reason)
+            has_missing_gate = True
+            diagnostic_blocked_reasons.append(_REASON_MALFORMED)
             if first_failed_gate == "none":
                 first_failed_gate = gate_key
-                first_blocked_reason = reason
+                first_blocked_reason = _REASON_MALFORMED
             continue
 
         evaluator = _GATE_EVALUATORS.get(gate_key)
@@ -273,9 +277,10 @@ def validate_one_record_live_runbook_placeholders(data: dict) -> dict:
                 first_failed_gate = gate_key
                 first_blocked_reason = reason
 
-    # blocked_reasons contains only the first blocked reason (beginner-facing)
+    # blocked_reasons contains only known policy failures (beginner-facing)
+    # Missing gates are malformed -> uncertain, not blocked
     blocked_reasons: list[str] = []
-    if first_blocked_reason != "none":
+    if first_blocked_reason != "none" and not has_missing_gate:
         blocked_reasons.append(first_blocked_reason)
 
     # Determine overall status
@@ -283,6 +288,9 @@ def validate_one_record_live_runbook_placeholders(data: dict) -> dict:
 
     if all_pass:
         status = _STATUS_READY
+    elif has_missing_gate:
+        # Missing required gate sections are malformed/ambiguous -> uncertain
+        status = _STATUS_UNCERTAIN
     elif blocked_reasons:
         status = _STATUS_BLOCKED
     else:
