@@ -182,7 +182,7 @@ for fixture_name in "${!TEST_CASES[@]}"; do
   STATUS=$(echo "$RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin)['status'])")
   GATE=$(echo "$RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin)['first_failed_gate'])")
   if [[ "$STATUS" == "$expected_status" ]] && [[ "$GATE" == "$expected_gate" ]]; then
-    pass "C${CI}: ${fixture_name} -> ${status} + ${gate}"
+    pass "C${CI}: ${fixture_name} -> ${STATUS} + ${GATE}"
   else
     fail "C${CI}: ${fixture_name} expected ${expected_status}+${expected_gate}, got ${STATUS}+${GATE}"
     ERRORS=$((ERRORS + 1))
@@ -289,19 +289,43 @@ assert_contains "$F3_OUT" "Actual live test is not allowed" "F4: live test not a
 assert_not_contains "$F3_OUT" "ready_for_future_owner_approved_live_plan" "F4b: no ready status"
 assert_not_contains "$F3_OUT" "fake_transport_verified" "F4c: no fake verified status"
 
-# F5-F7. Classifier ambiguous
+# F5-F10. Classifier ambiguous
 F5=$(validate_fixture "$FIXTURES/uncertain_classifier_ambiguous.json")
 F5_STATUS=$(echo "$F5" | python3 -c "import sys,json; print(json.load(sys.stdin)['status'])")
-if [[ "$F5_STATUS" == "blocked" ]]; then
-  pass "F5: classifier ambiguous -> blocked (gate fail)"
+F5_GATE=$(echo "$F5" | python3 -c "import sys,json; print(json.load(sys.stdin)['first_failed_gate'])")
+F5_REASON=$(echo "$F5" | python3 -c "import sys,json; print(json.load(sys.stdin)['first_blocked_reason'])")
+F5_BLOCKED=$(echo "$F5" | python3 -c "import sys,json; print(len(json.load(sys.stdin)['blocked_reasons']))")
+F5_DIAG=$(echo "$F5" | python3 -c "import sys,json; print(len(json.load(sys.stdin)['diagnostic_blocked_reasons']))")
+if [[ "$F5_STATUS" == "uncertain" ]] && [[ "$F5_GATE" == "classifier_gate" ]] && [[ "$F5_REASON" == "classifier ambiguous" ]]; then
+  pass "F5: classifier ambiguous -> uncertain + classifier_gate + classifier ambiguous"
 else
-  fail "F5: expected blocked for ambiguous classifier, got '$F5_STATUS'"
+  fail "F5: expected uncertain + classifier_gate + classifier ambiguous, got '$F5_STATUS' '$F5_GATE' '$F5_REASON'"
   ERRORS=$((ERRORS + 1))
 fi
 
-F6_OUT=$(render_fixture "$FIXTURES/uncertain_classifier_ambiguous.json")
-assert_not_contains "$F6_OUT" "fake_transport_verified" "F6: no fake verified in ambiguous output"
-assert_not_contains "$F6_OUT" "ready_for_future_owner_approved_live_plan" "F7: no ready in ambiguous output"
+if [[ "$F5_BLOCKED" == "0" ]]; then
+  pass "F6: ambiguous blocked_reasons length = 0"
+else
+  fail "F6: ambiguous blocked_reasons should be 0, got $F5_BLOCKED"
+  ERRORS=$((ERRORS + 1))
+fi
+
+if [[ "$F5_DIAG" -ge 1 ]]; then
+  pass "F7: ambiguous diagnostic_blocked_reasons >= 1 ($F5_DIAG)"
+else
+  fail "F7: ambiguous diagnostic should be >= 1, got $F5_DIAG"
+  ERRORS=$((ERRORS + 1))
+fi
+
+F8_OUT=$(render_fixture "$FIXTURES/uncertain_classifier_ambiguous.json")
+assert_contains "$F8_OUT" "Status: uncertain" "F8: uncertain status in output"
+assert_contains "$F8_OUT" "First failed gate: classifier_gate" "F9: first failed gate shown"
+assert_contains "$F8_OUT" "First blocked reason: classifier ambiguous" "F10: classifier ambiguous reason"
+assert_contains "$F8_OUT" "Actual live test is not allowed" "F11: live test not allowed"
+assert_not_contains "$F8_OUT" "Status: blocked" "F12: no blocked status"
+assert_not_contains "$F8_OUT" "fake_transport_verified" "F13: no fake verified"
+assert_not_contains "$F8_OUT" "ready_for_future_owner_approved_live_plan" "F14: no ready status"
+assert_not_contains "$F8_OUT" "classifier gate failed" "F15: no policy failure reason"
 
 echo ""
 

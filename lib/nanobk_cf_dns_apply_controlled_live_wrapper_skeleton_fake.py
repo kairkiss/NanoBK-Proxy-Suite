@@ -89,6 +89,7 @@ _REASON_HELPER_CAPTURE = "fake helper capture gate failed"
 _REASON_HELPER_JSON = "fake helper JSON gate failed"
 _REASON_POSTCHECK = "fake post-check gate failed"
 _REASON_CLASSIFIER = "classifier gate failed"
+_REASON_CLASSIFIER_AMBIGUOUS = "classifier ambiguous"
 _REASON_RENDERER = "safe renderer gate failed"
 _REASON_REDACTION = "redaction gate failed"
 _REASON_PUBLIC_UX = "public UX gate failed"
@@ -312,6 +313,7 @@ def run_controlled_live_wrapper_skeleton_fake(data: dict) -> dict:
     first_blocked_reason = "none"
     has_missing_gate = False
     has_known_policy_failure = False
+    has_ambiguous_classifier = False
 
     # Evaluate all gates in order
     for gate_key, reason in _GATE_ORDER:
@@ -326,6 +328,16 @@ def run_controlled_live_wrapper_skeleton_fake(data: dict) -> dict:
                 first_blocked_reason = _REASON_MALFORMED
             continue
 
+        # Special handling for classifier_gate: ambiguous -> uncertain, not blocked
+        if gate_key == "classifier_gate" and isinstance(gate_data, dict) and gate_data.get("ambiguous") is True:
+            checks[gate_key] = "fail"
+            has_ambiguous_classifier = True
+            diagnostic_blocked_reasons.append(_REASON_CLASSIFIER_AMBIGUOUS)
+            if first_failed_gate == "none":
+                first_failed_gate = gate_key
+                first_blocked_reason = _REASON_CLASSIFIER_AMBIGUOUS
+            continue
+
         evaluator = _GATE_EVALUATORS.get(gate_key)
         if evaluator and evaluator(gate_data):
             checks[gate_key] = "pass"
@@ -338,9 +350,9 @@ def run_controlled_live_wrapper_skeleton_fake(data: dict) -> dict:
                 first_blocked_reason = reason
 
     # blocked_reasons contains only known policy failures (beginner-facing)
-    # Missing gates are malformed -> uncertain, not blocked
+    # Missing gates and ambiguous classifier are uncertain, not blocked
     blocked_reasons: list[str] = []
-    if has_known_policy_failure and not has_missing_gate:
+    if has_known_policy_failure and not has_missing_gate and not has_ambiguous_classifier:
         # Find the first known policy failure
         for gate_key, reason in _GATE_ORDER:
             if checks.get(gate_key) == "fail" and data.get(gate_key) is not None:
@@ -366,7 +378,7 @@ def run_controlled_live_wrapper_skeleton_fake(data: dict) -> dict:
         postcheck_result = "fake_verified"
         fake_transport = "verified"
         ready_category = "future_owner_approved_plan_only"
-    elif has_missing_gate:
+    elif has_missing_gate or has_ambiguous_classifier:
         status = _STATUS_UNCERTAIN
         postcheck_result = "uncertain"
         fake_transport = "unknown"

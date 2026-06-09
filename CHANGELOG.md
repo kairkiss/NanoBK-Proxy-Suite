@@ -1,5 +1,39 @@
 # Changelog
 
+## v2.2.25-polish — Fix Skeleton Ambiguous Classifier Semantics
+
+### Fixed
+
+- Fixed `tests/v2.2.25-controlled-live-wrapper-skeleton-fake.sh` validator case output to use the correct uppercase shell variables under `set -u`.
+- Updated `lib/nanobk_cf_dns_apply_controlled_live_wrapper_skeleton_fake.py` so ambiguous classifier results are classified as `uncertain` instead of `blocked`.
+- Strengthened `tests/v2.2.25-controlled-live-wrapper-skeleton-fake.sh` to lock `uncertain_classifier_ambiguous.json` as `uncertain` with empty beginner-facing `blocked_reasons`.
+
+### Safety
+
+- v2.2.25-polish remains fake-transport-only.
+- No real helper invocation is performed.
+- No Cloudflare API calls are performed.
+- No DNS records are created, updated, or deleted.
+- No real env files are read.
+- `fake_transport_verified` still does not mean live verified.
+- `ready_for_owner_approved_future_live_plan` still does not allow live mutation.
+- Actual live tests, live Cloudflare calls, real DNS mutation, and public apply remain blocked.
+
+### Not Changed
+
+- No changes to existing DNS apply helper modules.
+- No public `bin/nanobk` integration.
+- No beginner console apply button.
+- No Bot/Web apply button.
+- No installer behavior changes.
+- No real Cloudflare calls.
+- No real DNS mutation.
+- No DNS-01 implementation.
+- No Tunnel/Access implementation.
+- No real `/etc` writes.
+- No real rollback.
+- No release tag.
+
 ## v2.2.25 — Controlled Live Wrapper Skeleton Fake Transport
 
 ### Added
