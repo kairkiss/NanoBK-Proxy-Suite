@@ -1,5 +1,28 @@
 # Changelog
 
+## v2.2.19-polish — Classify Unknown Mutation Results as Uncertain
+
+### Fixed
+
+- Updated `lib/nanobk_cf_dns_apply_postcheck_classifier_mock.py` so create/update mutation results with unknown success are classified as `uncertain`, not `applied`.
+- Added `tests/fixtures/v2.2.19/uncertain_mutation_unknown.json` to lock the ambiguous mutation case.
+- Strengthened `tests/v2.2.19-dns-apply-postcheck-classifier-mock.sh` to assert unknown mutation results never become `applied` or `verified`.
+
+### Not Changed
+
+- No changes to existing DNS apply helper modules.
+- No public `bin/nanobk` integration.
+- No beginner console apply button.
+- No Bot/Web apply button.
+- No installer behavior changes.
+- No real Cloudflare calls.
+- No real DNS mutation.
+- No DNS-01 implementation.
+- No Tunnel/Access implementation.
+- No real `/etc` writes.
+- No real rollback.
+- No release tag.
+
 ## v2.2.19 — DNS Apply Post-check Classifier Mock
 
 ### Added

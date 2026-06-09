@@ -108,9 +108,10 @@ def classify_postcheck(data: dict) -> dict:
     2. failed — all mutations failed or all post-checks show missing/wrong.
     3. verified — live_applied + postcheck + all records verified.
     4. partial — some verified, some failed/missing/unknown.
-    5. applied — mutations succeeded but no post-check proof.
-    6. ready — dry_run/check_only with no mutation.
-    7. uncertain — ambiguous or malformed data.
+    5. uncertain — any mutation result has unknown success.
+    6. applied — mutations succeeded but no post-check proof.
+    7. ready — dry_run/check_only with no mutation.
+    8. uncertain — ambiguous or malformed data (fallback).
 
     Raises RuntimeError on invalid input.
     """
@@ -152,6 +153,7 @@ def classify_postcheck(data: dict) -> dict:
     applied_failed = 0
     all_mutations_failed = True
     has_any_mutation = False
+    has_unknown_mutation = False
     for res in results:
         if not isinstance(res, dict):
             continue
@@ -165,7 +167,8 @@ def classify_postcheck(data: dict) -> dict:
             elif success is False:
                 applied_failed += 1
             else:
-                # unknown success
+                # unknown success — cannot prove safety
+                has_unknown_mutation = True
                 all_mutations_failed = False
 
     # Count observed records
@@ -221,7 +224,13 @@ def classify_postcheck(data: dict) -> dict:
         status = _STATUS_PARTIAL
         recovery = [_RECOVERY_PARTIAL]
 
-    # 5. applied — mutations succeeded but no post-check proof
+    # 5. uncertain — any mutation result has unknown success
+    # (cannot prove safety; must not be classified as applied or verified)
+    elif has_unknown_mutation:
+        status = _STATUS_UNCERTAIN
+        recovery = [_RECOVERY_UNCERTAIN]
+
+    # 6. applied — mutations succeeded but no post-check proof
     elif has_any_mutation and applied_success > 0:
         status = _STATUS_APPLIED
         recovery = [_RECOVERY_APPLIED]
@@ -230,12 +239,12 @@ def classify_postcheck(data: dict) -> dict:
         status = _STATUS_APPLIED
         recovery = [_RECOVERY_APPLIED]
 
-    # 6. ready — dry_run/check_only with no mutation
+    # 7. ready — dry_run/check_only with no mutation
     elif mode in ("dry_run", "check_only"):
         status = _STATUS_READY
         recovery = [_RECOVERY_READY]
 
-    # 7. uncertain — fallback
+    # 8. uncertain — fallback
     else:
         status = _STATUS_UNCERTAIN
         recovery = [_RECOVERY_UNCERTAIN]

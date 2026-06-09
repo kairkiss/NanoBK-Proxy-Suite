@@ -227,6 +227,15 @@ else
   ERRORS=$((ERRORS + 1))
 fi
 
+# C8. uncertain_mutation_unknown.json -> uncertain (unknown mutation success)
+C8=$(classify_fixture "$FIXTURES/uncertain_mutation_unknown.json")
+if [[ "$C8" == "uncertain" ]]; then
+  pass "C8: uncertain_mutation_unknown.json -> uncertain"
+else
+  fail "C8: uncertain_mutation_unknown.json -> expected uncertain, got '$C8'"
+  ERRORS=$((ERRORS + 1))
+fi
+
 echo ""
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -264,6 +273,28 @@ for fixture_file in "$FIXTURES"/*.json; do
   assert_contains "$out" "Fake-only live verified: no" "D5: $fname has fake_only_live_verified=no"
   assert_contains "$out" "Deletes supported: no" "D5: $fname has deletes_supported=no"
 done
+
+# D6. Unknown mutation result must not become applied
+D6_STATUS=$(classify_fixture "$FIXTURES/uncertain_mutation_unknown.json")
+if [[ "$D6_STATUS" != "applied" ]]; then
+  pass "D6: unknown mutation not classified as applied (got '$D6_STATUS')"
+else
+  fail "D6: unknown mutation was classified as applied"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# D7. Unknown mutation result must not become verified
+if [[ "$D6_STATUS" != "verified" ]]; then
+  pass "D7: unknown mutation not classified as verified (got '$D6_STATUS')"
+else
+  fail "D7: unknown mutation was classified as verified"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# D8. Uncertain mutation output contains expected text
+D8_OUT=$(render_fixture "$FIXTURES/uncertain_mutation_unknown.json")
+assert_contains "$D8_OUT" "Status: uncertain" "D8: uncertain mutation shows uncertain status"
+assert_contains "$D8_OUT" "could not be determined" "D8: uncertain mutation has recovery text"
 
 echo ""
 
