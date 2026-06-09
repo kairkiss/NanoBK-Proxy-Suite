@@ -160,7 +160,7 @@ def render_success() -> str:
         "  Proxied mode: DNS-only verified\n"
         "  Ownership marker: verified\n"
         "\n"
-        "Cloudflare was called for DNS create/update only.\n"
+        "Simulated DNS create/update flow completed under fake transport.\n"
         "No records were deleted.\n"
         "\n"
         "Test mode: fake transport only.\n"

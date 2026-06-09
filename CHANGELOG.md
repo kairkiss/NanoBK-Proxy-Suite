@@ -1,5 +1,22 @@
 # Changelog
 
+## v2.2.11-polish — Clarify Fake Wrapper Success Wording
+
+### Polished
+
+- Reworded fake DNS Apply UX wrapper success output so it cannot be mistaken for a live Cloudflare call.
+- Kept fake/test-only wording explicit: no live Cloudflare verification and fake transport only.
+
+### Not Changed
+
+- No public `bin/nanobk` integration.
+- No beginner console apply button.
+- No Bot/Web apply button.
+- No real Cloudflare calls.
+- No real DNS mutation.
+- No invocation of low-level `lib/nanobk_cf_dns_apply.py`.
+- No release tag.
+
 ## v2.2.11 — Fake DNS Apply UX Wrapper Safety Hardening
 
 ### Hardened
