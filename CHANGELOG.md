@@ -1,5 +1,33 @@
 # Changelog
 
+## v2.2.27 — Non-Public DNS Apply Dry-run Wrapper
+
+### Added
+
+- Added `lib/nanobk_cf_dns_apply_dryrun_wrapper.py`, a non-public dry-run-only DNS apply wrapper.
+- Added safe static fixtures under `tests/fixtures/v2.2.27/`.
+- Added `tests/v2.2.27-dns-apply-dryrun-wrapper.sh` to validate dry-run readiness, blocked/uncertain cases, first-failure semantics, output safety, helper dry-run honesty, and public UX hard block.
+
+### Safety
+
+- v2.2.27 is dry-run-only.
+- `can_apply` is always `no`.
+- `mutation_allowed` is always `no`.
+- Public apply remains blocked.
+- No DNS records are created, updated, or deleted.
+- No live Cloudflare mutation is performed.
+- No real env contents are printed.
+- Raw helper stdout/stderr are never printed.
+
+### Not Changed
+
+- No public `bin/nanobk` integration.
+- No beginner console apply button.
+- No Bot/Web apply button.
+- No installer behavior changes.
+- No real DNS mutation.
+- No release tag.
+
 ## v2.2.26 — Owner-Approved Manual One-Record Live Test Plan
 
 ### Added

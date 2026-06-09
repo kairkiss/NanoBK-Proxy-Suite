@@ -1,0 +1,63 @@
+{
+  "mode": "dryrun_only",
+  "repo_gate": {
+    "clean": true,
+    "expected_head": true,
+    "no_public_integration": true
+  },
+  "credential_reference_gate": {
+    "reference_present": true,
+    "permission_restricted": true,
+    "contents_not_read": true,
+    "path_not_printed": true,
+    "token_not_echoed": true
+  },
+  "record_identity_gate": {
+    "one_record_only": true,
+    "disposable_test_record": true,
+    "dns_only": true,
+    "create_only_first": true,
+    "no_delete": true,
+    "no_overwrite": true,
+    "no_production_name": true,
+    "same_name_cname_absent": true
+  },
+  "read_only_precheck_gate": {
+    "read_only": false,
+    "safe_record_category": true,
+    "no_existing_unmanaged_record": true,
+    "no_delete_planned": true,
+    "no_overwrite_planned": true
+  },
+  "dryrun_preview_gate": {
+    "preview_generated": true,
+    "preview_redacted": true,
+    "raw_mutation_command_printed": false
+  },
+  "helper_dryrun_gate": {
+    "helper_dryrun_available": true,
+    "helper_called_in_dryrun_only": true,
+    "returncode": 0,
+    "stdout_captured": true,
+    "stderr_captured": true,
+    "raw_output_printed": false
+  },
+  "redaction_gate": {
+    "redaction_passed": true,
+    "no_secret_or_address": true,
+    "no_raw_api": true,
+    "no_raw_helper_output": true
+  },
+  "public_ux_gate": {
+    "bin_integration": false,
+    "bot_apply": false,
+    "web_apply": false,
+    "installer_apply": false
+  },
+  "record_plan": {
+    "safe_record_category": "disposable test subdomain",
+    "safe_action_category": "create",
+    "record_type": "A",
+    "dns_only": "yes"
+  }
+}
