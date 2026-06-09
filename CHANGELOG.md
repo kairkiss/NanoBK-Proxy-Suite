@@ -1,5 +1,37 @@
 # Changelog
 
+## v2.2.20 — Controlled Live DNS Test Plan and Safety Gate
+
+### Added
+
+- Added `docs/validation/dns-apply-controlled-live-test-plan-v2.2.20.md` to define the controlled live Cloudflare DNS test safety gate before any real DNS mutation.
+- Added `tests/v2.2.20-controlled-live-gate-contract.sh` to statically validate owner approval, single disposable record scope, credential handling, pre-check/post-check requirements, rollback policy, redacted output rules, and no public integration.
+
+### Safety
+
+- v2.2.20 is docs/gate-only.
+- No helper invocation is performed.
+- No Cloudflare API calls are performed.
+- No DNS records are created, updated, or deleted.
+- Actual live mutation remains blocked.
+- Public `bin/nanobk`, Bot, Web, and installer DNS apply remain blocked.
+- Owner approval, manual rollback, redacted output, and post-check proof are required before any future live test.
+
+### Not Changed
+
+- No changes to `lib/`.
+- No public `bin/nanobk` integration.
+- No beginner console apply button.
+- No Bot/Web apply button.
+- No installer behavior changes.
+- No real Cloudflare calls.
+- No real DNS mutation.
+- No DNS-01 implementation.
+- No Tunnel/Access implementation.
+- No real `/etc` writes.
+- No real rollback.
+- No release tag.
+
 ## v2.2.19-polish — Classify Unknown Mutation Results as Uncertain
 
 ### Fixed
