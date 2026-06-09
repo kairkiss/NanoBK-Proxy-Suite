@@ -156,6 +156,9 @@ for dir in installer bot web; do
 done
 pass "A9: installer/Bot/Web do not reference integration module"
 
+# A10. Module documents nonzero helper exit handling precisely
+assert_contains "$MODULE_SOURCE" "nonzero helper exit is allowed" "A10: documents nonzero helper exit handling"
+
 echo ""
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -237,6 +240,10 @@ assert_contains "$MODULE_SOURCE" "check_calls_artifact(transport_with_calls)" "C
 # C11. Static check: module invokes check_calls_artifact from boundary mock
 assert_contains "$MODULE_SOURCE" "check_calls_artifact" "C11: module checks calls artifact"
 
+# C12. Output contains safe fake transport proof wording
+assert_contains "$C_OUT" "Fake transport:" "C12: has fake transport proof section"
+assert_contains "$C_OUT" "Used: yes" "C12: fake transport used"
+
 echo ""
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -263,7 +270,16 @@ assert_not_contains "$C_OUT" "CF_API_TOKEN" "D14: no CF_API_TOKEN"
 assert_not_contains "$C_OUT" "api-env" "D15: no api-env"
 assert_not_contains "$C_OUT" "apply --yes" "D16: no apply --yes"
 
-# D17. No full sha256-like 64-char hex
+# D18. No calls file path leaked
+assert_not_contains "$C_OUT" "$CALLS_FILE" "D18: no calls file path"
+assert_not_contains "$C_OUT" "fake-calls.json" "D18: no calls artifact filename"
+
+# D19. No fake transport keys or API details
+assert_not_contains "$C_OUT" "GET_A" "D19: no fake transport key"
+assert_not_contains "$C_OUT" "POST" "D19: no fake POST detail"
+assert_not_contains "$C_OUT" "PATCH" "D19: no fake PATCH detail"
+
+# D20. No full sha256-like 64-char hex
 if echo "$C_OUT" | grep -qE '[a-f0-9]{64}'; then
   fail "D17: no full sha256-like hex"
   ERRORS=$((ERRORS + 1))

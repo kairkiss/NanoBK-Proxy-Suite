@@ -1,5 +1,32 @@
 # Changelog
 
+## v2.2.17-polish — Clarify Fake Integration Proof and Helper Exit Semantics
+
+### Polished
+
+- Clarified `lib/nanobk_cf_dns_apply_safe_integration_mock.py` comments so helper nonzero exit handling is documented precisely: nonzero exit is allowed only if stdout contains valid helper JSON that passes schema validation and fake calls artifact proof.
+- Added safe fake transport proof wording to integration output: `Fake transport: Used: yes`.
+- Strengthened `tests/v2.2.17-dns-apply-safe-integration-mock.sh` to assert fake proof wording while still blocking calls artifact paths, fake transport keys, raw API paths, and raw helper output.
+
+### Not Changed
+
+- No changes to `lib/nanobk_cf_dns_apply.py`.
+- No changes to `lib/nanobk_cf_dns_apply_ux_mock.py`.
+- No changes to `lib/nanobk_cf_dns_apply_helper_boundary_mock.py`.
+- No changes to `lib/nanobk_cf_dns_apply_safe_renderer.py`.
+- No public `bin/nanobk` integration.
+- No beginner console apply button.
+- No Bot/Web apply button.
+- No installer behavior changes.
+- No real Cloudflare calls.
+- No real DNS mutation.
+- No DNS apply execution against real transport.
+- No DNS-01 implementation.
+- No Tunnel/Access implementation.
+- No real `/etc` writes.
+- No real rollback.
+- No release tag.
+
 ## v2.2.17 — Fake Helper Boundary to Safe Renderer Integration Mock
 
 ### Added

@@ -106,13 +106,17 @@ def render_fake_helper_to_safe_summary() -> str:
     3. Add _calls_file to temp fake transport copy.
     4. Invoke helper via boundary run_helper.
     5. Capture stdout/stderr internally.
-    6. Fail closed on timeout/nonzero/stderr/parse/schema/calls failure.
+    6. Fail closed on timeout, stderr, parse, schema, calls artifact,
+       or unsafe output.  A nonzero helper exit is allowed only when
+       stdout contains valid helper JSON that passes schema validation
+       and fake calls artifact proof (e.g. conflict/partial scenarios).
     7. Parse final helper JSON.
     8. Validate helper schema.
     9. Check calls artifact proof.
     10. Pass parsed helper JSON to safe renderer.
-    11. Run integration-level forbidden output scan.
-    12. Return safe renderer output only.
+    11. Append safe fake transport proof wording.
+    12. Run integration-level forbidden output scan.
+    13. Return safe output only.
 
     Raises RuntimeError on any failure (safe generic message only).
     """
@@ -147,6 +151,10 @@ def render_fake_helper_to_safe_summary() -> str:
         )
 
         # 5-6. Fail closed checks
+        # Timeout always fails closed.
+        # A nonzero helper exit is allowed only when stdout contains valid
+        # helper JSON that passes schema validation and calls artifact proof
+        # (conflict/partial scenarios return nonzero by design).
         if returncode == -1:
             raise RuntimeError(_INTEGRATION_SAFE_ERROR_MSG)
 
@@ -173,11 +181,16 @@ def render_fake_helper_to_safe_summary() -> str:
         except UnsafeOutputError:
             raise RuntimeError(_INTEGRATION_SAFE_ERROR_MSG)
 
-        # 11. Integration-level forbidden output scan
+        # 11. Append safe fake transport proof wording
+        # (no calls file path, no raw transport path, no raw JSON,
+        #  no method names/endpoints/record IDs)
+        safe_output = safe_output.rstrip() + "\n\nFake transport:\n  Used: yes\n"
+
+        # 12. Integration-level forbidden output scan
         if not _assert_integration_safe(safe_output):
             raise RuntimeError(_INTEGRATION_SAFE_ERROR_MSG)
 
-        # 12. Return safe output
+        # 13. Return safe output
         return safe_output
 
     finally:
