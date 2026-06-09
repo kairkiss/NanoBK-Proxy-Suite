@@ -1,5 +1,37 @@
 # Changelog
 
+## v2.2.26 — Owner-Approved Manual One-Record Live Test Plan
+
+### Added
+
+- Added `docs/validation/dns-apply-owner-approved-manual-one-record-live-test-plan-v2.2.26.md`, a docs-only owner-approved manual one-record live test plan.
+- Added `tests/v2.2.26-owner-approved-manual-live-plan-contract.sh` to statically validate required sections, placeholders, approval timing, three-layer separation, credential handling, one-record policy, pre-check, preview, post-check, redacted evidence, rollback, stop conditions, success/failure criteria, public UX block, and forbidden raw value patterns.
+
+### Safety
+
+- v2.2.26 is docs-only.
+- No helper invocation is performed.
+- No Cloudflare API calls are performed.
+- No DNS records are created, updated, or deleted.
+- No real env files are read.
+- The document does not permit actual live mutation.
+- Public CLI, Bot, Web, installer apply, tag, and release remain blocked.
+
+### Not Changed
+
+- No changes to `lib/`.
+- No public `bin/nanobk` integration.
+- No beginner console apply button.
+- No Bot/Web apply button.
+- No installer behavior changes.
+- No real Cloudflare calls.
+- No real DNS mutation.
+- No DNS-01 implementation.
+- No Tunnel/Access implementation.
+- No real `/etc` writes.
+- No real rollback.
+- No release tag.
+
 ## v2.2.25-polish — Fix Skeleton Ambiguous Classifier Semantics
 
 ### Fixed
