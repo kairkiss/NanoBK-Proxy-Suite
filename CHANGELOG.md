@@ -1,5 +1,30 @@
 # Changelog
 
+## v2.2.16-polish — Fix Safe Renderer Failed Count Honesty
+
+### Fixed
+
+- Updated `lib/nanobk_cf_dns_apply_safe_renderer.py` so failed helper results are reflected in the normalized safe model's `Failed` count.
+- Strengthened `tests/v2.2.16-dns-apply-safe-renderer.sh` to assert partial/failed summaries show nonzero failed counts and applied summaries show `Failed: 0`.
+
+### Not Changed
+
+- No changes to `lib/nanobk_cf_dns_apply.py`.
+- No changes to `lib/nanobk_cf_dns_apply_ux_mock.py`.
+- No changes to `lib/nanobk_cf_dns_apply_helper_boundary_mock.py`.
+- No public `bin/nanobk` integration.
+- No beginner console apply button.
+- No Bot/Web apply button.
+- No installer behavior changes.
+- No real Cloudflare calls.
+- No real DNS mutation.
+- No DNS apply execution against real transport.
+- No DNS-01 implementation.
+- No Tunnel/Access implementation.
+- No real `/etc` writes.
+- No real rollback.
+- No release tag.
+
 ## v2.2.16 — Beginner-safe DNS Apply Renderer Mock
 
 ### Added

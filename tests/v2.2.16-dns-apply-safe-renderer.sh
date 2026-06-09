@@ -191,6 +191,7 @@ raw = json.loads('''$RAW_APPLIED''')
 print(render_from_helper_json(raw, 'fake_only'))
 " 2>&1)
 assert_contains "$D1" "Status: applied" "D1: applied status"
+assert_contains "$D1" "Failed: 0" "D1b: applied shows Failed: 0"
 
 # D2. Conflict status
 RAW_CONFLICT='{"ok": false, "dryRun": false, "checkMode": false, "actions": [{"recordType": "A", "name": "x", "plannedContent": "y", "action": "fail_conflict", "message": "conflict"}], "results": []}'
@@ -213,6 +214,7 @@ raw = json.loads('''$RAW_PARTIAL''')
 print(render_from_helper_json(raw, 'fake_only'))
 " 2>&1)
 assert_contains "$D3" "Status: partial" "D3: partial status"
+assert_contains "$D3" "Failed: 1" "D3b: partial shows Failed: 1"
 
 # D4. Failed status
 RAW_FAILED='{"ok": false, "dryRun": false, "checkMode": false, "actions": [{"recordType": "A", "name": "x", "plannedContent": "y", "action": "create", "message": "m"}], "results": [{"recordType": "A", "name": "x", "action": "create", "success": false, "message": "fail"}]}'
@@ -224,6 +226,7 @@ raw = json.loads('''$RAW_FAILED''')
 print(render_from_helper_json(raw, 'fake_only'))
 " 2>&1)
 assert_contains "$D4" "Status: failed" "D4: failed status"
+assert_contains "$D4" "Failed: 1" "D4b: failed shows Failed: 1"
 
 # D5. Ready status (dry-run with no mutations)
 READY='{"ok": true, "dryRun": true, "checkMode": false, "actions": [{"recordType": "A", "name": "x", "plannedContent": "y", "action": "noop", "message": "m"}], "results": []}'

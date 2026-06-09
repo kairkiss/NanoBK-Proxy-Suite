@@ -126,6 +126,9 @@ def normalize_helper_json(raw: dict, mode: str = _MODE_FAKE_ONLY) -> dict:
         else:
             result_failed += 1
 
+    # Reflect failed results in action_counts for honest summary
+    action_counts["failed"] = result_failed
+
     # Determine status
     has_conflicts = action_counts["conflict"] > 0
     has_failures = result_failed > 0
