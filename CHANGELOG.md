@@ -1,5 +1,39 @@
 # Changelog
 
+## v2.2.25 — Controlled Live Wrapper Skeleton Fake Transport
+
+### Added
+
+- Added `lib/nanobk_cf_dns_apply_controlled_live_wrapper_skeleton_fake.py`, a non-public fake-transport-only controlled live wrapper skeleton.
+- Added safe static fixtures under `tests/fixtures/v2.2.25/` for fake-verified, future-ready, blocked, multi-failure, and uncertain skeleton scenarios.
+- Added `tests/v2.2.25-controlled-live-wrapper-skeleton-fake.sh` to validate ordered gates, fake helper capture, fake helper schema, fake post-check, classifier, safe renderer, redaction, first-failure semantics, output safety, and public UX hard block.
+
+### Safety
+
+- v2.2.25 is fake-transport-only.
+- No real helper invocation is performed.
+- No Cloudflare API calls are performed.
+- No DNS records are created, updated, or deleted.
+- No real env files are read.
+- `fake_transport_verified` does not mean live verified.
+- `ready_for_owner_approved_future_live_plan` does not allow live mutation.
+- Actual live tests, live Cloudflare calls, real DNS mutation, and public apply remain blocked.
+
+### Not Changed
+
+- No changes to existing DNS apply helper modules.
+- No public `bin/nanobk` integration.
+- No beginner console apply button.
+- No Bot/Web apply button.
+- No installer behavior changes.
+- No real Cloudflare calls.
+- No real DNS mutation.
+- No DNS-01 implementation.
+- No Tunnel/Access implementation.
+- No real `/etc` writes.
+- No real rollback.
+- No release tag.
+
 ## v2.2.24-polish — Classify Malformed Placeholder Input as Uncertain
 
 ### Fixed
