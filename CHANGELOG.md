@@ -1,5 +1,34 @@
 # Changelog
 
+## v2.2.13 — Fake-only DNS Apply Helper Boundary Design
+
+### Documentation
+
+- Added `docs/planning-v2.2.13-fake-only-dns-apply-helper-boundary.md`.
+- Defines the safety boundary for any future hidden/test-only fake-only DNS Apply helper invocation prototype.
+- Documents low-level helper transport risk, raw output risk, strict fake transport preflight, sterile subprocess isolation, captured stdout/stderr, strict JSON allowlist, failure contract, and forbidden output fields.
+- Records that real DNS mutation, real Cloudflare mutation, public `bin/nanobk` integration, beginner console apply button, Bot/Web apply button, and installer silent apply remain blocked.
+- Notes v2.2.8 fixture wording drift and recommends fixing it before any future helper invocation prototype.
+
+### Not Changed
+
+- No runtime code changes.
+- No test or fixture changes.
+- No public `bin/nanobk` integration.
+- No beginner console apply button.
+- No Bot/Web apply button.
+- No installer behavior changes.
+- No real Cloudflare calls.
+- No real DNS mutation.
+- No DNS apply execution against real transport.
+- No fake-helper invocation implementation.
+- No invocation of low-level `lib/nanobk_cf_dns_apply.py`.
+- No DNS-01 implementation.
+- No Tunnel/Access implementation.
+- No real `/etc` writes.
+- No real rollback.
+- No release tag.
+
 ## v2.2.12 — Fake DNS Apply UX Wrapper Closeout Record
 
 ### Documentation
