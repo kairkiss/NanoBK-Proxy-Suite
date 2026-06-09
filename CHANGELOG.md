@@ -1,5 +1,32 @@
 # Changelog
 
+## v2.2.9 — DNS Apply UX Integration Scope Decision
+
+### Documentation
+
+- Added `docs/planning-v2.2.9-dns-apply-ux-integration-scope.md`.
+- Records that v2.2.9 chooses a docs-only integration scope decision for DNS apply beginner UX.
+- Documents why current low-level `cf dns apply` and v2.2.8 fixtures are not enough for real beginner-console DNS mutation.
+- Evaluates docs-only, mock-only, fake-transport-only wrapper, and real Cloudflare mutation UX options.
+- Defines v2.2.10 as a possible fake-transport-only wrapper step with fail-closed real-transport protection.
+- Records that real DNS mutation, beginner console apply button, Bot/Web apply button, and installer/Full Wizard silent apply remain rejected.
+
+### Not Changed
+
+- No runtime code changes.
+- No CLI behavior changes.
+- No installer behavior changes.
+- No Bot/Web behavior changes.
+- No test or fixture changes.
+- No DNS mutation.
+- No Cloudflare mutation.
+- No DNS apply execution.
+- No DNS-01 implementation.
+- No Tunnel/Access implementation.
+- No real `/etc` writes.
+- No real rollback.
+- No release tag.
+
 ## v2.2.8 — DNS Apply Beginner UX Mock and Redaction Static Tests
 
 ### Added
