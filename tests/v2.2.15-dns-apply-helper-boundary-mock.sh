@@ -297,6 +297,76 @@ assert_not_contains "$E7" "recordId" "E7: no recordId in output"
 echo ""
 
 # ══════════════════════════════════════════════════════════════════════════════
+# E2. Multi-object JSON parser
+# ══════════════════════════════════════════════════════════════════════════════
+
+echo "--- E2. Multi-object JSON parser ---"
+echo ""
+
+# E2a. Module uses JSONDecoder or _iter_json_objects
+assert_contains "$MODULE_SOURCE" "JSONDecoder" "E2a: module uses JSONDecoder"
+
+# E2b. Module has _iter_json_objects helper
+assert_contains "$MODULE_SOURCE" "_iter_json_objects" "E2b: module has _iter_json_objects"
+
+# E2c. Old backwards-prefix parsing is removed
+assert_not_contains "$MODULE_SOURCE" "Walk backwards" "E2c: old backwards parsing removed"
+assert_not_contains "$MODULE_SOURCE" "stdout[i] == '}'" "E2c: old brace-walk removed"
+
+# E2d. Parser selects object with results via inline Python test
+PARSER_TEST=$(python3 -c "
+import sys, json
+sys.path.insert(0, '$ROOT/lib')
+from nanobk_cf_dns_apply_helper_boundary_mock import parse_helper_json
+
+# Two JSON objects: plan (empty results) + results (non-empty results)
+multi = '{\"ok\": true, \"dryRun\": false, \"checkMode\": false, \"actions\": [{\"recordType\": \"A\", \"name\": \"x\", \"plannedContent\": \"y\", \"action\": \"create\", \"message\": \"planned\"}], \"results\": []} {\"ok\": true, \"dryRun\": false, \"checkMode\": false, \"actions\": [{\"recordType\": \"A\", \"name\": \"x\", \"plannedContent\": \"y\", \"action\": \"create\", \"message\": \"planned\"}], \"results\": [{\"recordType\": \"A\", \"name\": \"x\", \"action\": \"create\", \"success\": true, \"message\": \"created\", \"recordId\": \"rec-001\"}]}'
+result = parse_helper_json(multi)
+if result and isinstance(result.get('results'), list) and len(result['results']) == 1 and result['results'][0].get('success') is True:
+    print('PASS')
+else:
+    print('FAIL')
+" 2>&1)
+if [[ "$PARSER_TEST" == "PASS" ]]; then
+  pass "E2d: parser selects object with results"
+else
+  fail "E2d: parser should select object with results"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# E2e. Parser rejects garbage
+GARBAGE_TEST=$(python3 -c "
+import sys
+sys.path.insert(0, '$ROOT/lib')
+from nanobk_cf_dns_apply_helper_boundary_mock import parse_helper_json
+r = parse_helper_json('not json')
+print('PASS' if r is None else 'FAIL')
+" 2>&1)
+if [[ "$GARBAGE_TEST" == "PASS" ]]; then
+  pass "E2e: parser rejects garbage"
+else
+  fail "E2e: parser should reject garbage"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# E2f. Parser rejects trailing garbage after valid JSON
+TRAILING_TEST=$(python3 -c "
+import sys
+sys.path.insert(0, '$ROOT/lib')
+from nanobk_cf_dns_apply_helper_boundary_mock import parse_helper_json
+r = parse_helper_json('{\"ok\": true} trailing garbage')
+print('PASS' if r is None else 'FAIL')
+" 2>&1)
+if [[ "$TRAILING_TEST" == "PASS" ]]; then
+  pass "E2f: parser rejects trailing garbage"
+else
+  fail "E2f: parser should reject trailing garbage"
+  ERRORS=$((ERRORS + 1))
+fi
+
+echo ""
+
+# ══════════════════════════════════════════════════════════════════════════════
 # F. Controlled valid fake invocation
 # ══════════════════════════════════════════════════════════════════════════════
 

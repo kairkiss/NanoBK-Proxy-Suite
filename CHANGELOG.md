@@ -1,5 +1,31 @@
 # Changelog
 
+## v2.2.15-polish-2 — Parse Final Helper JSON Object Strictly
+
+### Hardened
+
+- Strengthened `lib/nanobk_cf_dns_apply_helper_boundary_mock.py` so multi-object helper stdout is parsed as a sequence of complete JSON objects using `json.JSONDecoder().raw_decode()`.
+- Ensures the boundary mock selects the final result JSON object instead of accidentally parsing an earlier plan JSON object.
+- Added strict trailing-garbage rejection: any non-whitespace after the last JSON object causes parse failure.
+- Added v2.2.15 tests proving the parser selects the object with `results[]`, rejects non-JSON garbage, rejects trailing garbage, and keeps raw helper JSON out of user-facing output.
+
+### Not Changed
+
+- No changes to `lib/nanobk_cf_dns_apply.py`.
+- No changes to `lib/nanobk_cf_dns_apply_ux_mock.py`.
+- No public `bin/nanobk` integration.
+- No beginner console apply button.
+- No Bot/Web apply button.
+- No installer behavior changes.
+- No real Cloudflare calls.
+- No real DNS mutation.
+- No DNS apply execution against real transport.
+- No DNS-01 implementation.
+- No Tunnel/Access implementation.
+- No real `/etc` writes.
+- No real rollback.
+- No release tag.
+
 ## v2.2.15-polish — Harden Fake Helper Boundary Sentinel and JSON/Stderr Gates
 
 ### Hardened

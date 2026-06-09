@@ -188,40 +188,69 @@ def run_helper(
 
 # ── Output parsing ───────────────────────────────────────────────────────────
 
+def _iter_json_objects(text: str) -> list[dict]:
+    """Parse all complete JSON dict objects from text using raw_decode.
+
+    Returns a list of valid dict objects that pass top-level key allowlist.
+    Strict mode: rejects any trailing non-whitespace after the last object.
+    Stops on first parse error or non-dict object.
+    """
+    decoder = json.JSONDecoder()
+    idx = 0
+    objs: list[dict] = []
+    text = text.strip()
+
+    while idx < len(text):
+        # Skip whitespace between objects
+        while idx < len(text) and text[idx].isspace():
+            idx += 1
+        if idx >= len(text):
+            break
+
+        try:
+            obj, next_idx = decoder.raw_decode(text, idx)
+        except json.JSONDecodeError:
+            return []
+
+        if not isinstance(obj, dict):
+            return []
+
+        # Top-level key allowlist
+        if set(obj.keys()) - _ALLOWED_HELPER_KEYS:
+            return []
+
+        objs.append(obj)
+        idx = next_idx
+
+    # Strict: reject trailing non-whitespace
+    # (idx should have consumed all non-whitespace text)
+    remaining = text[idx:].strip()
+    if remaining:
+        return []
+
+    return objs
+
+
 def parse_helper_json(stdout: str) -> dict | None:
     """Parse helper JSON output. Returns dict or None on failure.
 
     The low-level helper may output multiple JSON objects (plan + results).
-    We parse the last valid JSON object.
+    We collect all valid JSON dict objects and prefer the last one that
+    contains a non-empty results list (the final execution result).
+    Falls back to the last valid object if none have results.
     """
-    stdout = stdout.strip()
-    if not stdout:
+    objs = _iter_json_objects(stdout)
+    if not objs:
         return None
 
-    # Try parsing as single JSON first
-    try:
-        data = json.loads(stdout)
-        if isinstance(data, dict):
-            unexpected = set(data.keys()) - _ALLOWED_HELPER_KEYS
-            if not unexpected:
-                return data
-    except (json.JSONDecodeError, ValueError):
-        pass
+    # Prefer the last object with non-empty results (final execution result)
+    for obj in reversed(objs):
+        results = obj.get("results")
+        if isinstance(results, list) and len(results) > 0:
+            return obj
 
-    # Try finding the last valid JSON object (helper may output plan + results)
-    # Walk backwards looking for valid JSON
-    for i in range(len(stdout) - 1, -1, -1):
-        if stdout[i] == '}':
-            try:
-                data = json.loads(stdout[:i + 1])
-                if isinstance(data, dict):
-                    unexpected = set(data.keys()) - _ALLOWED_HELPER_KEYS
-                    if not unexpected:
-                        return data
-            except (json.JSONDecodeError, ValueError):
-                continue
-
-    return None
+    # Fall back to last valid object
+    return objs[-1]
 
 
 def validate_helper_schema(data: dict) -> bool:
