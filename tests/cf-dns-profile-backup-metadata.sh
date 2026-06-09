@@ -288,6 +288,44 @@ assert_not_contains "$META_CONTENT" "workers.dev" "no workers.dev in metadata"
 
 echo ""
 
+# ── 9b. Backup metadata failure fails closed ───────────────────────────────
+
+echo "--- 9b. Backup metadata failure fails closed ---"
+echo ""
+
+META_FAIL_ROOT="$TEST_TMPDIR/meta-fail-root"
+setup_fake_root "$META_FAIL_ROOT"
+write_source_profile "$META_FAIL_ROOT"
+
+META_FAIL_OUT=$(NANOBK_TEST_FORCE_METADATA_WRITE_FAIL=1 run_backup "$META_FAIL_ROOT" --json 2>&1 || true)
+assert_contains "$META_FAIL_OUT" '"ok": false' "metadata failure: ok false"
+assert_contains "$META_FAIL_OUT" '"metadata_created": false' "metadata failure: metadata_created false"
+assert_contains "$META_FAIL_OUT" '"backup_created": false' "metadata failure: backup_created false (cleaned up)"
+assert_contains "$META_FAIL_OUT" "metadata" "metadata failure: error mentions metadata"
+
+# Verify backup file was cleaned up
+META_FAIL_BACKUP=$(ls "$META_FAIL_ROOT/etc/nanobk/backups/"*.bak 2>/dev/null | head -1 || true)
+if [[ -z "$META_FAIL_BACKUP" ]]; then
+  pass "metadata failure: backup file cleaned up"
+else
+  fail "metadata failure: backup file still exists"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# Verify full sha256 not in output
+if echo "$META_FAIL_OUT" | grep -Eq '[a-f0-9]{64}'; then
+  fail "metadata failure: no full sha256 in output"
+  ERRORS=$((ERRORS + 1))
+else
+  pass "metadata failure: no full sha256 in output"
+fi
+
+# Verify no raw profile content
+assert_not_contains "$META_FAIL_OUT" "203.0.113.10" "metadata failure: no raw IP"
+assert_not_contains "$META_FAIL_OUT" "example.com" "metadata failure: no raw zone"
+
+echo ""
+
 # ── 10. Rollback preview validates metadata and succeeds ────────────────────
 
 echo "--- 10. Rollback preview with valid metadata ---"

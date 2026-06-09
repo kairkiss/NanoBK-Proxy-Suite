@@ -94,6 +94,51 @@ write_backup_profile() {
   chmod 600 "$root/etc/nanobk/backups/$backup_id"
 }
 
+write_metadata_for_backup() {
+  local root="$1"
+  local backup_id="$2"
+  local content="${3:-$PROFILE_B}"
+  local backup_path="$root/etc/nanobk/backups/$backup_id"
+  local meta_path="${backup_path}.metadata.json"
+  local backup_sha
+  backup_sha=$(shasum -a 256 "$backup_path" 2>/dev/null | awk '{print $1}')
+  local source_path="$root/etc/nanobk/cloudflare-dns-profile.json"
+  local source_sha
+  source_sha=$(shasum -a 256 "$source_path" 2>/dev/null | awk '{print $1}')
+  local source_size
+  source_size=$(stat -f '%z' "$source_path" 2>/dev/null || stat -c '%s' "$source_path" 2>/dev/null || echo "0")
+  local backup_size
+  backup_size=$(stat -f '%z' "$backup_path" 2>/dev/null || stat -c '%s' "$backup_path" 2>/dev/null || echo "0")
+  cat > "$meta_path" <<METAEOF
+{
+  "backup_byte_for_byte": true,
+  "backup_file_mode": "600",
+  "backup_id": "$backup_id",
+  "backup_purpose": "normal",
+  "backup_sha256": "$backup_sha",
+  "backup_sha256_fingerprint": "${backup_sha:0:8}",
+  "backup_size_bytes": $backup_size,
+  "created_at_utc": "2026-06-08T12:00:00Z",
+  "created_by_command": "nanobk cf dns profile backup",
+  "created_under_fake_root": true,
+  "metadata_schema_version": "1",
+  "nanobk_version": "2.1.1",
+  "profile_fields_redacted": {},
+  "profile_hostname_redacted": "proxy.ex***e.com",
+  "profile_schema_marker": "cloudflare_dns_profile_v1",
+  "real_etc_runtime": false,
+  "source_file_mode": "600",
+  "source_logical_path": "/etc/nanobk/cloudflare-dns-profile.json",
+  "source_owner_expected": "root:root",
+  "source_path_kind": "production",
+  "source_sha256": "$source_sha",
+  "source_sha256_fingerprint": "${source_sha:0:8}",
+  "source_size_bytes": $source_size
+}
+METAEOF
+  chmod 600 "$meta_path"
+}
+
 run_execute() {
   local extra_args=()
   local fake_root="$FAKE_ROOT"
@@ -259,6 +304,7 @@ NOCONF_ROOT="$TEST_TMPDIR/noconf"
 setup_fake_root "$NOCONF_ROOT"
 write_current_profile "$NOCONF_ROOT"
 write_backup_profile "$NOCONF_ROOT" "$VALID_BACKUP_ID"
+write_metadata_for_backup "$NOCONF_ROOT" "$VALID_BACKUP_ID"
 NO_CONF=$(NANOBK_TEST_PRODUCTION_PROFILE_ROOT="$NOCONF_ROOT" NANOBK_TEST_ALLOW_PRODUCTION_ROOT=1 NANOBK_TEST_TMPDIR="$TEST_TMPDIR" \
   bash "$NANOBK" --repo-dir "$ROOT" cf dns profile rollback execute \
   --backup-id "$VALID_BACKUP_ID" \
@@ -280,6 +326,7 @@ MISMATCH_ROOT="$TEST_TMPDIR/mismatch"
 setup_fake_root "$MISMATCH_ROOT"
 write_current_profile "$MISMATCH_ROOT"
 write_backup_profile "$MISMATCH_ROOT" "$VALID_BACKUP_ID"
+write_metadata_for_backup "$MISMATCH_ROOT" "$VALID_BACKUP_ID"
 MISMATCH=$(NANOBK_TEST_PRODUCTION_PROFILE_ROOT="$MISMATCH_ROOT" NANOBK_TEST_ALLOW_PRODUCTION_ROOT=1 NANOBK_TEST_TMPDIR="$TEST_TMPDIR" \
   bash "$NANOBK" --repo-dir "$ROOT" cf dns profile rollback execute \
   --backup-id "$VALID_BACKUP_ID" \
@@ -303,6 +350,7 @@ NOPHRASE_ROOT="$TEST_TMPDIR/nophrase"
 setup_fake_root "$NOPHRASE_ROOT"
 write_current_profile "$NOPHRASE_ROOT"
 write_backup_profile "$NOPHRASE_ROOT" "$VALID_BACKUP_ID"
+write_metadata_for_backup "$NOPHRASE_ROOT" "$VALID_BACKUP_ID"
 NO_PHRASE=$(NANOBK_TEST_PRODUCTION_PROFILE_ROOT="$NOPHRASE_ROOT" NANOBK_TEST_ALLOW_PRODUCTION_ROOT=1 NANOBK_TEST_TMPDIR="$TEST_TMPDIR" \
   bash "$NANOBK" --repo-dir "$ROOT" cf dns profile rollback execute \
   --backup-id "$VALID_BACKUP_ID" \
@@ -324,6 +372,7 @@ WRONGPHRASE_ROOT="$TEST_TMPDIR/wrongphrase"
 setup_fake_root "$WRONGPHRASE_ROOT"
 write_current_profile "$WRONGPHRASE_ROOT"
 write_backup_profile "$WRONGPHRASE_ROOT" "$VALID_BACKUP_ID"
+write_metadata_for_backup "$WRONGPHRASE_ROOT" "$VALID_BACKUP_ID"
 WRONG_PHRASE=$(NANOBK_TEST_PRODUCTION_PROFILE_ROOT="$WRONGPHRASE_ROOT" NANOBK_TEST_ALLOW_PRODUCTION_ROOT=1 NANOBK_TEST_TMPDIR="$TEST_TMPDIR" \
   bash "$NANOBK" --repo-dir "$ROOT" cf dns profile rollback execute \
   --backup-id "$VALID_BACKUP_ID" \
@@ -382,6 +431,7 @@ setup_fake_root "$MODE_CUR_ROOT"
 write_current_profile "$MODE_CUR_ROOT"
 chmod 644 "$MODE_CUR_ROOT/etc/nanobk/cloudflare-dns-profile.json"
 write_backup_profile "$MODE_CUR_ROOT" "$VALID_BACKUP_ID"
+write_metadata_for_backup "$MODE_CUR_ROOT" "$VALID_BACKUP_ID"
 MODE_CUR=$(NANOBK_TEST_PRODUCTION_PROFILE_ROOT="$MODE_CUR_ROOT" NANOBK_TEST_ALLOW_PRODUCTION_ROOT=1 NANOBK_TEST_TMPDIR="$TEST_TMPDIR" \
   bash "$NANOBK" --repo-dir "$ROOT" cf dns profile rollback execute \
   --backup-id "$VALID_BACKUP_ID" \
@@ -453,6 +503,7 @@ BMODE_ROOT="$TEST_TMPDIR/bmode"
 setup_fake_root "$BMODE_ROOT"
 write_current_profile "$BMODE_ROOT"
 write_backup_profile "$BMODE_ROOT" "$VALID_BACKUP_ID"
+write_metadata_for_backup "$BMODE_ROOT" "$VALID_BACKUP_ID"
 chmod 644 "$BMODE_ROOT/etc/nanobk/backups/$VALID_BACKUP_ID"
 BMODE=$(NANOBK_TEST_PRODUCTION_PROFILE_ROOT="$BMODE_ROOT" NANOBK_TEST_ALLOW_PRODUCTION_ROOT=1 NANOBK_TEST_TMPDIR="$TEST_TMPDIR" \
   bash "$NANOBK" --repo-dir "$ROOT" cf dns profile rollback execute \
@@ -475,6 +526,7 @@ MISMATCH_ROOT="$TEST_TMPDIR/hostname-mismatch"
 setup_fake_root "$MISMATCH_ROOT"
 write_current_profile "$MISMATCH_ROOT"
 write_backup_profile "$MISMATCH_ROOT" "$VALID_BACKUP_ID" '{"zoneName":"other.com","nodePrefix":"web","ipv4":"203.0.113.10","defaultProxied":false}'
+write_metadata_for_backup "$MISMATCH_ROOT" "$VALID_BACKUP_ID" '{"zoneName":"other.com","nodePrefix":"web","ipv4":"203.0.113.10","defaultProxied":false}'
 HOST_MISMATCH=$(NANOBK_TEST_PRODUCTION_PROFILE_ROOT="$MISMATCH_ROOT" NANOBK_TEST_ALLOW_PRODUCTION_ROOT=1 NANOBK_TEST_TMPDIR="$TEST_TMPDIR" \
   bash "$NANOBK" --repo-dir "$ROOT" cf dns profile rollback execute \
   --backup-id "$VALID_BACKUP_ID" \
@@ -547,6 +599,7 @@ VALID_ROOT="$TEST_TMPDIR/valid-root"
 setup_fake_root "$VALID_ROOT"
 write_current_profile "$VALID_ROOT" "$PROFILE_A"
 write_backup_profile "$VALID_ROOT" "$VALID_BACKUP_ID" "$PROFILE_B"
+write_metadata_for_backup "$VALID_ROOT" "$VALID_BACKUP_ID" "$PROFILE_B"
 
 VALID_OUT=$(NANOBK_TEST_PRODUCTION_PROFILE_ROOT="$VALID_ROOT" NANOBK_TEST_ALLOW_PRODUCTION_ROOT=1 NANOBK_TEST_TMPDIR="$TEST_TMPDIR" \
   bash "$NANOBK" --repo-dir "$ROOT" cf dns profile rollback execute \
@@ -580,6 +633,9 @@ assert_contains "$VALID_OUT" '"confirmation_matched": true' "confirmation_matche
 assert_contains "$VALID_OUT" '"rollback_phrase_required": true' "rollback_phrase_required"
 assert_contains "$VALID_OUT" '"rollback_phrase_matched": true' "rollback_phrase_matched"
 assert_contains "$VALID_OUT" '"production_fake_root": true' "production_fake_root"
+assert_contains "$VALID_OUT" '"backup_metadata_validated": true' "backup_metadata_validated"
+assert_contains "$VALID_OUT" '"pre_rollback_metadata_created": true' "pre_rollback_metadata_created"
+assert_contains "$VALID_OUT" '"pre_rollback_metadata_validated": true' "pre_rollback_metadata_validated"
 
 # Verify final profile byte-for-byte equals PROFILE_B
 FINAL_PROFILE="$VALID_ROOT/etc/nanobk/cloudflare-dns-profile.json"
@@ -631,6 +687,22 @@ if [[ -n "$PRE_BACKUP" ]]; then
     fail "pre-rollback backup mode is $PRE_MODE (expected 600)"
     ERRORS=$((ERRORS + 1))
   fi
+
+  # Check pre-rollback metadata exists
+  PRE_META="$VALID_ROOT/etc/nanobk/backups/${PRE_BACKUP}.metadata.json"
+  if [[ -f "$PRE_META" ]]; then
+    pass "pre-rollback metadata file exists"
+    PRE_META_MODE=$(stat -f '%Lp' "$PRE_META" 2>/dev/null || stat -c '%a' "$PRE_META" 2>/dev/null)
+    if [[ "$PRE_META_MODE" == "600" ]]; then
+      pass "pre-rollback metadata mode is 0600"
+    else
+      fail "pre-rollback metadata mode is $PRE_META_MODE (expected 600)"
+      ERRORS=$((ERRORS + 1))
+    fi
+  else
+    fail "pre-rollback metadata file not found"
+    ERRORS=$((ERRORS + 1))
+  fi
 else
   fail "pre-rollback backup not found"
   ERRORS=$((ERRORS + 1))
@@ -674,8 +746,33 @@ assert_contains "$VALID_TEXT" "replaced with selected backup" "text replaced mes
 assert_contains "$VALID_TEXT" "Pre-rollback backup was created" "text pre-backup message"
 assert_contains "$VALID_TEXT" "DNS has not been applied" "text no DNS apply"
 assert_contains "$VALID_TEXT" "Cloudflare was not called" "text no Cloudflare"
+assert_contains "$VALID_TEXT" "Backup metadata validated" "text backup metadata validated"
+assert_contains "$VALID_TEXT" "Pre-rollback backup metadata created" "text pre-rollback metadata created"
 assert_not_contains "$VALID_TEXT" "203.0.113.10" "text no raw current IP"
 assert_not_contains "$VALID_TEXT" "198.51.100.20" "text no raw backup IP"
+
+echo ""
+
+# ── O2. Legacy backup without metadata rejected ────────────────────────────
+
+echo "--- O2. Legacy backup without metadata ---"
+echo ""
+
+LEGACY_ROOT="$TEST_TMPDIR/legacy-root"
+setup_fake_root "$LEGACY_ROOT"
+write_current_profile "$LEGACY_ROOT" "$PROFILE_A"
+write_backup_profile "$LEGACY_ROOT" "$VALID_BACKUP_ID" "$PROFILE_B"
+# Intentionally do NOT write metadata
+LEGACY_OUT=$(NANOBK_TEST_PRODUCTION_PROFILE_ROOT="$LEGACY_ROOT" NANOBK_TEST_ALLOW_PRODUCTION_ROOT=1 NANOBK_TEST_TMPDIR="$TEST_TMPDIR" \
+  bash "$NANOBK" --repo-dir "$ROOT" cf dns profile rollback execute \
+  --backup-id "$VALID_BACKUP_ID" \
+  --allow-production-output \
+  --confirm-hostname proxy.example.com \
+  --confirm-rollback-profile "$ROLLBACK_PHRASE" \
+  --yes --json 2>&1 || true)
+assert_contains "$LEGACY_OUT" '"ok": false' "legacy backup execute fails"
+assert_contains "$LEGACY_OUT" "metadata" "legacy error mentions metadata"
+assert_not_contains "$LEGACY_OUT" '"profile_replaced": true' "legacy: no replace"
 
 echo ""
 
@@ -733,6 +830,7 @@ QPA_ROOT="$TEST_TMPDIR/qpa"
 setup_fake_root "$QPA_ROOT"
 write_current_profile "$QPA_ROOT"
 write_backup_profile "$QPA_ROOT" "$VALID_BACKUP_ID"
+write_metadata_for_backup "$QPA_ROOT" "$VALID_BACKUP_ID"
 QPA_OUT=$(NANOBK_TEST_FORCE_ROLLBACK_PREBACKUP_FAIL=1 \
   NANOBK_TEST_PRODUCTION_PROFILE_ROOT="$QPA_ROOT" NANOBK_TEST_ALLOW_PRODUCTION_ROOT=1 NANOBK_TEST_TMPDIR="$TEST_TMPDIR" \
   bash "$NANOBK" --repo-dir "$ROOT" cf dns profile rollback execute \
@@ -751,6 +849,7 @@ QPB_ROOT="$TEST_TMPDIR/qpb"
 setup_fake_root "$QPB_ROOT"
 write_current_profile "$QPB_ROOT"
 write_backup_profile "$QPB_ROOT" "$VALID_BACKUP_ID"
+write_metadata_for_backup "$QPB_ROOT" "$VALID_BACKUP_ID"
 QPB_OUT=$(NANOBK_TEST_FORCE_ROLLBACK_AFTER_PREBACKUP_FAIL=1 \
   NANOBK_TEST_PRODUCTION_PROFILE_ROOT="$QPB_ROOT" NANOBK_TEST_ALLOW_PRODUCTION_ROOT=1 NANOBK_TEST_TMPDIR="$TEST_TMPDIR" \
   bash "$NANOBK" --repo-dir "$ROOT" cf dns profile rollback execute \
@@ -770,6 +869,7 @@ QPC_ROOT="$TEST_TMPDIR/qpc"
 setup_fake_root "$QPC_ROOT"
 write_current_profile "$QPC_ROOT"
 write_backup_profile "$QPC_ROOT" "$VALID_BACKUP_ID"
+write_metadata_for_backup "$QPC_ROOT" "$VALID_BACKUP_ID"
 QPC_OUT=$(NANOBK_TEST_FORCE_ROLLBACK_TEMP_WRITE_FAIL=1 \
   NANOBK_TEST_PRODUCTION_PROFILE_ROOT="$QPC_ROOT" NANOBK_TEST_ALLOW_PRODUCTION_ROOT=1 NANOBK_TEST_TMPDIR="$TEST_TMPDIR" \
   bash "$NANOBK" --repo-dir "$ROOT" cf dns profile rollback execute \
@@ -786,6 +886,7 @@ QPD_ROOT="$TEST_TMPDIR/qpd"
 setup_fake_root "$QPD_ROOT"
 write_current_profile "$QPD_ROOT"
 write_backup_profile "$QPD_ROOT" "$VALID_BACKUP_ID"
+write_metadata_for_backup "$QPD_ROOT" "$VALID_BACKUP_ID"
 QPD_OUT=$(NANOBK_TEST_FORCE_ROLLBACK_AFTER_TEMP_WRITE_FAIL=1 \
   NANOBK_TEST_PRODUCTION_PROFILE_ROOT="$QPD_ROOT" NANOBK_TEST_ALLOW_PRODUCTION_ROOT=1 NANOBK_TEST_TMPDIR="$TEST_TMPDIR" \
   bash "$NANOBK" --repo-dir "$ROOT" cf dns profile rollback execute \
@@ -802,6 +903,7 @@ QPE_ROOT="$TEST_TMPDIR/qpe"
 setup_fake_root "$QPE_ROOT"
 write_current_profile "$QPE_ROOT"
 write_backup_profile "$QPE_ROOT" "$VALID_BACKUP_ID"
+write_metadata_for_backup "$QPE_ROOT" "$VALID_BACKUP_ID"
 QPE_OUT=$(NANOBK_TEST_FORCE_ROLLBACK_AFTER_REPLACE_VALIDATE_FAIL=1 \
   NANOBK_TEST_PRODUCTION_PROFILE_ROOT="$QPE_ROOT" NANOBK_TEST_ALLOW_PRODUCTION_ROOT=1 NANOBK_TEST_TMPDIR="$TEST_TMPDIR" \
   bash "$NANOBK" --repo-dir "$ROOT" cf dns profile rollback execute \
@@ -830,6 +932,7 @@ R1_ROOT="$TEST_TMPDIR/r1-change-before"
 setup_fake_root "$R1_ROOT"
 write_current_profile "$R1_ROOT" "$PROFILE_A"
 write_backup_profile "$R1_ROOT" "$VALID_BACKUP_ID" "$PROFILE_B"
+write_metadata_for_backup "$R1_ROOT" "$VALID_BACKUP_ID" "$PROFILE_B"
 
 # Record original current content for later comparison
 ORIGINAL_R1_CURRENT=$(cat "$R1_ROOT/etc/nanobk/cloudflare-dns-profile.json")

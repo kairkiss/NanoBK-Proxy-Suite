@@ -93,6 +93,54 @@ write_backup_profile() {
   chmod 600 "$root/etc/nanobk/backups/$backup_id"
 }
 
+write_metadata_for_backup() {
+  local root="$1"
+  local backup_id="$2"
+  local content="${3:-}"
+  if [[ -z "$content" ]]; then
+    content='{"zoneName":"example.com","nodePrefix":"proxy","ipv4":"198.51.100.20","defaultProxied":false}'
+  fi
+  local backup_path="$root/etc/nanobk/backups/$backup_id"
+  local meta_path="${backup_path}.metadata.json"
+  local backup_sha
+  backup_sha=$(shasum -a 256 "$backup_path" 2>/dev/null | awk '{print $1}')
+  local source_path="$root/etc/nanobk/cloudflare-dns-profile.json"
+  local source_sha
+  source_sha=$(shasum -a 256 "$source_path" 2>/dev/null | awk '{print $1}')
+  local source_size
+  source_size=$(stat -f '%z' "$source_path" 2>/dev/null || stat -c '%s' "$source_path" 2>/dev/null || echo "0")
+  local backup_size
+  backup_size=$(stat -f '%z' "$backup_path" 2>/dev/null || stat -c '%s' "$backup_path" 2>/dev/null || echo "0")
+  cat > "$meta_path" <<METAEOF
+{
+  "backup_byte_for_byte": true,
+  "backup_file_mode": "600",
+  "backup_id": "$backup_id",
+  "backup_purpose": "normal",
+  "backup_sha256": "$backup_sha",
+  "backup_sha256_fingerprint": "${backup_sha:0:8}",
+  "backup_size_bytes": $backup_size,
+  "created_at_utc": "2026-06-08T12:00:00Z",
+  "created_by_command": "nanobk cf dns profile backup",
+  "created_under_fake_root": true,
+  "metadata_schema_version": "1",
+  "nanobk_version": "2.1.1",
+  "profile_fields_redacted": {},
+  "profile_hostname_redacted": "proxy.ex***e.com",
+  "profile_schema_marker": "cloudflare_dns_profile_v1",
+  "real_etc_runtime": false,
+  "source_file_mode": "600",
+  "source_logical_path": "/etc/nanobk/cloudflare-dns-profile.json",
+  "source_owner_expected": "root:root",
+  "source_path_kind": "production",
+  "source_sha256": "$source_sha",
+  "source_sha256_fingerprint": "${source_sha:0:8}",
+  "source_size_bytes": $source_size
+}
+METAEOF
+  chmod 600 "$meta_path"
+}
+
 run_rollback() {
   local extra_args=()
   local fake_root="$FAKE_ROOT"
@@ -531,6 +579,7 @@ echo ""
 setup_fake_root "$FAKE_ROOT"
 write_current_profile "$FAKE_ROOT"
 write_backup_profile "$FAKE_ROOT" "$VALID_BACKUP_ID"
+write_metadata_for_backup "$FAKE_ROOT" "$VALID_BACKUP_ID"
 NO_CONF=$(NANOBK_TEST_PRODUCTION_PROFILE_ROOT="$FAKE_ROOT" NANOBK_TEST_ALLOW_PRODUCTION_ROOT=1 NANOBK_TEST_TMPDIR="$TEST_TMPDIR" \
   bash "$NANOBK" --repo-dir "$ROOT" cf dns profile rollback preview \
   --backup-id "$VALID_BACKUP_ID" \
@@ -544,6 +593,7 @@ assert_contains "$NO_CONF" "confirmation_matched" "missing confirm has confirmat
 setup_fake_root "$FAKE_ROOT"
 write_current_profile "$FAKE_ROOT"
 write_backup_profile "$FAKE_ROOT" "$VALID_BACKUP_ID"
+write_metadata_for_backup "$FAKE_ROOT" "$VALID_BACKUP_ID"
 MISMATCH=$(NANOBK_TEST_PRODUCTION_PROFILE_ROOT="$FAKE_ROOT" NANOBK_TEST_ALLOW_PRODUCTION_ROOT=1 NANOBK_TEST_TMPDIR="$TEST_TMPDIR" \
   bash "$NANOBK" --repo-dir "$ROOT" cf dns profile rollback preview \
   --backup-id "$VALID_BACKUP_ID" \
@@ -567,6 +617,7 @@ MISMATCH_ROOT="$TEST_TMPDIR/hostname-mismatch"
 setup_fake_root "$MISMATCH_ROOT"
 write_current_profile "$MISMATCH_ROOT"
 write_backup_profile "$MISMATCH_ROOT" "$VALID_BACKUP_ID" '{"zoneName":"other.com","nodePrefix":"web","ipv4":"203.0.113.10","defaultProxied":false}'
+write_metadata_for_backup "$MISMATCH_ROOT" "$VALID_BACKUP_ID" '{"zoneName":"other.com","nodePrefix":"web","ipv4":"203.0.113.10","defaultProxied":false}'
 HOST_MISMATCH=$(NANOBK_TEST_PRODUCTION_PROFILE_ROOT="$MISMATCH_ROOT" NANOBK_TEST_ALLOW_PRODUCTION_ROOT=1 NANOBK_TEST_TMPDIR="$TEST_TMPDIR" \
   bash "$NANOBK" --repo-dir "$ROOT" cf dns profile rollback preview \
   --backup-id "$VALID_BACKUP_ID" \
@@ -588,6 +639,7 @@ VALID_ROOT="$TEST_TMPDIR/valid-root"
 setup_fake_root "$VALID_ROOT"
 write_current_profile "$VALID_ROOT"
 write_backup_profile "$VALID_ROOT" "$VALID_BACKUP_ID"
+write_metadata_for_backup "$VALID_ROOT" "$VALID_BACKUP_ID"
 
 VALID_OUT=$(NANOBK_TEST_PRODUCTION_PROFILE_ROOT="$VALID_ROOT" NANOBK_TEST_ALLOW_PRODUCTION_ROOT=1 NANOBK_TEST_TMPDIR="$TEST_TMPDIR" \
   bash "$NANOBK" --repo-dir "$ROOT" cf dns profile rollback preview \
@@ -625,6 +677,26 @@ else
   fail "new backup file was created"
   ERRORS=$((ERRORS + 1))
 fi
+
+echo ""
+
+# ── K2. Legacy backup without metadata rejected ─────────────────────────────
+
+echo "--- K2. Legacy backup without metadata ---"
+echo ""
+
+LEGACY_ROOT="$TEST_TMPDIR/legacy-root"
+setup_fake_root "$LEGACY_ROOT"
+write_current_profile "$LEGACY_ROOT"
+write_backup_profile "$LEGACY_ROOT" "$VALID_BACKUP_ID"
+# Intentionally do NOT write metadata
+LEGACY_OUT=$(NANOBK_TEST_PRODUCTION_PROFILE_ROOT="$LEGACY_ROOT" NANOBK_TEST_ALLOW_PRODUCTION_ROOT=1 NANOBK_TEST_TMPDIR="$TEST_TMPDIR" \
+  bash "$NANOBK" --repo-dir "$ROOT" cf dns profile rollback preview \
+  --backup-id "$VALID_BACKUP_ID" \
+  --allow-production-output --confirm-hostname proxy.example.com \
+  --json 2>&1 || true)
+assert_contains "$LEGACY_OUT" '"ok": false' "legacy backup preview fails"
+assert_contains "$LEGACY_OUT" "metadata" "legacy error mentions metadata"
 
 echo ""
 

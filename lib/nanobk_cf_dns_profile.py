@@ -1626,6 +1626,41 @@ def run_backup(profile_path, allow_production, confirm_hostname):
         purpose="normal", created_by="nanobk cf dns profile backup"
     )
 
+    # If metadata creation failed, fail closed and try cleanup
+    if meta_err:
+        # Best-effort cleanup: delete backup file and any partial metadata
+        cleanup_ok = True
+        try:
+            if os.path.exists(backup_path):
+                os.unlink(backup_path)
+        except OSError:
+            cleanup_ok = False
+        try:
+            meta_path = _get_metadata_path(backup_path)
+            if os.path.exists(meta_path):
+                os.unlink(meta_path)
+        except OSError:
+            pass
+
+        return {
+            "ok": False,
+            "error": f"metadata sidecar creation failed: {meta_err}",
+            "mutation": False,
+            "local_file_mutation": True,
+            "dns_mutation": False,
+            "cloudflare_mutation": False,
+            "dns_apply": False,
+            "backup_only": True,
+            "backup_created": False,
+            "backup_retained": False,
+            "metadata_created": False,
+            "metadata_error": meta_err,
+            "manual_cleanup_required": not cleanup_ok,
+            "profile_replaced": False,
+            "rollback_performed": False,
+            "source_profile_status": "valid",
+        }
+
     # Get backup dir mode (normalized to 3-digit octal string)
     try:
         dir_mode = format(stat.S_IMODE(os.stat(backup_dir).st_mode), "03o")
@@ -1650,14 +1685,11 @@ def run_backup(profile_path, allow_production, confirm_hostname):
         "backup_dir_mode": dir_mode,
         "backup_sha256_computed": True,
         "backup_sha256_fingerprint": _sha256_fingerprint(sha_hex),
-        "metadata_created": meta_err is None,
+        "metadata_created": True,
         "production_fake_root": True,
         "confirmation_required": True,
         "confirmation_matched": True,
     }
-
-    if meta_err:
-        result["metadata_error"] = meta_err
 
     return result
 
@@ -1672,9 +1704,6 @@ def output_backup_text(result):
         if result.get("metadata_created"):
             fingerprint = result.get("backup_sha256_fingerprint", "***")
             print(f"  Metadata sidecar created. Backup fingerprint: sha256:{fingerprint}.")
-        else:
-            meta_err = result.get("metadata_error", "unknown")
-            print(f"  Metadata sidecar creation failed: {meta_err}")
         print("  DNS has not been applied.")
         print("  No DNS records were created, updated, or deleted.")
         print("  No profile was replaced.")
@@ -1685,6 +1714,8 @@ def output_backup_text(result):
         error = result.get("error")
         if error:
             print(f"  Error: {error}")
+        if result.get("manual_cleanup_required"):
+            print("  Manual cleanup may be required.")
     print()
 
 

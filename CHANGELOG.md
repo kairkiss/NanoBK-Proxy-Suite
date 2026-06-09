@@ -1,5 +1,28 @@
 # Changelog
 
+## v2.2.6-polish — Backup Metadata Failure Safety
+
+### Fixed
+
+- Made fake-root profile backup fail closed when metadata sidecar creation fails.
+- Clarified that a backup without valid metadata is not a successful NanoBK backup.
+- Added or updated tests for backup metadata write failure, legacy backup rejection, and rollback metadata expectations.
+- Aligned rollback preview/execute tests with the new metadata-backed backup requirement.
+
+### Not Changed
+
+- No real `/etc` writes.
+- No real production profile replacement.
+- No real rollback.
+- No lock implementation.
+- No auto-restore implementation.
+- No DNS mutation.
+- No Cloudflare mutation.
+- No DNS-01 implementation.
+- No Tunnel/Access implementation.
+- No Bot/Web runtime changes.
+- No release tag.
+
 ## v2.2.6 — Fake-root Profile Backup Metadata/Provenance Implementation
 
 ### Changed
