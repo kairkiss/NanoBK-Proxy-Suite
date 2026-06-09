@@ -1,5 +1,33 @@
 # Changelog
 
+## v2.2.12 — Fake DNS Apply UX Wrapper Closeout Record
+
+### Documentation
+
+- Added `docs/validation/dns-apply-ux-fake-wrapper-closeout-v2.2.12.md`.
+- Records that the fake DNS Apply UX wrapper line is closeout-ready as a hidden/test-only, pure simulated, fake-transport-only validation layer.
+- Summarizes v2.2.8 fixture contracts, v2.2.10 fake wrapper, v2.2.11 wrapper hardening, and v2.2.11-polish wording safety.
+- Documents that real DNS mutation, real Cloudflare mutation, public `bin/nanobk` integration, beginner console apply button, Bot/Web apply button, and installer silent apply remain blocked.
+- Recommends fake-only helper boundary design as the next gate before any deeper integration.
+
+### Not Changed
+
+- No runtime code changes.
+- No test changes.
+- No public `bin/nanobk` integration.
+- No beginner console apply button.
+- No Bot/Web apply button.
+- No installer behavior changes.
+- No real Cloudflare calls.
+- No real DNS mutation.
+- No DNS apply execution against real transport.
+- No invocation of low-level `lib/nanobk_cf_dns_apply.py`.
+- No DNS-01 implementation.
+- No Tunnel/Access implementation.
+- No real `/etc` writes.
+- No real rollback.
+- No release tag.
+
 ## v2.2.11-polish — Clarify Fake Wrapper Success Wording
 
 ### Polished
