@@ -1,5 +1,37 @@
 # Changelog
 
+## v2.2.23 — Owner-Approved One-Record Live Test Runbook
+
+### Added
+
+- Added `docs/validation/dns-apply-owner-approved-one-record-live-runbook-v2.2.23.md` to define the future owner-approved one-record controlled live DNS test runbook.
+- Added `tests/v2.2.23-owner-approved-live-runbook-contract.sh` to statically validate placeholders, owner approval timing, credential handling, one-record identity policy, pre-check, preview, post-check, rollback, stop conditions, redacted output, and public UX block.
+
+### Safety
+
+- v2.2.23 is docs-only.
+- No helper invocation is performed.
+- No Cloudflare API calls are performed.
+- No DNS records are created, updated, or deleted.
+- No real env files are read.
+- Actual live mutation remains blocked.
+- Public `bin/nanobk`, Bot, Web, and installer DNS apply remain blocked.
+
+### Not Changed
+
+- No changes to `lib/`.
+- No public `bin/nanobk` integration.
+- No beginner console apply button.
+- No Bot/Web apply button.
+- No installer behavior changes.
+- No real Cloudflare calls.
+- No real DNS mutation.
+- No DNS-01 implementation.
+- No Tunnel/Access implementation.
+- No real `/etc` writes.
+- No real rollback.
+- No release tag.
+
 ## v2.2.22-polish — First Failed Gate Semantics
 
 ### Fixed

@@ -337,6 +337,9 @@ echo "--- M. Existing safe tests still pass ---"
 echo ""
 
 for test_file in \
+  "v2.2.15-dns-apply-helper-boundary-mock.sh" \
+  "v2.2.16-dns-apply-safe-renderer.sh" \
+  "v2.2.17-dns-apply-safe-integration-mock.sh" \
   "v2.2.18-dns-apply-postcheck-contract.sh" \
   "v2.2.19-dns-apply-postcheck-classifier-mock.sh" \
   "v2.2.20-controlled-live-gate-contract.sh" \
