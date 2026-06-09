@@ -1105,6 +1105,257 @@ def output_replace_preview_error(message, json_mode=False):
     else:
         print(f"  Error: {message}", file=sys.stderr)
 
+# ── Metadata / provenance helpers ────────────────────────────────────────────
+
+METADATA_SCHEMA_VERSION = "1"
+PROFILE_SCHEMA_MARKER = "cloudflare_dns_profile_v1"
+_SOURCE_LOGICAL_PATH = "/etc/nanobk/cloudflare-dns-profile.json"
+
+
+def _sha256_fingerprint(hex_digest):
+    """Return first 8 hex chars of a sha256 digest."""
+    if not hex_digest:
+        return "***"
+    return hex_digest[:8]
+
+
+def _redact_profile_fields(profile_data):
+    """Build redacted profile fields for metadata display."""
+    zone = profile_data.get("zoneName", "")
+    node = profile_data.get("nodePrefix", "")
+    fields = {}
+    if zone:
+        fields["zone_name"] = mask_domain(zone)
+    record_names = []
+    if node and zone:
+        record_names.append(mask_hostname(node, zone))
+    if record_names:
+        fields["record_names"] = record_names
+    return fields
+
+
+def _get_metadata_path(backup_path):
+    """Return the metadata sidecar path for a backup file."""
+    return backup_path + ".metadata.json"
+
+
+def create_metadata_sidecar(backup_path, backup_bytes, source_data,
+                            source_bytes, source_stat, purpose, created_by):
+    """Create metadata sidecar alongside backup file.
+
+    Returns (metadata_dict, error_string).
+    """
+    from datetime import datetime, timezone
+
+    # Validate purpose
+    allowed_purposes = {"normal", "pre_rollback"}
+    if purpose not in allowed_purposes:
+        return None, f"invalid backup purpose: {purpose}"
+
+    backup_filename = os.path.basename(backup_path)
+    source_sha = hashlib.sha256(source_bytes).hexdigest()
+    backup_sha = hashlib.sha256(backup_bytes).hexdigest()
+
+    source_mode = format(stat.S_IMODE(source_stat.st_mode), "03o")
+    source_size = source_stat.st_size
+
+    hostname_redacted = "***"
+    zone = source_data.get("zoneName", "")
+    node = source_data.get("nodePrefix", "")
+    if node and zone:
+        hostname_redacted = mask_hostname(node, zone)
+
+    metadata = {
+        "metadata_schema_version": METADATA_SCHEMA_VERSION,
+        "backup_id": backup_filename,
+        "backup_purpose": purpose,
+        "created_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "created_by_command": created_by,
+        "nanobk_version": "2.1.1",
+        "source_logical_path": _SOURCE_LOGICAL_PATH,
+        "source_path_kind": "production",
+        "profile_schema_marker": PROFILE_SCHEMA_MARKER,
+        "profile_hostname_redacted": hostname_redacted,
+        "profile_fields_redacted": _redact_profile_fields(source_data),
+        "source_file_mode": source_mode,
+        "source_owner_expected": "root:root",
+        "source_size_bytes": source_size,
+        "source_sha256": source_sha,
+        "source_sha256_fingerprint": _sha256_fingerprint(source_sha),
+        "backup_file_mode": "600",
+        "backup_size_bytes": len(backup_bytes),
+        "backup_sha256": backup_sha,
+        "backup_sha256_fingerprint": _sha256_fingerprint(backup_sha),
+        "backup_byte_for_byte": (source_sha == backup_sha),
+        "created_under_fake_root": True,
+        "real_etc_runtime": False,
+    }
+
+    # Test hook: simulate metadata write failure
+    if os.environ.get("NANOBK_TEST_FORCE_METADATA_WRITE_FAIL") == "1":
+        return metadata, "metadata write failed (test hook)"
+
+    # Test hook: write invalid JSON
+    if os.environ.get("NANOBK_TEST_FORCE_METADATA_INVALID_JSON") == "1":
+        meta_path = _get_metadata_path(backup_path)
+        try:
+            with open(meta_path, "w") as f:
+                f.write("{invalid json content")
+            os.chmod(meta_path, 0o600)
+        except OSError:
+            pass
+        return metadata, "metadata is not valid JSON"
+
+    # Test hook: write metadata with wrong backup_id
+    if os.environ.get("NANOBK_TEST_FORCE_METADATA_ID_MISMATCH") == "1":
+        metadata = dict(metadata)
+        metadata["backup_id"] = "wrong-backup-id.bak"
+
+    # Test hook: write metadata with wrong sha256
+    if os.environ.get("NANOBK_TEST_FORCE_METADATA_SHA_MISMATCH") == "1":
+        metadata = dict(metadata)
+        metadata["backup_sha256"] = "0" * 64
+
+    # Write metadata sidecar atomically
+    meta_path = _get_metadata_path(backup_path)
+    meta_json = json.dumps(metadata, indent=2, sort_keys=True) + "\n"
+    meta_bytes = meta_json.encode("utf-8")
+
+    tmp_fd = None
+    tmp_path = None
+    try:
+        parent_dir = os.path.dirname(meta_path)
+        tmp_fd, tmp_path = tempfile.mkstemp(
+            dir=parent_dir, prefix=".nanobk-metadata-", suffix=".tmp"
+        )
+        os.write(tmp_fd, meta_bytes)
+        os.fsync(tmp_fd)
+        os.close(tmp_fd)
+        tmp_fd = None
+        os.chmod(tmp_path, 0o600)
+
+        try:
+            os.link(tmp_path, meta_path)
+            os.unlink(tmp_path)
+            tmp_path = None
+        except FileExistsError:
+            if tmp_path and os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+            return metadata, "metadata file already exists"
+        except OSError:
+            if tmp_path and os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+            return metadata, "metadata atomic finalize failed"
+
+    except OSError as e:
+        if tmp_fd is not None:
+            try:
+                os.close(tmp_fd)
+            except OSError:
+                pass
+        if tmp_path and os.path.exists(tmp_path):
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+        return metadata, f"metadata write failed: {e}"
+
+    # Verify metadata file
+    try:
+        st = os.stat(meta_path)
+        if stat.S_IMODE(st.st_mode) != 0o600:
+            return metadata, "metadata file mode verification failed"
+        with open(meta_path, "r") as f:
+            json.load(f)
+    except (OSError, json.JSONDecodeError):
+        return metadata, "metadata verification failed"
+
+    return metadata, None
+
+
+def load_metadata_sidecar(backup_path):
+    """Load metadata sidecar for a backup file.
+
+    Returns (metadata_dict, error_string).
+    If metadata is missing, returns (None, error).
+    """
+    meta_path = _get_metadata_path(backup_path)
+
+    if os.path.islink(meta_path):
+        return None, "metadata sidecar symlink is blocked"
+    if not os.path.exists(meta_path):
+        return None, "metadata sidecar is missing (legacy backup)"
+    if not os.path.isfile(meta_path):
+        return None, "metadata sidecar is not a regular file"
+
+    # Check mode
+    try:
+        st = os.stat(meta_path)
+        mode = stat.S_IMODE(st.st_mode)
+        if mode != 0o600:
+            return None, f"metadata sidecar mode must be 0600, got {format(mode, '03o')}"
+    except OSError:
+        return None, "cannot stat metadata sidecar"
+
+    # Read and parse
+    try:
+        with open(meta_path, "r") as f:
+            data = json.load(f)
+    except json.JSONDecodeError:
+        return None, "metadata sidecar is not valid JSON"
+    except OSError:
+        return None, "cannot read metadata sidecar"
+
+    if not isinstance(data, dict):
+        return None, "metadata sidecar is not a JSON object"
+
+    return data, None
+
+
+def validate_metadata_for_rollback(metadata, backup_filename, backup_bytes,
+                                   source_logical_path=None):
+    """Validate metadata for rollback use. Returns error string or None."""
+    if source_logical_path is None:
+        source_logical_path = _SOURCE_LOGICAL_PATH
+
+    # Schema version
+    schema_ver = metadata.get("metadata_schema_version")
+    if schema_ver != METADATA_SCHEMA_VERSION:
+        return f"unknown metadata schema version: {schema_ver}"
+
+    # Backup ID match
+    meta_backup_id = metadata.get("backup_id", "")
+    if meta_backup_id != backup_filename:
+        return "metadata backup_id does not match backup filename"
+
+    # Backup SHA-256 match
+    meta_backup_sha = metadata.get("backup_sha256", "")
+    actual_backup_sha = hashlib.sha256(backup_bytes).hexdigest()
+    if meta_backup_sha != actual_backup_sha:
+        return "metadata backup_sha256 does not match backup content"
+
+    # Purpose validation
+    purpose = metadata.get("backup_purpose", "")
+    if purpose not in ("normal", "pre_rollback"):
+        return f"unknown backup purpose: {purpose}"
+
+    # Profile schema marker
+    marker = metadata.get("profile_schema_marker", "")
+    if marker != PROFILE_SCHEMA_MARKER:
+        return f"unknown profile schema marker: {marker}"
+
+    # Source logical path
+    meta_source_path = metadata.get("source_logical_path", "")
+    if meta_source_path != source_logical_path:
+        return "metadata source_logical_path does not match expected path"
+
+    # Backup byte-for-byte
+    if not metadata.get("backup_byte_for_byte", False):
+        return "metadata indicates backup is not byte-for-byte identical to source"
+
+    return None
+
+
 # ── backup-only start ──────────────────────────────────────────────────────
 
 BACKUP_ERROR_BASE = {"mutation": False, "local_file_mutation": False,
@@ -1321,6 +1572,15 @@ def run_backup(profile_path, allow_production, confirm_hostname):
         return {"ok": False, "error": source_err,
                 "source_profile_status": source_status, **BACKUP_ERROR_BASE}
 
+    # Read source bytes and stat for metadata
+    try:
+        with open(physical_source, "rb") as f:
+            source_bytes = f.read()
+        source_stat = os.stat(physical_source)
+    except OSError:
+        return {"ok": False, "error": "cannot read source profile for metadata",
+                "source_profile_status": source_status, **BACKUP_ERROR_BASE}
+
     # Confirmation
     if not confirm_hostname:
         return {"ok": False, "error": "confirm-hostname is required for profile backup",
@@ -1351,13 +1611,28 @@ def run_backup(profile_path, allow_production, confirm_hostname):
         return {"ok": False, "error": backup_err,
                 "source_profile_status": "valid", **BACKUP_ERROR_BASE}
 
+    # Read backup bytes for metadata
+    try:
+        with open(backup_path, "rb") as f:
+            backup_bytes = f.read()
+    except OSError:
+        return {"ok": False, "error": "cannot read backup file for metadata",
+                "source_profile_status": "valid",
+                "backup_created": True, **BACKUP_ERROR_BASE}
+
+    # Create metadata sidecar
+    metadata, meta_err = create_metadata_sidecar(
+        backup_path, backup_bytes, source_data, source_bytes, source_stat,
+        purpose="normal", created_by="nanobk cf dns profile backup"
+    )
+
     # Get backup dir mode (normalized to 3-digit octal string)
     try:
         dir_mode = format(stat.S_IMODE(os.stat(backup_dir).st_mode), "03o")
     except OSError:
         dir_mode = "unknown"
 
-    return {
+    result = {
         "ok": True,
         "mutation": False,
         "local_file_mutation": True,
@@ -1369,14 +1644,22 @@ def run_backup(profile_path, allow_production, confirm_hostname):
         "profile_replaced": False,
         "rollback_performed": False,
         "source_profile_status": "valid",
+        "backup_id": backup_filename,
         "backup_path_redacted": redact_backup_path(backup_path),
         "backup_mode": "600",
         "backup_dir_mode": dir_mode,
         "backup_sha256_computed": True,
+        "backup_sha256_fingerprint": _sha256_fingerprint(sha_hex),
+        "metadata_created": meta_err is None,
         "production_fake_root": True,
         "confirmation_required": True,
         "confirmation_matched": True,
     }
+
+    if meta_err:
+        result["metadata_error"] = meta_err
+
+    return result
 
 
 def output_backup_text(result):
@@ -1386,6 +1669,12 @@ def output_backup_text(result):
         print("  Backup created under fake-root test mode.")
         print("  Source profile was copied byte-for-byte.")
         print(f"  Backup mode: {result.get('backup_mode', '600')}.")
+        if result.get("metadata_created"):
+            fingerprint = result.get("backup_sha256_fingerprint", "***")
+            print(f"  Metadata sidecar created. Backup fingerprint: sha256:{fingerprint}.")
+        else:
+            meta_err = result.get("metadata_error", "unknown")
+            print(f"  Metadata sidecar creation failed: {meta_err}")
         print("  DNS has not been applied.")
         print("  No DNS records were created, updated, or deleted.")
         print("  No profile was replaced.")
@@ -1562,6 +1851,47 @@ def run_rollback_preview(backup_id, allow_production, confirm_hostname):
         backup_path, "backup profile"
     )
 
+    # Validate metadata sidecar (fail closed if missing or invalid)
+    metadata_valid = False
+    metadata_summary = {}
+    if backup_status == "valid":
+        metadata, meta_load_err = load_metadata_sidecar(backup_path)
+        if meta_load_err:
+            return {"ok": False, "error": meta_load_err,
+                    "current_profile_status": current_status,
+                    "backup_profile_status": backup_status,
+                    "metadata_status": "missing" if "missing" in meta_load_err else "invalid",
+                    **ROLLBACK_PREVIEW_ERROR_BASE}
+
+        # Read backup bytes for sha256 validation
+        try:
+            with open(backup_path, "rb") as f:
+                backup_bytes_for_meta = f.read()
+        except OSError:
+            return {"ok": False, "error": "cannot read backup for metadata validation",
+                    "current_profile_status": current_status,
+                    "backup_profile_status": backup_status,
+                    "metadata_status": "unreadable",
+                    **ROLLBACK_PREVIEW_ERROR_BASE}
+
+        meta_validate_err = validate_metadata_for_rollback(
+            metadata, backup_id, backup_bytes_for_meta
+        )
+        if meta_validate_err:
+            return {"ok": False, "error": meta_validate_err,
+                    "current_profile_status": current_status,
+                    "backup_profile_status": backup_status,
+                    "metadata_status": "invalid",
+                    **ROLLBACK_PREVIEW_ERROR_BASE}
+
+        metadata_valid = True
+        metadata_summary = {
+            "created_at_utc": metadata.get("created_at_utc", ""),
+            "backup_purpose": metadata.get("backup_purpose", ""),
+            "backup_sha256_fingerprint": metadata.get("backup_sha256_fingerprint", ""),
+            "profile_hostname_redacted": metadata.get("profile_hostname_redacted", ""),
+        }
+
     # Confirmation validation
     if not confirm_hostname:
         return {"ok": False, "error": "confirm-hostname is required for rollback preview",
@@ -1633,6 +1963,7 @@ def run_rollback_preview(backup_id, allow_production, confirm_hostname):
         "current_profile_status": current_status,
         "backup_profile_status": backup_status,
         "backup_id_redacted": backup_id,
+        "metadata_validated": metadata_valid,
         "rollback_execute_ready": False,
         "rollback_execute_blocked_reason": "rollback execute is not implemented",
         "confirmation_required": True,
@@ -1647,6 +1978,8 @@ def run_rollback_preview(backup_id, allow_production, confirm_hostname):
         result["backup_summary"] = backup_summary
     if redacted_diff:
         result["redacted_diff"] = redacted_diff
+    if metadata_summary:
+        result["metadata_summary"] = metadata_summary
 
     return result
 
@@ -1665,6 +1998,16 @@ def output_rollback_preview_text(result):
     print()
     print(f"  Current profile status: {result.get('current_profile_status', 'unknown')}")
     print(f"  Backup profile status: {result.get('backup_profile_status', 'unknown')}")
+
+    meta = result.get("metadata_summary")
+    if meta:
+        print(f"  Backup created: {meta.get('created_at_utc', 'unknown')}")
+        print(f"  Backup purpose: {meta.get('backup_purpose', 'unknown')}")
+        print(f"  Backup fingerprint: sha256:{meta.get('backup_sha256_fingerprint', '***')}")
+        print(f"  Backup hostname: {meta.get('profile_hostname_redacted', '***')}")
+    elif result.get("metadata_validated") is False:
+        print("  Metadata: not validated (legacy backup)")
+
     print()
 
     diff = result.get("redacted_diff")
@@ -1804,6 +2147,35 @@ def run_rollback_execute(backup_id, allow_production, confirm_hostname,
         return {"ok": False, "error": backup_err,
                 "current_profile_status": current_status,
                 "backup_profile_status": backup_status, **base_err}
+
+    # ── Step 6b: Validate metadata sidecar ──
+    metadata, meta_load_err = load_metadata_sidecar(backup_path)
+    if meta_load_err:
+        return {"ok": False, "error": meta_load_err,
+                "current_profile_status": current_status,
+                "backup_profile_status": backup_status,
+                "metadata_status": "missing" if "missing" in meta_load_err else "invalid",
+                **base_err}
+
+    try:
+        with open(backup_path, "rb") as f:
+            backup_bytes_for_meta = f.read()
+    except OSError:
+        return {"ok": False, "error": "cannot read backup for metadata validation",
+                "current_profile_status": current_status,
+                "backup_profile_status": backup_status,
+                "metadata_status": "unreadable",
+                **base_err}
+
+    meta_validate_err = validate_metadata_for_rollback(
+        metadata, backup_id, backup_bytes_for_meta
+    )
+    if meta_validate_err:
+        return {"ok": False, "error": meta_validate_err,
+                "current_profile_status": current_status,
+                "backup_profile_status": backup_status,
+                "metadata_status": "invalid",
+                **base_err}
 
     # ── Step 7: Validate hostname match ──
     current_node = current_data.get("nodePrefix", "")
@@ -1957,6 +2329,44 @@ def run_rollback_execute(backup_id, allow_production, confirm_hostname,
         # Verify JSON parses
         json.loads(verify_bytes)
         pre_backup_created = True
+
+        # Create metadata sidecar for pre-rollback backup
+        pre_meta, pre_meta_err = create_metadata_sidecar(
+            pre_backup_path, current_bytes, current_data, current_bytes,
+            current_stat, purpose="pre_rollback",
+            created_by="nanobk cf dns profile rollback execute"
+        )
+
+        # Test hook: simulate pre-rollback metadata failure
+        if os.environ.get("NANOBK_TEST_FORCE_PRE_ROLLBACK_METADATA_FAIL") == "1":
+            pre_meta_err = "pre-rollback metadata failed (test hook)"
+
+        if pre_meta_err:
+            return {"ok": False, "error": f"pre-rollback metadata failed: {pre_meta_err}",
+                    "current_profile_status": current_status,
+                    "backup_profile_status": backup_status,
+                    "confirmation_required": True, "confirmation_matched": True,
+                    "rollback_phrase_required": True, "rollback_phrase_matched": True,
+                    "current_identity_checked": True,
+                    "pre_rollback_backup_created": True,
+                    "pre_rollback_metadata_created": False,
+                    **base_err}
+
+        # Validate pre-rollback metadata
+        pre_meta_validate_err = validate_metadata_for_rollback(
+            pre_meta, os.path.basename(pre_backup_path), current_bytes
+        )
+        if pre_meta_validate_err:
+            return {"ok": False, "error": f"pre-rollback metadata validation failed: {pre_meta_validate_err}",
+                    "current_profile_status": current_status,
+                    "backup_profile_status": backup_status,
+                    "confirmation_required": True, "confirmation_matched": True,
+                    "rollback_phrase_required": True, "rollback_phrase_matched": True,
+                    "current_identity_checked": True,
+                    "pre_rollback_backup_created": True,
+                    "pre_rollback_metadata_created": True,
+                    "pre_rollback_metadata_validated": False,
+                    **base_err}
 
     except (OSError, json.JSONDecodeError) as e:
         if tmp_fd is not None:
@@ -2304,6 +2714,9 @@ def run_rollback_execute(backup_id, allow_production, confirm_hostname,
             "rollback_performed": True,
             "profile_replaced": True,
             "pre_rollback_backup_created": True,
+            "pre_rollback_metadata_created": True,
+            "pre_rollback_metadata_validated": True,
+            "backup_metadata_validated": True,
             "current_profile_status_before": current_status,
             "backup_profile_status": backup_status,
             "final_profile_status": "valid",
@@ -2348,6 +2761,10 @@ def output_rollback_execute_text(result):
         print("  Rollback executed under fake-root test mode.")
         print("  Current profile was replaced with selected backup profile.")
         print("  Pre-rollback backup was created.")
+        if result.get("backup_metadata_validated"):
+            print("  Backup metadata validated.")
+        if result.get("pre_rollback_metadata_created"):
+            print("  Pre-rollback backup metadata created.")
         print("  DNS has not been applied.")
         print("  Cloudflare was not called.")
         print("  Raw profile and backup content were intentionally not printed.")

@@ -1,5 +1,29 @@
 # Changelog
 
+## v2.2.6 — Fake-root Profile Backup Metadata/Provenance Implementation
+
+### Changed
+
+- Added fake-root metadata/provenance sidecar creation for Cloudflare DNS profile backups.
+- Added fake-root metadata validation for rollback preview and rollback execute.
+- Added fail-closed handling for legacy backups without metadata.
+- Added mandatory metadata-backed pre-rollback backups for fake-root rollback execute.
+- Added focused tests for metadata schema, file modes, redaction, legacy rejection, rollback preview/execute validation, and real `/etc` blocked status.
+
+### Not Changed
+
+- No real `/etc` writes.
+- No real production profile replacement.
+- No real rollback.
+- No lock implementation.
+- No auto-restore implementation.
+- No DNS mutation.
+- No Cloudflare mutation.
+- No DNS-01 implementation.
+- No Tunnel/Access implementation.
+- No Bot/Web runtime changes.
+- No release tag.
+
 ## v2.2.5 — Profile Backup Metadata/Provenance Design
 
 ### Documentation
