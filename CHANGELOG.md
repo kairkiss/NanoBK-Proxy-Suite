@@ -1,5 +1,39 @@
 # Changelog
 
+## v2.2.16 — Beginner-safe DNS Apply Renderer Mock
+
+### Added
+
+- Added `lib/nanobk_cf_dns_apply_safe_renderer.py`, a standalone mock renderer that normalizes low-level helper-style raw JSON into a beginner-safe DNS Apply summary model.
+- Added `tests/v2.2.16-dns-apply-safe-renderer.sh` to validate normalized safe model boundaries, safe rendering, forbidden-output fail-closed behavior, fake/test-only honesty, and no public integration.
+
+### Safety
+
+- The renderer uses static raw helper-style JSON fixtures only.
+- No helper invocation is performed.
+- No Cloudflare API calls are performed.
+- No DNS records are created, updated, or deleted.
+- Raw helper fields such as `name`, `plannedContent`, `existingContent`, `recordId`, and `message` are not copied into the normalized model or beginner output.
+- Final output fails closed if forbidden raw values or forbidden patterns appear.
+
+### Not Changed
+
+- No changes to `lib/nanobk_cf_dns_apply.py`.
+- No changes to `lib/nanobk_cf_dns_apply_ux_mock.py`.
+- No changes to `lib/nanobk_cf_dns_apply_helper_boundary_mock.py`.
+- No public `bin/nanobk` integration.
+- No beginner console apply button.
+- No Bot/Web apply button.
+- No installer behavior changes.
+- No real Cloudflare calls.
+- No real DNS mutation.
+- No DNS apply execution against real transport.
+- No DNS-01 implementation.
+- No Tunnel/Access implementation.
+- No real `/etc` writes.
+- No real rollback.
+- No release tag.
+
 ## v2.2.15-polish-2 — Parse Final Helper JSON Object Strictly
 
 ### Hardened
