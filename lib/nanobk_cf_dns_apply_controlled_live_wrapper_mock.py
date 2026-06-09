@@ -266,8 +266,10 @@ _GATE_EVALUATORS = {
 def run_controlled_live_wrapper_mock(data: dict) -> dict:
     """Run controlled live wrapper mock evaluation from safe fixture dict.
 
-    Evaluates gates in strict order. Stops recording blocked reasons at
-    first failure but continues to evaluate all gates for diagnostic steps.
+    Evaluates all gates for diagnostic step visibility, but exposes only the
+    first failed gate/reason to beginner-safe output. The model contains
+    first_failed_gate, first_blocked_reason, blocked_reasons (first only),
+    and diagnostic_blocked_reasons (all failures for diagnostic use).
 
     Returns safe model with status, blocked_reasons, steps, summary, safety.
 
@@ -277,7 +279,9 @@ def run_controlled_live_wrapper_mock(data: dict) -> dict:
         raise RuntimeError(_WRAPPER_SAFE_ERROR_MSG)
 
     steps: dict[str, str] = {}
-    blocked_reasons: list[str] = []
+    diagnostic_blocked_reasons: list[str] = []
+    first_failed_gate = "none"
+    first_blocked_reason = "none"
 
     # Extract safe record type and action from identity gate
     identity = data.get("identity_gate", {})
@@ -295,7 +299,16 @@ def run_controlled_live_wrapper_mock(data: dict) -> dict:
             steps[gate_key] = "pass"
         else:
             steps[gate_key] = "fail"
-            blocked_reasons.append(reason)
+            diagnostic_blocked_reasons.append(reason)
+            # Record only the first failure for beginner-facing output
+            if first_failed_gate == "none":
+                first_failed_gate = gate_key
+                first_blocked_reason = reason
+
+    # blocked_reasons contains only the first blocked reason (beginner-facing)
+    blocked_reasons: list[str] = []
+    if first_blocked_reason != "none":
+        blocked_reasons.append(first_blocked_reason)
 
     # Extract classifier and postcheck status for summary
     classifier = data.get("classifier_gate", {})
@@ -330,7 +343,10 @@ def run_controlled_live_wrapper_mock(data: dict) -> dict:
     return {
         "status": status,
         "mode": "placeholder_only",
+        "first_failed_gate": first_failed_gate,
+        "first_blocked_reason": first_blocked_reason,
         "blocked_reasons": blocked_reasons,
+        "diagnostic_blocked_reasons": diagnostic_blocked_reasons,
         "steps": steps,
         "summary": {
             "safe_record_type": safe_record_type,
@@ -357,10 +373,15 @@ def run_controlled_live_wrapper_mock(data: dict) -> dict:
 
 
 def render_controlled_live_wrapper_summary(model: dict) -> str:
-    """Render beginner-safe controlled live wrapper summary from evaluated model."""
+    """Render beginner-safe controlled live wrapper summary from evaluated model.
+
+    Only the first failed gate/reason is shown to the beginner. Diagnostic
+    full failure list exists in the model but is not printed.
+    """
     status = model.get("status", "unknown")
     mode = model.get("mode", "unknown")
-    blocked_reasons = model.get("blocked_reasons", [])
+    first_failed_gate = model.get("first_failed_gate", "none")
+    first_blocked_reason = model.get("first_blocked_reason", "none")
     steps = model.get("steps", {})
     summary = model.get("summary", {})
     counts = summary.get("counts", {})
@@ -409,11 +430,10 @@ def render_controlled_live_wrapper_summary(model: dict) -> str:
         lines.append("No live Cloudflare call was made.")
         lines.append("No real DNS mutation was performed.")
 
-    if blocked_reasons:
+    if status == _STATUS_BLOCKED and first_failed_gate != "none":
         lines.append("")
-        lines.append("Blocked reasons:")
-        for reason in blocked_reasons:
-            lines.append(f"  - {reason}")
+        lines.append(f"First failed gate: {first_failed_gate}")
+        lines.append(f"First blocked reason: {first_blocked_reason}")
 
     lines.append("")
     if status == _STATUS_MOCK_VERIFIED:

@@ -309,6 +309,37 @@ else
   ERRORS=$((ERRORS + 1))
 fi
 
+# C15. blocked_multi_gate_first_failure -> blocked + first_failed_gate == repo_gate
+C15=$(evaluate_fixture "$FIXTURES/blocked_multi_gate_first_failure.json")
+C15_STATUS=$(echo "$C15" | python3 -c "import sys,json; print(json.load(sys.stdin)['status'])")
+C15_FIRST_GATE=$(echo "$C15" | python3 -c "import sys,json; print(json.load(sys.stdin)['first_failed_gate'])")
+C15_FIRST_REASON=$(echo "$C15" | python3 -c "import sys,json; print(json.load(sys.stdin)['first_blocked_reason'])")
+C15_BLOCKED=$(echo "$C15" | python3 -c "import sys,json; r=json.load(sys.stdin)['blocked_reasons']; print(' '.join(r))")
+C15_DIAG=$(echo "$C15" | python3 -c "import sys,json; r=json.load(sys.stdin).get('diagnostic_blocked_reasons',[]); print(len(r))")
+if [[ "$C15_STATUS" == "blocked" ]] && [[ "$C15_FIRST_GATE" == "repo_gate" ]] && [[ "$C15_FIRST_REASON" == "repo gate failed" ]]; then
+  pass "C15: blocked_multi_gate_first_failure -> blocked + first_failed_gate=repo_gate"
+else
+  fail "C15: expected blocked + repo_gate, got '$C15_STATUS' '$C15_FIRST_GATE' '$C15_FIRST_REASON'"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# C16. blocked_reasons contains only first reason (not multiple)
+C15_BLOCKED_COUNT=$(echo "$C15" | python3 -c "import sys,json; print(len(json.load(sys.stdin)['blocked_reasons']))")
+if [[ "$C15_BLOCKED_COUNT" == "1" ]]; then
+  pass "C16: blocked_reasons contains only first reason (1 item)"
+else
+  fail "C16: blocked_reasons should contain only 1 reason, got $C15_BLOCKED_COUNT"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# C17. diagnostic_blocked_reasons may include multiple reasons
+if [[ "$C15_DIAG" -gt 1 ]]; then
+  pass "C17: diagnostic_blocked_reasons has $C15_DIAG reasons"
+else
+  fail "C17: diagnostic_blocked_reasons should have multiple reasons, got $C15_DIAG"
+  ERRORS=$((ERRORS + 1))
+fi
+
 echo ""
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -339,6 +370,19 @@ assert_not_contains "$D9_OUT" "clean" "D11: no raw field name in output"
 D12_OUT=$(render_fixture "$FIXTURES/uncertain_classifier.json")
 assert_contains "$D12_OUT" "Status: uncertain" "D12: uncertain status"
 assert_not_contains "$D12_OUT" "mock_verified" "D13: no mock_verified in uncertain output"
+
+# D14-D19. Multi-gate first failure fixture output checks
+D14_OUT=$(render_fixture "$FIXTURES/blocked_multi_gate_first_failure.json")
+assert_contains "$D14_OUT" "Status: blocked" "D14: multi-gate blocked status"
+assert_contains "$D14_OUT" "First failed gate: repo_gate" "D15: first failed gate shown"
+assert_contains "$D14_OUT" "First blocked reason: repo gate failed" "D16: first blocked reason shown"
+assert_not_contains "$D14_OUT" "credential gate failed" "D17: no credential reason in output"
+assert_not_contains "$D14_OUT" "owner approval gate failed" "D18: no approval reason in output"
+assert_not_contains "$D14_OUT" "helper JSON gate failed" "D19: no helper JSON reason in output"
+assert_not_contains "$D14_OUT" "final redaction gate failed" "D20: no redaction reason in output"
+assert_not_contains "$D14_OUT" "permission_600" "D21: no raw field name in output"
+assert_not_contains "$D14_OUT" "exact_phrase_matched" "D22: no raw field name in output"
+assert_not_contains "$D14_OUT" "schema_ok" "D23: no raw field name in output"
 
 echo ""
 
@@ -387,6 +431,56 @@ if [[ "$E4_STATUS" == "blocked" ]]; then
   pass "E4: final redaction failure blocks output"
 else
   fail "E4: final redaction failure should block"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# E5. Multi-gate fixture first failure is repo gate
+E5_MODEL=$(evaluate_fixture "$FIXTURES/blocked_multi_gate_first_failure.json")
+E5_FIRST=$(echo "$E5_MODEL" | python3 -c "import sys,json; print(json.load(sys.stdin)['first_failed_gate'])")
+if [[ "$E5_FIRST" == "repo_gate" ]]; then
+  pass "E5: multi-gate first failure is repo_gate"
+else
+  fail "E5: multi-gate first failure should be repo_gate, got '$E5_FIRST'"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# E6. Dirty repo first failure is repo gate
+E6_MODEL=$(evaluate_fixture "$FIXTURES/blocked_dirty_repo.json")
+E6_FIRST=$(echo "$E6_MODEL" | python3 -c "import sys,json; print(json.load(sys.stdin)['first_failed_gate'])")
+if [[ "$E6_FIRST" == "repo_gate" ]]; then
+  pass "E6: dirty repo first failure is repo_gate"
+else
+  fail "E6: dirty repo first failure should be repo_gate, got '$E6_FIRST'"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# E7. Missing approval first failure is approval gate
+E7_MODEL=$(evaluate_fixture "$FIXTURES/blocked_missing_approval.json")
+E7_FIRST=$(echo "$E7_MODEL" | python3 -c "import sys,json; print(json.load(sys.stdin)['first_failed_gate'])")
+if [[ "$E7_FIRST" == "approval_gate" ]]; then
+  pass "E7: missing approval first failure is approval_gate"
+else
+  fail "E7: missing approval first failure should be approval_gate, got '$E7_FIRST'"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# E8. Helper schema first failure is helper_json_gate
+E8_MODEL=$(evaluate_fixture "$FIXTURES/blocked_helper_schema_failure.json")
+E8_FIRST=$(echo "$E8_MODEL" | python3 -c "import sys,json; print(json.load(sys.stdin)['first_failed_gate'])")
+if [[ "$E8_FIRST" == "helper_json_gate" ]]; then
+  pass "E8: helper schema first failure is helper_json_gate"
+else
+  fail "E8: helper schema first failure should be helper_json_gate, got '$E8_FIRST'"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# E9. Final redaction first failure is final_redaction_gate
+E9_MODEL=$(evaluate_fixture "$FIXTURES/blocked_final_redaction_failure.json")
+E9_FIRST=$(echo "$E9_MODEL" | python3 -c "import sys,json; print(json.load(sys.stdin)['first_failed_gate'])")
+if [[ "$E9_FIRST" == "final_redaction_gate" ]]; then
+  pass "E9: final redaction first failure is final_redaction_gate"
+else
+  fail "E9: final redaction first failure should be final_redaction_gate, got '$E9_FIRST'"
   ERRORS=$((ERRORS + 1))
 fi
 
