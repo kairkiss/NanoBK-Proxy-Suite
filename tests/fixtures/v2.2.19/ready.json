@@ -1,0 +1,10 @@
+{
+  "mode": "dry_run",
+  "planned_records": [
+    {"record_type": "A", "action": "create", "target_class": "ipv4"},
+    {"record_type": "AAAA", "action": "create", "target_class": "ipv6"}
+  ],
+  "apply_results": [],
+  "observed_records": [],
+  "postcheck_available": false
+}

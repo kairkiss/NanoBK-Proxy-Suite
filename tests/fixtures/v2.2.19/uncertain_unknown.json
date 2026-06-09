@@ -1,0 +1,9 @@
+{
+  "mode": "live_pending",
+  "planned_records": [
+    {"record_type": "A", "action": "create", "target_class": "ipv4"}
+  ],
+  "apply_results": [],
+  "observed_records": [],
+  "postcheck_available": false
+}

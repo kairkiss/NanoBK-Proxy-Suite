@@ -1,5 +1,38 @@
 # Changelog
 
+## v2.2.19 — DNS Apply Post-check Classifier Mock
+
+### Added
+
+- Added `lib/nanobk_cf_dns_apply_postcheck_classifier_mock.py`, a pure mock classifier for DNS Apply post-check status mapping.
+- Added safe static fixtures under `tests/fixtures/v2.2.19/` for `ready`, `applied`, `verified`, `partial`, `conflict`, `failed`, and `uncertain` cases.
+- Added `tests/v2.2.19-dns-apply-postcheck-classifier-mock.sh` to validate classification semantics, fake/live honesty, verified-vs-applied behavior, forbidden-output safety, and no public integration.
+
+### Safety
+
+- v2.2.19 is mock-only.
+- No helper invocation is performed.
+- No Cloudflare API calls are performed.
+- No DNS records are created, updated, or deleted.
+- `verified` requires live post-check proof.
+- `fake_only` never returns `verified`.
+- `applied` is explicitly not treated as `verified`.
+
+### Not Changed
+
+- No changes to existing DNS apply helper modules.
+- No public `bin/nanobk` integration.
+- No beginner console apply button.
+- No Bot/Web apply button.
+- No installer behavior changes.
+- No real Cloudflare calls.
+- No real DNS mutation.
+- No DNS-01 implementation.
+- No Tunnel/Access implementation.
+- No real `/etc` writes.
+- No real rollback.
+- No release tag.
+
 ## v2.2.18 — DNS Apply Post-check Contract and Failure Policy
 
 ### Added

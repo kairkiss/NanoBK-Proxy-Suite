@@ -1,0 +1,16 @@
+{
+  "mode": "live_applied",
+  "planned_records": [
+    {"record_type": "A", "action": "create", "target_class": "ipv4"},
+    {"record_type": "AAAA", "action": "create", "target_class": "ipv6"}
+  ],
+  "apply_results": [
+    {"record_type": "A", "action": "create", "success": true},
+    {"record_type": "AAAA", "action": "create", "success": true}
+  ],
+  "observed_records": [
+    {"record_type": "A", "exists": true, "content_matches_expected": true, "proxied_is_dns_only": true},
+    {"record_type": "AAAA", "exists": false, "content_matches_expected": false, "proxied_is_dns_only": "unknown"}
+  ],
+  "postcheck_available": true
+}

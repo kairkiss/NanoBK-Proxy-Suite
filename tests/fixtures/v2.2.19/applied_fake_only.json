@@ -1,0 +1,13 @@
+{
+  "mode": "fake_only",
+  "planned_records": [
+    {"record_type": "A", "action": "create", "target_class": "ipv4"},
+    {"record_type": "AAAA", "action": "create", "target_class": "ipv6"}
+  ],
+  "apply_results": [
+    {"record_type": "A", "action": "create", "success": true},
+    {"record_type": "AAAA", "action": "create", "success": true}
+  ],
+  "observed_records": [],
+  "postcheck_available": false
+}
