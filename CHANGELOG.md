@@ -1,5 +1,28 @@
 # Changelog
 
+## v2.2.8 — DNS Apply Beginner UX Mock and Redaction Static Tests
+
+### Added
+
+- Added mock DNS apply beginner/advanced UX fixtures under `tests/fixtures/v2.2.8/`.
+- Added `tests/v2.2.8-dns-apply-beginner-ux-mock.sh` to validate beginner copy safety, confirmation wording, redaction, post-check states, partial failure wording, and mutation-boundary copy.
+- Captured target output contracts for future DNS apply product-console integration without calling Cloudflare or changing runtime behavior.
+
+### Not Changed
+
+- No runtime code changes.
+- No CLI behavior changes.
+- No installer behavior changes.
+- No Bot/Web behavior changes.
+- No DNS mutation.
+- No Cloudflare mutation.
+- No DNS apply execution.
+- No DNS-01 implementation.
+- No Tunnel/Access implementation.
+- No real `/etc` writes.
+- No real rollback.
+- No release tag.
+
 ## v2.2.7 — DNS Apply Execution Design Gate
 
 ### Documentation

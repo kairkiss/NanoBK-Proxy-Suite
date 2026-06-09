@@ -1,0 +1,7 @@
+Apply DNS records?
+  1) Apply now
+  2) Review summary again
+  3) Cancel
+
+To continue, type exactly:
+  apply dns records

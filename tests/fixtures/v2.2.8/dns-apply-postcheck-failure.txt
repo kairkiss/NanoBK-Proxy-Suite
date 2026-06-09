@@ -1,0 +1,22 @@
+NanoBK DNS Apply — Final Summary
+Status: uncertain
+
+Changes:
+  Created: 1
+  Updated: 1
+  No change: 0
+  Failed: 0
+
+Post-check:
+  A record: verified
+  AAAA record: mismatch
+  Proxied mode: needs review
+  Ownership marker: needs review
+
+Post-check did not verify the final state.
+This is not reported as success.
+
+Recovery:
+  Do not retry blindly.
+  Review the current DNS records in Cloudflare.
+  Run a read-only check before any next action.

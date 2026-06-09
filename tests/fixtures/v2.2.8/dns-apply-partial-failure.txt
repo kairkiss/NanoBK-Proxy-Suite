@@ -1,0 +1,18 @@
+NanoBK DNS Apply — Final Summary
+Status: partial
+
+Changes:
+  Created: 1
+  Updated: 0
+  No change: 0
+  Failed: 1
+
+Post-check:
+  Some records could not be verified.
+
+This is not reported as success.
+
+Recovery:
+  Do not retry blindly.
+  Review Cloudflare DNS manually.
+  Run a read-only check before any next action.

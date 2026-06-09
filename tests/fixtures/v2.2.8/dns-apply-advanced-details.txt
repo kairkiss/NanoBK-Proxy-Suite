@@ -1,0 +1,21 @@
+NanoBK DNS Apply — Advanced Details
+
+Record plan:
+  A     pr***y.ex***e.com  203.0.113.xxx  action=create  ownership=none
+  AAAA  pr***y.ex***e.com  2001:db8:…     action=update  ownership=nanobk_owned
+
+API plan:
+  GET count: 2
+  POST count: 1
+  PATCH count: 1
+  DELETE count: 0
+
+Transport:
+  fake_transport: true
+
+Still hidden:
+  API token
+  auth header
+  API request body
+  API response
+  record identifiers

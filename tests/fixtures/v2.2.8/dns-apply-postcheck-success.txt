@@ -1,0 +1,17 @@
+NanoBK DNS Apply — Final Summary
+Status: applied
+
+Changes:
+  Created: 1
+  Updated: 1
+  No change: 0
+  Failed: 0
+
+Post-check:
+  A record: verified
+  AAAA record: verified
+  Proxied mode: DNS-only verified
+  Ownership marker: verified
+
+Cloudflare was called for DNS create/update only.
+No records were deleted.

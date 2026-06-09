@@ -1,0 +1,25 @@
+NanoBK DNS Apply — Summary
+Status: ready for confirmation
+
+Planned changes:
+  Create: 1
+  Update: 1
+  No change: 0
+  Conflict: 0
+
+Target:
+  Domain: ex***e.com
+  Hostname: pr***y.ex***e.com
+  IPv4: 203.0.113.xxx
+  IPv6: 2001:db8:…
+
+What will happen:
+  NanoBK will create or update DNS records after confirmation.
+
+What will NOT happen:
+  No records will be deleted.
+  No unowned records will be overwritten.
+  No proxied records will be converted.
+  No Cloudflare Tunnel, Access, DNS-01, certificate, Worker, Bot, or Web Panel settings will be changed.
+
+Cloudflare DNS will be changed only after confirmation.
