@@ -1,5 +1,38 @@
 # Changelog
 
+## v2.2.21 — Controlled Live Gate Placeholder Checker
+
+### Added
+
+- Added `lib/nanobk_cf_dns_apply_controlled_live_gate_mock.py`, a pure mock controlled-live gate checker that evaluates safe placeholder fixtures.
+- Added safe static fixtures under `tests/fixtures/v2.2.21/` for ready and blocked gate scenarios.
+- Added `tests/v2.2.21-controlled-live-gate-placeholder-mock.sh` to validate gate semantics, blocked reasons, redacted output safety, no live mutation allowance, and no public integration.
+
+### Safety
+
+- v2.2.21 is mock-only.
+- No helper invocation is performed.
+- No Cloudflare API calls are performed.
+- No DNS records are created, updated, or deleted.
+- No real env files are read.
+- `ready_for_owner_approved_live_test_plan` still means live mutation is not allowed.
+- Public `bin/nanobk`, Bot, Web, and installer DNS apply remain blocked.
+
+### Not Changed
+
+- No changes to existing DNS apply helper modules.
+- No public `bin/nanobk` integration.
+- No beginner console apply button.
+- No Bot/Web apply button.
+- No installer behavior changes.
+- No real Cloudflare calls.
+- No real DNS mutation.
+- No DNS-01 implementation.
+- No Tunnel/Access implementation.
+- No real `/etc` writes.
+- No real rollback.
+- No release tag.
+
 ## v2.2.20 — Controlled Live DNS Test Plan and Safety Gate
 
 ### Added
