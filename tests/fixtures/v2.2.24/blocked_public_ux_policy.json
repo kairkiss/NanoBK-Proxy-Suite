@@ -1,0 +1,88 @@
+{
+  "placeholders": {
+    "safe_zone_category_present": true,
+    "safe_test_record_category_present": true,
+    "safe_record_type_present": true,
+    "safe_expected_content_category_present": true,
+    "safe_credential_file_reference_present": true,
+    "owner_approval_phrase_present": true,
+    "raw_values_printed": false,
+    "real_env_pasted": false,
+    "real_token_pasted": false,
+    "raw_identifier_pasted": false
+  },
+  "credential_policy": {
+    "reference_input_only": true,
+    "reference_printed": false,
+    "chmod_600_required": true,
+    "cat_source_eval_forbidden": true,
+    "token_echo_forbidden": true,
+    "raw_api_output_forbidden": true,
+    "stdout_stderr_capture_required": true,
+    "redaction_before_output_required": true,
+    "secret_persistence_forbidden": true
+  },
+  "record_policy": {
+    "one_record_only": true,
+    "disposable_test_record_only": true,
+    "owner_controlled_zone": true,
+    "create_only_first": true,
+    "dns_only": true,
+    "no_delete": true,
+    "no_overwrite": true,
+    "no_production_names": true,
+    "no_service_hostnames": true,
+    "absent_or_managed_test_only": true,
+    "same_name_cname_absent": true,
+    "record_type_expected": true,
+    "preview_before_approval": true
+  },
+  "approval_policy": {
+    "exact_phrase_matched": true,
+    "after_preview": true,
+    "after_rollback": true,
+    "after_postcheck_explanation": true,
+    "before_mutation": true,
+    "raw_mutation_command_shown": false
+  },
+  "precheck_policy": {
+    "placeholder_completeness": true,
+    "safe_record_category": true,
+    "no_production_category": true,
+    "absent_or_managed_test_only": true,
+    "same_name_cname_absent": true,
+    "no_unmanaged_overwrite": true,
+    "no_delete": true,
+    "safe_preview_available": true
+  },
+  "postcheck_policy": {
+    "api_acceptance_required": true,
+    "get_observes_record_required": true,
+    "record_exists_required": true,
+    "type_matches_required": true,
+    "content_matches_internally_required": true,
+    "proxied_false_required": true,
+    "same_name_cname_absent_required": true,
+    "expected_count_matches_required": true,
+    "no_unexpected_delete_required": true,
+    "verified_only_after_postcheck": true,
+    "redacted_output_required": true,
+    "rollback_instruction_available": true
+  },
+  "rollback_policy": {
+    "auto_delete_disabled": true,
+    "manual_instruction_before_mutation": true,
+    "owner_manual_dashboard_revert": true,
+    "safe_category_only": true,
+    "unverified_is_uncertain_or_manual_pending": true,
+    "blind_retry_forbidden": true
+  },
+  "public_ux_policy": {
+    "bin_apply_blocked": false,
+    "bot_apply_blocked": true,
+    "web_apply_blocked": true,
+    "installer_apply_blocked": true,
+    "tag_release_blocked": true,
+    "separate_public_review_required": true
+  }
+}

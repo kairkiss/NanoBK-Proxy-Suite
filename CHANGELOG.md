@@ -1,5 +1,38 @@
 # Changelog
 
+## v2.2.24 — One-Record Live Runbook Validator Mock
+
+### Added
+
+- Added `lib/nanobk_cf_dns_apply_one_record_live_runbook_validator_mock.py`, a pure mock validator for v2.2.23 owner-approved one-record live runbook placeholders and policy gates.
+- Added safe static fixtures under `tests/fixtures/v2.2.24/` for ready, blocked, multi-failure, and uncertain placeholder validation scenarios.
+- Added `tests/v2.2.24-one-record-live-runbook-validator-mock.sh` to validate placeholder completeness, credential policy, record identity policy, approval policy, pre-check policy, post-check policy, rollback policy, public UX block, first-failure semantics, and output safety.
+
+### Safety
+
+- v2.2.24 is mock-only.
+- No helper invocation is performed.
+- No Cloudflare API calls are performed.
+- No DNS records are created, updated, or deleted.
+- No real env files are read.
+- `ready_for_future_owner_approved_live_plan` does not allow live mutation.
+- Actual live tests, live Cloudflare calls, real DNS mutation, and public apply remain blocked.
+
+### Not Changed
+
+- No changes to existing DNS apply helper modules.
+- No public `bin/nanobk` integration.
+- No beginner console apply button.
+- No Bot/Web apply button.
+- No installer behavior changes.
+- No real Cloudflare calls.
+- No real DNS mutation.
+- No DNS-01 implementation.
+- No Tunnel/Access implementation.
+- No real `/etc` writes.
+- No real rollback.
+- No release tag.
+
 ## v2.2.23 — Owner-Approved One-Record Live Test Runbook
 
 ### Added
