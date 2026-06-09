@@ -1,5 +1,38 @@
 # Changelog
 
+## v2.2.22 — Controlled Live Wrapper Mock Contract
+
+### Added
+
+- Added `lib/nanobk_cf_dns_apply_controlled_live_wrapper_mock.py`, a pure mock wrapper-shaped contract for future controlled live DNS apply.
+- Added safe static fixtures under `tests/fixtures/v2.2.22/` for mock-verified, blocked, and uncertain wrapper scenarios.
+- Added `tests/v2.2.22-controlled-live-wrapper-mock.sh` to validate wrapper gate ordering, helper capture semantics, schema gate, fake post-check, safe rendering, redaction scanning, and no public integration.
+
+### Safety
+
+- v2.2.22 is mock-only.
+- No helper invocation is performed.
+- No Cloudflare API calls are performed.
+- No DNS records are created, updated, or deleted.
+- No real env files are read.
+- `mock_verified` does not mean live verified.
+- Live Cloudflare calls, real DNS mutation, and public apply remain blocked.
+
+### Not Changed
+
+- No changes to existing DNS apply helper modules.
+- No public `bin/nanobk` integration.
+- No beginner console apply button.
+- No Bot/Web apply button.
+- No installer behavior changes.
+- No real Cloudflare calls.
+- No real DNS mutation.
+- No DNS-01 implementation.
+- No Tunnel/Access implementation.
+- No real `/etc` writes.
+- No real rollback.
+- No release tag.
+
 ## v2.2.21 — Controlled Live Gate Placeholder Checker
 
 ### Added

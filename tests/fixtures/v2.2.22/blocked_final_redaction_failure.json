@@ -1,0 +1,15 @@
+{
+  "repo_gate": {"clean": true, "head_expected": true},
+  "credential_gate": {"path_was_input_only": true, "path_printed": false, "permission_600": true, "cat_source_eval_used": false, "token_printed": false},
+  "identity_gate": {"disposable_category": true, "safe_record_type": "A", "safe_action_category": "create", "raw_identity_printed": false, "production_name_detected": false, "subscription_proxy_web_bot_worker_name": false},
+  "precheck_gate": {"available": true, "absent_or_managed_test_only": true, "same_name_cname_absent": true, "no_unmanaged_existing_record": true, "no_delete": true, "no_overwrite": true},
+  "preview_gate": {"generated": true, "rendered_safe": true, "redaction_passed": true},
+  "approval_gate": {"rollback_shown": true, "postcheck_explained": true, "exact_phrase_matched": true},
+  "helper_capture": {"simulated": true, "stdout_captured": true, "stderr_captured": true, "raw_output_printed": false, "returncode": 0},
+  "helper_json_gate": {"parse_ok": true, "schema_ok": true, "allowed_fields_only": true},
+  "postcheck_gate": {"available": true, "api_acceptance_required": true, "get_observes_record_required": true, "record_exists": true, "type_matches": true, "content_matches_internally": true, "proxied_false": true, "same_name_cname_absent": true, "count_matches": true, "no_unexpected_delete": true, "verified_only_after_postcheck": true},
+  "classifier_gate": {"status": "verified", "ambiguous": false},
+  "renderer_gate": {"safe_summary_generated": true, "raw_fields_removed": true},
+  "final_redaction_gate": {"passed": false, "secret_or_address_printed": true, "raw_command_printed": false, "raw_api_printed": false},
+  "public_ux_gate": {"bin_integration": false, "bot_apply": false, "web_apply": false, "installer_apply": false}
+}
