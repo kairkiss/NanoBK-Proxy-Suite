@@ -54,6 +54,12 @@ _ALLOWED_RESULT_KEYS = {
 # Allowed action values
 _ALLOWED_ACTIONS = {"noop", "create", "update", "fail_conflict", "skip"}
 
+# Allowed record types
+_ALLOWED_RECORD_TYPES = {"A", "AAAA"}
+
+# Required keys in calls artifact entries
+_CALLS_ENTRY_REQUIRED_KEYS = {"method", "key", "endpoint"}
+
 # Status buckets
 _STATUS_APPLIED = "applied"
 _STATUS_UNCERTAIN = "uncertain"
@@ -218,17 +224,87 @@ def parse_helper_json(stdout: str) -> dict | None:
     return None
 
 
+def validate_helper_schema(data: dict) -> bool:
+    """Validate helper JSON schema strictly.
+
+    Top-level:
+    - Only _ALLOWED_HELPER_KEYS.
+    - actions, if present, must be list.
+    - results, if present, must be list.
+
+    Action entries:
+    - Must be dict.
+    - Keys subset of _ALLOWED_ACTION_KEYS.
+    - recordType, if present, must be A or AAAA.
+    - action, if present, must be in _ALLOWED_ACTIONS.
+
+    Result entries:
+    - Must be dict.
+    - Keys subset of _ALLOWED_RESULT_KEYS.
+    - recordType, if present, must be A or AAAA.
+    - action, if present, must be in _ALLOWED_ACTIONS.
+    - success, if present, must be bool.
+    """
+    # Top-level keys
+    unexpected = set(data.keys()) - _ALLOWED_HELPER_KEYS
+    if unexpected:
+        return False
+
+    # Validate actions
+    actions = data.get("actions")
+    if actions is not None:
+        if not isinstance(actions, list):
+            return False
+        for entry in actions:
+            if not isinstance(entry, dict):
+                return False
+            entry_keys = set(entry.keys())
+            if not entry_keys.issubset(_ALLOWED_ACTION_KEYS):
+                return False
+            rtype = entry.get("recordType")
+            if rtype is not None and rtype not in _ALLOWED_RECORD_TYPES:
+                return False
+            act = entry.get("action")
+            if act is not None and act not in _ALLOWED_ACTIONS:
+                return False
+
+    # Validate results
+    results = data.get("results")
+    if results is not None:
+        if not isinstance(results, list):
+            return False
+        for entry in results:
+            if not isinstance(entry, dict):
+                return False
+            entry_keys = set(entry.keys())
+            if not entry_keys.issubset(_ALLOWED_RESULT_KEYS):
+                return False
+            rtype = entry.get("recordType")
+            if rtype is not None and rtype not in _ALLOWED_RECORD_TYPES:
+                return False
+            act = entry.get("action")
+            if act is not None and act not in _ALLOWED_ACTIONS:
+                return False
+            success = entry.get("success")
+            if success is not None and not isinstance(success, bool):
+                return False
+
+    return True
+
+
 def check_calls_artifact(fake_transport: Path) -> bool:
     """Check if the fake transport fixture has a calls artifact proving usage.
 
-    Proof hierarchy:
-    1. If calls_file exists with content → strong proof.
-    2. If calls_file doesn't exist or is empty → acceptable if helper returned
-       valid structured JSON (checked elsewhere).
-    3. If no calls_file configured → acceptable (transport is still fake).
+    Requirements (all must pass):
+    1. _calls_file must be configured in transport fixture.
+    2. Calls file must exist.
+    3. Calls file must parse as non-empty list.
+    4. Each call entry must be a dict.
+    5. At least one entry must have method/key/endpoint keys.
+    6. method must be one of GET/POST/PATCH.
+    7. key must be a non-empty string.
 
-    The key invariant is that NANOBK_CF_DNS_FAKE_TRANSPORT was validated
-    before helper invocation — that alone proves fake transport was used.
+    Does not print calls file path or content.
     """
     try:
         with open(fake_transport, "r", encoding="utf-8") as f:
@@ -238,21 +314,42 @@ def check_calls_artifact(fake_transport: Path) -> bool:
 
     calls_file = data.get("_calls_file")
     if not calls_file:
-        return True
+        return False
 
     calls_path = Path(calls_file)
     if not calls_path.exists():
-        return True
+        return False
 
     try:
         with open(calls_path, "r", encoding="utf-8") as f:
             content = f.read().strip()
-        if not content or content == "[]":
-            return True
-        calls = json.loads(content)
-        return isinstance(calls, (dict, list))
-    except (json.JSONDecodeError, OSError):
+    except OSError:
         return False
+
+    if not content:
+        return False
+
+    try:
+        calls = json.loads(content)
+    except (json.JSONDecodeError, ValueError):
+        return False
+
+    if not isinstance(calls, list) or len(calls) == 0:
+        return False
+
+    # Validate at least one entry has required keys
+    found_valid = False
+    for entry in calls:
+        if not isinstance(entry, dict):
+            return False
+        entry_keys = set(entry.keys())
+        if _CALLS_ENTRY_REQUIRED_KEYS.issubset(entry_keys):
+            method = entry.get("method", "")
+            key = entry.get("key", "")
+            if method in ("GET", "POST", "PATCH") and isinstance(key, str) and key:
+                found_valid = True
+
+    return found_valid
 
 
 def derive_safe_summary(helper_json: dict) -> str:
@@ -357,8 +454,8 @@ def main() -> int:
             print(_SAFE_ERROR_MSG, file=sys.stderr)
             return 1
 
-        # Check for traceback-like output in stdout or stderr
-        if "Traceback" in stdout or "Traceback" in stderr:
+        # Strict stderr gate — fail closed if stderr is non-empty
+        if stderr.strip():
             print(_SAFE_ERROR_MSG, file=sys.stderr)
             return 1
 
@@ -367,6 +464,11 @@ def main() -> int:
         # We only fail closed if stdout is not valid JSON or has unexpected schema.
         helper_json = parse_helper_json(stdout)
         if helper_json is None:
+            print(_SAFE_ERROR_MSG, file=sys.stderr)
+            return 1
+
+        # Strict schema validation — check actions[] and results[] internals
+        if not validate_helper_schema(helper_json):
             print(_SAFE_ERROR_MSG, file=sys.stderr)
             return 1
 

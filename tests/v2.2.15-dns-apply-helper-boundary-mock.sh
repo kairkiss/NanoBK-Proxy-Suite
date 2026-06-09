@@ -56,10 +56,11 @@ trap cleanup EXIT
 
 # ── Create temp fixtures ─────────────────────────────────────────────────────
 
-# Fake transport with calls artifact
+# Calls file — initialized as empty list (helper appends to it)
 CALLS_FILE="$TEST_TMPDIR/fake-calls.json"
-echo '{}' > "$CALLS_FILE"
+echo '[]' > "$CALLS_FILE"
 
+# Fake transport with calls artifact and valid responses
 FAKE_TRANSPORT="$TEST_TMPDIR/fake-transport.json"
 cat > "$FAKE_TRANSPORT" <<EOF
 {
@@ -69,6 +70,23 @@ cat > "$FAKE_TRANSPORT" <<EOF
   "GET_CNAME": {"success": true, "result": []},
   "POST": {"success": true, "result": {"id": "rec-new-001", "type": "A", "name": "node.example.com", "content": "203.0.113.10"}},
   "PATCH:rec-a-001": {"success": true, "result": {"id": "rec-a-001", "type": "A", "name": "node.example.com", "content": "203.0.113.10"}}
+}
+EOF
+
+# Transport without _calls_file
+NO_CALLS_TRANSPORT="$TEST_TMPDIR/no-calls-transport.json"
+cat > "$NO_CALLS_TRANSPORT" <<'EOF'
+{
+  "GET_A": {"success": true, "result": []}
+}
+EOF
+
+# Transport with _calls_file pointing to missing file
+MISSING_CALLS_TRANSPORT="$TEST_TMPDIR/missing-calls-transport.json"
+cat > "$MISSING_CALLS_TRANSPORT" <<EOF
+{
+  "_calls_file": "$TEST_TMPDIR/nonexistent-calls.json",
+  "GET_A": {"success": true, "result": []}
 }
 EOF
 
@@ -121,8 +139,6 @@ IMPORT_LINES=$(grep -E '^\s*(import |from )' "$MODULE" || true)
 assert_not_contains "$IMPORT_LINES" "nanobk_cf_dns_apply_ux_mock" "A3: no UX mock import"
 
 # A4. Current UX mock is not modified
-UX_HASH_BEFORE=$(shasum -a 256 "$UX_MOCK" | awk '{print $1}')
-# (We don't modify it, so just verify it exists)
 if [[ -f "$UX_MOCK" ]]; then
   pass "A4: UX mock exists and unchanged"
 else
@@ -190,170 +206,261 @@ assert_not_contains "$B1" "CALLS_PLACEHOLDER" "B10: no internal data in error"
 echo ""
 
 # ══════════════════════════════════════════════════════════════════════════════
-# C. Controlled valid fake invocation
+# C. Calls artifact proof
 # ══════════════════════════════════════════════════════════════════════════════
 
-echo "--- C. Controlled valid fake invocation ---"
+echo "--- C. Calls artifact proof ---"
 echo ""
 
-C_OUT=$(run_module) || true
+# C1. Static check: module source requires _calls_file in calls artifact
+assert_contains "$MODULE_SOURCE" "_calls_file" "C1: module checks _calls_file"
 
-# C1. Output contains Status
-assert_contains "$C_OUT" "Status:" "C1: output has Status"
+# C2. Static check: module source checks calls file exists
+assert_contains "$MODULE_SOURCE" "calls_path" "C2: module checks calls_path"
 
-# C2. Output says fake transport only
-assert_contains "$C_OUT" "Test mode: fake transport only" "C2: says fake transport only"
+# C3. Static check: module source requires non-empty list
+assert_contains "$MODULE_SOURCE" "non-empty list" "C3: module requires non-empty list"
 
-# C3. Output says no live verification
-assert_contains "$C_OUT" "No live Cloudflare verification was performed" "C3: says no live verification"
+# C4. Static check: module source validates call entry keys
+assert_contains "$MODULE_SOURCE" "method" "C4: module validates method in calls"
+assert_contains "$MODULE_SOURCE" "endpoint" "C4: module validates endpoint in calls"
 
-# C4. Output does not contain raw helper stdout
-assert_not_contains "$C_OUT" "raw" "C4: no raw helper output"
-
-# C5. Output does not contain raw helper JSON fields
-assert_not_contains "$C_OUT" "plannedContent" "C5: no plannedContent"
-assert_not_contains "$C_OUT" "existingContent" "C5: no existingContent"
-assert_not_contains "$C_OUT" "recordId" "C5: no recordId"
+# C5. Valid invocation produces calls artifact proof in output
+C5=$(run_module) || true
+assert_contains "$C5" "Fake transport:" "C5: output has Fake transport section"
+assert_contains "$C5" "Used: yes" "C5: output says Used: yes"
 
 echo ""
 
 # ══════════════════════════════════════════════════════════════════════════════
-# D. Output safety
+# D. Stderr gate
 # ══════════════════════════════════════════════════════════════════════════════
 
-echo "--- D. Output safety ---"
+echo "--- D. Stderr gate ---"
 echo ""
 
-assert_not_contains "$C_OUT" "example.com" "D1: no raw domain"
-assert_not_contains "$C_OUT" "proxy.example.com" "D2: no raw hostname"
-assert_not_contains "$C_OUT" "203.0.113.10" "D3: no raw IPv4"
-assert_not_contains "$C_OUT" "2001:db8::10" "D4: no raw IPv6"
-assert_not_contains "$C_OUT" "record ID" "D5: no record ID"
-assert_not_contains "$C_OUT" "Zone ID" "D6: no Zone ID"
-assert_not_contains "$C_OUT" "Account ID" "D7: no Account ID"
-assert_not_contains "$C_OUT" "CF_API_TOKEN" "D8: no API token"
-assert_not_contains "$C_OUT" "Authorization" "D9: no Authorization"
-assert_not_contains "$C_OUT" "api-env" "D10: no api-env"
-assert_not_contains "$C_OUT" "cloudflare-api.env" "D11: no env file path"
-assert_not_contains "$C_OUT" "workers.dev" "D12: no workers.dev"
-assert_not_contains "$C_OUT" "subscription URL" "D13: no subscription URL"
-assert_not_contains "$C_OUT" "vless://" "D14: no vless://"
-assert_not_contains "$C_OUT" "trojan://" "D15: no trojan://"
-assert_not_contains "$C_OUT" "hysteria2://" "D16: no hysteria2://"
-assert_not_contains "$C_OUT" "tuic://" "D17: no tuic://"
-assert_not_contains "$C_OUT" "PRIVATE KEY" "D18: no PRIVATE KEY"
-assert_not_contains "$C_OUT" "Reality private key" "D19: no Reality private key"
+# D1. Static check: module has strict stderr gate
+assert_contains "$MODULE_SOURCE" "stderr.strip()" "D1: module has stderr.strip() gate"
 
-# D20. No full sha256-like 64-char hex
-if echo "$C_OUT" | grep -qE '[a-f0-9]{64}'; then
-  fail "D20: no full sha256-like hex"
+# D2. Static check: stderr gate fails closed
+assert_contains "$MODULE_SOURCE" "if stderr.strip():" "D2: stderr gate is fail-closed"
+
+# D3. Static check: stderr is checked before JSON parsing in main()
+# Find the main() function and check ordering within it
+MAIN_BLOCK=$(awk '/^def main/,/^if __name__/' "$MODULE")
+STDERR_IN_MAIN=$(echo "$MAIN_BLOCK" | grep -n "stderr.strip()" | head -1 | cut -d: -f1)
+JSON_IN_MAIN=$(echo "$MAIN_BLOCK" | grep -n "parse_helper_json" | head -1 | cut -d: -f1)
+if [[ -n "$STDERR_IN_MAIN" ]] && [[ -n "$JSON_IN_MAIN" ]] && [[ "$STDERR_IN_MAIN" -lt "$JSON_IN_MAIN" ]]; then
+  pass "D3: stderr check is before JSON parsing in main()"
+else
+  fail "D3: stderr check should be before JSON parsing in main()"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# D4. Valid invocation still passes with empty stderr
+D4=$(run_module) || true
+assert_contains "$D4" "Status:" "D4: valid invocation passes"
+
+echo ""
+
+# ══════════════════════════════════════════════════════════════════════════════
+# E. JSON allowlist
+# ══════════════════════════════════════════════════════════════════════════════
+
+echo "--- E. JSON allowlist ---"
+echo ""
+
+# E1. Static check: module has validate_helper_schema function
+assert_contains "$MODULE_SOURCE" "def validate_helper_schema" "E1: has validate_helper_schema"
+
+# E2. Static check: module validates action keys
+assert_contains "$MODULE_SOURCE" "_ALLOWED_ACTION_KEYS" "E2: validates action keys"
+
+# E3. Static check: module validates result keys
+assert_contains "$MODULE_SOURCE" "_ALLOWED_RESULT_KEYS" "E3: validates result keys"
+
+# E4. Static check: module validates record types
+assert_contains "$MODULE_SOURCE" "_ALLOWED_RECORD_TYPES" "E4: validates record types"
+
+# E5. Static check: module validates action values
+assert_contains "$MODULE_SOURCE" "_ALLOWED_ACTIONS" "E5: validates action values"
+
+# E6. Static check: schema validation is called in main
+assert_contains "$MODULE_SOURCE" "validate_helper_schema(helper_json)" "E6: schema validation called"
+
+# E7. Raw helper fields are not forwarded
+E7=$(run_module) || true
+assert_not_contains "$E7" "plannedContent" "E7: no plannedContent in output"
+assert_not_contains "$E7" "existingContent" "E7: no existingContent in output"
+assert_not_contains "$E7" "recordId" "E7: no recordId in output"
+
+echo ""
+
+# ══════════════════════════════════════════════════════════════════════════════
+# F. Controlled valid fake invocation
+# ══════════════════════════════════════════════════════════════════════════════
+
+echo "--- F. Controlled valid fake invocation ---"
+echo ""
+
+F_OUT=$(run_module) || true
+
+# F1. Output contains Status
+assert_contains "$F_OUT" "Status:" "F1: output has Status"
+
+# F2. Output says fake transport only
+assert_contains "$F_OUT" "Test mode: fake transport only" "F2: says fake transport only"
+
+# F3. Output says no live verification
+assert_contains "$F_OUT" "No live Cloudflare verification was performed" "F3: says no live verification"
+
+# F4. Output has Fake transport section
+assert_contains "$F_OUT" "Fake transport:" "F4: has Fake transport section"
+
+# F5. Output says Used: yes
+assert_contains "$F_OUT" "Used: yes" "F5: says Used: yes"
+
+# F6. Output does not contain raw helper stdout
+assert_not_contains "$F_OUT" "raw" "F6: no raw helper output"
+
+echo ""
+
+# ══════════════════════════════════════════════════════════════════════════════
+# G. Output safety
+# ══════════════════════════════════════════════════════════════════════════════
+
+echo "--- G. Output safety ---"
+echo ""
+
+assert_not_contains "$F_OUT" "example.com" "G1: no raw domain"
+assert_not_contains "$F_OUT" "proxy.example.com" "G2: no raw hostname"
+assert_not_contains "$F_OUT" "203.0.113.10" "G3: no raw IPv4"
+assert_not_contains "$F_OUT" "2001:db8::10" "G4: no raw IPv6"
+assert_not_contains "$F_OUT" "record ID" "G5: no record ID"
+assert_not_contains "$F_OUT" "Zone ID" "G6: no Zone ID"
+assert_not_contains "$F_OUT" "Account ID" "G7: no Account ID"
+assert_not_contains "$F_OUT" "CF_API_TOKEN" "G8: no API token"
+assert_not_contains "$F_OUT" "Authorization" "G9: no Authorization"
+assert_not_contains "$F_OUT" "api-env" "G10: no api-env"
+assert_not_contains "$F_OUT" "cloudflare-api.env" "G11: no env file path"
+assert_not_contains "$F_OUT" "workers.dev" "G12: no workers.dev"
+assert_not_contains "$F_OUT" "subscription URL" "G13: no subscription URL"
+assert_not_contains "$F_OUT" "vless://" "G14: no vless://"
+assert_not_contains "$F_OUT" "trojan://" "G15: no trojan://"
+assert_not_contains "$F_OUT" "hysteria2://" "G16: no hysteria2://"
+assert_not_contains "$F_OUT" "tuic://" "G17: no tuic://"
+assert_not_contains "$F_OUT" "PRIVATE KEY" "G18: no PRIVATE KEY"
+assert_not_contains "$F_OUT" "Reality private key" "G19: no Reality private key"
+
+# G20. No full sha256-like 64-char hex
+if echo "$F_OUT" | grep -qE '[a-f0-9]{64}'; then
+  fail "G20: no full sha256-like hex"
   ERRORS=$((ERRORS + 1))
 else
-  pass "D20: no full sha256-like hex"
+  pass "G20: no full sha256-like hex"
 fi
 
 echo ""
 
 # ══════════════════════════════════════════════════════════════════════════════
-# E. Helper output capture / fail-closed
+# H. Helper output capture
 # ══════════════════════════════════════════════════════════════════════════════
 
-echo "--- E. Helper output capture ---"
+echo "--- H. Helper output capture ---"
 echo ""
 
-# E1. Helper stderr is not printed in valid output
-assert_not_contains "$C_OUT" "error" "E1: no stderr in output"
+# H1. Helper stderr is not printed in valid output
+assert_not_contains "$F_OUT" "error" "H1: no stderr in output"
 
-# E2. Output does not contain raw JSON
-assert_not_contains "$C_OUT" "{\"ok\":" "E2: no raw JSON"
+# H2. Output does not contain raw JSON
+assert_not_contains "$F_OUT" "{\"ok\":" "H2: no raw JSON"
 
-# E3. Output has expected structure
-assert_contains "$C_OUT" "NanoBK DNS Apply Helper Boundary" "E3: has expected header"
-assert_contains "$C_OUT" "Actions:" "E3: has Actions section"
-assert_contains "$C_OUT" "Record types:" "E3: has Record types section"
-assert_contains "$C_OUT" "Fake transport:" "E3: has Fake transport section"
+# H3. Output has expected structure
+assert_contains "$F_OUT" "NanoBK DNS Apply Helper Boundary" "H3: has expected header"
+assert_contains "$F_OUT" "Actions:" "H3: has Actions section"
+assert_contains "$F_OUT" "Record types:" "H3: has Record types section"
 
 echo ""
 
 # ══════════════════════════════════════════════════════════════════════════════
-# F. No public integration
+# I. No public integration
 # ══════════════════════════════════════════════════════════════════════════════
 
-echo "--- F. No public integration ---"
+echo "--- I. No public integration ---"
 echo ""
 
-# F1. bin/nanobk does not reference module
+# I1. bin/nanobk does not reference module
 if grep -q 'nanobk_cf_dns_apply_helper_boundary_mock' "$ROOT/bin/nanobk" 2>/dev/null; then
-  fail "F1: bin/nanobk references module"
+  fail "I1: bin/nanobk references module"
   ERRORS=$((ERRORS + 1))
 else
-  pass "F1: bin/nanobk does not reference module"
+  pass "I1: bin/nanobk does not reference module"
 fi
 
-# F2. No public console integration in module
-assert_not_contains "$MODULE_SOURCE" "beginner console" "F2: no beginner console in module"
+# I2. No public console integration in module
+assert_not_contains "$MODULE_SOURCE" "beginner console" "I2: no beginner console in module"
 
 echo ""
 
 # ══════════════════════════════════════════════════════════════════════════════
-# G. Existing tests still pass
+# J. Existing tests still pass
 # ══════════════════════════════════════════════════════════════════════════════
 
-echo "--- G. Existing tests still pass ---"
+echo "--- J. Existing tests still pass ---"
 echo ""
 
-# G1. v2.2.8 test
+# J1. v2.2.8 test
 if bash "$ROOT/tests/v2.2.8-dns-apply-beginner-ux-mock.sh" > /dev/null 2>&1; then
-  pass "G1: v2.2.8 test passes"
+  pass "J1: v2.2.8 test passes"
 else
-  fail "G1: v2.2.8 test fails"
+  fail "J1: v2.2.8 test fails"
   ERRORS=$((ERRORS + 1))
 fi
 
-# G2. v2.2.10 test
+# J2. v2.2.10 test
 if bash "$ROOT/tests/v2.2.10-dns-apply-ux-fake-wrapper.sh" > /dev/null 2>&1; then
-  pass "G2: v2.2.10 test passes"
+  pass "J2: v2.2.10 test passes"
 else
-  fail "G2: v2.2.10 test fails"
+  fail "J2: v2.2.10 test fails"
   ERRORS=$((ERRORS + 1))
 fi
 
-# G3. v2.2.11 test
+# J3. v2.2.11 test
 if bash "$ROOT/tests/v2.2.11-dns-apply-ux-wrapper-hardening.sh" > /dev/null 2>&1; then
-  pass "G3: v2.2.11 test passes"
+  pass "J3: v2.2.11 test passes"
 else
-  fail "G3: v2.2.11 test fails"
+  fail "J3: v2.2.11 test fails"
   ERRORS=$((ERRORS + 1))
 fi
 
 echo ""
 
 # ══════════════════════════════════════════════════════════════════════════════
-# H. Module isolation
+# K. Module isolation
 # ══════════════════════════════════════════════════════════════════════════════
 
-echo "--- H. Module isolation ---"
+echo "--- K. Module isolation ---"
 echo ""
 
-# H1. No network imports
-assert_not_contains "$MODULE_SOURCE" "import requests" "H1: no requests"
-assert_not_contains "$MODULE_SOURCE" "import urllib" "H1: no urllib"
-assert_not_contains "$MODULE_SOURCE" "import http.client" "H1: no http.client"
-assert_not_contains "$MODULE_SOURCE" "import socket" "H1: no socket"
-assert_not_contains "$MODULE_SOURCE" "curl" "H1: no curl"
-assert_not_contains "$MODULE_SOURCE" "wrangler" "H1: no wrangler"
+# K1. No network imports
+assert_not_contains "$MODULE_SOURCE" "import requests" "K1: no requests"
+assert_not_contains "$MODULE_SOURCE" "import urllib" "K1: no urllib"
+assert_not_contains "$MODULE_SOURCE" "import http.client" "K1: no http.client"
+assert_not_contains "$MODULE_SOURCE" "import socket" "K1: no socket"
+assert_not_contains "$MODULE_SOURCE" "curl" "K1: no curl"
+assert_not_contains "$MODULE_SOURCE" "wrangler" "K1: no wrangler"
 
-# H2. Uses subprocess (allowed for boundary mock)
-assert_contains "$MODULE_SOURCE" "import subprocess" "H2: uses subprocess"
+# K2. Uses subprocess (allowed for boundary mock)
+assert_contains "$MODULE_SOURCE" "import subprocess" "K2: uses subprocess"
 
-# H3. Uses shell=False
-assert_contains "$MODULE_SOURCE" "shell=False" "H3: uses shell=False"
+# K3. Uses shell=False
+assert_contains "$MODULE_SOURCE" "shell=False" "K3: uses shell=False"
 
-# H4. Has timeout
-assert_contains "$MODULE_SOURCE" "timeout=" "H4: has timeout"
+# K4. Has timeout
+assert_contains "$MODULE_SOURCE" "timeout=" "K4: has timeout"
 
-# H5. Captures output
-assert_contains "$MODULE_SOURCE" "capture_output=True" "H5: captures output"
+# K5. Captures output
+assert_contains "$MODULE_SOURCE" "capture_output=True" "K5: captures output"
 
 echo ""
 

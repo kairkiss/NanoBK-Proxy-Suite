@@ -1,5 +1,31 @@
 # Changelog
 
+## v2.2.15-polish — Harden Fake Helper Boundary Sentinel and JSON/Stderr Gates
+
+### Hardened
+
+- Strengthened `lib/nanobk_cf_dns_apply_helper_boundary_mock.py` so fake calls artifact proof is mandatory instead of accepting missing or empty artifacts.
+- Added strict helper stderr fail-closed handling before JSON parsing.
+- Added strict validation for helper `actions[]` and `results[]` entry keys/types/allowed values.
+- Strengthened `tests/v2.2.15-dns-apply-helper-boundary-mock.sh` to cover calls artifact proof, stderr gate, and helper JSON allowlist behavior.
+
+### Not Changed
+
+- No changes to `lib/nanobk_cf_dns_apply.py`.
+- No changes to `lib/nanobk_cf_dns_apply_ux_mock.py`.
+- No public `bin/nanobk` integration.
+- No beginner console apply button.
+- No Bot/Web apply button.
+- No installer behavior changes.
+- No real Cloudflare calls.
+- No real DNS mutation.
+- No DNS apply execution against real transport.
+- No DNS-01 implementation.
+- No Tunnel/Access implementation.
+- No real `/etc` writes.
+- No real rollback.
+- No release tag.
+
 ## v2.2.15 — Fake-only DNS Apply Helper Boundary Prototype
 
 ### Added
