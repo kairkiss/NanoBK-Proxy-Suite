@@ -64,7 +64,7 @@ echo ""
 
 A_JSON=$(NANOBK_OWNER_SMOKE_FAKE_MAP="$FIXTURES/fake_map_success.json" \
   python3 "$MODULE" smoke --zone example.com --api-env "$FIXTURES/safe_api_env.env" \
-  --label nanobk-smoke-test --type A --content 203.0.113.10 --ttl 60 \
+  --label nanobk-smoke-test --type A --content 8.8.8.8 --ttl 60 \
   --cleanup --confirm-disposable-smoke "$CONFIRM" --json 2>&1) && A_RC=0 || A_RC=$?
 
 if [[ "$A_RC" != "0" ]]; then
@@ -90,7 +90,7 @@ echo ""
 for bad_label in "proxy" "web" "www" "@" "*" "api" "cdn" "mail" "regular-label"; do
   B_JSON=$(NANOBK_OWNER_SMOKE_FAKE_MAP="$FIXTURES/fake_map_success.json" \
     python3 "$MODULE" smoke --zone example.com --api-env "$FIXTURES/safe_api_env.env" \
-    --label "$bad_label" --type A --content 203.0.113.10 --ttl 60 \
+    --label "$bad_label" --type A --content 8.8.8.8 --ttl 60 \
     --owner-approve --cleanup --confirm-disposable-smoke "$CONFIRM" --json 2>&1) && B_RC=0 || B_RC=$?
   if [[ "$B_RC" != "0" ]]; then
     pass "B: label '$bad_label' rejected"
@@ -111,7 +111,7 @@ echo ""
 
 C_JSON=$(NANOBK_OWNER_SMOKE_FAKE_MAP="$FIXTURES/fake_map_existing_record.json" \
   python3 "$MODULE" smoke --zone example.com --api-env "$FIXTURES/safe_api_env.env" \
-  --label nanobk-smoke-test --type A --content 203.0.113.10 --ttl 60 \
+  --label nanobk-smoke-test --type A --content 8.8.8.8 --ttl 60 \
   --owner-approve --cleanup --confirm-disposable-smoke "$CONFIRM" --json 2>&1) && C_RC=0 || C_RC=$?
 
 if [[ "$C_RC" != "0" ]]; then
@@ -136,7 +136,7 @@ echo ""
 
 D_JSON=$(NANOBK_OWNER_SMOKE_FAKE_MAP="$FIXTURES/fake_map_success.json" \
   python3 "$MODULE" smoke --zone example.com --api-env "$FIXTURES/safe_api_env.env" \
-  --label nanobk-smoke-test --type A --content 203.0.113.10 --ttl 60 \
+  --label nanobk-smoke-test --type A --content 8.8.8.8 --ttl 60 \
   --owner-approve --cleanup --confirm-disposable-smoke "$CONFIRM" --json 2>&1) && D_RC=0 || D_RC=$?
 
 if [[ "$D_RC" == "0" ]]; then
@@ -158,7 +158,7 @@ assert_not_contains "$D_JSON" "fake-created-record-id" "D10: no record id in out
 
 D_TEXT=$(NANOBK_OWNER_SMOKE_FAKE_MAP="$FIXTURES/fake_map_success.json" \
   python3 "$MODULE" smoke --zone example.com --api-env "$FIXTURES/safe_api_env.env" \
-  --label nanobk-smoke-test --type A --content 203.0.113.10 --ttl 60 \
+  --label nanobk-smoke-test --type A --content 8.8.8.8 --ttl 60 \
   --owner-approve --cleanup --confirm-disposable-smoke "$CONFIRM" 2>&1)
 
 assert_contains "$D_TEXT" "Cleanup: succeeded" "D11: text cleanup succeeded"
@@ -178,7 +178,7 @@ echo ""
 
 E_JSON=$(NANOBK_OWNER_SMOKE_FAKE_MAP="$FIXTURES/fake_map_post_check_fail.json" \
   python3 "$MODULE" smoke --zone example.com --api-env "$FIXTURES/safe_api_env.env" \
-  --label nanobk-smoke-test --type A --content 203.0.113.10 --ttl 60 \
+  --label nanobk-smoke-test --type A --content 8.8.8.8 --ttl 60 \
   --owner-approve --cleanup --confirm-disposable-smoke "$CONFIRM" --json 2>&1) && E_RC=0 || E_RC=$?
 
 if [[ "$E_RC" != "0" ]]; then
@@ -203,7 +203,7 @@ echo ""
 
 F_JSON=$(NANOBK_OWNER_SMOKE_FAKE_MAP="$FIXTURES/fake_map_cleanup_fail.json" \
   python3 "$MODULE" smoke --zone example.com --api-env "$FIXTURES/safe_api_env.env" \
-  --label nanobk-smoke-test --type A --content 203.0.113.10 --ttl 60 \
+  --label nanobk-smoke-test --type A --content 8.8.8.8 --ttl 60 \
   --owner-approve --cleanup --confirm-disposable-smoke "$CONFIRM" --json 2>&1) && F_RC=0 || F_RC=$?
 
 if [[ "$F_RC" != "0" ]]; then
@@ -229,7 +229,7 @@ echo ""
 
 for flag in "--force" "--overwrite" "--apply" "--yes" "--keep-for-debug"; do
   G_OUT=$(python3 "$MODULE" smoke --zone example.com --api-env "$FIXTURES/safe_api_env.env" \
-    --label nanobk-smoke-test --type A --content 203.0.113.10 --ttl 60 \
+    --label nanobk-smoke-test --type A --content 8.8.8.8 --ttl 60 \
     --owner-approve --cleanup --confirm-disposable-smoke "$CONFIRM" "$flag" --json 2>&1) && G_RC=0 || G_RC=$?
   if [[ "$G_RC" != "0" ]]; then
     pass "G: $flag rejected (rc=$G_RC)"
@@ -251,7 +251,7 @@ echo ""
 for bad_type in "CNAME" "MX" "NS" "SRV" "CAA"; do
   H_JSON=$(NANOBK_OWNER_SMOKE_FAKE_MAP="$FIXTURES/fake_map_success.json" \
     python3 "$MODULE" smoke --zone example.com --api-env "$FIXTURES/safe_api_env.env" \
-    --label nanobk-smoke-test --type "$bad_type" --content 203.0.113.10 --ttl 60 \
+    --label nanobk-smoke-test --type "$bad_type" --content 8.8.8.8 --ttl 60 \
     --owner-approve --cleanup --confirm-disposable-smoke "$CONFIRM" --json 2>&1) && H_RC=0 || H_RC=$?
   if [[ "$H_RC" != "0" ]]; then
     pass "H: type '$bad_type' rejected"
@@ -272,7 +272,7 @@ echo ""
 
 I_JSON=$(NANOBK_OWNER_SMOKE_FAKE_MAP="$FIXTURES/fake_map_success.json" \
   python3 "$MODULE" smoke --zone example.com --api-env "$FIXTURES/unsafe_world_readable_api_env.env" \
-  --label nanobk-smoke-test --type A --content 203.0.113.10 --ttl 60 \
+  --label nanobk-smoke-test --type A --content 8.8.8.8 --ttl 60 \
   --owner-approve --cleanup --confirm-disposable-smoke "$CONFIRM" --json 2>&1) && I_RC=0 || I_RC=$?
 
 if [[ "$I_RC" != "0" ]]; then
@@ -319,7 +319,7 @@ echo ""
 
 K_JSON=$(NANOBK_OWNER_SMOKE_FAKE_MAP="$FIXTURES/fake_map_success.json" \
   python3 "$MODULE" smoke --zone example.com --api-env "$FIXTURES/safe_api_env.env" \
-  --label nanobk-smoke-test --type A --content 203.0.113.10 --ttl 60 \
+  --label nanobk-smoke-test --type A --content 8.8.8.8 --ttl 60 \
   --owner-approve --cleanup --json 2>&1) && K_RC=0 || K_RC=$?
 
 if [[ "$K_RC" != "0" ]]; then
@@ -342,7 +342,7 @@ echo ""
 
 L_JSON=$(NANOBK_OWNER_SMOKE_FAKE_MAP="$FIXTURES/fake_map_success.json" \
   python3 "$MODULE" smoke --zone example.com --api-env "$FIXTURES/safe_api_env.env" \
-  --label nanobk-smoke-test --type A --content 203.0.113.10 --ttl 60 \
+  --label nanobk-smoke-test --type A --content 8.8.8.8 --ttl 60 \
   --owner-approve --confirm-disposable-smoke "$CONFIRM" --json 2>&1) && L_RC=0 || L_RC=$?
 
 if [[ "$L_RC" != "0" ]]; then
@@ -353,6 +353,100 @@ else
 fi
 
 assert_contains "$L_JSON" "cleanup_required" "L2: reason cleanup_required"
+
+echo ""
+
+# ══════════════════════════════════════════════════════════════════════════════
+# L2. Reject private/link-local/unspecified/loopback/multicast/reserved IPv4
+# ══════════════════════════════════════════════════════════════════════════════
+
+echo "--- L2. Reject non-public IPv4 ---"
+echo ""
+
+for bad_ip in "10.0.0.1" "192.168.1.1" "172.16.0.1" "169.254.1.1" "0.0.0.0" "127.0.0.1" "224.0.0.1" "203.0.113.10"; do
+  L2_JSON=$(NANOBK_OWNER_SMOKE_FAKE_MAP="$FIXTURES/fake_map_success.json" \
+    python3 "$MODULE" smoke --zone example.com --api-env "$FIXTURES/safe_api_env.env" \
+    --label nanobk-smoke-test --type A --content "$bad_ip" --ttl 60 \
+    --owner-approve --cleanup --confirm-disposable-smoke "$CONFIRM" --json 2>&1) && L2_RC=0 || L2_RC=$?
+  if [[ "$L2_RC" != "0" ]]; then
+    pass "L2: IPv4 '$bad_ip' rejected"
+  else
+    fail "L2: IPv4 '$bad_ip' should be rejected"
+    ERRORS=$((ERRORS + 1))
+  fi
+done
+
+echo ""
+
+# ══════════════════════════════════════════════════════════════════════════════
+# L3. Reject non-public IPv6
+# ══════════════════════════════════════════════════════════════════════════════
+
+echo "--- L3. Reject non-public IPv6 ---"
+echo ""
+
+for bad_ip in "::1" "::" "fe80::1" "fd00::1" "ff00::1" "2001:db8::1"; do
+  L3_JSON=$(NANOBK_OWNER_SMOKE_FAKE_MAP="$FIXTURES/fake_map_success.json" \
+    python3 "$MODULE" smoke --zone example.com --api-env "$FIXTURES/safe_api_env.env" \
+    --label nanobk-smoke-test --type AAAA --content "$bad_ip" --ttl 60 \
+    --owner-approve --cleanup --confirm-disposable-smoke "$CONFIRM" --json 2>&1) && L3_RC=0 || L3_RC=$?
+  if [[ "$L3_RC" != "0" ]]; then
+    pass "L3: IPv6 '$bad_ip' rejected"
+  else
+    fail "L3: IPv6 '$bad_ip' should be rejected"
+    ERRORS=$((ERRORS + 1))
+  fi
+done
+
+echo ""
+
+# ══════════════════════════════════════════════════════════════════════════════
+# L4. Post-check content mismatch → post_check_failed
+# ══════════════════════════════════════════════════════════════════════════════
+
+echo "--- L4. Post-check content mismatch ---"
+echo ""
+
+L4_JSON=$(NANOBK_OWNER_SMOKE_FAKE_MAP="$FIXTURES/fake_map_post_check_mismatch.json" \
+  python3 "$MODULE" smoke --zone example.com --api-env "$FIXTURES/safe_api_env.env" \
+  --label nanobk-smoke-test --type A --content 8.8.8.8 --ttl 60 \
+  --owner-approve --cleanup --confirm-disposable-smoke "$CONFIRM" --json 2>&1) && L4_RC=0 || L4_RC=$?
+
+if [[ "$L4_RC" != "0" ]]; then
+  pass "L4-1: post-check mismatch exits non-zero ($L4_RC)"
+else
+  fail "L4-1: post-check mismatch should exit non-zero"
+  ERRORS=$((ERRORS + 1))
+fi
+
+assert_contains "$L4_JSON" "post_check_failed" "L4-2: status post_check_failed"
+assert_contains "$L4_JSON" '"attempted": true' "L4-3: cleanup attempted"
+assert_not_contains "$L4_JSON" "fake-created-record-id" "L4-4: no record id"
+
+echo ""
+
+# ══════════════════════════════════════════════════════════════════════════════
+# L5. Cleanup verify with unrelated record → cleanup_verified=true
+# ══════════════════════════════════════════════════════════════════════════════
+
+echo "--- L5. Cleanup verify unrelated record ---"
+echo ""
+
+L5_JSON=$(NANOBK_OWNER_SMOKE_FAKE_MAP="$FIXTURES/fake_map_cleanup_verify_unrelated.json" \
+  python3 "$MODULE" smoke --zone example.com --api-env "$FIXTURES/safe_api_env.env" \
+  --label nanobk-smoke-test --type A --content 8.8.8.8 --ttl 60 \
+  --owner-approve --cleanup --confirm-disposable-smoke "$CONFIRM" --json 2>&1) && L5_RC=0 || L5_RC=$?
+
+if [[ "$L5_RC" == "0" ]]; then
+  pass "L5-1: unrelated cleanup verify exits 0"
+else
+  fail "L5-1: unrelated cleanup verify should exit 0, got $L5_RC"
+  ERRORS=$((ERRORS + 1))
+fi
+
+assert_contains "$L5_JSON" '"cleanup_verified": true' "L5-2: cleanup_verified true (no matching leftover)"
+assert_contains "$L5_JSON" '"status": "created_and_cleaned"' "L5-3: status created_and_cleaned"
+assert_not_contains "$L5_JSON" "fake-created-record-id" "L5-4: no record id"
 
 echo ""
 

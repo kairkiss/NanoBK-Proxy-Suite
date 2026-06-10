@@ -1,0 +1,7 @@
+{
+  "pre_check": {"success": true, "result": []},
+  "create": {"success": true, "result": {"id": "fake-created-record-id-005", "type": "A", "name": "nanobk-smoke-test.example.com", "content": "8.8.8.8"}},
+  "post_check": {"success": true, "result": [{"id": "fake-created-record-id-005", "type": "A", "name": "nanobk-smoke-test.example.com", "content": "8.8.8.8"}]},
+  "delete": {"success": true, "result": {"id": "fake-created-record-id-005"}},
+  "cleanup_verify": {"success": true, "result": [{"id": "unrelated-record-001", "type": "A", "name": "nanobk-smoke-test.example.com", "content": "1.1.1.1"}]}
+}

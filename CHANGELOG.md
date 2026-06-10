@@ -1,5 +1,24 @@
 # Changelog
 
+## v2.2.45-polish2 — Harden Owner Smoke Content and Post-check Validation
+
+### Fixed
+
+- Rejected private, link-local, unspecified, loopback, multicast, and reserved A/AAAA contents for owner smoke create.
+- Required post-check to match the created record name, type, and content instead of accepting any returned record.
+- Verified cleanup by absence of the matching target record rather than raw empty response length.
+
+### Safety
+
+- Owner-only and disposable-only gates remain unchanged.
+- Cleanup remains required.
+- No proxy/web production DNS creation.
+- No overwrite. No force. No PATCH/PUT.
+- DELETE remains limited to the record created during the same run.
+- Token, credential path, zone ID, record ID, raw API URL, and raw API response are not printed.
+- No Bot/Web/installer integration.
+- No release/tag.
+
 ## v2.2.45-polish — Add Real Cloudflare Transport for Owner Smoke Create
 
 ### Fixed

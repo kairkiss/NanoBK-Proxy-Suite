@@ -70,16 +70,36 @@ def validate_content(content, rtype):
         import ipaddress
         try:
             addr = ipaddress.IPv4Address(content)
-            if addr.is_loopback or addr.is_multicast or addr.is_reserved:
-                return "content is not a valid public IPv4"
+            if addr.is_private:
+                return "content is not a public IPv4 (private)"
+            if addr.is_loopback:
+                return "content is not a public IPv4 (loopback)"
+            if addr.is_link_local:
+                return "content is not a public IPv4 (link-local)"
+            if addr.is_multicast:
+                return "content is not a public IPv4 (multicast)"
+            if addr.is_unspecified:
+                return "content is not a public IPv4 (unspecified)"
+            if addr.is_reserved:
+                return "content is not a public IPv4 (reserved)"
         except ipaddress.AddressValueError:
             return "content is not a valid IPv4 address"
     elif rtype == "AAAA":
         import ipaddress
         try:
             addr = ipaddress.IPv6Address(content)
-            if addr.is_loopback or addr.is_multicast or addr.is_reserved:
-                return "content is not a valid public IPv6"
+            if addr.is_private:
+                return "content is not a public IPv6 (ULA/private)"
+            if addr.is_loopback:
+                return "content is not a public IPv6 (loopback)"
+            if addr.is_link_local:
+                return "content is not a public IPv6 (link-local)"
+            if addr.is_multicast:
+                return "content is not a public IPv6 (multicast)"
+            if addr.is_unspecified:
+                return "content is not a public IPv6 (unspecified)"
+            if addr.is_reserved:
+                return "content is not a public IPv6 (reserved)"
         except ipaddress.AddressValueError:
             return "content is not a valid IPv6 address"
     elif rtype == "TXT":
@@ -116,6 +136,13 @@ def _mock_post(fake_map, zone_id, label, rtype, content, ttl, proxied):
 def _mock_delete(fake_map, zone_id, record_id):
     """Simulate DELETE cleanup."""
     return _mock_api_call("delete", fake_map)
+
+
+def _record_matches(record, hostname, rtype, content):
+    """Check if a record matches the target name, type, and content."""
+    return (record.get("name") == hostname and
+            record.get("type") == rtype and
+            record.get("content") == content)
 
 
 # ── Real Cloudflare transport ───────────────────────────────────────────────
@@ -316,7 +343,7 @@ def run_smoke(zone, api_env_path, label, rtype, content, ttl,
             "safety": _safety_active(),
         }
 
-    # Step 3: Post-check (GET)
+    # Step 3: Post-check (GET) — must match name/type/content
     post_check_success = False
     try:
         if use_mock:
@@ -325,8 +352,10 @@ def run_smoke(zone, api_env_path, label, rtype, content, ttl,
             post_check_resp = _real_get_records(token, zone_id, hostname, rtype)
         if post_check_resp.get("success", False):
             post_check_records = post_check_resp.get("result", [])
-            if post_check_records:
-                post_check_success = True
+            for rec in post_check_records:
+                if _record_matches(rec, hostname, rtype, content):
+                    post_check_success = True
+                    break
     except Exception:
         pass
 
@@ -386,7 +415,7 @@ def run_smoke(zone, api_env_path, label, rtype, content, ttl,
             "safety": _safety_active(),
         }
 
-    # Step 5: Cleanup verification (GET)
+    # Step 5: Cleanup verification (GET) — confirm no matching target record remains
     cleanup_verified = False
     try:
         if use_mock:
@@ -395,7 +424,8 @@ def run_smoke(zone, api_env_path, label, rtype, content, ttl,
             verify_resp = _real_get_records(token, zone_id, hostname, rtype)
         if verify_resp.get("success", False):
             verify_records = verify_resp.get("result", [])
-            cleanup_verified = len(verify_records) == 0
+            matching_leftover = [r for r in verify_records if _record_matches(r, hostname, rtype, content)]
+            cleanup_verified = len(matching_leftover) == 0
     except Exception:
         pass
 

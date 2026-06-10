@@ -1,6 +1,6 @@
 {
   "pre_check": {"success": true, "result": []},
-  "create": {"success": true, "result": {"id": "fake-created-record-id-002", "type": "A", "name": "nanobk-smoke-test.example.com", "content": "203.0.113.10"}},
+  "create": {"success": true, "result": {"id": "fake-created-record-id-002", "type": "A", "name": "nanobk-smoke-test.example.com", "content": "8.8.8.8"}},
   "post_check": {"success": true, "result": []},
   "delete": {"success": true, "result": {"id": "fake-created-record-id-002"}}
 }

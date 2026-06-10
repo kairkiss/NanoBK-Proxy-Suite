@@ -1,7 +1,7 @@
 {
   "pre_check": {"success": true, "result": []},
-  "create": {"success": true, "result": {"id": "fake-created-record-id-001", "type": "A", "name": "nanobk-smoke-test.example.com", "content": "203.0.113.10"}},
-  "post_check": {"success": true, "result": [{"id": "fake-created-record-id-001", "type": "A", "name": "nanobk-smoke-test.example.com", "content": "203.0.113.10"}]},
+  "create": {"success": true, "result": {"id": "fake-created-record-id-001", "type": "A", "name": "nanobk-smoke-test.example.com", "content": "8.8.8.8"}},
+  "post_check": {"success": true, "result": [{"id": "fake-created-record-id-001", "type": "A", "name": "nanobk-smoke-test.example.com", "content": "8.8.8.8"}]},
   "delete": {"success": true, "result": {"id": "fake-created-record-id-001"}},
   "cleanup_verify": {"success": true, "result": []}
 }
