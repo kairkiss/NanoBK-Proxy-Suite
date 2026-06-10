@@ -88,6 +88,20 @@ _CREDENTIAL_REASON_UNAVAILABLE = "credential metadata unavailable"
 
 _REASON_MALFORMED = "malformed dryrun input"
 
+# ── Read-only precheck plan reasons ──────────────────────────────────────────
+
+_READONLY_REASON_MISSING = "readonly precheck plan missing"
+_READONLY_REASON_UNSAFE_ZONE = "unsafe zone category"
+_READONLY_REASON_UNSAFE_RECORD = "unsafe record category"
+_READONLY_REASON_UNSAFE_TYPE = "unsafe record type"
+_READONLY_REASON_UNSAFE_CONTENT = "unsafe expected content category"
+_READONLY_REASON_CNAME = "same-name CNAME not cleared"
+_READONLY_REASON_UNMANAGED = "existing unmanaged record present"
+_READONLY_REASON_DELETE = "delete planned"
+_READONLY_REASON_OVERWRITE = "overwrite planned"
+_READONLY_REASON_RAW_VALUES = "raw values present"
+_READONLY_REASON_UNCERTAIN = "readonly precheck uncertain"
+
 # ── Blocked reason categories (safe generic) ─────────────────────────────────
 
 _REASON_REPO = "repo gate failed"
@@ -174,6 +188,135 @@ def evaluate_local_credential_reference(ref: dict) -> dict:
 
     result["status"] = "pass"
     result["reason"] = "credential reference valid"
+    return result
+
+
+# ── Read-only precheck plan adapter ──────────────────────────────────────────
+
+
+def build_readonly_precheck_plan(plan: dict) -> dict:
+    """Build safe read-only precheck metadata from plan.
+
+    Consumes safe fields from plan.readonly_precheck_plan.
+    Returns safe metadata only — no real values.
+    """
+    result = {
+        "readonly_precheck_plan_present": "no",
+        "safe_zone_category": "no",
+        "safe_record_category": "no",
+        "safe_record_type": "no",
+        "safe_expected_content_category": "no",
+        "same_name_cname_absent": "unknown",
+        "existing_unmanaged_record_absent": "unknown",
+        "delete_planned": "unknown",
+        "overwrite_planned": "unknown",
+        "raw_values_present": "unknown",
+        "status": "fail",
+        "reason": _READONLY_REASON_MISSING,
+    }
+
+    ro = plan.get("readonly_precheck_plan")
+    if not isinstance(ro, dict):
+        result["reason"] = _READONLY_REASON_MISSING
+        return result
+
+    result["readonly_precheck_plan_present"] = "yes"
+
+    # Check safe zone category
+    zone = ro.get("safe_zone_category", "")
+    if not isinstance(zone, str) or not zone:
+        result["reason"] = _READONLY_REASON_UNSAFE_ZONE
+        return result
+    result["safe_zone_category"] = "yes"
+
+    # Check safe record category
+    record_cat = ro.get("safe_record_category", "")
+    if not isinstance(record_cat, str) or not record_cat:
+        result["reason"] = _READONLY_REASON_UNSAFE_RECORD
+        return result
+    result["safe_record_category"] = "yes"
+
+    # Check safe record type
+    rtype = ro.get("record_type", "")
+    if rtype not in ("A", "AAAA"):
+        result["reason"] = _READONLY_REASON_UNSAFE_TYPE
+        return result
+    result["safe_record_type"] = "yes"
+
+    # Check safe expected content category
+    content_cat = ro.get("expected_content_category", "")
+    if not isinstance(content_cat, str) or not content_cat:
+        result["reason"] = _READONLY_REASON_UNSAFE_CONTENT
+        return result
+    result["safe_expected_content_category"] = "yes"
+
+    # Check same-name CNAME absent
+    cname = ro.get("same_name_cname_absent")
+    if cname is True:
+        result["same_name_cname_absent"] = "yes"
+    elif cname is False:
+        result["same_name_cname_absent"] = "no"
+        result["reason"] = _READONLY_REASON_CNAME
+        return result
+    else:
+        result["same_name_cname_absent"] = "unknown"
+        result["reason"] = _READONLY_REASON_UNCERTAIN
+        return result
+
+    # Check existing unmanaged record absent
+    unmanaged = ro.get("existing_unmanaged_record_absent")
+    if unmanaged is True:
+        result["existing_unmanaged_record_absent"] = "yes"
+    elif unmanaged is False:
+        result["existing_unmanaged_record_absent"] = "no"
+        result["reason"] = _READONLY_REASON_UNMANAGED
+        return result
+    else:
+        result["existing_unmanaged_record_absent"] = "unknown"
+        result["reason"] = _READONLY_REASON_UNCERTAIN
+        return result
+
+    # Check delete planned
+    delete = ro.get("delete_planned")
+    if delete is False:
+        result["delete_planned"] = "no"
+    elif delete is True:
+        result["delete_planned"] = "yes"
+        result["reason"] = _READONLY_REASON_DELETE
+        return result
+    else:
+        result["delete_planned"] = "unknown"
+        result["reason"] = _READONLY_REASON_UNCERTAIN
+        return result
+
+    # Check overwrite planned
+    overwrite = ro.get("overwrite_planned")
+    if overwrite is False:
+        result["overwrite_planned"] = "no"
+    elif overwrite is True:
+        result["overwrite_planned"] = "yes"
+        result["reason"] = _READONLY_REASON_OVERWRITE
+        return result
+    else:
+        result["overwrite_planned"] = "unknown"
+        result["reason"] = _READONLY_REASON_UNCERTAIN
+        return result
+
+    # Check raw values present
+    raw = ro.get("raw_values_present")
+    if raw is False:
+        result["raw_values_present"] = "no"
+    elif raw is True:
+        result["raw_values_present"] = "yes"
+        result["reason"] = _READONLY_REASON_RAW_VALUES
+        return result
+    else:
+        result["raw_values_present"] = "unknown"
+        result["reason"] = _READONLY_REASON_UNCERTAIN
+        return result
+
+    result["status"] = "pass"
+    result["reason"] = "readonly precheck plan valid"
     return result
 
 
@@ -318,6 +461,11 @@ def run_dns_apply_dryrun_wrapper(data: dict) -> dict:
         # credential_reference key exists — use real local evaluation
         local_cred_result = evaluate_local_credential_reference(local_cred_ref)
 
+    # Evaluate read-only precheck plan if present
+    readonly_precheck_result: dict | None = None
+    if "readonly_precheck_plan" in data:
+        readonly_precheck_result = build_readonly_precheck_plan(data)
+
     # Evaluate all gates in order
     for gate_key, reason in _GATE_ORDER:
         # Special handling for credential_reference_gate with local path
@@ -332,6 +480,29 @@ def run_dns_apply_dryrun_wrapper(data: dict) -> dict:
                 if first_failed_gate == "none":
                     first_failed_gate = gate_key
                     first_blocked_reason = cred_reason
+            continue
+
+        # Special handling for read_only_precheck_gate with readonly_precheck_plan
+        if gate_key == "read_only_precheck_gate" and readonly_precheck_result is not None:
+            ro_status = readonly_precheck_result.get("status", "fail")
+            if ro_status == "pass":
+                checks[gate_key] = "pass"
+            elif ro_status == "uncertain":
+                checks[gate_key] = "fail"
+                has_missing_gate = True
+                ro_reason = readonly_precheck_result.get("reason", _READONLY_REASON_UNCERTAIN)
+                diagnostic_blocked_reasons.append(ro_reason)
+                if first_failed_gate == "none":
+                    first_failed_gate = gate_key
+                    first_blocked_reason = ro_reason
+            else:
+                checks[gate_key] = "fail"
+                has_known_policy_failure = True
+                ro_reason = readonly_precheck_result.get("reason", reason)
+                diagnostic_blocked_reasons.append(ro_reason)
+                if first_failed_gate == "none":
+                    first_failed_gate = gate_key
+                    first_blocked_reason = ro_reason
             continue
 
         gate_data = data.get(gate_key)
@@ -418,6 +589,34 @@ def run_dns_apply_dryrun_wrapper(data: dict) -> dict:
             "credential_path_printed": "no",
         }
 
+    # Build readonly precheck metadata (safe categories only)
+    if readonly_precheck_result is not None:
+        ro_meta = {
+            "readonly_precheck_plan_present": readonly_precheck_result["readonly_precheck_plan_present"],
+            "safe_zone_category": readonly_precheck_result["safe_zone_category"],
+            "safe_record_category": readonly_precheck_result["safe_record_category"],
+            "safe_record_type": readonly_precheck_result["safe_record_type"],
+            "safe_expected_content_category": readonly_precheck_result["safe_expected_content_category"],
+            "same_name_cname_absent": readonly_precheck_result["same_name_cname_absent"],
+            "existing_unmanaged_record_absent": readonly_precheck_result["existing_unmanaged_record_absent"],
+            "delete_planned": readonly_precheck_result["delete_planned"],
+            "overwrite_planned": readonly_precheck_result["overwrite_planned"],
+            "raw_values_present": readonly_precheck_result["raw_values_present"],
+        }
+    else:
+        ro_meta = {
+            "readonly_precheck_plan_present": "no",
+            "safe_zone_category": "no",
+            "safe_record_category": "no",
+            "safe_record_type": "no",
+            "safe_expected_content_category": "no",
+            "same_name_cname_absent": "unknown",
+            "existing_unmanaged_record_absent": "unknown",
+            "delete_planned": "unknown",
+            "overwrite_planned": "unknown",
+            "raw_values_present": "unknown",
+        }
+
     return {
         "status": status,
         "mode": mode,
@@ -429,12 +628,17 @@ def run_dns_apply_dryrun_wrapper(data: dict) -> dict:
         "real_dns_mutation_performed": "no",
         "real_env_printed": "no",
         "raw_helper_output_printed": "no",
+        "can_query": "no",
+        "readonly_probe_allowed": "no",
+        "cloudflare_get_called": "no",
+        "raw_api_response_printed": "no",
         "first_failed_gate": first_failed_gate,
         "first_blocked_reason": first_blocked_reason,
         "blocked_reasons": blocked_reasons,
         "diagnostic_blocked_reasons": diagnostic_blocked_reasons,
         "redacted_preview": preview,
         "local_credential_reference": cred_meta,
+        "readonly_precheck": ro_meta,
     }
 
 
@@ -457,6 +661,7 @@ def render_dns_apply_dryrun_summary(model: dict) -> str:
     first_blocked_reason = model.get("first_blocked_reason", "none")
     preview = model.get("redacted_preview", {})
     cred = model.get("local_credential_reference", {})
+    ro = model.get("readonly_precheck", {})
 
     lines = [
         "NanoBK DNS Apply — Non-Public Dry-run Wrapper Summary",
@@ -470,11 +675,25 @@ def render_dns_apply_dryrun_summary(model: dict) -> str:
         f"Real DNS mutation performed: {real_mutation}",
         f"Real env printed: {real_env}",
         f"Raw helper output printed: {raw_helper}",
+        f"Can query: {model.get('can_query', 'no')}",
+        f"Read-only probe allowed: {model.get('readonly_probe_allowed', 'no')}",
+        f"Cloudflare GET called: {model.get('cloudflare_get_called', 'no')}",
+        f"Raw API response printed: {model.get('raw_api_response_printed', 'no')}",
         f"Credential reference present: {cred.get('credential_reference_present', 'no')}",
         f"Credential is regular file: {cred.get('credential_is_regular_file', 'no')}",
         f"Credential permission restricted: {cred.get('credential_permission_restricted', 'no')}",
         f"Credential contents read: {cred.get('credential_contents_read', 'no')}",
         f"Credential path printed: {cred.get('credential_path_printed', 'no')}",
+        f"Read-only precheck plan present: {ro.get('readonly_precheck_plan_present', 'no')}",
+        f"Safe zone category: {ro.get('safe_zone_category', 'no')}",
+        f"Safe record category: {ro.get('safe_record_category', 'no')}",
+        f"Safe record type: {ro.get('safe_record_type', 'no')}",
+        f"Safe expected content category: {ro.get('safe_expected_content_category', 'no')}",
+        f"Same-name CNAME absent: {ro.get('same_name_cname_absent', 'unknown')}",
+        f"Existing unmanaged record absent: {ro.get('existing_unmanaged_record_absent', 'unknown')}",
+        f"Delete planned: {ro.get('delete_planned', 'unknown')}",
+        f"Overwrite planned: {ro.get('overwrite_planned', 'unknown')}",
+        f"Raw values present: {ro.get('raw_values_present', 'unknown')}",
     ]
 
     if status == _STATUS_DRYRUN_READY:
@@ -560,13 +779,15 @@ def detect_helper_dryrun_support(helper_path: str | None = None) -> dict:
 # ── CLI entry point ──────────────────────────────────────────────────────────
 
 _USAGE = """\
-usage: nanobk-cf-dns-dryrun-wrapper --plan PATH
+usage: nanobk-cf-dns-dryrun-wrapper --plan PATH [--precheck-only] [--allow-readonly-probe]
 
 Non-public local dry-run runner for safe plan files.
 Dry-run only. No DNS mutation. No live Cloudflare calls.
 
 Options:
-  --plan PATH   Path to a safe JSON plan file (required)
+  --plan PATH                Path to a safe JSON plan file (required)
+  --precheck-only            Run read-only precheck only
+  --allow-readonly-probe     Allow read-only probe (does not call Cloudflare in v2.2.30)
 
 Exit codes:
   0  dryrun_preview_ready
@@ -596,13 +817,21 @@ def main(argv: list[str] | None = None) -> int:
         sys.stderr.write(_USAGE)
         return 4
 
-    # Parse --plan
+    # Parse flags
     plan_path = None
+    precheck_only = False
+    allow_readonly_probe = False
     i = 0
     while i < len(argv):
         if argv[i] == "--plan" and i + 1 < len(argv):
             plan_path = argv[i + 1]
             i += 2
+        elif argv[i] == "--precheck-only":
+            precheck_only = True
+            i += 1
+        elif argv[i] == "--allow-readonly-probe":
+            allow_readonly_probe = True
+            i += 1
         else:
             i += 1
 
@@ -634,6 +863,10 @@ def main(argv: list[str] | None = None) -> int:
     except RuntimeError:
         sys.stderr.write("Error: invalid plan structure.\n")
         return 4
+
+    # Apply --allow-readonly-probe flag (does not call Cloudflare in v2.2.30)
+    if allow_readonly_probe:
+        model["readonly_probe_allowed"] = "yes"
 
     # Render safe summary
     try:

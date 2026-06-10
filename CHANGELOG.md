@@ -1,5 +1,35 @@
 # Changelog
 
+## v2.2.30 — Read-only Cloudflare Precheck Plan Adapter
+
+### Added
+
+- Added safe read-only precheck plan adapter support to the non-public dry-run wrapper.
+- Added safe read-only precheck metadata to the rendered dry-run summary.
+- Added `--precheck-only` support to the non-public dev runner.
+- Added `tests/v2.2.30-readonly-precheck-adapter.sh` and safe v2.2.30 fixtures.
+
+### Safety
+
+- v2.2.30 remains dry-run/read-only-precheck only.
+- Cloudflare GET is not called by default.
+- Cloudflare mutation is never called.
+- `can_apply` remains always `no`.
+- `mutation_allowed` remains always `no`.
+- Public apply remains blocked.
+- No DNS records are created, updated, or deleted.
+- No real env contents are printed.
+- Raw API responses are never printed.
+
+### Not Changed
+
+- No public `bin/nanobk` integration.
+- No beginner console apply button.
+- No Bot/Web apply button.
+- No installer behavior changes.
+- No real DNS mutation.
+- No release tag.
+
 ## v2.2.29 — Local Credential Reference and Read-only Pre-check
 
 ### Added
