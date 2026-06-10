@@ -1720,12 +1720,12 @@ def run_cloudflare_cleanup_readonly_precheck(
                     result["reason"] = "cleanup GET failed"
                     return result
 
-                result["cleanup_precheck_succeeded"] = "yes"
                 records = body.get("result", [])
                 matching = [r for r in records if r.get("type") == record_type]
 
                 count = len(matching)
                 if count == 0:
+                    result["cleanup_precheck_succeeded"] = "no"
                     result["cleanup_record_found"] = "no"
                     result["cleanup_record_single_match"] = "no"
                     result["status"] = "fail"
@@ -1733,6 +1733,7 @@ def run_cloudflare_cleanup_readonly_precheck(
                     return result
 
                 if count > 1:
+                    result["cleanup_precheck_succeeded"] = "no"
                     result["cleanup_record_found"] = "yes"
                     result["cleanup_record_single_match"] = "no"
                     result["status"] = "fail"
@@ -1749,6 +1750,7 @@ def run_cloudflare_cleanup_readonly_precheck(
                 if managed_marker and managed_marker in comment:
                     result["cleanup_record_managed"] = "yes"
                 else:
+                    result["cleanup_precheck_succeeded"] = "no"
                     result["cleanup_record_managed"] = "no"
                     result["status"] = "fail"
                     result["reason"] = "cleanup record not managed"
@@ -1758,12 +1760,14 @@ def run_cloudflare_cleanup_readonly_precheck(
                 if rec.get("proxied") is False:
                     result["cleanup_record_dns_only"] = "yes"
                 else:
+                    result["cleanup_precheck_succeeded"] = "no"
                     result["cleanup_record_dns_only"] = "no"
                     result["status"] = "fail"
                     result["reason"] = "cleanup record not DNS-only"
                     return result
 
                 # All checks passed — store record_id internally
+                result["cleanup_precheck_succeeded"] = "yes"
                 result["cleanup_safe"] = "yes"
                 result["_record_id"] = rec.get("id")
                 result["status"] = "pass"

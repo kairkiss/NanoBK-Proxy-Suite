@@ -282,9 +282,10 @@ else
   ERRORS=$((ERRORS + 1))
 fi
 
-assert_contains "$D_OUT" "Cleanup record found: no" "D2: record found no"
-assert_contains "$D_OUT" "Cleanup called: no" "D3: cleanup called no"
-assert_contains "$D_OUT" "Cleanup prerequisites passed: no" "D4: prereq not passed"
+assert_contains "$D_OUT" "Cleanup precheck succeeded: no" "D2: precheck succeeded no"
+assert_contains "$D_OUT" "Cleanup record found: no" "D3: record found no"
+assert_contains "$D_OUT" "Cleanup called: no" "D4: cleanup called no"
+assert_contains "$D_OUT" "Cleanup prerequisites passed: no" "D5: prereq not passed"
 
 echo ""
 
@@ -308,8 +309,9 @@ else
   ERRORS=$((ERRORS + 1))
 fi
 
-assert_contains "$E_OUT" "Cleanup record single match: no" "E2: single match no"
-assert_contains "$E_OUT" "Cleanup called: no" "E3: cleanup called no"
+assert_contains "$E_OUT" "Cleanup precheck succeeded: no" "E2: precheck succeeded no"
+assert_contains "$E_OUT" "Cleanup record single match: no" "E3: single match no"
+assert_contains "$E_OUT" "Cleanup called: no" "E4: cleanup called no"
 
 echo ""
 
@@ -333,8 +335,9 @@ else
   ERRORS=$((ERRORS + 1))
 fi
 
-assert_contains "$F_OUT" "Cleanup record managed: no" "F2: managed no"
-assert_contains "$F_OUT" "Cleanup called: no" "F3: cleanup called no"
+assert_contains "$F_OUT" "Cleanup precheck succeeded: no" "F2: precheck succeeded no"
+assert_contains "$F_OUT" "Cleanup record managed: no" "F3: managed no"
+assert_contains "$F_OUT" "Cleanup called: no" "F4: cleanup called no"
 
 echo ""
 
@@ -358,8 +361,9 @@ else
   ERRORS=$((ERRORS + 1))
 fi
 
-assert_contains "$G_OUT" "Cleanup record DNS-only: no" "G2: dns-only no"
-assert_contains "$G_OUT" "Cleanup called: no" "G3: cleanup called no"
+assert_contains "$G_OUT" "Cleanup precheck succeeded: no" "G2: precheck succeeded no"
+assert_contains "$G_OUT" "Cleanup record DNS-only: no" "G3: dns-only no"
+assert_contains "$G_OUT" "Cleanup called: no" "G4: cleanup called no"
 
 echo ""
 

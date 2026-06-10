@@ -1,5 +1,28 @@
 # Changelog
 
+## v2.2.35-polish — Fix Cleanup Precheck Success Semantics
+
+### Fixed
+
+- Fixed cleanup precheck semantics so `cleanup_precheck_succeeded=yes` is emitted only after full semantic verification passes.
+- GET success alone no longer marks cleanup precheck success.
+- Cleanup precheck failure cases now report `cleanup_precheck_succeeded=no`.
+
+### Safety
+
+- Prevents ambiguous summaries such as cleanup precheck success with record not found.
+- No public apply or cleanup path added.
+- No DNS create/update/overwrite behavior added.
+- Tokens, paths, zone IDs, record names, record contents, record IDs, and raw API responses remain hidden.
+
+### Not Changed
+
+- No public `bin/nanobk` integration.
+- No beginner console cleanup button.
+- No Bot/Web cleanup button.
+- No installer behavior changes.
+- No release tag.
+
 ## v2.2.35 — Owner-Approved Verified Test Record Cleanup Path
 
 ### Added
