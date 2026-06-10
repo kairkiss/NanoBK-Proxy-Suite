@@ -76,8 +76,15 @@ _FORBIDDEN_PATTERNS: list[re.Pattern] = [
 
 _DRYRUN_SAFE_ERROR_MSG = (
     "NanoBK DNS Apply dry-run wrapper requires a valid fixture dict.\n"
-    "No DNS changes were made."
+    "No DNS changes were changed."
 )
+
+_CREDENTIAL_SAFE_MODES = {0o400, 0o600}
+
+_CREDENTIAL_REASON_MISSING = "credential reference missing"
+_CREDENTIAL_REASON_NOT_REGULAR = "credential reference is not a regular file"
+_CREDENTIAL_REASON_PERMISSION = "credential permission not restricted"
+_CREDENTIAL_REASON_UNAVAILABLE = "credential metadata unavailable"
 
 _REASON_MALFORMED = "malformed dryrun input"
 
@@ -104,6 +111,70 @@ _GATE_ORDER = [
     ("redaction_gate", _REASON_REDACTION),
     ("public_ux_gate", _REASON_PUBLIC_UX),
 ]
+
+
+# ── Local credential reference evaluator ─────────────────────────────────────
+
+
+def evaluate_local_credential_reference(ref: dict) -> dict:
+    """Evaluate local credential reference metadata without reading contents.
+
+    Only performs stat/metadata checks. Never reads file contents.
+    Never prints the path. Returns safe result dict.
+    """
+    result = {
+        "credential_reference_present": "no",
+        "credential_is_regular_file": "no",
+        "credential_permission_restricted": "no",
+        "credential_contents_read": "no",
+        "credential_path_printed": "no",
+        "status": "fail",
+        "reason": _CREDENTIAL_REASON_MISSING,
+    }
+
+    local_path = ref.get("local_path")
+    if not local_path or not isinstance(local_path, str):
+        result["reason"] = _CREDENTIAL_REASON_MISSING
+        return result
+
+    p = Path(local_path)
+    if not p.exists():
+        result["reason"] = _CREDENTIAL_REASON_MISSING
+        return result
+
+    result["credential_reference_present"] = "yes"
+
+    if not p.is_file():
+        result["credential_is_regular_file"] = "no"
+        result["reason"] = _CREDENTIAL_REASON_NOT_REGULAR
+        return result
+
+    result["credential_is_regular_file"] = "yes"
+
+    # Check permissions — owner-readable, not group/world accessible
+    try:
+        st = p.stat()
+        mode = st.st_mode & 0o7777
+        # Check group/other bits: any group/other read/write/execute = not restricted
+        group_other = mode & 0o077
+        if group_other != 0:
+            result["credential_permission_restricted"] = "no"
+            result["reason"] = _CREDENTIAL_REASON_PERMISSION
+            return result
+        # Owner must have read (0o400 or 0o600)
+        owner_bits = mode & 0o700
+        if owner_bits not in (0o400, 0o600):
+            result["credential_permission_restricted"] = "no"
+            result["reason"] = _CREDENTIAL_REASON_PERMISSION
+            return result
+        result["credential_permission_restricted"] = "yes"
+    except OSError:
+        result["reason"] = _CREDENTIAL_REASON_UNAVAILABLE
+        return result
+
+    result["status"] = "pass"
+    result["reason"] = "credential reference valid"
+    return result
 
 
 # ── Individual gate evaluators ───────────────────────────────────────────────
@@ -240,8 +311,29 @@ def run_dns_apply_dryrun_wrapper(data: dict) -> dict:
     has_missing_gate = False
     has_known_policy_failure = False
 
+    # Evaluate local credential reference if present (real local check)
+    local_cred_ref = data.get("credential_reference")
+    local_cred_result: dict | None = None
+    if isinstance(local_cred_ref, dict):
+        # credential_reference key exists — use real local evaluation
+        local_cred_result = evaluate_local_credential_reference(local_cred_ref)
+
     # Evaluate all gates in order
     for gate_key, reason in _GATE_ORDER:
+        # Special handling for credential_reference_gate with local path
+        if gate_key == "credential_reference_gate" and local_cred_result is not None:
+            if local_cred_result["status"] == "pass":
+                checks[gate_key] = "pass"
+            else:
+                checks[gate_key] = "fail"
+                has_known_policy_failure = True
+                cred_reason = local_cred_result.get("reason", reason)
+                diagnostic_blocked_reasons.append(cred_reason)
+                if first_failed_gate == "none":
+                    first_failed_gate = gate_key
+                    first_blocked_reason = cred_reason
+            continue
+
         gate_data = data.get(gate_key)
         if gate_data is None:
             checks[gate_key] = "fail"
@@ -308,6 +400,24 @@ def run_dns_apply_dryrun_wrapper(data: dict) -> dict:
         preview["record_type"] = record_plan.get("record_type", "unknown")
         preview["dns_only"] = record_plan.get("dns_only", "unknown")
 
+    # Build safe credential reference metadata (no path, no contents)
+    if local_cred_result is not None:
+        cred_meta = {
+            "credential_reference_present": local_cred_result["credential_reference_present"],
+            "credential_is_regular_file": local_cred_result["credential_is_regular_file"],
+            "credential_permission_restricted": local_cred_result["credential_permission_restricted"],
+            "credential_contents_read": "no",
+            "credential_path_printed": "no",
+        }
+    else:
+        cred_meta = {
+            "credential_reference_present": "no",
+            "credential_is_regular_file": "no",
+            "credential_permission_restricted": "no",
+            "credential_contents_read": "no",
+            "credential_path_printed": "no",
+        }
+
     return {
         "status": status,
         "mode": mode,
@@ -324,6 +434,7 @@ def run_dns_apply_dryrun_wrapper(data: dict) -> dict:
         "blocked_reasons": blocked_reasons,
         "diagnostic_blocked_reasons": diagnostic_blocked_reasons,
         "redacted_preview": preview,
+        "local_credential_reference": cred_meta,
     }
 
 
@@ -345,6 +456,7 @@ def render_dns_apply_dryrun_summary(model: dict) -> str:
     first_failed_gate = model.get("first_failed_gate", "none")
     first_blocked_reason = model.get("first_blocked_reason", "none")
     preview = model.get("redacted_preview", {})
+    cred = model.get("local_credential_reference", {})
 
     lines = [
         "NanoBK DNS Apply — Non-Public Dry-run Wrapper Summary",
@@ -358,6 +470,11 @@ def render_dns_apply_dryrun_summary(model: dict) -> str:
         f"Real DNS mutation performed: {real_mutation}",
         f"Real env printed: {real_env}",
         f"Raw helper output printed: {raw_helper}",
+        f"Credential reference present: {cred.get('credential_reference_present', 'no')}",
+        f"Credential is regular file: {cred.get('credential_is_regular_file', 'no')}",
+        f"Credential permission restricted: {cred.get('credential_permission_restricted', 'no')}",
+        f"Credential contents read: {cred.get('credential_contents_read', 'no')}",
+        f"Credential path printed: {cred.get('credential_path_printed', 'no')}",
     ]
 
     if status == _STATUS_DRYRUN_READY:

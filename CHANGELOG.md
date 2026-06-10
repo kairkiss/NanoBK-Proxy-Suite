@@ -1,5 +1,36 @@
 # Changelog
 
+## v2.2.29 — Local Credential Reference and Read-only Pre-check
+
+### Added
+
+- Added local credential reference metadata checks to the non-public dry-run wrapper.
+- Added safe credential metadata output without printing credential paths or contents.
+- Added `tests/v2.2.29-local-credential-precheck.sh` to validate safe credential reference handling, permission checks, blocked cases, compatibility, and output safety.
+- Added safe v2.2.29 fixtures for valid, missing, unsafe-permission, and uncertain credential reference states.
+
+### Safety
+
+- v2.2.29 remains dry-run-only.
+- Credential file contents are never read.
+- Credential paths are never printed in user-facing output.
+- `can_apply` remains always `no`.
+- `mutation_allowed` remains always `no`.
+- Public apply remains blocked.
+- No DNS records are created, updated, or deleted.
+- No live Cloudflare mutation is performed.
+- No real env contents are printed.
+- Raw helper stdout/stderr are never printed.
+
+### Not Changed
+
+- No public `bin/nanobk` integration.
+- No beginner console apply button.
+- No Bot/Web apply button.
+- No installer behavior changes.
+- No real DNS mutation.
+- No release tag.
+
 ## v2.2.28-polish — Fix Local Dry-run Runner Exit Semantics
 
 ### Fixed
