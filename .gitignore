@@ -24,3 +24,8 @@ web/__pycache__/
 
 __pycache__/
 .nanobk-wizard-state.json
+
+# Local owner smoke test files (contain real values — never commit)
+.nanobk-local/
+*.local-owner-plan.json
+*.local-credential.env

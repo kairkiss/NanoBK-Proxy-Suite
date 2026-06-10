@@ -1,0 +1,266 @@
+#!/usr/bin/env python3
+"""
+Non-public owner smoke harness for create → post-check → cleanup.
+
+Runs the dry-run wrapper twice:
+1. Live create command (with --allow-readonly-probe --allow-live-create)
+2. Cleanup command (with --allow-readonly-probe --allow-live-cleanup)
+
+Usage:
+    scripts/dev/nanobk-cf-dns-owner-smoke \
+      --plan .nanobk-local/cloudflare-smoke.local-owner-plan.json \
+      --create-approval "I UNDERSTAND THIS WILL CREATE ONE CLOUDFLARE DNS TEST RECORD" \
+      --cleanup-approval "I UNDERSTAND THIS WILL DELETE ONE CLOUDFLARE DNS TEST RECORD"
+
+Safety:
+- No real token/zone/record/IP is committed or printed.
+- Output is redacted and category-only.
+- Public apply remains blocked.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+_ROOT = Path(__file__).resolve().parents[2]
+_RUNNER = _ROOT / "scripts" / "dev" / "nanobk-cf-dns-dryrun-wrapper"
+
+# ── Forbidden output patterns ────────────────────────────────────────────────
+
+_FORBIDDEN_PATTERNS = [
+    re.compile(r"fake_test_token_do_not_use", re.IGNORECASE),
+    re.compile(r"CLOUDFLARE_API_TOKEN", re.IGNORECASE),
+    re.compile(r"CF_API_TOKEN", re.IGNORECASE),
+    re.compile(r"Authorization", re.IGNORECASE),
+    re.compile(r"Bearer", re.IGNORECASE),
+    re.compile(r"REPLACE_WITH", re.IGNORECASE),
+    re.compile(r"\.local-credential\.env", re.IGNORECASE),
+    re.compile(r"\.local-owner-plan\.json", re.IGNORECASE),
+    re.compile(r"cloudflare\.local-credential\.env", re.IGNORECASE),
+    re.compile(r"recordId", re.IGNORECASE),
+    re.compile(r"record ID", re.IGNORECASE),
+    re.compile(r"Zone ID", re.IGNORECASE),
+    re.compile(r"Account ID", re.IGNORECASE),
+    re.compile(r"/zones/", re.IGNORECASE),
+    re.compile(r"dns_records", re.IGNORECASE),
+    re.compile(r"workers\.dev", re.IGNORECASE),
+    re.compile(r"vless://", re.IGNORECASE),
+    re.compile(r"trojan://", re.IGNORECASE),
+    re.compile(r"hysteria2://", re.IGNORECASE),
+    re.compile(r"tuic://", re.IGNORECASE),
+    re.compile(r"PRIVATE KEY", re.IGNORECASE),
+    re.compile(r"Reality private key", re.IGNORECASE),
+    re.compile(r"[a-f0-9]{64}"),
+]
+
+_USAGE = """\
+usage: nanobk-cf-dns-owner-smoke --plan PATH --create-approval TEXT --cleanup-approval TEXT
+
+Non-public owner smoke harness for create → post-check → cleanup.
+Runs the dry-run wrapper twice for create and cleanup.
+
+Options:
+  --plan PATH                Path to owner smoke plan file (required)
+  --create-approval TEXT     Exact approval phrase for create (required)
+  --cleanup-approval TEXT    Exact approval phrase for cleanup (required)
+
+Exit codes:
+  0  create verified and cleanup succeeded
+  2  blocked
+  3  uncertain
+  4  invalid input / unsafe output
+"""
+
+
+def _assert_safe(text: str) -> bool:
+    """Check if text is safe (no forbidden patterns)."""
+    for pattern in _FORBIDDEN_PATTERNS:
+        if pattern.search(text):
+            return False
+    return True
+
+
+def _run_wrapper(args: list[str]) -> tuple[int, str]:
+    """Run the dry-run wrapper and return (exit_code, stdout)."""
+    cmd = [sys.executable, str(_RUNNER)] + args
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            env={"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "LANG": "C"},
+        )
+        return result.returncode, result.stdout
+    except subprocess.TimeoutExpired:
+        return 4, ""
+    except Exception:
+        return 4, ""
+
+
+def _extract_status(output: str) -> str:
+    """Extract status from wrapper output."""
+    for line in output.splitlines():
+        if line.startswith("Status:"):
+            return line.split(":", 1)[1].strip()
+    return "unknown"
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Main entry point for the smoke harness."""
+    if argv is None:
+        argv = sys.argv[1:]
+
+    if "--help" in argv or "-h" in argv:
+        sys.stdout.write(_USAGE)
+        return 0
+
+    if not argv:
+        sys.stderr.write("Error: --plan, --create-approval, and --cleanup-approval are required.\n")
+        sys.stderr.write(_USAGE)
+        return 4
+
+    # Parse flags
+    plan_path = None
+    create_approval = None
+    cleanup_approval = None
+    i = 0
+    while i < len(argv):
+        if argv[i] == "--plan" and i + 1 < len(argv):
+            plan_path = argv[i + 1]
+            i += 2
+        elif argv[i] == "--create-approval" and i + 1 < len(argv):
+            create_approval = argv[i + 1]
+            i += 2
+        elif argv[i] == "--cleanup-approval" and i + 1 < len(argv):
+            cleanup_approval = argv[i + 1]
+            i += 2
+        else:
+            i += 1
+
+    if not plan_path:
+        sys.stderr.write("Error: --plan is required.\n")
+        return 4
+
+    if not create_approval:
+        sys.stderr.write("Error: --create-approval is required.\n")
+        return 4
+
+    if not cleanup_approval:
+        sys.stderr.write("Error: --cleanup-approval is required.\n")
+        return 4
+
+    # Validate plan path
+    plan_path_obj = Path(plan_path)
+    if not plan_path_obj.exists():
+        sys.stderr.write("Error: plan file not found.\n")
+        return 4
+
+    # Refuse to run if plan path is under tracked example path
+    example_path = _ROOT / "docs" / "examples" / "cloudflare-owner-smoke-plan.example.json"
+    if plan_path_obj.resolve() == example_path.resolve():
+        sys.stderr.write("Error: cannot run smoke with example plan. Use a local owner plan.\n")
+        return 4
+
+    # Refuse to run if plan path does not contain .nanobk-local or .local-owner-plan.json
+    plan_str = str(plan_path_obj)
+    if ".nanobk-local" not in plan_str and ".local-owner-plan.json" not in plan_str:
+        sys.stderr.write("Error: plan path must be under .nanobk-local/ or end with .local-owner-plan.json\n")
+        return 4
+
+    # Run create command
+    create_rc, create_out = _run_wrapper([
+        "--plan", plan_path,
+        "--allow-readonly-probe",
+        "--allow-live-create",
+        "--owner-approval", create_approval,
+    ])
+
+    create_status = _extract_status(create_out)
+
+    # If create failed, stop
+    if create_rc != 0:
+        # Build safe summary
+        lines = [
+            "Owner smoke create: failed",
+            "Owner smoke cleanup: skipped",
+            "Owner smoke final: failed",
+            "Raw values printed: no",
+            "Credential path printed: no",
+            "Token printed: no",
+        ]
+        summary = "\n".join(lines) + "\n"
+        if _assert_safe(summary):
+            sys.stdout.write(summary)
+        else:
+            sys.stderr.write("Error: output contains forbidden patterns.\n")
+            return 4
+        return create_rc
+
+    # Run cleanup command
+    cleanup_rc, cleanup_out = _run_wrapper([
+        "--plan", plan_path,
+        "--allow-readonly-probe",
+        "--allow-live-cleanup",
+        "--owner-cleanup-approval", cleanup_approval,
+    ])
+
+    cleanup_status = _extract_status(cleanup_out)
+
+    # Build final summary
+    if create_status == "live_create_verified":
+        create_result = "verified"
+    elif create_status == "blocked":
+        create_result = "blocked"
+    elif create_status == "uncertain":
+        create_result = "uncertain"
+    else:
+        create_result = "failed"
+
+    if cleanup_status == "live_cleanup_succeeded":
+        cleanup_result = "succeeded"
+    elif cleanup_status == "blocked":
+        cleanup_result = "blocked"
+    elif cleanup_status == "uncertain":
+        cleanup_result = "uncertain"
+    else:
+        cleanup_result = "failed"
+
+    if create_result == "verified" and cleanup_result == "succeeded":
+        final_result = "passed"
+    else:
+        final_result = "failed"
+
+    lines = [
+        f"Owner smoke create: {create_result}",
+        f"Owner smoke cleanup: {cleanup_result}",
+        f"Owner smoke final: {final_result}",
+        "Raw values printed: no",
+        "Credential path printed: no",
+        "Token printed: no",
+    ]
+    summary = "\n".join(lines) + "\n"
+
+    if not _assert_safe(summary):
+        sys.stderr.write("Error: output contains forbidden patterns.\n")
+        return 4
+
+    sys.stdout.write(summary)
+
+    if final_result == "passed":
+        return 0
+    elif create_result == "blocked" or cleanup_result == "blocked":
+        return 2
+    elif create_result == "uncertain" or cleanup_result == "uncertain":
+        return 3
+    else:
+        return 4
+
+
+if __name__ == "__main__":
+    sys.exit(main())

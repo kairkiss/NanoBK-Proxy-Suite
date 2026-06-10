@@ -1,5 +1,30 @@
 # Changelog
 
+## v2.2.36 — Non-Public Real Cloudflare Smoke Harness
+
+### Added
+
+- Added a non-public owner smoke harness for create → post-check → cleanup.
+- Added ignored local owner plan / credential paths for real Cloudflare smoke tests.
+- Added a safe example owner smoke plan with placeholders only.
+- Added local mock coverage for the smoke harness.
+
+### Safety
+
+- No real token, zone ID, record name, content, or record ID is committed.
+- Harness output is redacted and category-only.
+- Public apply remains blocked.
+- Smoke harness remains under `scripts/dev/`.
+- No Bot/Web/installer integration added.
+
+### Not Changed
+
+- No public `bin/nanobk` integration.
+- No beginner console live button.
+- No Bot/Web live button.
+- No installer behavior changes.
+- No release tag.
+
 ## v2.2.35-polish2 — Block Explicit Cleanup Without Read-only Probe
 
 ### Fixed
