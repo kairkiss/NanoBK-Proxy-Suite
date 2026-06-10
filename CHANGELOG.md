@@ -1,5 +1,32 @@
 # Changelog
 
+## v2.2.41 — VPS IP Auto-detect Dry-run
+
+### Added
+
+- Added dry-run VPS public IPv4/IPv6 detection foundation for future automatic DNS planning.
+- Added beginner-oriented text output with A/AAAA readiness recommendation.
+- Added JSON output for future CLI/Web/Bot integration through CLI.
+- Added mock-based tests for dual-stack, IPv4-only, partial failure, total failure, private/malformed address rejection, JSON shape, raw dump redaction, and Cloudflare isolation.
+
+### Safety
+
+- Dry-run only.
+- No system configuration changed.
+- No Cloudflare touched.
+- No DNS record create/update/delete.
+- No token/env/credential output.
+- No raw interface or route dump printed.
+- No Bot/Web/installer integration.
+- No release/tag.
+
+### Not Changed
+
+- No DNS apply behavior changed.
+- No Full Wizard auto-apply.
+- No Web public exposure.
+- No DNS-01, Tunnel, or Access changes.
+
 ## v2.2.40-polish — Redact Zone Discovery Credential Path Errors
 
 ### Fixed
