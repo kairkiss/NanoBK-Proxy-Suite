@@ -1,5 +1,21 @@
 # Changelog
 
+## v2.2.40-polish — Redact Zone Discovery Credential Path Errors
+
+### Fixed
+
+- Redacted credential file paths from Cloudflare zone discovery error output.
+- Added missing credential path redaction coverage for text and JSON error modes.
+
+### Safety
+
+- No Cloudflare mutation.
+- No DNS record create/update/delete.
+- No token printed.
+- No credential path printed in success or error output.
+- No Bot/Web/installer integration.
+- No release/tag.
+
 ## v2.2.40 — Cloudflare Zone Discovery Read-only
 
 ### Added

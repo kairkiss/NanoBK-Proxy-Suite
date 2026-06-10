@@ -171,11 +171,14 @@ echo ""
 # E. Missing credential file
 # ══════════════════════════════════════════════════════════════════════════════
 
-echo "--- E. Missing credential file ---"
+echo "--- E. Missing credential file (realistic sensitive path) ---"
 echo ""
 
+# Use a realistic sensitive path that must never appear in output
+SENSITIVE_PATH="/root/NanoBK-Proxy-Suite/.nanobk-local/cloudflare.local-credential.env"
+
 E_OUT=$(NANOBK_CF_ZONES_FAKE_RESPONSE="$FIXTURES/cf_zones_success_two.json" \
-  python3 "$MODULE" list --api-env "/nonexistent/path.env" 2>&1) && E_RC=0 || E_RC=$?
+  python3 "$MODULE" list --api-env "$SENSITIVE_PATH" 2>&1) && E_RC=0 || E_RC=$?
 
 if [[ "$E_RC" != "0" ]]; then
   pass "E1: missing file exits non-zero ($E_RC)"
@@ -185,6 +188,12 @@ else
 fi
 
 assert_contains "$E_OUT" "not found" "E2: not found message"
+assert_not_contains "$E_OUT" ".nanobk-local" "E3: no .nanobk-local in output"
+assert_not_contains "$E_OUT" "cloudflare.local-credential.env" "E4: no credential filename"
+assert_not_contains "$E_OUT" "/root/" "E5: no /root/ path prefix"
+assert_not_contains "$E_OUT" "$SENSITIVE_PATH" "E6: no full sensitive path"
+assert_not_contains "$E_OUT" "DUMMY_PLACEHOLDER_NOT_A_REAL_TOKEN" "E7: no token"
+assert_not_contains "$E_OUT" "CF_API_TOKEN" "E8: no CF_API_TOKEN"
 
 echo ""
 
@@ -212,8 +221,9 @@ else
   ERRORS=$((ERRORS + 1))
 fi
 
-assert_contains "$F_OUT" "Insecure file permissions" "F2: insecure permissions message"
+assert_contains "$F_OUT" "Insecure credential file permissions" "F2: insecure permissions message"
 assert_not_contains "$F_OUT" "example.com" "F3: no zone output"
+assert_not_contains "$F_OUT" "unsafe_world_readable_credential.env" "F4: no credential path"
 
 echo ""
 
@@ -279,6 +289,9 @@ assert_not_contains "$ALL_OUTPUTS" "DUMMY_PLACEHOLDER_NOT_A_REAL_TOKEN" "I1: no 
 assert_not_contains "$ALL_OUTPUTS" "safe_credential.env" "I2: no safe credential path"
 assert_not_contains "$ALL_OUTPUTS" "unsafe_world_readable_credential.env" "I3: no unsafe credential path"
 assert_not_contains "$ALL_OUTPUTS" "CF_API_TOKEN=" "I4: no CF_API_TOKEN assignment"
+assert_not_contains "$ALL_OUTPUTS" ".nanobk-local" "I5: no .nanobk-local path fragment"
+assert_not_contains "$ALL_OUTPUTS" "cloudflare.local-credential.env" "I6: no credential filename"
+assert_not_contains "$ALL_OUTPUTS" "/root/" "I7: no /root/ path prefix"
 
 if echo "$ALL_OUTPUTS" | grep -qE '[a-f0-9]{64}'; then
   fail "I5: no 64-char hex"
@@ -316,6 +329,33 @@ assert_not_contains "$J_OUT" "safe_credential.env" "J6: no cred path in JSON"
 echo ""
 
 # ══════════════════════════════════════════════════════════════════════════════
+# J2. JSON mode missing credential path redaction
+# ══════════════════════════════════════════════════════════════════════════════
+
+echo "--- J2. JSON mode missing credential path redaction ---"
+echo ""
+
+J2_OUT=$(NANOBK_CF_ZONES_FAKE_RESPONSE="$FIXTURES/cf_zones_success_two.json" \
+  python3 "$MODULE" list --api-env "$SENSITIVE_PATH" --json 2>&1) && J2_RC=0 || J2_RC=$?
+
+if [[ "$J2_RC" != "0" ]]; then
+  pass "J2-1: JSON missing path exits non-zero ($J2_RC)"
+else
+  fail "J2-1: JSON missing path should exit non-zero"
+  ERRORS=$((ERRORS + 1))
+fi
+
+assert_contains "$J2_OUT" '"ok": false' "J2-2: JSON ok false"
+assert_contains "$J2_OUT" '"error"' "J2-3: JSON has error field"
+assert_contains "$J2_OUT" "not found" "J2-4: JSON not found message"
+assert_not_contains "$J2_OUT" ".nanobk-local" "J2-5: no .nanobk-local in JSON"
+assert_not_contains "$J2_OUT" "cloudflare.local-credential.env" "J2-6: no credential filename in JSON"
+assert_not_contains "$J2_OUT" "/root/" "J2-7: no /root/ in JSON"
+assert_not_contains "$J2_OUT" "$SENSITIVE_PATH" "J2-8: no full path in JSON"
+
+echo ""
+
+# ══════════════════════════════════════════════════════════════════════════════
 # K. CLI integration via nanobk cf zones list
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -344,7 +384,7 @@ echo ""
 echo "--- L. Safety scan ---"
 echo ""
 
-ALL_OUTPUTS="$B_OUT $C_OUT $F_OUT $G_OUT $J_OUT $K_OUT"
+ALL_OUTPUTS="$B_OUT $C_OUT $F_OUT $G_OUT $J_OUT $J2_OUT $K_OUT"
 
 assert_not_contains "$ALL_OUTPUTS" "DUMMY_PLACEHOLDER_NOT_A_REAL_TOKEN" "L1: no token"
 assert_not_contains "$ALL_OUTPUTS" "CLOUDFLARE_API_TOKEN" "L2: no CLOUDFLARE_API_TOKEN"

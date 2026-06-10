@@ -38,7 +38,7 @@ def parse_env_file(path):
     - Empty lines are skipped.
     """
     if not os.path.isfile(path):
-        raise FileNotFoundError(f"Env file not found: {path}")
+        raise FileNotFoundError("Credential file not found.")
 
     # Check permissions
     st = os.stat(path)
@@ -46,8 +46,8 @@ def parse_env_file(path):
     # Check: no group/other bits set (must be 0o600 or stricter like 0o400)
     if mode & 0o077:
         raise PermissionError(
-            f"Insecure file permissions: {oct(mode)}. "
-            f"Expected 0o600 (chmod 600)."
+            f"Insecure credential file permissions: {oct(mode)}. "
+            f"Expected 0o600 or stricter."
         )
 
     result = {}
