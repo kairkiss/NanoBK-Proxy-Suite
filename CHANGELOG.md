@@ -1,5 +1,34 @@
 # Changelog
 
+## v2.2.35 — Owner-Approved Verified Test Record Cleanup Path
+
+### Added
+
+- Added a non-public owner-approved cleanup path for verified disposable test records.
+- Added read-only cleanup precheck before DELETE.
+- Added exact cleanup approval phrase gate.
+- Added safe cleanup metadata to the summary.
+- Added `tests/v2.2.35-owner-approved-cleanup.sh` with a local mock HTTP server.
+- Added safe v2.2.35 fixtures for cleanup success, missing approval, not found, multiple records, not managed, not DNS-only, and no-flag cases.
+
+### Safety
+
+- Cleanup deletes only one verified managed disposable test record.
+- Cleanup is blocked unless the record is a single match, managed, and DNS-only.
+- Cleanup requires exact owner approval.
+- Record IDs are used internally only and never printed.
+- Tokens, paths, zone IDs, record names, record contents, and raw API responses are never printed.
+- Public apply remains blocked.
+- Update/create are not performed by cleanup.
+
+### Not Changed
+
+- No public `bin/nanobk` integration.
+- No beginner console cleanup button.
+- No Bot/Web cleanup button.
+- No installer behavior changes.
+- No release tag.
+
 ## v2.2.34-polish — Fix Post-check Success Semantics
 
 ### Fixed

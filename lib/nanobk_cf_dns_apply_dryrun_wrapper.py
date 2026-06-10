@@ -1007,6 +1007,8 @@ def render_dns_apply_dryrun_summary(model: dict) -> str:
     dns = model.get("dns_record_precheck", {})
     lc = model.get("live_create", {})
     lcp = model.get("live_create_postcheck", {})
+    lcl = model.get("live_cleanup_precheck", {})
+    lcl2 = model.get("live_cleanup", {})
 
     lines = [
         "NanoBK DNS Apply — Non-Public Dry-run Wrapper Summary",
@@ -1072,6 +1074,24 @@ def render_dns_apply_dryrun_summary(model: dict) -> str:
         f"Post-check record count category: {lcp.get('record_count_category', 'unknown')}",
         f"Post-check raw DNS values printed: {lcp.get('raw_dns_values_printed', 'no')}",
         f"Post-check DNS identifier printed: {lcp.get('record_id_printed', 'no')}",
+        f"Cleanup approval present: {lcl2.get('cleanup_approval_present', 'no')}",
+        f"Cleanup precheck called: {lcl.get('cleanup_precheck_called', 'no')}",
+        f"Cleanup precheck succeeded: {lcl.get('cleanup_precheck_succeeded', 'unknown')}",
+        f"Cleanup record found: {lcl.get('cleanup_record_found', 'unknown')}",
+        f"Cleanup record single match: {lcl.get('cleanup_record_single_match', 'unknown')}",
+        f"Cleanup record managed: {lcl.get('cleanup_record_managed', 'unknown')}",
+        f"Cleanup record DNS-only: {lcl.get('cleanup_record_dns_only', 'unknown')}",
+        f"Cleanup safe: {lcl.get('cleanup_safe', 'unknown')}",
+        f"Cleanup prerequisites passed: {lcl2.get('cleanup_prerequisites_passed', 'no')}",
+        f"Cleanup allowed: {lcl2.get('cleanup_allowed', 'no')}",
+        f"Cleanup called: {lcl2.get('cleanup_called', 'no')}",
+        f"Cleanup succeeded: {lcl2.get('cleanup_succeeded', 'unknown')}",
+        f"Deleted record category: {lcl2.get('deleted_record_category', 'none')}",
+        f"Cleanup mutation method used: {lcl2.get('cleanup_mutation_method_used', 'no')}",
+        f"Cleanup DNS identifier printed: {lcl2.get('record_id_printed', 'no')}",
+        f"Cleanup API response printed: {lcl2.get('raw_api_response_printed', 'no')}",
+        f"Cleanup update called: {lcl2.get('update_called', 'no')}",
+        f"Cleanup create called: {lcl2.get('create_called', 'no')}",
     ]
 
     if status == _STATUS_DRYRUN_READY:
@@ -1620,23 +1640,382 @@ def run_cloudflare_live_create_postcheck(
     return result
 
 
+# ── Cleanup read-only precheck ───────────────────────────────────────────────
+
+
+def run_cloudflare_cleanup_readonly_precheck(
+    plan: dict, token: str | None, *, allow_probe: bool
+) -> dict:
+    """Run a read-only cleanup precheck before DELETE.
+
+    Only GET is allowed. No DELETE inside this function.
+    Never prints URL, response, zone_id, record name, IP, or record ID.
+    Stores internal record_id as _record_id but never renders it.
+    """
+    result = {
+        "cleanup_precheck_called": "no",
+        "cleanup_precheck_succeeded": "unknown",
+        "cleanup_record_found": "unknown",
+        "cleanup_record_single_match": "unknown",
+        "cleanup_record_managed": "unknown",
+        "cleanup_record_dns_only": "unknown",
+        "cleanup_safe": "unknown",
+        "record_id_printed": "no",
+        "raw_dns_values_printed": "no",
+        "raw_api_response_printed": "no",
+        "status": "fail",
+        "reason": "cleanup precheck not called",
+        "_record_id": None,
+    }
+
+    if not allow_probe:
+        result["reason"] = "cleanup precheck not called"
+        return result
+
+    if not token:
+        result["reason"] = "cleanup precheck not called"
+        return result
+
+    # Get cleanup plan
+    cleanup_plan = plan.get("live_cleanup_plan", {})
+    if not isinstance(cleanup_plan, dict) or not cleanup_plan.get("enabled"):
+        result["reason"] = "cleanup precheck not called"
+        return result
+
+    zone_id = cleanup_plan.get("zone_id_local", "")
+    record_name = cleanup_plan.get("record_name_local", "")
+    record_type = cleanup_plan.get("record_type_local", "A")
+    managed_marker = cleanup_plan.get("managed_marker", "nanobk-test")
+
+    if not zone_id or not record_name:
+        result["reason"] = "cleanup precheck not called"
+        return result
+
+    # Get base URL from readonly_probe plan
+    probe_plan = plan.get("readonly_probe", {})
+    base_url = probe_plan.get("base_url", "https://api.cloudflare.com/client/v4")
+
+    # Perform GET request
+    import urllib.request
+    import urllib.error
+    import urllib.parse
+
+    params = urllib.parse.urlencode({"name": record_name, "type": record_type})
+    url = f"{base_url}/zones/{zone_id}/dns_records?{params}"
+
+    req = urllib.request.Request(url, method="GET")
+    req.add_header("Authorization", f"Bearer {token}")
+    req.add_header("Content-Type", "application/json")
+
+    try:
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            result["cleanup_precheck_called"] = "yes"
+            if resp.status == 200:
+                raw_body = resp.read().decode("utf-8")
+                try:
+                    body = json.loads(raw_body)
+                except (json.JSONDecodeError, ValueError):
+                    result["cleanup_precheck_succeeded"] = "no"
+                    result["status"] = "fail"
+                    result["reason"] = "cleanup GET failed"
+                    return result
+
+                result["cleanup_precheck_succeeded"] = "yes"
+                records = body.get("result", [])
+                matching = [r for r in records if r.get("type") == record_type]
+
+                count = len(matching)
+                if count == 0:
+                    result["cleanup_record_found"] = "no"
+                    result["cleanup_record_single_match"] = "no"
+                    result["status"] = "fail"
+                    result["reason"] = "cleanup record not found"
+                    return result
+
+                if count > 1:
+                    result["cleanup_record_found"] = "yes"
+                    result["cleanup_record_single_match"] = "no"
+                    result["status"] = "fail"
+                    result["reason"] = "cleanup record not single match"
+                    return result
+
+                # Exactly one matching record
+                rec = matching[0]
+                result["cleanup_record_found"] = "yes"
+                result["cleanup_record_single_match"] = "yes"
+
+                # Check managed marker
+                comment = rec.get("comment", "") or ""
+                if managed_marker and managed_marker in comment:
+                    result["cleanup_record_managed"] = "yes"
+                else:
+                    result["cleanup_record_managed"] = "no"
+                    result["status"] = "fail"
+                    result["reason"] = "cleanup record not managed"
+                    return result
+
+                # Check DNS-only (proxied=false)
+                if rec.get("proxied") is False:
+                    result["cleanup_record_dns_only"] = "yes"
+                else:
+                    result["cleanup_record_dns_only"] = "no"
+                    result["status"] = "fail"
+                    result["reason"] = "cleanup record not DNS-only"
+                    return result
+
+                # All checks passed — store record_id internally
+                result["cleanup_safe"] = "yes"
+                result["_record_id"] = rec.get("id")
+                result["status"] = "pass"
+                result["reason"] = "cleanup precheck succeeded"
+            else:
+                result["cleanup_precheck_succeeded"] = "no"
+                result["status"] = "fail"
+                result["reason"] = "cleanup GET failed"
+
+    except urllib.error.URLError:
+        result["cleanup_precheck_called"] = "yes"
+        result["cleanup_precheck_succeeded"] = "no"
+        result["status"] = "fail"
+        result["reason"] = "cleanup GET failed"
+    except TimeoutError:
+        result["cleanup_precheck_called"] = "yes"
+        result["cleanup_precheck_succeeded"] = "no"
+        result["status"] = "uncertain"
+        result["reason"] = "cleanup GET timed out"
+    except Exception:
+        result["cleanup_precheck_called"] = "yes"
+        result["cleanup_precheck_succeeded"] = "no"
+        result["status"] = "fail"
+        result["reason"] = "cleanup GET failed"
+
+    return result
+
+
+# ── Cleanup prerequisites ────────────────────────────────────────────────────
+
+_CLEANUP_APPROVAL_PHRASE = "I UNDERSTAND THIS WILL DELETE ONE CLOUDFLARE DNS TEST RECORD"
+
+
+def evaluate_live_cleanup_prerequisites(
+    model: dict, plan: dict, approval: str | None
+) -> dict:
+    """Evaluate whether all prerequisites for live cleanup are met.
+
+    Requires exact cleanup approval phrase, token loaded, probe succeeded,
+    cleanup precheck passed, and safe live_cleanup_plan.
+    """
+    result = {
+        "cleanup_prerequisites_passed": "no",
+        "cleanup_approval_present": "no",
+        "cleanup_one_record_only": "no",
+        "delete_only_if_managed": "no",
+        "delete_only_if_dns_only": "no",
+        "delete_only_if_single_match": "no",
+        "status": "fail",
+        "reason": "cleanup approval missing",
+    }
+
+    # Check approval phrase
+    if approval != _CLEANUP_APPROVAL_PHRASE:
+        result["reason"] = "cleanup approval missing"
+        return result
+    result["cleanup_approval_present"] = "yes"
+
+    # Check token and probe
+    tok = model.get("token_metadata", {})
+    if tok.get("token_loaded") != "yes":
+        result["reason"] = "cleanup precheck not passed"
+        return result
+
+    if model.get("cloudflare_get_succeeded") != "yes":
+        result["reason"] = "cleanup precheck not passed"
+        return result
+
+    # Check cleanup precheck
+    cleanup_precheck = model.get("live_cleanup_precheck", {})
+    if cleanup_precheck.get("cleanup_precheck_succeeded") != "yes":
+        result["reason"] = "cleanup precheck not passed"
+        return result
+    if cleanup_precheck.get("cleanup_safe") != "yes":
+        result["reason"] = "cleanup precheck not passed"
+        return result
+    if cleanup_precheck.get("cleanup_record_single_match") != "yes":
+        result["reason"] = "cleanup precheck not passed"
+        return result
+    if cleanup_precheck.get("cleanup_record_managed") != "yes":
+        result["reason"] = "cleanup precheck not passed"
+        return result
+    if cleanup_precheck.get("cleanup_record_dns_only") != "yes":
+        result["reason"] = "cleanup precheck not passed"
+        return result
+
+    # Check live_cleanup_plan
+    cleanup_plan = plan.get("live_cleanup_plan", {})
+    if not isinstance(cleanup_plan, dict) or not cleanup_plan.get("enabled"):
+        result["reason"] = "cleanup plan missing"
+        return result
+
+    if cleanup_plan.get("one_record_only") is not True:
+        result["reason"] = "cleanup plan unsafe"
+        return result
+    result["cleanup_one_record_only"] = "yes"
+
+    if cleanup_plan.get("delete_only_if_managed") is not True:
+        result["reason"] = "cleanup plan unsafe"
+        return result
+    result["delete_only_if_managed"] = "yes"
+
+    if cleanup_plan.get("delete_only_if_dns_only") is not True:
+        result["reason"] = "cleanup plan unsafe"
+        return result
+    result["delete_only_if_dns_only"] = "yes"
+
+    if cleanup_plan.get("delete_only_if_single_match") is not True:
+        result["reason"] = "cleanup plan unsafe"
+        return result
+    result["delete_only_if_single_match"] = "yes"
+
+    result["cleanup_prerequisites_passed"] = "yes"
+    result["status"] = "pass"
+    result["reason"] = "cleanup prerequisites passed"
+    return result
+
+
+# ── Live cleanup DELETE ──────────────────────────────────────────────────────
+
+
+def run_cloudflare_one_record_live_cleanup(
+    plan: dict, token: str | None, *, allow_live_cleanup: bool,
+    approval: str | None, model: dict, record_id: str | None
+) -> dict:
+    """Run a one-record live cleanup via Cloudflare DELETE.
+
+    Only DELETE is allowed. No POST/PUT/PATCH.
+    Never prints URL, record ID, or raw API response.
+    """
+    result = {
+        "cleanup_allowed": "no",
+        "cleanup_called": "no",
+        "cleanup_succeeded": "unknown",
+        "deleted_record_category": "none",
+        "cleanup_mutation_method_used": "no",
+        "record_id_printed": "no",
+        "raw_api_response_printed": "no",
+        "delete_called": "no",
+        "update_called": "no",
+        "create_called": "no",
+        "status": "fail",
+        "reason": "cleanup not allowed",
+    }
+
+    if not allow_live_cleanup:
+        result["reason"] = "cleanup not allowed"
+        return result
+
+    if approval != _CLEANUP_APPROVAL_PHRASE:
+        result["reason"] = "cleanup approval missing"
+        return result
+
+    if not token:
+        result["reason"] = "cleanup prerequisites failed"
+        return result
+
+    if not record_id:
+        result["reason"] = "cleanup record id unavailable"
+        return result
+
+    # Evaluate prerequisites
+    prereq = evaluate_live_cleanup_prerequisites(model, plan, approval)
+    if prereq["status"] != "pass":
+        result["reason"] = prereq.get("reason", "cleanup prerequisites failed")
+        return result
+
+    result["cleanup_allowed"] = "yes"
+
+    # Get cleanup plan
+    cleanup_plan = plan.get("live_cleanup_plan", {})
+    if not isinstance(cleanup_plan, dict):
+        result["reason"] = "cleanup plan missing"
+        return result
+
+    zone_id = cleanup_plan.get("zone_id_local", "")
+    if not zone_id:
+        result["reason"] = "cleanup prerequisites failed"
+        return result
+
+    # Get base URL from readonly_probe plan
+    probe_plan = plan.get("readonly_probe", {})
+    base_url = probe_plan.get("base_url", "https://api.cloudflare.com/client/v4")
+
+    # Build DELETE request
+    import urllib.request
+    import urllib.error
+
+    url = f"{base_url}/zones/{zone_id}/dns_records/{record_id}"
+
+    req = urllib.request.Request(url, method="DELETE")
+    req.add_header("Authorization", f"Bearer {token}")
+    req.add_header("Content-Type", "application/json")
+
+    try:
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            result["cleanup_called"] = "yes"
+            result["cleanup_mutation_method_used"] = "DELETE"
+            result["delete_called"] = "yes"
+            if resp.status in (200, 204):
+                result["cleanup_succeeded"] = "yes"
+                result["deleted_record_category"] = "one_disposable_test_record"
+                result["status"] = "pass"
+                result["reason"] = "cleanup succeeded"
+            else:
+                result["cleanup_succeeded"] = "no"
+                result["status"] = "fail"
+                result["reason"] = "cleanup failed"
+    except urllib.error.URLError:
+        result["cleanup_called"] = "yes"
+        result["cleanup_mutation_method_used"] = "DELETE"
+        result["delete_called"] = "yes"
+        result["cleanup_succeeded"] = "no"
+        result["status"] = "fail"
+        result["reason"] = "cleanup failed"
+    except TimeoutError:
+        result["cleanup_called"] = "yes"
+        result["cleanup_mutation_method_used"] = "DELETE"
+        result["delete_called"] = "yes"
+        result["cleanup_succeeded"] = "no"
+        result["status"] = "uncertain"
+        result["reason"] = "cleanup timed out"
+    except Exception:
+        result["cleanup_called"] = "yes"
+        result["cleanup_mutation_method_used"] = "DELETE"
+        result["delete_called"] = "yes"
+        result["cleanup_succeeded"] = "no"
+        result["status"] = "fail"
+        result["reason"] = "cleanup failed"
+
+    return result
+
+
 # ── CLI entry point ──────────────────────────────────────────────────────────
 
 _USAGE = """\
-usage: nanobk-cf-dns-dryrun-wrapper --plan PATH [--precheck-only] [--allow-readonly-probe] [--allow-live-create] [--owner-approval TEXT]
+usage: nanobk-cf-dns-dryrun-wrapper --plan PATH [--precheck-only] [--allow-readonly-probe] [--allow-live-create] [--owner-approval TEXT] [--allow-live-cleanup] [--owner-cleanup-approval TEXT]
 
 Non-public local dry-run runner for safe plan files.
-Dry-run only by default. Live create requires explicit flags and approval.
+Dry-run only by default. Live create/cleanup require explicit flags and approval.
 
 Options:
-  --plan PATH                Path to a safe JSON plan file (required)
-  --precheck-only            Run read-only precheck only
-  --allow-readonly-probe     Allow read-only probe
-  --allow-live-create        Allow one-record live create (requires --owner-approval)
-  --owner-approval TEXT      Exact owner approval phrase for live create
+  --plan PATH                    Path to a safe JSON plan file (required)
+  --precheck-only                Run read-only precheck only
+  --allow-readonly-probe         Allow read-only probe
+  --allow-live-create            Allow one-record live create (requires --owner-approval)
+  --owner-approval TEXT          Exact owner approval phrase for live create
+  --allow-live-cleanup           Allow one-record live cleanup (requires --owner-cleanup-approval)
+  --owner-cleanup-approval TEXT  Exact owner approval phrase for cleanup
 
 Exit codes:
-  0  dryrun_preview_ready or live create succeeded
+  0  dryrun_preview_ready or live create/cleanup succeeded
   2  blocked
   3  uncertain
   4  invalid input / unsafe output
@@ -1669,6 +2048,8 @@ def main(argv: list[str] | None = None) -> int:
     allow_readonly_probe = False
     allow_live_create = False
     owner_approval = None
+    allow_live_cleanup = False
+    owner_cleanup_approval = None
     i = 0
     while i < len(argv):
         if argv[i] == "--plan" and i + 1 < len(argv):
@@ -1685,6 +2066,12 @@ def main(argv: list[str] | None = None) -> int:
             i += 1
         elif argv[i] == "--owner-approval" and i + 1 < len(argv):
             owner_approval = argv[i + 1]
+            i += 2
+        elif argv[i] == "--allow-live-cleanup":
+            allow_live_cleanup = True
+            i += 1
+        elif argv[i] == "--owner-cleanup-approval" and i + 1 < len(argv):
+            owner_cleanup_approval = argv[i + 1]
             i += 2
         else:
             i += 1
@@ -1993,6 +2380,126 @@ def main(argv: list[str] | None = None) -> int:
             "record_id_printed": "no",
         }
 
+    # Run cleanup if requested (independent of live create)
+    if allow_live_cleanup and allow_readonly_probe:
+        # Run cleanup readonly precheck
+        cleanup_precheck_result = run_cloudflare_cleanup_readonly_precheck(
+            data,
+            token_result.get("_token") if token_result.get("token_loaded") == "yes" else None,
+            allow_probe=True,
+        )
+        model["live_cleanup_precheck"] = {
+            "cleanup_precheck_called": cleanup_precheck_result.get("cleanup_precheck_called", "no"),
+            "cleanup_precheck_succeeded": cleanup_precheck_result.get("cleanup_precheck_succeeded", "unknown"),
+            "cleanup_record_found": cleanup_precheck_result.get("cleanup_record_found", "unknown"),
+            "cleanup_record_single_match": cleanup_precheck_result.get("cleanup_record_single_match", "unknown"),
+            "cleanup_record_managed": cleanup_precheck_result.get("cleanup_record_managed", "unknown"),
+            "cleanup_record_dns_only": cleanup_precheck_result.get("cleanup_record_dns_only", "unknown"),
+            "cleanup_safe": cleanup_precheck_result.get("cleanup_safe", "unknown"),
+            "record_id_printed": "no",
+            "raw_dns_values_printed": "no",
+            "raw_api_response_printed": "no",
+        }
+
+        # Evaluate cleanup prerequisites
+        cleanup_prereq = evaluate_live_cleanup_prerequisites(model, data, owner_cleanup_approval)
+        model["live_cleanup"] = {
+            "cleanup_approval_present": cleanup_prereq["cleanup_approval_present"],
+            "cleanup_prerequisites_passed": cleanup_prereq["cleanup_prerequisites_passed"],
+            "cleanup_one_record_only": cleanup_prereq["cleanup_one_record_only"],
+            "delete_only_if_managed": cleanup_prereq["delete_only_if_managed"],
+            "delete_only_if_dns_only": cleanup_prereq["delete_only_if_dns_only"],
+            "delete_only_if_single_match": cleanup_prereq["delete_only_if_single_match"],
+            "cleanup_allowed": "no",
+            "cleanup_called": "no",
+            "cleanup_succeeded": "unknown",
+            "deleted_record_category": "none",
+            "cleanup_mutation_method_used": "no",
+            "record_id_printed": "no",
+            "raw_api_response_printed": "no",
+            "delete_called": "no",
+            "update_called": "no",
+            "create_called": "no",
+        }
+
+        # Run cleanup if prerequisites pass
+        internal_record_id = cleanup_precheck_result.get("_record_id")
+        if cleanup_prereq["status"] == "pass" and internal_record_id:
+            cleanup_result = run_cloudflare_one_record_live_cleanup(
+                data,
+                token_result.get("_token") if token_result.get("token_loaded") == "yes" else None,
+                allow_live_cleanup=True,
+                approval=owner_cleanup_approval,
+                model=model,
+                record_id=internal_record_id,
+            )
+        else:
+            cleanup_result = run_cloudflare_one_record_live_cleanup(
+                data, None,
+                allow_live_cleanup=True,
+                approval=owner_cleanup_approval,
+                model=model,
+                record_id=None,
+            )
+
+        model["live_cleanup"].update({
+            "cleanup_allowed": cleanup_result.get("cleanup_allowed", "no"),
+            "cleanup_called": cleanup_result.get("cleanup_called", "no"),
+            "cleanup_succeeded": cleanup_result.get("cleanup_succeeded", "unknown"),
+            "deleted_record_category": cleanup_result.get("deleted_record_category", "none"),
+            "cleanup_mutation_method_used": cleanup_result.get("cleanup_mutation_method_used", "no"),
+            "delete_called": cleanup_result.get("delete_called", "no"),
+        })
+
+        # Update model status if cleanup failed
+        if cleanup_result.get("status") == "fail":
+            model["status"] = _STATUS_BLOCKED
+            model["first_failed_gate"] = "live_cleanup"
+            model["first_blocked_reason"] = cleanup_result.get("reason", "cleanup failed")
+        elif cleanup_result.get("status") == "uncertain":
+            model["status"] = _STATUS_UNCERTAIN
+            model["first_failed_gate"] = "live_cleanup"
+            model["first_blocked_reason"] = cleanup_result.get("reason", "cleanup timed out")
+        elif cleanup_result.get("status") == "pass":
+            model["status"] = "live_cleanup_succeeded"
+            model["live_cloudflare_called"] = "yes"
+
+        # Ensure public safety locks remain
+        model["can_apply"] = "no"
+        model["mutation_allowed"] = "no"
+        model["public_apply_allowed"] = "no"
+    else:
+        model["live_cleanup_precheck"] = {
+            "cleanup_precheck_called": "no",
+            "cleanup_precheck_succeeded": "unknown",
+            "cleanup_record_found": "unknown",
+            "cleanup_record_single_match": "unknown",
+            "cleanup_record_managed": "unknown",
+            "cleanup_record_dns_only": "unknown",
+            "cleanup_safe": "unknown",
+            "record_id_printed": "no",
+            "raw_dns_values_printed": "no",
+            "raw_api_response_printed": "no",
+        }
+        model["live_cleanup"] = {
+            "cleanup_approval_present": "no",
+            "cleanup_prerequisites_passed": "no",
+            "cleanup_one_record_only": "no",
+            "delete_only_if_managed": "no",
+            "delete_only_if_dns_only": "no",
+            "delete_only_if_single_match": "no",
+            "cleanup_allowed": "no",
+            "cleanup_called": "no",
+            "cleanup_succeeded": "unknown",
+            "deleted_record_category": "none",
+            "cleanup_mutation_method_used": "no",
+            "record_id_printed": "no",
+            "raw_api_response_printed": "no",
+            "delete_called": "no",
+            "update_called": "no",
+            "create_called": "no",
+        }
+
     # Render safe summary
     try:
         text = render_dns_apply_dryrun_summary(model)
@@ -2012,7 +2519,7 @@ def main(argv: list[str] | None = None) -> int:
 
     # Exit code based on status
     status = model.get("status", "uncertain")
-    if status in ("dryrun_preview_ready", "live_create_verified"):
+    if status in ("dryrun_preview_ready", "live_create_verified", "live_cleanup_succeeded"):
         return 0
     elif status == "blocked":
         return 2
