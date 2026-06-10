@@ -1,0 +1,21 @@
+#!/usr/bin/env python3
+"""
+Non-public local dry-run runner for safe plan files.
+
+Dry-run only. No DNS mutation. No live Cloudflare calls.
+
+Usage:
+    scripts/dev/nanobk-cf-dns-dryrun-wrapper --plan tests/fixtures/v2.2.27/dryrun_preview_ready.json
+"""
+
+import sys
+from pathlib import Path
+
+# Add lib to path
+_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(_ROOT / "lib"))
+
+from nanobk_cf_dns_apply_dryrun_wrapper import main
+
+if __name__ == "__main__":
+    sys.exit(main())

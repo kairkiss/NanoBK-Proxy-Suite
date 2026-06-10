@@ -399,3 +399,142 @@ def assert_safe_dns_apply_dryrun_output(text: str) -> None:
             raise UnsafeDnsApplyDryrunOutputError(
                 "DNS apply dry-run wrapper output contains forbidden pattern."
             )
+
+
+# ── Helper dry-run detection ─────────────────────────────────────────────────
+
+
+def detect_helper_dryrun_support(helper_path: str | None = None) -> dict:
+    """Detect whether a safe helper dry-run path exists.
+
+    Only inspects help/static capability if safe.
+    Does not pass credentials. Does not call Cloudflare. Does not call mutation.
+
+    Returns dict with helper_dryrun_available and reason.
+    """
+    if helper_path is None:
+        return {
+            "helper_dryrun_available": "no",
+            "reason": "helper dry-run support not safely detected",
+        }
+
+    # Only check if the helper file exists and has --dry-run in its help
+    try:
+        import subprocess as _sp
+        result = _sp.run(
+            [sys.executable, helper_path, "--help"],
+            capture_output=True, text=True, timeout=5,
+            env={"PATH": "/usr/bin:/bin", "LANG": "C"},
+        )
+        if "--dry-run" in result.stdout:
+            return {
+                "helper_dryrun_available": "yes",
+                "reason": "helper exposes --dry-run flag",
+            }
+    except Exception:
+        pass
+
+    return {
+        "helper_dryrun_available": "no",
+        "reason": "helper dry-run support not safely detected",
+    }
+
+
+# ── CLI entry point ──────────────────────────────────────────────────────────
+
+_USAGE = """\
+usage: nanobk-cf-dns-dryrun-wrapper --plan PATH
+
+Non-public local dry-run runner for safe plan files.
+Dry-run only. No DNS mutation. No live Cloudflare calls.
+
+Options:
+  --plan PATH   Path to a safe JSON plan file (required)
+
+Exit codes:
+  0  dryrun_preview_ready
+  2  blocked
+  3  uncertain
+  4  invalid input / unsafe output
+"""
+
+
+def main(argv: list[str] | None = None) -> int:
+    """CLI entry point for dry-run wrapper.
+
+    Reads a safe JSON plan file, runs the dry-run wrapper, renders a safe
+    summary, and prints it. Exits non-zero for blocked/uncertain/invalid.
+    """
+    if argv is None:
+        argv = sys.argv[1:]
+
+    if not argv or "--help" in argv or "-h" in argv:
+        sys.stdout.write(_USAGE)
+        return 0
+
+    # Parse --plan
+    plan_path = None
+    i = 0
+    while i < len(argv):
+        if argv[i] == "--plan" and i + 1 < len(argv):
+            plan_path = argv[i + 1]
+            i += 2
+        else:
+            i += 1
+
+    if plan_path is None:
+        sys.stderr.write("Error: --plan is required.\n")
+        sys.stderr.write(_USAGE)
+        return 4
+
+    # Read plan file
+    plan_path_obj = Path(plan_path)
+    if not plan_path_obj.exists():
+        sys.stderr.write("Error: plan file not found.\n")
+        return 4
+
+    try:
+        with open(plan_path_obj, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except (json.JSONDecodeError, OSError):
+        sys.stderr.write("Error: plan file is not valid JSON.\n")
+        return 4
+
+    if not isinstance(data, dict):
+        sys.stderr.write("Error: plan file must be a JSON object.\n")
+        return 4
+
+    # Run dry-run wrapper
+    try:
+        model = run_dns_apply_dryrun_wrapper(data)
+    except RuntimeError:
+        sys.stderr.write("Error: invalid plan structure.\n")
+        return 4
+
+    # Render safe summary
+    try:
+        text = render_dns_apply_dryrun_summary(model)
+    except Exception:
+        sys.stderr.write("Error: could not render summary.\n")
+        return 4
+
+    # Assert output safety
+    try:
+        assert_safe_dns_apply_dryrun_output(text)
+    except UnsafeDnsApplyDryrunOutputError:
+        sys.stderr.write("Error: output contains forbidden patterns.\n")
+        return 4
+
+    # Print safe summary
+    sys.stdout.write(text)
+
+    # Exit code based on status
+    status = model.get("status", "uncertain")
+    if status == "dryrun_preview_ready":
+        return 0
+    elif status == "blocked":
+        return 2
+    elif status == "uncertain":
+        return 3
+    else:
+        return 4

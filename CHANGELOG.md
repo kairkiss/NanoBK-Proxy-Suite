@@ -1,5 +1,35 @@
 # Changelog
 
+## v2.2.28 — Non-Public Local Dry-run Runner
+
+### Added
+
+- Added `scripts/dev/nanobk-cf-dns-dryrun-wrapper`, a non-public local dry-run runner for safe plan files.
+- Added CLI support for `lib/nanobk_cf_dns_apply_dryrun_wrapper.py`.
+- Added `tests/v2.2.28-local-dryrun-runner.sh` to validate runnable dry-run behavior, exit codes, safe output, no public references, and no live mutation.
+- Added safe runner fixtures under `tests/fixtures/v2.2.28/`.
+
+### Safety
+
+- v2.2.28 is dry-run-only.
+- Valid dry-run output can be generated locally.
+- `can_apply` remains always `no`.
+- `mutation_allowed` remains always `no`.
+- Public apply remains blocked.
+- No DNS records are created, updated, or deleted.
+- No live Cloudflare mutation is performed.
+- No real env contents are printed.
+- Raw helper stdout/stderr are never printed.
+
+### Not Changed
+
+- No public `bin/nanobk` integration.
+- No beginner console apply button.
+- No Bot/Web apply button.
+- No installer behavior changes.
+- No real DNS mutation.
+- No release tag.
+
 ## v2.2.27 — Non-Public DNS Apply Dry-run Wrapper
 
 ### Added
