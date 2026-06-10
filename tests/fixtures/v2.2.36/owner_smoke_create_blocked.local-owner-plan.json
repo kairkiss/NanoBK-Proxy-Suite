@@ -1,0 +1,115 @@
+{
+  "mode": "dryrun_only",
+  "repo_gate": {
+    "clean": false,
+    "expected_head": true,
+    "no_public_integration": true
+  },
+  "credential_reference": {
+    "local_path": "tests/fixtures/v2.2.36/safe_token.env",
+    "check_permissions": true,
+    "contents_must_not_be_read": true,
+    "path_must_not_be_printed": true
+  },
+  "credential_reference_gate": {},
+  "record_identity_gate": {
+    "one_record_only": true,
+    "disposable_test_record": true,
+    "dns_only": true,
+    "create_only_first": true,
+    "no_delete": true,
+    "no_overwrite": true,
+    "no_production_name": true,
+    "same_name_cname_absent": true
+  },
+  "read_only_precheck_gate": {},
+  "dryrun_preview_gate": {
+    "preview_generated": true,
+    "preview_redacted": true,
+    "raw_mutation_command_printed": false
+  },
+  "helper_dryrun_gate": {
+    "helper_dryrun_available": false,
+    "helper_called_in_dryrun_only": false,
+    "wrapper_preview_generated": true
+  },
+  "redaction_gate": {
+    "redaction_passed": true,
+    "no_secret_or_address": true,
+    "no_raw_api": true,
+    "no_raw_helper_output": true
+  },
+  "public_ux_gate": {
+    "bin_integration": false,
+    "bot_apply": false,
+    "web_apply": false,
+    "installer_apply": false
+  },
+  "record_plan": {
+    "safe_record_category": "disposable test subdomain",
+    "safe_action_category": "create",
+    "record_type": "A",
+    "dns_only": "yes"
+  },
+  "readonly_precheck_plan": {
+    "safe_zone_category": "owner_controlled_test_zone",
+    "safe_record_category": "disposable_test_record",
+    "record_type": "A",
+    "expected_content_category": "owner_controlled_test_address",
+    "same_name_cname_absent": true,
+    "existing_unmanaged_record_absent": true,
+    "delete_planned": false,
+    "overwrite_planned": false,
+    "raw_values_present": false
+  },
+  "readonly_probe": {
+    "enabled": true,
+    "provider": "cloudflare",
+    "base_url": "http://127.0.0.1:__PORT__/client/v4",
+    "method_allowlist": [
+      "GET"
+    ],
+    "mutation_methods_blocked": true,
+    "raw_response_must_not_be_printed": true
+  },
+  "readonly_dns_record_precheck": {
+    "enabled": true,
+    "zone_id_local": "LOCAL_ONLY_ZONE_ID_NOT_FOR_OUTPUT",
+    "record_name_local": "LOCAL_ONLY_RECORD_NAME_NOT_FOR_OUTPUT",
+    "record_type_local": "A",
+    "expected_content_local": "LOCAL_ONLY_EXPECTED_CONTENT_NOT_FOR_OUTPUT",
+    "managed_marker": "nanobk-test managed disposable record",
+    "allow_existing_managed_test_record": false,
+    "same_name_cname_must_be_absent": true,
+    "existing_unmanaged_must_be_absent": true,
+    "raw_values_must_not_be_printed": true
+  },
+  "live_create_plan": {
+    "enabled": true,
+    "zone_id_local": "LOCAL_ONLY_ZONE_ID_NOT_FOR_OUTPUT",
+    "record_name_local": "LOCAL_ONLY_RECORD_NAME_NOT_FOR_OUTPUT",
+    "record_type_local": "A",
+    "content_local": "LOCAL_ONLY_EXPECTED_CONTENT_NOT_FOR_OUTPUT",
+    "ttl": 60,
+    "proxied": false,
+    "comment": "nanobk-test managed disposable record",
+    "create_only_first": true,
+    "one_record_only": true,
+    "delete_allowed": false,
+    "update_allowed": false,
+    "overwrite_allowed": false,
+    "raw_values_must_not_be_printed": true
+  },
+  "live_cleanup_plan": {
+    "enabled": true,
+    "zone_id_local": "LOCAL_ONLY_ZONE_ID_NOT_FOR_OUTPUT",
+    "record_name_local": "LOCAL_ONLY_RECORD_NAME_NOT_FOR_OUTPUT",
+    "record_type_local": "A",
+    "managed_marker": "nanobk-test managed disposable record",
+    "one_record_only": true,
+    "delete_only_if_managed": true,
+    "delete_only_if_dns_only": true,
+    "delete_only_if_single_match": true,
+    "raw_values_must_not_be_printed": true
+  }
+}

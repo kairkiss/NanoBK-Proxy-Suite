@@ -1,5 +1,29 @@
 # Changelog
 
+## v2.2.36-polish — Commit Smoke Test Fixtures Despite Local Plan Ignore
+
+### Fixed
+
+- Added explicit `.gitignore` exception for safe v2.2.36 smoke test fixtures.
+- Committed the missing `.local-owner-plan.json` smoke fixtures required by `tests/v2.2.36-owner-smoke-harness.sh`.
+- Prevented fresh clone test failures caused by ignored test fixtures.
+
+### Safety
+
+- Real local owner plans remain ignored.
+- Real local credential files remain ignored.
+- Committed smoke fixtures contain only fake placeholder/local-only values.
+- No public apply path added.
+- No live behavior changed.
+
+### Not Changed
+
+- No public `bin/nanobk` integration.
+- No beginner console live button.
+- No Bot/Web live button.
+- No installer behavior changes.
+- No release tag.
+
 ## v2.2.36 — Non-Public Real Cloudflare Smoke Harness
 
 ### Added

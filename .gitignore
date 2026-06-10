@@ -29,3 +29,6 @@ __pycache__/
 .nanobk-local/
 *.local-owner-plan.json
 *.local-credential.env
+
+# Allow committed safe smoke test fixtures
+!tests/fixtures/v2.2.36/*.local-owner-plan.json
