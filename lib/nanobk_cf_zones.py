@@ -168,14 +168,23 @@ def fetch_zones(token):
 def output_text(zones):
     """Print beginner-safe text summary."""
     print()
-    print(f"  Cloudflare zones discovered: {len(zones)}")
+    print(f"  Cloudflare zones: discovered")
+    print(f"  Count: {len(zones)}")
     print()
     if zones:
         for i, zone in enumerate(zones, 1):
             name = zone.get("name", "unknown")
-            print(f"  {i}. {mask_domain(name)}")
+            print(f"  {i}. {name}")
         print()
-    print("  Read-only discovery only. No DNS records were changed.")
+    else:
+        print("  No zones found. Check your Cloudflare account and API token.")
+        print()
+    print("  Safety:")
+    print("    Read-only: yes")
+    print("    Mutation allowed: no")
+    print("    Token printed: no")
+    print("    Credential path printed: no")
+    print("    Zone IDs printed: no")
     print()
 
 

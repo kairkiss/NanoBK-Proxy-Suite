@@ -1,0 +1,7 @@
+{
+  "success": true,
+  "result": [
+    {"id": "fake-zone-id-0001-aaaa", "name": "example.com", "status": "active"},
+    {"id": "fake-zone-id-0002-bbbb", "name": "example.net", "status": "active"}
+  ]
+}

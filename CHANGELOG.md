@@ -1,5 +1,32 @@
 # Changelog
 
+## v2.2.40 — Cloudflare Zone Discovery Read-only
+
+### Added
+
+- Added read-only Cloudflare zone discovery foundation for future beginner domain selection.
+- Added safe beginner-oriented zone list output that shows zone names without zone IDs by default.
+- Added mock coverage for success, empty zones, missing credential, unsafe credential permission, malformed response, mutation blocking, and redaction.
+
+### Safety
+
+- GET-only.
+- No Cloudflare mutation.
+- No DNS record create/update/delete.
+- Token is not printed.
+- Credential path is not printed.
+- Zone IDs and account IDs are not printed by default.
+- Raw API response is not printed.
+- No Bot/Web/installer integration.
+- No release/tag.
+
+### Not Changed
+
+- No live DNS apply added to nanobk.
+- No beginner console live apply button.
+- No Full Wizard auto-apply.
+- No DNS-01, Tunnel, Access, or Web public exposure changes.
+
 ## v2.2.38 — Archive T20 Real Owner Smoke Validation
 
 ### Added
@@ -11,7 +38,7 @@
 
 ### Safety
 
-- Documentation-only change.
+- Documentation-only validation archive.
 - No real token, zone ID, record name, IP/content, record ID, credential path, or raw API response committed.
 - No live Cloudflare behavior changed.
 - No public UX integration.
@@ -19,7 +46,7 @@
 
 ### Not Changed
 
-- No public `bin/nanobk` integration.
+- No public `bin/nanobk` live apply integration.
 - No beginner console live button.
 - No Bot/Web live button.
 - No installer behavior changes.
