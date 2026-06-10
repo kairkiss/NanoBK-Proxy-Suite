@@ -105,6 +105,36 @@ def is_usable_for_dns(scope):
     return scope in ("global", "documentation")
 
 
+# ── Masking ─────────────────────────────────────────────────────────────────
+
+def mask_ipv4(addr_str):
+    """Mask IPv4: 203.0.113.10 -> 203.0.113.xxx"""
+    parts = addr_str.split(".")
+    if len(parts) == 4:
+        return f"{parts[0]}.{parts[1]}.{parts[2]}.xxx"
+    return "xxx.xxx.xxx.xxx"
+
+
+def mask_ipv6(addr_str):
+    """Mask IPv6: show first 1-2 groups + ellipsis."""
+    try:
+        addr = ipaddress.IPv6Address(addr_str)
+        compressed = addr.compressed
+        if "::" in compressed:
+            leading = compressed.split("::")[0]
+        else:
+            leading = compressed
+        groups = [g for g in leading.split(":") if g]
+        if len(groups) >= 2:
+            return f"{groups[0]}:{groups[1]}:…"
+        elif len(groups) == 1:
+            return f"{groups[0]}:…"
+        else:
+            return "…"
+    except (ipaddress.AddressValueError, ValueError):
+        return "…"
+
+
 # ── Real detection ──────────────────────────────────────────────────────────
 
 def _fetch_text(url, timeout=_DETECT_TIMEOUT):

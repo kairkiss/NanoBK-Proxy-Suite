@@ -1,5 +1,37 @@
 # Changelog
 
+## v2.2.42 — Subdomain Availability Check Read-only
+
+### Added
+
+- Added read-only availability checks for default NanoBK subdomains.
+- Added safe checks for `proxy.<zone>` and `web.<zone>`.
+- Added beginner-oriented output that reports available/occupied status without exposing DNS record details.
+- Added JSON output for future DNS planning.
+- Added mock coverage for available, occupied, API failure, credential failure, malformed profile, mutation blocking, JSON shape, and redaction.
+
+### Safety
+
+- GET-only.
+- No Cloudflare mutation.
+- No DNS record create/update/delete.
+- No overwrite.
+- No force.
+- Token is not printed.
+- Credential path is not printed.
+- Zone ID and record ID are not printed.
+- Raw API response is not printed.
+- Protocol links, subscription URLs, workers.dev URLs, and private keys are not printed.
+- No Bot/Web/installer integration.
+- No release/tag.
+
+### Not Changed
+
+- No live DNS apply added to nanobk.
+- No beginner console live apply button.
+- No Full Wizard auto-apply.
+- No DNS-01, Tunnel, Access, or Web public exposure changes.
+
 ## v2.2.41-polish — Stabilize VPS IP Detect Text/JSON Consistency
 
 ### Fixed

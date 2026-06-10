@@ -1,0 +1,8 @@
+{
+  "proxy": {"success": true, "result": [
+    {"id": "fake-a-003", "type": "A", "name": "proxy.example.com", "content": "192.0.2.3", "proxied": false, "comment": "existing record"}
+  ]},
+  "web": {"success": true, "result": [
+    {"id": "fake-a-004", "type": "A", "name": "web.example.com", "content": "192.0.2.4", "proxied": false, "comment": "existing record"}
+  ]}
+}
