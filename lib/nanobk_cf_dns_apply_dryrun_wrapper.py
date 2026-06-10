@@ -434,9 +434,9 @@ def run_cloudflare_readonly_get_probe(
         result["reason"] = "readonly GET unsafe endpoint blocked"
         return result
 
-    # Check method allowlist
-    allowed_methods = probe_plan.get("method_allowlist", ["GET"])
-    if any(m in ("POST", "PATCH", "PUT", "DELETE") for m in allowed_methods):
+    # Check method allowlist — normalize and block anything other than GET
+    allowed_methods = [str(m).upper() for m in probe_plan.get("method_allowlist", ["GET"])]
+    if any(m != "GET" for m in allowed_methods):
         result["reason"] = "readonly GET unsafe endpoint blocked"
         return result
 
@@ -943,6 +943,70 @@ def detect_helper_dryrun_support(helper_path: str | None = None) -> dict:
     }
 
 
+# ── Probe prerequisites check ────────────────────────────────────────────────
+
+
+def _probe_prerequisites_passed(model: dict) -> bool:
+    """Check if all prerequisites are met before reading token or calling GET.
+
+    Requires:
+    - model status is dryrun_preview_ready
+    - can_apply is no
+    - mutation_allowed is no
+    - public_apply_allowed is no
+    - real_dns_mutation_performed is no
+    - credential metadata all pass
+    - readonly precheck metadata all pass (if present)
+    """
+    if model.get("status") != _STATUS_DRYRUN_READY:
+        return False
+    if model.get("can_apply") != "no":
+        return False
+    if model.get("mutation_allowed") != "no":
+        return False
+    if model.get("public_apply_allowed") != "no":
+        return False
+    if model.get("real_dns_mutation_performed") != "no":
+        return False
+
+    # Credential metadata must all pass
+    cred = model.get("local_credential_reference", {})
+    if cred.get("credential_reference_present") != "yes":
+        return False
+    if cred.get("credential_is_regular_file") != "yes":
+        return False
+    if cred.get("credential_permission_restricted") != "yes":
+        return False
+    if cred.get("credential_contents_read") != "no":
+        return False
+    if cred.get("credential_path_printed") != "no":
+        return False
+
+    # Readonly precheck metadata must all pass (if present)
+    ro = model.get("readonly_precheck", {})
+    if ro.get("readonly_precheck_plan_present") == "yes":
+        if ro.get("safe_zone_category") != "yes":
+            return False
+        if ro.get("safe_record_category") != "yes":
+            return False
+        if ro.get("safe_record_type") != "yes":
+            return False
+        if ro.get("safe_expected_content_category") != "yes":
+            return False
+        if ro.get("same_name_cname_absent") != "yes":
+            return False
+        if ro.get("existing_unmanaged_record_absent") != "yes":
+            return False
+        if ro.get("delete_planned") != "no":
+            return False
+        if ro.get("overwrite_planned") != "no":
+            return False
+        if ro.get("raw_values_present") != "no":
+            return False
+
+    return True
+
+
 # ── CLI entry point ──────────────────────────────────────────────────────────
 
 _USAGE = """\
@@ -1033,43 +1097,65 @@ def main(argv: list[str] | None = None) -> int:
 
     # Apply --allow-readonly-probe flag
     if allow_readonly_probe:
-        model["readonly_probe_allowed"] = "yes"
-
-        # Load token from credential reference if available
-        cred_ref = data.get("credential_reference", {})
-        token_result = load_readonly_cloudflare_token_from_reference(cred_ref)
-        model["token_metadata"] = {
-            "token_loaded": token_result["token_loaded"],
-            "token_source": token_result["token_source"],
-            "token_printed": "no",
-            "credential_path_printed": "no",
-        }
-
-        # Run read-only GET probe if token loaded
-        if token_result["token_loaded"] == "yes" and token_result.get("_token"):
-            probe_result = run_cloudflare_readonly_get_probe(
-                data, token_result["_token"], allow_probe=True
-            )
+        # Gate: only read token and probe if all prerequisites pass
+        if not _probe_prerequisites_passed(model):
+            # Do NOT read token. Do NOT call GET.
+            model["readonly_probe_allowed"] = "no"
+            model["can_query"] = "no"
+            model["cloudflare_get_called"] = "no"
+            model["cloudflare_get_succeeded"] = "unknown"
+            model["raw_api_response_printed"] = "no"
+            model["mutation_method_used"] = "no"
+            model["token_metadata"] = {
+                "token_loaded": "no",
+                "token_source": "credential_reference",
+                "token_printed": "no",
+                "credential_path_printed": "no",
+            }
+            # Preserve existing blocked/uncertain status and first_failed_gate
         else:
-            probe_result = run_cloudflare_readonly_get_probe(
-                data, None, allow_probe=True
-            )
+            model["readonly_probe_allowed"] = "yes"
 
-        model["can_query"] = probe_result.get("readonly_probe_allowed", "no")
-        model["cloudflare_get_called"] = probe_result.get("cloudflare_get_called", "no")
-        model["cloudflare_get_succeeded"] = probe_result.get("cloudflare_get_succeeded", "unknown")
-        model["raw_api_response_printed"] = "no"
-        model["mutation_method_used"] = "no"
+            # Load token from credential reference
+            cred_ref = data.get("credential_reference", {})
+            token_result = load_readonly_cloudflare_token_from_reference(cred_ref)
+            model["token_metadata"] = {
+                "token_loaded": token_result["token_loaded"],
+                "token_source": token_result["token_source"],
+                "token_printed": "no",
+                "credential_path_printed": "no",
+            }
 
-        # If probe failed and model is still ready, update status
-        if probe_result.get("status") == "fail" and model.get("status") == "dryrun_preview_ready":
-            model["status"] = "blocked"
-            model["first_failed_gate"] = "readonly_probe"
-            model["first_blocked_reason"] = probe_result.get("reason", "readonly GET failed")
-        elif probe_result.get("status") == "uncertain":
-            model["status"] = "uncertain"
-            model["first_failed_gate"] = "readonly_probe"
-            model["first_blocked_reason"] = probe_result.get("reason", "readonly GET timed out")
+            # Run read-only GET probe if token loaded
+            if token_result["token_loaded"] == "yes" and token_result.get("_token"):
+                probe_result = run_cloudflare_readonly_get_probe(
+                    data, token_result["_token"], allow_probe=True
+                )
+            else:
+                probe_result = run_cloudflare_readonly_get_probe(
+                    data, None, allow_probe=True
+                )
+
+            # can_query=yes only if GET succeeded
+            if probe_result.get("cloudflare_get_succeeded") == "yes":
+                model["can_query"] = "yes"
+            else:
+                model["can_query"] = "no"
+
+            model["cloudflare_get_called"] = probe_result.get("cloudflare_get_called", "no")
+            model["cloudflare_get_succeeded"] = probe_result.get("cloudflare_get_succeeded", "unknown")
+            model["raw_api_response_printed"] = "no"
+            model["mutation_method_used"] = "no"
+
+            # If probe failed and model is still ready, update status
+            if probe_result.get("status") == "fail" and model.get("status") == _STATUS_DRYRUN_READY:
+                model["status"] = _STATUS_BLOCKED
+                model["first_failed_gate"] = "readonly_probe"
+                model["first_blocked_reason"] = probe_result.get("reason", "readonly GET failed")
+            elif probe_result.get("status") == "uncertain":
+                model["status"] = _STATUS_UNCERTAIN
+                model["first_failed_gate"] = "readonly_probe"
+                model["first_blocked_reason"] = probe_result.get("reason", "readonly GET timed out")
     else:
         model["token_metadata"] = {
             "token_loaded": "no",

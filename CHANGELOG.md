@@ -1,5 +1,35 @@
 # Changelog
 
+## v2.2.31-polish — Enforce Read-only Probe Prerequisites
+
+### Fixed
+
+- Prevented `--allow-readonly-probe` from reading tokens when the dry-run wrapper is already blocked or uncertain.
+- Prevented read-only GET probe execution unless credential metadata and read-only precheck prerequisites pass.
+- Fixed `can_query` so it becomes `yes` only after a successful read-only GET.
+- Strengthened method allowlist validation by normalizing method names and blocking anything other than `GET`.
+- Added regression coverage for blocked credential/precheck cases to ensure token files are not read and Cloudflare GET is not called.
+
+### Safety
+
+- Tokens are not read after failed credential/precheck gates.
+- Cloudflare GET is not called after failed prerequisites.
+- Tokens are never printed.
+- Credential paths are never printed.
+- Raw API responses are never printed.
+- `can_apply` remains always `no`.
+- `mutation_allowed` remains always `no`.
+- Public apply remains blocked.
+
+### Not Changed
+
+- No public `bin/nanobk` integration.
+- No beginner console apply button.
+- No Bot/Web apply button.
+- No installer behavior changes.
+- No real DNS mutation.
+- No release tag.
+
 ## v2.2.31 — Non-Public Cloudflare Read-only GET Probe
 
 ### Added

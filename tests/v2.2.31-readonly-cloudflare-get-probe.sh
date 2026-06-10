@@ -249,13 +249,107 @@ assert_not_contains "$F_OUT" "fake_test_token_do_not_use" "F2: no token in outpu
 echo ""
 
 # ══════════════════════════════════════════════════════════════════════════════
+# J. Probe prerequisites block token read
+# ══════════════════════════════════════════════════════════════════════════════
+
+echo "--- J. Probe prerequisites block token read ---"
+echo ""
+
+# Set unsafe permission for v2.2.29 fixture
+chmod 644 "$ROOT/tests/fixtures/v2.2.29/unsafe_world_readable_credential.env" 2>/dev/null || true
+
+# J1. Bad credential permission + --allow-readonly-probe
+J1_OUT=$("$RUNNER" --plan "$FIXTURES/runner_blocked_bad_credential_permission_no_token_read.json" --allow-readonly-probe 2>&1) && J1_RC=0 || J1_RC=$?
+
+if [[ "$J1_RC" == "2" ]]; then
+  pass "J1: bad credential permission exits 2"
+else
+  fail "J1: bad credential permission should exit 2, got $J1_RC"
+  ERRORS=$((ERRORS + 1))
+fi
+
+assert_contains "$J1_OUT" "Status: blocked" "J2: blocked status"
+assert_contains "$J1_OUT" "Token loaded: no" "J3: token not loaded"
+assert_contains "$J1_OUT" "Cloudflare GET called: no" "J4: cf get not called"
+assert_contains "$J1_OUT" "Can query: no" "J5: can query no"
+assert_contains "$J1_OUT" "First failed gate: credential_reference_gate" "J6: first failed gate"
+assert_not_contains "$J1_OUT" "fake_test_token_do_not_use" "J7: no token in output"
+assert_not_contains "$J1_OUT" "safe_token.env" "J8: no credential path"
+
+echo ""
+
+# J9. Read-only precheck raw_values_present + --allow-readonly-probe
+J9_OUT=$("$RUNNER" --plan "$FIXTURES/runner_blocked_precheck_raw_values_no_token_read.json" --allow-readonly-probe 2>&1) && J9_RC=0 || J9_RC=$?
+
+if [[ "$J9_RC" == "2" ]]; then
+  pass "J9: precheck raw values exits 2"
+else
+  fail "J9: precheck raw values should exit 2, got $J9_RC"
+  ERRORS=$((ERRORS + 1))
+fi
+
+assert_contains "$J9_OUT" "Status: blocked" "J10: blocked status"
+assert_contains "$J9_OUT" "Token loaded: no" "J11: token not loaded"
+assert_contains "$J9_OUT" "Cloudflare GET called: no" "J12: cf get not called"
+assert_contains "$J9_OUT" "Can query: no" "J13: can query no"
+assert_contains "$J9_OUT" "First failed gate: read_only_precheck_gate" "J14: first failed gate"
+assert_contains "$J9_OUT" "raw values present" "J15: raw values reason"
+assert_not_contains "$J9_OUT" "fake_test_token_do_not_use" "J16: no token in output"
+
+echo ""
+
+# ══════════════════════════════════════════════════════════════════════════════
+# K. can_query semantics
+# ══════════════════════════════════════════════════════════════════════════════
+
+echo "--- K. can_query semantics ---"
+echo ""
+
+# K1. Successful probe: can_query=yes
+assert_contains "$B_OUT" "Can query: yes" "K1: successful probe can_query=yes"
+assert_contains "$B_OUT" "Cloudflare GET succeeded: yes" "K2: successful probe cf get succeeded"
+
+# K2. Missing token: can_query=no
+assert_contains "$C_OUT" "Can query: no" "K3: missing token can_query=no"
+
+# K3. Timeout: can_query=no
+assert_contains "$E_OUT" "Can query: no" "K4: timeout can_query=no"
+
+# K4. Mutation method: can_query=no
+assert_contains "$F_OUT" "Can query: no" "K5: mutation method can_query=no"
+
+echo ""
+
+# ══════════════════════════════════════════════════════════════════════════════
+# L. Method allowlist case normalization
+# ══════════════════════════════════════════════════════════════════════════════
+
+echo "--- L. Method allowlist case normalization ---"
+echo ""
+
+L_OUT=$("$RUNNER" --plan "$FIXTURES/runner_blocked_lowercase_method.json" --allow-readonly-probe 2>&1) && L_RC=0 || L_RC=$?
+
+if [[ "$L_RC" != "0" ]]; then
+  pass "L1: lowercase method exits non-zero ($L_RC)"
+else
+  fail "L1: lowercase method should exit non-zero"
+  ERRORS=$((ERRORS + 1))
+fi
+
+assert_contains "$L_OUT" "unsafe endpoint blocked" "L2: unsafe endpoint blocked reason"
+assert_not_contains "$L_OUT" "Cloudflare GET called: yes" "L3: cf get not called"
+assert_not_contains "$L_OUT" "fake_test_token_do_not_use" "L4: no token in output"
+
+echo ""
+
+# ══════════════════════════════════════════════════════════════════════════════
 # G. Safety scan
 # ══════════════════════════════════════════════════════════════════════════════
 
 echo "--- G. Safety scan ---"
 echo ""
 
-ALL_OUTPUTS="$A_OUT $B_OUT $C_OUT $D_OUT $E_OUT $F_OUT"
+ALL_OUTPUTS="$A_OUT $B_OUT $C_OUT $D_OUT $E_OUT $F_OUT $J1_OUT $J9_OUT $L_OUT"
 
 assert_not_contains "$ALL_OUTPUTS" "fake_test_token_do_not_use" "G1: no fake token"
 assert_not_contains "$ALL_OUTPUTS" "CLOUDFLARE_API_TOKEN" "G2: no CLOUDFLARE_API_TOKEN"
