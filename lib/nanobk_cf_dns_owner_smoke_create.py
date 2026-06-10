@@ -22,6 +22,8 @@ import json
 import os
 import re
 import sys
+import urllib.request
+import urllib.error
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -101,9 +103,7 @@ def _load_fake_map():
 
 
 def _mock_api_call(step, fake_map):
-    """Simulate API call using fake map."""
-    if fake_map is None:
-        return {"success": False, "errors": [{"message": "no mock configured"}], "result": []}
+    """Simulate API call using fake map. Only called when fake_map is not None."""
     entry = fake_map.get(step, {})
     return entry
 
@@ -116,6 +116,62 @@ def _mock_post(fake_map, zone_id, label, rtype, content, ttl, proxied):
 def _mock_delete(fake_map, zone_id, record_id):
     """Simulate DELETE cleanup."""
     return _mock_api_call("delete", fake_map)
+
+
+# ── Real Cloudflare transport ───────────────────────────────────────────────
+
+def _cf_api_request(method, token, url, body=None):
+    """Make a Cloudflare API request. Returns parsed JSON dict.
+
+    Never prints token, URL, or raw response.
+    """
+    data = json.dumps(body).encode("utf-8") if body else None
+    req = urllib.request.Request(url, method=method, data=data)
+    req.add_header("Authorization", f"Bearer {token}")
+    req.add_header("Content-Type", "application/json")
+
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            raw = resp.read().decode("utf-8")
+    except urllib.error.HTTPError as e:
+        raw = e.read().decode("utf-8", errors="replace")
+        try:
+            return json.loads(raw)
+        except json.JSONDecodeError:
+            return {"success": False, "errors": [{"message": f"HTTP {e.code}"}], "result": []}
+    except (urllib.error.URLError, OSError, TimeoutError) as e:
+        return {"success": False, "errors": [{"message": f"connection error"}], "result": []}
+
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        return {"success": False, "errors": [{"message": "invalid JSON response"}], "result": []}
+
+
+def _real_get_records(token, zone_id, hostname, rtype):
+    """GET DNS records by name and type. Returns parsed response dict."""
+    url = (f"https://api.cloudflare.com/client/v4/zones/{zone_id}"
+           f"/dns_records?name={hostname}&type={rtype}&per_page=10")
+    return _cf_api_request("GET", token, url)
+
+
+def _real_create_record(token, zone_id, label, rtype, content, ttl):
+    """POST create DNS record. Returns parsed response dict."""
+    url = f"https://api.cloudflare.com/client/v4/zones/{zone_id}/dns_records"
+    body = {
+        "type": rtype,
+        "name": label,
+        "content": content,
+        "ttl": ttl,
+        "proxied": False,
+    }
+    return _cf_api_request("POST", token, url, body)
+
+
+def _real_delete_record(token, zone_id, record_id):
+    """DELETE DNS record by ID. Returns parsed response dict."""
+    url = f"https://api.cloudflare.com/client/v4/zones/{zone_id}/dns_records/{record_id}"
+    return _cf_api_request("DELETE", token, url)
 
 
 # ── Smoke harness ───────────────────────────────────────────────────────────
@@ -199,11 +255,15 @@ def run_smoke(zone, api_env_path, label, rtype, content, ttl,
 
     hostname = f"{label}.{zone}"
     fake_map = _load_fake_map()
+    use_mock = fake_map is not None
 
     # Step 1: Availability pre-check (GET)
     pre_check_records = []
     try:
-        pre_check_resp = _mock_api_call("pre_check", fake_map)
+        if use_mock:
+            pre_check_resp = _mock_api_call("pre_check", fake_map)
+        else:
+            pre_check_resp = _real_get_records(token, zone_id, hostname, rtype)
         if not pre_check_resp.get("success", False):
             errors = pre_check_resp.get("errors", [])
             msg = "; ".join(str(e.get("message", "unknown")) for e in errors) or "unknown error"
@@ -223,7 +283,10 @@ def run_smoke(zone, api_env_path, label, rtype, content, ttl,
     create_success = False
     created_record_id = None
     try:
-        create_resp = _mock_post(fake_map, zone_id, label, rtype, content, ttl, False)
+        if use_mock:
+            create_resp = _mock_api_call("create", fake_map)
+        else:
+            create_resp = _real_create_record(token, zone_id, hostname, rtype, content, ttl)
         if create_resp.get("success", False):
             create_success = True
             result = create_resp.get("result", {})
@@ -256,16 +319,14 @@ def run_smoke(zone, api_env_path, label, rtype, content, ttl,
     # Step 3: Post-check (GET)
     post_check_success = False
     try:
-        post_check_resp = _mock_api_call("post_check", fake_map)
+        if use_mock:
+            post_check_resp = _mock_api_call("post_check", fake_map)
+        else:
+            post_check_resp = _real_get_records(token, zone_id, hostname, rtype)
         if post_check_resp.get("success", False):
             post_check_records = post_check_resp.get("result", [])
             if post_check_records:
                 post_check_success = True
-            else:
-                # Post-check found nothing — record not visible
-                pass
-        else:
-            pass
     except Exception:
         pass
 
@@ -275,7 +336,10 @@ def run_smoke(zone, api_env_path, label, rtype, content, ttl,
         cleanup_success = False
         try:
             if created_record_id:
-                cleanup_resp = _mock_delete(fake_map, zone_id, created_record_id)
+                if use_mock:
+                    cleanup_resp = _mock_api_call("delete", fake_map)
+                else:
+                    cleanup_resp = _real_delete_record(token, zone_id, created_record_id)
                 cleanup_success = cleanup_resp.get("success", False)
         except Exception:
             pass
@@ -297,7 +361,10 @@ def run_smoke(zone, api_env_path, label, rtype, content, ttl,
     cleanup_success = False
     try:
         if created_record_id:
-            cleanup_resp = _mock_delete(fake_map, zone_id, created_record_id)
+            if use_mock:
+                cleanup_resp = _mock_api_call("delete", fake_map)
+            else:
+                cleanup_resp = _real_delete_record(token, zone_id, created_record_id)
             cleanup_success = cleanup_resp.get("success", False)
         else:
             cleanup_success = True  # Nothing to delete
@@ -322,7 +389,10 @@ def run_smoke(zone, api_env_path, label, rtype, content, ttl,
     # Step 5: Cleanup verification (GET)
     cleanup_verified = False
     try:
-        verify_resp = _mock_api_call("cleanup_verify", fake_map)
+        if use_mock:
+            verify_resp = _mock_api_call("cleanup_verify", fake_map)
+        else:
+            verify_resp = _real_get_records(token, zone_id, hostname, rtype)
         if verify_resp.get("success", False):
             verify_records = verify_resp.get("result", [])
             cleanup_verified = len(verify_records) == 0

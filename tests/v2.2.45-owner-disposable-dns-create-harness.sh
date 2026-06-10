@@ -357,6 +357,77 @@ assert_contains "$L_JSON" "cleanup_required" "L2: reason cleanup_required"
 echo ""
 
 # ══════════════════════════════════════════════════════════════════════════════
+# M. Real transport code-level verification
+# ══════════════════════════════════════════════════════════════════════════════
+
+echo "--- M. Real transport code verification ---"
+echo ""
+
+M_SRC=$(cat "$MODULE")
+
+# Verify real transport functions exist
+for func in "_real_get_records" "_real_create_record" "_real_delete_record" "_cf_api_request"; do
+  if echo "$M_SRC" | grep -q "def $func"; then
+    pass "M: $func exists"
+  else
+    fail "M: $func missing"
+    ERRORS=$((ERRORS + 1))
+  fi
+done
+
+# Verify GET is used for pre-check and post-check
+if echo "$M_SRC" | grep -q '_real_get_records'; then
+  pass "M: real GET transport used"
+else
+  fail "M: real GET transport missing"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# Verify POST is used for create
+if echo "$M_SRC" | grep -q '_real_create_record'; then
+  pass "M: real POST transport used"
+else
+  fail "M: real POST transport missing"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# Verify DELETE is used for cleanup
+if echo "$M_SRC" | grep -q '_real_delete_record'; then
+  pass "M: real DELETE transport used"
+else
+  fail "M: real DELETE transport missing"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# Verify no PATCH/PUT in real transport
+for method in "method=\"PATCH\"" "method=\"PUT\""; do
+  if echo "$M_SRC" | grep -q "$method"; then
+    fail "M: module contains $method"
+    ERRORS=$((ERRORS + 1))
+  else
+    pass "M: no $method"
+  fi
+done
+
+# Verify "no mock configured" fallback is removed
+if echo "$M_SRC" | grep -q "no mock configured"; then
+  fail "M: still has 'no mock configured' fallback"
+  ERRORS=$((ERRORS + 1))
+else
+  pass "M: no 'no mock configured' fallback"
+fi
+
+# Verify use_mock dispatch exists
+if echo "$M_SRC" | grep -q "use_mock"; then
+  pass "M: use_mock dispatch exists"
+else
+  fail "M: use_mock dispatch missing"
+  ERRORS=$((ERRORS + 1))
+fi
+
+echo ""
+
+# ══════════════════════════════════════════════════════════════════════════════
 # Summary
 # ══════════════════════════════════════════════════════════════════════════════
 

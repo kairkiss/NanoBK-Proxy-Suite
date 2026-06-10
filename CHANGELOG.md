@@ -1,5 +1,23 @@
 # Changelog
 
+## v2.2.45-polish — Add Real Cloudflare Transport for Owner Smoke Create
+
+### Fixed
+
+- Added real Cloudflare transport for owner-approved disposable DNS create smoke when no fake map is configured.
+- Kept mock transport for tests via `NANOBK_OWNER_SMOKE_FAKE_MAP`.
+- Preserved owner approval, exact confirmation, disposable label, cleanup, pre-check, post-check, cleanup verification, and redaction gates.
+
+### Safety
+
+- Real mutation path is still owner-only, disposable-only, and cleanup-required.
+- No proxy/web production DNS creation.
+- No overwrite. No force. No PATCH/PUT.
+- DELETE is limited to the record created during the same run.
+- Token, credential path, zone ID, record ID, raw API URL, and raw API response are not printed.
+- No Bot/Web/installer integration.
+- No release/tag.
+
 ## v2.2.45 — Owner-Approved Disposable DNS Create Harness
 
 ### Added
