@@ -1,5 +1,36 @@
 # Changelog
 
+## v2.2.32 — Non-Public Cloudflare DNS Record Read-only Precheck
+
+### Added
+
+- Added a non-public Cloudflare DNS record read-only GET precheck path.
+- Added local-only plan fields for zone and record lookup values without rendering them.
+- Added safe DNS record precheck metadata to the dry-run summary.
+- Added `tests/v2.2.32-dns-record-readonly-precheck.sh` with a local mock HTTP server.
+- Added safe v2.2.32 fixtures for safe create candidate, CNAME conflict, unmanaged record, managed test record, multiple records, timeout, and no-probe cases.
+
+### Safety
+
+- v2.2.32 is read-only GET only.
+- Cloudflare mutation methods remain blocked.
+- No DNS records are created, updated, or deleted.
+- Tokens are never printed.
+- Zone IDs, record names, record contents, and record IDs are never printed.
+- Raw API responses are never printed.
+- `can_apply` remains always `no`.
+- `mutation_allowed` remains always `no`.
+- Public apply remains blocked.
+
+### Not Changed
+
+- No public `bin/nanobk` integration.
+- No beginner console apply button.
+- No Bot/Web apply button.
+- No installer behavior changes.
+- No real DNS mutation.
+- No release tag.
+
 ## v2.2.31-polish — Enforce Read-only Probe Prerequisites
 
 ### Fixed

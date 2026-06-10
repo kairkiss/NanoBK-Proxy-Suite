@@ -392,6 +392,169 @@ def load_readonly_cloudflare_token_from_reference(ref: dict) -> dict:
     return result
 
 
+# ── DNS record read-only precheck ────────────────────────────────────────────
+
+
+def run_cloudflare_dns_record_readonly_precheck(
+    plan: dict, token: str | None, *, allow_probe: bool
+) -> dict:
+    """Run a read-only Cloudflare DNS record GET precheck.
+
+    If allow_probe is false, returns immediately with dns_record_get_called=no.
+    If token is missing, returns blocked/uncertain.
+    Only GET is allowed. No POST/PATCH/PUT/DELETE.
+    Never prints raw URL, response, zone_id, record name, IP, or record ID.
+    """
+    result = {
+        "dns_record_precheck_enabled": "no",
+        "dns_record_get_called": "no",
+        "dns_record_get_succeeded": "unknown",
+        "same_name_cname_absent": "unknown",
+        "existing_unmanaged_record_absent": "unknown",
+        "existing_managed_test_record": "unknown",
+        "create_only_first_safe": "unknown",
+        "record_count_category": "unknown",
+        "raw_dns_values_printed": "no",
+        "raw_api_response_printed": "no",
+        "record_id_printed": "no",
+        "status": "fail",
+        "reason": "dns record precheck not enabled",
+    }
+
+    if not allow_probe:
+        result["reason"] = "dns record precheck not enabled"
+        return result
+
+    if not token:
+        result["reason"] = "token unavailable"
+        return result
+
+    # Check readonly_dns_record_precheck plan
+    precheck_plan = plan.get("readonly_dns_record_precheck", {})
+    if not isinstance(precheck_plan, dict) or not precheck_plan.get("enabled"):
+        result["reason"] = "dns record precheck not enabled"
+        return result
+
+    result["dns_record_precheck_enabled"] = "yes"
+
+    # Get local-only values (never rendered)
+    zone_id = precheck_plan.get("zone_id_local", "")
+    record_name = precheck_plan.get("record_name_local", "")
+    record_type = precheck_plan.get("record_type_local", "A")
+    managed_marker = precheck_plan.get("managed_marker", "nanobk-test")
+    allow_existing_managed = precheck_plan.get("allow_existing_managed_test_record", False)
+    cname_must_be_absent = precheck_plan.get("same_name_cname_must_be_absent", True)
+    unmanaged_must_be_absent = precheck_plan.get("existing_unmanaged_must_be_absent", True)
+
+    if not zone_id or not record_name:
+        result["reason"] = "dns record precheck not enabled"
+        return result
+
+    # Get base URL from readonly_probe plan
+    probe_plan = plan.get("readonly_probe", {})
+    base_url = probe_plan.get("base_url", "https://api.cloudflare.com/client/v4")
+
+    # Perform GET request
+    import urllib.request
+    import urllib.error
+    import urllib.parse
+
+    # Build query URL — never printed
+    params = urllib.parse.urlencode({"name": record_name, "type": record_type})
+    url = f"{base_url}/zones/{zone_id}/dns_records?{params}"
+
+    req = urllib.request.Request(url, method="GET")
+    req.add_header("Authorization", f"Bearer {token}")
+    req.add_header("Content-Type", "application/json")
+
+    try:
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            result["dns_record_get_called"] = "yes"
+            if resp.status == 200:
+                raw_body = resp.read().decode("utf-8")
+                try:
+                    body = json.loads(raw_body)
+                except (json.JSONDecodeError, ValueError):
+                    result["dns_record_get_succeeded"] = "no"
+                    result["status"] = "fail"
+                    result["reason"] = "dns record GET failed"
+                    return result
+
+                result["dns_record_get_succeeded"] = "yes"
+                records = body.get("result", [])
+
+                # Classify records
+                cname_records = [r for r in records if r.get("type") == "CNAME"]
+                matching_records = [r for r in records if r.get("type") == record_type]
+
+                # Check CNAME conflict
+                if cname_must_be_absent and cname_records:
+                    result["same_name_cname_absent"] = "no"
+                    result["create_only_first_safe"] = "no"
+                    result["status"] = "fail"
+                    result["reason"] = "same-name CNAME present"
+                    return result
+                result["same_name_cname_absent"] = "yes"
+
+                # Check record count
+                count = len(matching_records)
+                if count == 0:
+                    result["record_count_category"] = "zero"
+                    result["existing_unmanaged_record_absent"] = "yes"
+                    result["existing_managed_test_record"] = "no"
+                    result["create_only_first_safe"] = "yes"
+                    result["status"] = "pass"
+                    result["reason"] = "create-only-first safe"
+                elif count == 1:
+                    rec = matching_records[0]
+                    comment = rec.get("comment", "") or ""
+                    is_managed = managed_marker in comment
+                    result["record_count_category"] = "one"
+
+                    if is_managed:
+                        result["existing_managed_test_record"] = "yes"
+                        result["existing_unmanaged_record_absent"] = "yes"
+                        result["create_only_first_safe"] = "no"
+                        result["status"] = "fail"
+                        result["reason"] = "managed test record present"
+                    else:
+                        result["existing_managed_test_record"] = "no"
+                        result["existing_unmanaged_record_absent"] = "no"
+                        result["create_only_first_safe"] = "no"
+                        result["status"] = "fail"
+                        result["reason"] = "existing unmanaged record present"
+                else:
+                    result["record_count_category"] = "multiple"
+                    result["existing_unmanaged_record_absent"] = "no"
+                    result["existing_managed_test_record"] = "no"
+                    result["create_only_first_safe"] = "no"
+                    result["status"] = "fail"
+                    result["reason"] = "multiple matching records"
+
+            else:
+                result["dns_record_get_succeeded"] = "no"
+                result["status"] = "fail"
+                result["reason"] = "dns record GET failed"
+
+    except urllib.error.URLError:
+        result["dns_record_get_called"] = "yes"
+        result["dns_record_get_succeeded"] = "no"
+        result["status"] = "fail"
+        result["reason"] = "dns record GET failed"
+    except TimeoutError:
+        result["dns_record_get_called"] = "yes"
+        result["dns_record_get_succeeded"] = "no"
+        result["status"] = "uncertain"
+        result["reason"] = "dns record GET timed out"
+    except Exception:
+        result["dns_record_get_called"] = "yes"
+        result["dns_record_get_succeeded"] = "no"
+        result["status"] = "fail"
+        result["reason"] = "dns record GET failed"
+
+    return result
+
+
 # ── Read-only Cloudflare GET probe ───────────────────────────────────────────
 
 
@@ -801,6 +964,19 @@ def run_dns_apply_dryrun_wrapper(data: dict) -> dict:
         "redacted_preview": preview,
         "local_credential_reference": cred_meta,
         "readonly_precheck": ro_meta,
+        "dns_record_precheck": {
+            "dns_record_precheck_enabled": "no",
+            "dns_record_get_called": "no",
+            "dns_record_get_succeeded": "unknown",
+            "same_name_cname_absent": "unknown",
+            "existing_unmanaged_record_absent": "unknown",
+            "existing_managed_test_record": "unknown",
+            "create_only_first_safe": "unknown",
+            "record_count_category": "unknown",
+            "raw_dns_values_printed": "no",
+            "raw_api_response_printed": "no",
+            "record_id_printed": "no",
+        },
     }
 
 
@@ -825,6 +1001,7 @@ def render_dns_apply_dryrun_summary(model: dict) -> str:
     cred = model.get("local_credential_reference", {})
     ro = model.get("readonly_precheck", {})
     tok = model.get("token_metadata", {})
+    dns = model.get("dns_record_precheck", {})
 
     lines = [
         "NanoBK DNS Apply — Non-Public Dry-run Wrapper Summary",
@@ -861,6 +1038,16 @@ def render_dns_apply_dryrun_summary(model: dict) -> str:
         f"Delete planned: {ro.get('delete_planned', 'unknown')}",
         f"Overwrite planned: {ro.get('overwrite_planned', 'unknown')}",
         f"Raw values present: {ro.get('raw_values_present', 'unknown')}",
+        f"DNS record precheck enabled: {dns.get('dns_record_precheck_enabled', 'no')}",
+        f"DNS record GET called: {dns.get('dns_record_get_called', 'no')}",
+        f"DNS record GET succeeded: {dns.get('dns_record_get_succeeded', 'unknown')}",
+        f"Same-name CNAME absent: {dns.get('same_name_cname_absent', 'unknown')}",
+        f"Existing unmanaged record absent: {dns.get('existing_unmanaged_record_absent', 'unknown')}",
+        f"Existing managed test record: {dns.get('existing_managed_test_record', 'unknown')}",
+        f"Create-only-first safe: {dns.get('create_only_first_safe', 'unknown')}",
+        f"Record count category: {dns.get('record_count_category', 'unknown')}",
+        f"Raw DNS values printed: {dns.get('raw_dns_values_printed', 'no')}",
+        f"DNS identifier printed: {dns.get('record_id_printed', 'no')}",
     ]
 
     if status == _STATUS_DRYRUN_READY:
@@ -1147,7 +1334,61 @@ def main(argv: list[str] | None = None) -> int:
             model["raw_api_response_printed"] = "no"
             model["mutation_method_used"] = "no"
 
-            # If probe failed and model is still ready, update status
+            # Run DNS record read-only precheck only if requested in plan
+            dns_precheck_plan = data.get("readonly_dns_record_precheck", {})
+            if isinstance(dns_precheck_plan, dict) and dns_precheck_plan.get("enabled"):
+                if (token_result["token_loaded"] == "yes"
+                        and token_result.get("_token")
+                        and probe_result.get("cloudflare_get_succeeded") == "yes"):
+                    dns_precheck_result = run_cloudflare_dns_record_readonly_precheck(
+                        data, token_result["_token"], allow_probe=True
+                    )
+                else:
+                    dns_precheck_result = run_cloudflare_dns_record_readonly_precheck(
+                        data, None, allow_probe=True
+                    )
+            else:
+                dns_precheck_result = {
+                    "dns_record_precheck_enabled": "no",
+                    "dns_record_get_called": "no",
+                    "dns_record_get_succeeded": "unknown",
+                    "same_name_cname_absent": "unknown",
+                    "existing_unmanaged_record_absent": "unknown",
+                    "existing_managed_test_record": "unknown",
+                    "create_only_first_safe": "unknown",
+                    "record_count_category": "unknown",
+                    "raw_dns_values_printed": "no",
+                    "raw_api_response_printed": "no",
+                    "record_id_printed": "no",
+                    "status": "pass",
+                    "reason": "dns record precheck not enabled",
+                }
+
+            model["dns_record_precheck"] = {
+                "dns_record_precheck_enabled": dns_precheck_result.get("dns_record_precheck_enabled", "no"),
+                "dns_record_get_called": dns_precheck_result.get("dns_record_get_called", "no"),
+                "dns_record_get_succeeded": dns_precheck_result.get("dns_record_get_succeeded", "unknown"),
+                "same_name_cname_absent": dns_precheck_result.get("same_name_cname_absent", "unknown"),
+                "existing_unmanaged_record_absent": dns_precheck_result.get("existing_unmanaged_record_absent", "unknown"),
+                "existing_managed_test_record": dns_precheck_result.get("existing_managed_test_record", "unknown"),
+                "create_only_first_safe": dns_precheck_result.get("create_only_first_safe", "unknown"),
+                "record_count_category": dns_precheck_result.get("record_count_category", "unknown"),
+                "raw_dns_values_printed": "no",
+                "raw_api_response_printed": "no",
+                "record_id_printed": "no",
+            }
+
+            # If DNS precheck failed and model is still ready, update status
+            if dns_precheck_result.get("status") == "fail" and model.get("status") == _STATUS_DRYRUN_READY:
+                model["status"] = _STATUS_BLOCKED
+                model["first_failed_gate"] = "dns_record_precheck"
+                model["first_blocked_reason"] = dns_precheck_result.get("reason", "dns record precheck failed")
+            elif dns_precheck_result.get("status") == "uncertain":
+                model["status"] = _STATUS_UNCERTAIN
+                model["first_failed_gate"] = "dns_record_precheck"
+                model["first_blocked_reason"] = dns_precheck_result.get("reason", "dns record GET timed out")
+
+            # If token verify probe failed and model is still ready, update status
             if probe_result.get("status") == "fail" and model.get("status") == _STATUS_DRYRUN_READY:
                 model["status"] = _STATUS_BLOCKED
                 model["first_failed_gate"] = "readonly_probe"
@@ -1162,6 +1403,19 @@ def main(argv: list[str] | None = None) -> int:
             "token_source": "credential_reference",
             "token_printed": "no",
             "credential_path_printed": "no",
+        }
+        model["dns_record_precheck"] = {
+            "dns_record_precheck_enabled": "no",
+            "dns_record_get_called": "no",
+            "dns_record_get_succeeded": "unknown",
+            "same_name_cname_absent": "unknown",
+            "existing_unmanaged_record_absent": "unknown",
+            "existing_managed_test_record": "unknown",
+            "create_only_first_safe": "unknown",
+            "record_count_category": "unknown",
+            "raw_dns_values_printed": "no",
+            "raw_api_response_printed": "no",
+            "record_id_printed": "no",
         }
 
     # Render safe summary
