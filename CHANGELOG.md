@@ -1,5 +1,24 @@
 # Changelog
 
+## v2.2.46 — Archive T20-7 Real Owner Disposable DNS Create Smoke
+
+### Added
+
+- Archived the first real owner-approved disposable Cloudflare DNS create/delete smoke validation.
+- Documented the T20-7 PASS WITH NOTE result.
+- Added guardrails for owner-only disposable DNS create smoke usage.
+- Documented scanner false-positive handling for the safe `raw_api_response_printed=false` field.
+
+### Safety
+
+- Documentation only.
+- No runtime behavior changed.
+- No Cloudflare calls.
+- No DNS create/update/delete.
+- No credential/token/zone ID/record ID/raw API output.
+- No Bot/Web/installer integration.
+- No release/tag.
+
 ## v2.2.45-polish2 — Harden Owner Smoke Content and Post-check Validation
 
 ### Fixed
