@@ -7,7 +7,7 @@ generates redacted preview summary. Can call the existing helper's safe
 --dry-run path (no API calls, no mutation). If no safe helper dry-run path
 is available, generates wrapper-level preview only.
 
-NOT imported by bin/nanobk. NOT public CLI. NOT real DNS apply.
+NOT imported by bin/nanobk. NOT a user-facing command. NOT real DNS apply.
 Does not create/update/delete DNS records.
 Does not execute live mutation.
 Does not print real domain, hostname, IP, token, API response, env path,
@@ -317,6 +317,168 @@ def build_readonly_precheck_plan(plan: dict) -> dict:
 
     result["status"] = "pass"
     result["reason"] = "readonly precheck plan valid"
+    return result
+
+
+# ── Read-only Cloudflare token loading ───────────────────────────────────────
+
+
+def load_readonly_cloudflare_token_from_reference(ref: dict) -> dict:
+    """Load Cloudflare token from local credential reference.
+
+    Only called when --allow-readonly-probe is present and credential gate passed.
+    May open/read the credential file internally.
+    Never prints path or token. Returns safe metadata only.
+    """
+    result = {
+        "token_loaded": "no",
+        "token_source": "credential_reference",
+        "token_printed": "no",
+        "credential_path_printed": "no",
+        "status": "fail",
+        "reason": "token key missing",
+        "_token": None,  # internal only, never rendered
+    }
+
+    local_path = ref.get("local_path")
+    if not local_path or not isinstance(local_path, str):
+        result["reason"] = "token key missing"
+        return result
+
+    p = Path(local_path)
+    if not p.exists() or not p.is_file():
+        result["reason"] = "credential read failed"
+        return result
+
+    try:
+        content = p.read_text(encoding="utf-8")
+    except OSError:
+        result["reason"] = "credential read failed"
+        return result
+
+    # Reject multiline or obviously malformed env
+    lines = content.strip().splitlines()
+    if len(lines) > 10:
+        result["reason"] = "credential parse failed"
+        return result
+
+    # Parse safe key-value pairs
+    token = None
+    for line in lines:
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key = key.strip()
+        value = value.strip().strip("\"'")
+        if key in ("CLOUDFLARE_API_TOKEN", "CF_API_TOKEN"):
+            token = value
+            break
+
+    if token is None:
+        result["reason"] = "token key missing"
+        return result
+
+    if not token:
+        result["reason"] = "token empty"
+        return result
+
+    result["token_loaded"] = "yes"
+    result["_token"] = token
+    result["status"] = "pass"
+    result["reason"] = "token loaded"
+    return result
+
+
+# ── Read-only Cloudflare GET probe ───────────────────────────────────────────
+
+
+def run_cloudflare_readonly_get_probe(
+    plan: dict, token: str | None, *, allow_probe: bool
+) -> dict:
+    """Run a read-only Cloudflare GET probe.
+
+    If allow_probe is false, returns immediately with cloudflare_get_called=no.
+    If token is missing, returns blocked/uncertain.
+    Only GET is allowed. No POST/PATCH/PUT/DELETE.
+    Never prints raw response, URL with real values, or token.
+    """
+    result = {
+        "readonly_probe_allowed": "yes" if allow_probe else "no",
+        "cloudflare_get_called": "no",
+        "cloudflare_get_succeeded": "unknown",
+        "raw_api_response_printed": "no",
+        "mutation_method_used": "no",
+        "status": "fail",
+        "reason": "readonly probe not allowed",
+    }
+
+    if not allow_probe:
+        result["reason"] = "readonly probe not allowed"
+        return result
+
+    if not token:
+        result["reason"] = "token unavailable"
+        return result
+
+    # Check readonly_probe plan
+    probe_plan = plan.get("readonly_probe", {})
+    if not isinstance(probe_plan, dict) or not probe_plan.get("enabled"):
+        result["reason"] = "readonly probe not enabled"
+        return result
+
+    # Check mutation methods blocked
+    if not probe_plan.get("mutation_methods_blocked", True):
+        result["reason"] = "readonly GET unsafe endpoint blocked"
+        return result
+
+    # Check method allowlist
+    allowed_methods = probe_plan.get("method_allowlist", ["GET"])
+    if any(m in ("POST", "PATCH", "PUT", "DELETE") for m in allowed_methods):
+        result["reason"] = "readonly GET unsafe endpoint blocked"
+        return result
+
+    base_url = probe_plan.get("base_url", "https://api.cloudflare.com/client/v4")
+    endpoint = "/user/tokens/verify"
+
+    # Perform GET request
+    import urllib.request
+    import urllib.error
+
+    url = f"{base_url}{endpoint}"
+    req = urllib.request.Request(url, method="GET")
+    req.add_header("Authorization", f"Bearer {token}")
+    req.add_header("Content-Type", "application/json")
+
+    try:
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            result["cloudflare_get_called"] = "yes"
+            if resp.status == 200:
+                result["cloudflare_get_succeeded"] = "yes"
+                result["status"] = "pass"
+                result["reason"] = "readonly GET succeeded"
+            else:
+                result["cloudflare_get_succeeded"] = "no"
+                result["status"] = "fail"
+                result["reason"] = "readonly GET failed"
+    except urllib.error.URLError:
+        result["cloudflare_get_called"] = "yes"
+        result["cloudflare_get_succeeded"] = "no"
+        result["status"] = "fail"
+        result["reason"] = "readonly GET failed"
+    except TimeoutError:
+        result["cloudflare_get_called"] = "yes"
+        result["cloudflare_get_succeeded"] = "no"
+        result["status"] = "uncertain"
+        result["reason"] = "readonly GET timed out"
+    except Exception:
+        result["cloudflare_get_called"] = "yes"
+        result["cloudflare_get_succeeded"] = "no"
+        result["status"] = "fail"
+        result["reason"] = "readonly GET failed"
+
     return result
 
 
@@ -662,6 +824,7 @@ def render_dns_apply_dryrun_summary(model: dict) -> str:
     preview = model.get("redacted_preview", {})
     cred = model.get("local_credential_reference", {})
     ro = model.get("readonly_precheck", {})
+    tok = model.get("token_metadata", {})
 
     lines = [
         "NanoBK DNS Apply — Non-Public Dry-run Wrapper Summary",
@@ -675,10 +838,14 @@ def render_dns_apply_dryrun_summary(model: dict) -> str:
         f"Real DNS mutation performed: {real_mutation}",
         f"Real env printed: {real_env}",
         f"Raw helper output printed: {raw_helper}",
+        f"Token loaded: {tok.get('token_loaded', 'no')}",
+        f"Token printed: {tok.get('token_printed', 'no')}",
         f"Can query: {model.get('can_query', 'no')}",
         f"Read-only probe allowed: {model.get('readonly_probe_allowed', 'no')}",
         f"Cloudflare GET called: {model.get('cloudflare_get_called', 'no')}",
-        f"Raw API response printed: {model.get('raw_api_response_printed', 'no')}",
+        f"Cloudflare GET succeeded: {model.get('cloudflare_get_succeeded', 'unknown')}",
+        f"API response printed: {model.get('raw_api_response_printed', 'no')}",
+        f"Mutation method used: {model.get('mutation_method_used', 'no')}",
         f"Credential reference present: {cred.get('credential_reference_present', 'no')}",
         f"Credential is regular file: {cred.get('credential_is_regular_file', 'no')}",
         f"Credential permission restricted: {cred.get('credential_permission_restricted', 'no')}",
@@ -864,9 +1031,52 @@ def main(argv: list[str] | None = None) -> int:
         sys.stderr.write("Error: invalid plan structure.\n")
         return 4
 
-    # Apply --allow-readonly-probe flag (does not call Cloudflare in v2.2.30)
+    # Apply --allow-readonly-probe flag
     if allow_readonly_probe:
         model["readonly_probe_allowed"] = "yes"
+
+        # Load token from credential reference if available
+        cred_ref = data.get("credential_reference", {})
+        token_result = load_readonly_cloudflare_token_from_reference(cred_ref)
+        model["token_metadata"] = {
+            "token_loaded": token_result["token_loaded"],
+            "token_source": token_result["token_source"],
+            "token_printed": "no",
+            "credential_path_printed": "no",
+        }
+
+        # Run read-only GET probe if token loaded
+        if token_result["token_loaded"] == "yes" and token_result.get("_token"):
+            probe_result = run_cloudflare_readonly_get_probe(
+                data, token_result["_token"], allow_probe=True
+            )
+        else:
+            probe_result = run_cloudflare_readonly_get_probe(
+                data, None, allow_probe=True
+            )
+
+        model["can_query"] = probe_result.get("readonly_probe_allowed", "no")
+        model["cloudflare_get_called"] = probe_result.get("cloudflare_get_called", "no")
+        model["cloudflare_get_succeeded"] = probe_result.get("cloudflare_get_succeeded", "unknown")
+        model["raw_api_response_printed"] = "no"
+        model["mutation_method_used"] = "no"
+
+        # If probe failed and model is still ready, update status
+        if probe_result.get("status") == "fail" and model.get("status") == "dryrun_preview_ready":
+            model["status"] = "blocked"
+            model["first_failed_gate"] = "readonly_probe"
+            model["first_blocked_reason"] = probe_result.get("reason", "readonly GET failed")
+        elif probe_result.get("status") == "uncertain":
+            model["status"] = "uncertain"
+            model["first_failed_gate"] = "readonly_probe"
+            model["first_blocked_reason"] = probe_result.get("reason", "readonly GET timed out")
+    else:
+        model["token_metadata"] = {
+            "token_loaded": "no",
+            "token_source": "credential_reference",
+            "token_printed": "no",
+            "credential_path_printed": "no",
+        }
 
     # Render safe summary
     try:

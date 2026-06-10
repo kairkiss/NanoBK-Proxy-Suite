@@ -1,5 +1,36 @@
 # Changelog
 
+## v2.2.31 — Non-Public Cloudflare Read-only GET Probe
+
+### Added
+
+- Added a non-public read-only Cloudflare GET probe path to the local dry-run wrapper.
+- Added internal credential token loading from a local credential reference without printing token or credential path.
+- Added safe read-only probe metadata to the rendered summary.
+- Added `tests/v2.2.31-readonly-cloudflare-get-probe.sh` with a local mock HTTP server.
+- Added safe v2.2.31 fixtures for probe-ready, no-probe, missing-token, empty-token, timeout, and mutation-method-blocked cases.
+
+### Safety
+
+- v2.2.31 is read-only GET only.
+- Cloudflare mutation methods are blocked.
+- No DNS records are created, updated, or deleted.
+- Tokens are never printed.
+- Credential paths are never printed.
+- Raw API responses are never printed.
+- `can_apply` remains always `no`.
+- `mutation_allowed` remains always `no`.
+- Public apply remains blocked.
+
+### Not Changed
+
+- No public `bin/nanobk` integration.
+- No beginner console apply button.
+- No Bot/Web apply button.
+- No installer behavior changes.
+- No real DNS mutation.
+- No release tag.
+
 ## v2.2.30 — Read-only Cloudflare Precheck Plan Adapter
 
 ### Added
