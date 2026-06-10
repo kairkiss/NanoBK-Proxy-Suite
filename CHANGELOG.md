@@ -1,5 +1,33 @@
 # Changelog
 
+## v2.2.28-polish — Fix Local Dry-run Runner Exit Semantics
+
+### Fixed
+
+- Fixed the non-public local dry-run runner so missing `--plan` exits with code `4` instead of success.
+- Kept `--help` / `-h` as a successful usage path with exit code `0`.
+- Replaced an over-broad test assertion that banned the word `live` with targeted checks for unsafe live mutation/public apply indicators.
+
+### Safety
+
+- v2.2.28-polish remains dry-run-only.
+- `can_apply` remains always `no`.
+- `mutation_allowed` remains always `no`.
+- Public apply remains blocked.
+- No DNS records are created, updated, or deleted.
+- No live Cloudflare mutation is performed.
+- No real env contents are printed.
+- Raw helper stdout/stderr are never printed.
+
+### Not Changed
+
+- No public `bin/nanobk` integration.
+- No beginner console apply button.
+- No Bot/Web apply button.
+- No installer behavior changes.
+- No real DNS mutation.
+- No release tag.
+
 ## v2.2.28 — Non-Public Local Dry-run Runner
 
 ### Added

@@ -468,9 +468,16 @@ def main(argv: list[str] | None = None) -> int:
     if argv is None:
         argv = sys.argv[1:]
 
-    if not argv or "--help" in argv or "-h" in argv:
+    # --help / -h -> stdout usage -> exit 0
+    if "--help" in argv or "-h" in argv:
         sys.stdout.write(_USAGE)
         return 0
+
+    # No args -> stderr usage -> exit 4
+    if not argv:
+        sys.stderr.write("Error: --plan is required.\n")
+        sys.stderr.write(_USAGE)
+        return 4
 
     # Parse --plan
     plan_path = None

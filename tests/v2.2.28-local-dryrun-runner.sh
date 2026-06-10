@@ -176,14 +176,28 @@ echo ""
 
 F_STDERR=$("$RUNNER" 2>&1 1>/dev/null) && F_RC=0 || F_RC=$?
 
-if [[ "$F_RC" != "0" ]]; then
-  pass "F1: missing --plan exits non-zero ($F_RC)"
+if [[ "$F_RC" == "4" ]]; then
+  pass "F1: missing --plan exits 4"
 else
-  fail "F1: missing --plan should exit non-zero"
+  fail "F1: missing --plan should exit 4, got $F_RC"
   ERRORS=$((ERRORS + 1))
 fi
 
-assert_contains "$F_STDERR" "--plan" "F2: mentions --plan in usage"
+assert_contains "$F_STDERR" "--plan is required" "F2: says --plan is required"
+assert_contains "$F_STDERR" "--plan PATH" "F3: shows --plan PATH in usage"
+assert_not_contains "$F_STDERR" "Traceback" "F4: no traceback in missing --plan error"
+
+# F5-F6. --help exits 0 with usage
+HELP_OUT=$("$RUNNER" --help 2>&1) && HELP_RC=0 || HELP_RC=$?
+
+if [[ "$HELP_RC" == "0" ]]; then
+  pass "F5: --help exits 0"
+else
+  fail "F5: --help should exit 0, got $HELP_RC"
+  ERRORS=$((ERRORS + 1))
+fi
+
+assert_contains "$HELP_OUT" "--plan PATH" "F6: --help shows --plan PATH"
 
 echo ""
 
@@ -250,7 +264,10 @@ echo ""
 
 RUNNER_SOURCE=$(cat "$RUNNER")
 assert_not_contains "$RUNNER_SOURCE" "--yes" "I1: no --yes in runner"
-assert_not_contains "$RUNNER_SOURCE" "live" "I2: no live in runner"
+assert_not_contains "$RUNNER_SOURCE" "mutation_allowed=yes" "I2: no mutation allowed yes"
+assert_not_contains "$RUNNER_SOURCE" "public_apply_allowed=yes" "I3: no public apply allowed yes"
+assert_not_contains "$RUNNER_SOURCE" "live mutation enabled" "I4: no live mutation enabled"
+assert_not_contains "$RUNNER_SOURCE" "create/update/delete real DNS" "I5: no create/update/delete real DNS wording"
 
 echo ""
 
