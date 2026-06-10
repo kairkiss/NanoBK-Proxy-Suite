@@ -510,6 +510,7 @@ NanoBK Proxy Suite — Unified CLI v${NANOBK_VERSION}
   cf dns target preview --zone DOMAIN --ip-fixture PATH  只读 DNS 目标预览 [--json]
   cf dns availability check --zone DOMAIN --node NODE --api-env PATH  只读子域名可用性检查 [--json]
   cf dns availability summary --zone DOMAIN --api-env PATH [--nodes proxy,web]  多主机可用性摘要 [--json]
+  cf dns plan-generator --zone DOMAIN --api-env PATH  Proxy DNS 计划生成 [--json]
   cf dns report --zone DOMAIN --api-env PATH --ip-fixture PATH  综合 DNS 准备报告 [--json]
   cf dns profile preview --zone DOMAIN --node NODE --ipv4 VALUE  DNS 配置预览 [--json]
   cf dns profile generate --zone DOMAIN --node NODE --ipv4 VALUE --output PATH --yes  生成临时 DNS 配置 [--json]
@@ -1333,6 +1334,40 @@ cmd_cf_dns() {
           die "Unknown cf dns availability subcommand: ${avail_sub}. Use: nanobk cf dns availability <check|summary>"
           ;;
       esac
+      ;;
+
+    plan-generator)
+      local args=(python3 "$REPO_DIR/lib/nanobk_cf_dns_plan_generator.py" generate)
+      while [[ $# -gt 0 ]]; do
+        case "$1" in
+          --zone)
+            [[ $# -ge 2 ]] || die "cf dns plan-generator: --zone needs a value"
+            args+=("$1" "$2"); shift 2 ;;
+          --api-env)
+            [[ $# -ge 2 ]] || die "cf dns plan-generator: --api-env needs a path"
+            args+=("$1" "$2"); shift 2 ;;
+          --nodes)
+            [[ $# -ge 2 ]] || die "cf dns plan-generator: --nodes needs a value"
+            args+=("$1" "$2"); shift 2 ;;
+          --json)
+            args+=("--json"); shift ;;
+          --help|-h)
+            args+=("--help"); shift ;;
+          --dry-run)
+            print_cmd "${args[@]}"
+            echo -e "  ${CYAN}[DRY-RUN]${NC} 跳过执行"
+            return 0 ;;
+          *)
+            die "cf dns plan-generator: unknown option: $1"
+            ;;
+        esac
+      done
+      if [[ "$DRY_RUN" == "1" ]]; then
+        print_cmd "${args[@]}"
+        echo -e "  ${CYAN}[DRY-RUN]${NC} 跳过执行"
+        return 0
+      fi
+      "${args[@]}"
       ;;
 
     report)

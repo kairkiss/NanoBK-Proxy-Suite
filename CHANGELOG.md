@@ -1,5 +1,36 @@
 # Changelog
 
+## v2.2.43 — Proxy DNS Plan Generator
+
+### Added
+
+- Added proxy DNS plan generator that combines VPS IP detection and subdomain availability check.
+- Added `nanobk cf dns plan-generator` command for `proxy.<zone>` and `web.<zone>` readiness.
+- Added plan status: `ready` / `blocked` / `incomplete` based on IP + availability.
+- Added A/AAAA record readiness per node: `ready` / `skipped` / `blocked`.
+- Added JSON output with full plan structure for future DNS planning.
+- Added mock coverage for dual-stack, IPv4-only, IPv6-only, no IP, conflict, API failure, credential failure, mutation guard, JSON shape, and redaction.
+
+### Safety
+
+- Plan-only. No DNS mutation.
+- No Cloudflare POST/PATCH/PUT/DELETE.
+- No `apply --yes`.
+- No record create/update/delete/overwrite/force.
+- Token is not printed.
+- Credential path is not printed.
+- Zone ID and record ID are not printed.
+- Raw API response is not printed.
+- No Bot/Web/installer integration.
+- No release/tag.
+
+### Not Changed
+
+- No live DNS apply added to nanobk.
+- No beginner console live apply button.
+- No Full Wizard auto-apply.
+- No DNS-01, Tunnel, Access, or Web public exposure changes.
+
 ## v2.2.42 — Subdomain Availability Check Read-only
 
 ### Added
