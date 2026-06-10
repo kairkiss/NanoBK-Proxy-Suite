@@ -205,6 +205,57 @@ done
 echo ""
 
 # ══════════════════════════════════════════════════════════════════════════════
+# F2. --dry-run does not leak credential path
+# ══════════════════════════════════════════════════════════════════════════════
+
+echo "--- F2. --dry-run credential path redaction ---"
+echo ""
+
+SENSITIVE_PATH="/root/NanoBK-Proxy-Suite/.nanobk-local/cloudflare.local-credential.env"
+
+F2_OUT=$("$ROOT/bin/nanobk" cf dns create-preflight --zone example.com --api-env "$SENSITIVE_PATH" --dry-run 2>&1) && F2_RC=0 || F2_RC=$?
+
+if [[ "$F2_RC" == "0" ]]; then
+  pass "F2-1: --dry-run exits 0"
+else
+  fail "F2-1: --dry-run should exit 0, got $F2_RC"
+  ERRORS=$((ERRORS + 1))
+fi
+
+assert_not_contains "$F2_OUT" "/root/" "F2-2: no /root/ in dry-run"
+assert_not_contains "$F2_OUT" ".nanobk-local" "F2-3: no .nanobk-local in dry-run"
+assert_not_contains "$F2_OUT" "cloudflare.local-credential.env" "F2-4: no credential filename"
+assert_not_contains "$F2_OUT" "$SENSITIVE_PATH" "F2-5: no full path"
+assert_not_contains "$F2_OUT" "CF_API_TOKEN" "F2-6: no CF_API_TOKEN"
+assert_not_contains "$F2_OUT" "CLOUDFLARE_API_TOKEN" "F2-7: no CLOUDFLARE_API_TOKEN"
+
+echo ""
+
+# ══════════════════════════════════════════════════════════════════════════════
+# F3. Global --dry-run flag does not leak credential path
+# ══════════════════════════════════════════════════════════════════════════════
+
+echo "--- F3. Global --dry-run credential path redaction ---"
+echo ""
+
+F3_OUT=$("$ROOT/bin/nanobk" --dry-run cf dns create-preflight --zone example.com --api-env "$SENSITIVE_PATH" 2>&1) && F3_RC=0 || F3_RC=$?
+
+if [[ "$F3_RC" == "0" ]]; then
+  pass "F3-1: global --dry-run exits 0"
+else
+  fail "F3-1: global --dry-run should exit 0, got $F3_RC"
+  ERRORS=$((ERRORS + 1))
+fi
+
+assert_not_contains "$F3_OUT" "/root/" "F3-2: no /root/ in global dry-run"
+assert_not_contains "$F3_OUT" ".nanobk-local" "F3-3: no .nanobk-local in global dry-run"
+assert_not_contains "$F3_OUT" "cloudflare.local-credential.env" "F3-4: no credential filename"
+assert_not_contains "$F3_OUT" "$SENSITIVE_PATH" "F3-5: no full path"
+assert_not_contains "$F3_OUT" "CF_API_TOKEN" "F3-6: no CF_API_TOKEN"
+
+echo ""
+
+# ══════════════════════════════════════════════════════════════════════════════
 # G. Mutation guard — verify module source
 # ══════════════════════════════════════════════════════════════════════════════
 

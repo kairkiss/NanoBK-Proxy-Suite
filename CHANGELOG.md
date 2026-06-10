@@ -1,5 +1,22 @@
 # Changelog
 
+## v2.2.44-polish — Redact Create Preflight Dry-run API Env Path
+
+### Fixed
+
+- Redacted `--api-env` values from `cf dns create-preflight` dry-run output.
+- Added coverage for command-level and global dry-run credential path redaction.
+
+### Safety
+
+- Preflight-only.
+- No DNS mutation.
+- No Cloudflare POST/PATCH/PUT/DELETE.
+- No DNS record create/update/delete.
+- Credential path is not printed in normal, JSON, error, or dry-run output.
+- No Bot/Web/installer integration.
+- No release/tag.
+
 ## v2.2.44 — Controlled Proxy DNS Create Preflight
 
 ### Added

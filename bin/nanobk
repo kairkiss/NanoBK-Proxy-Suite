@@ -1391,8 +1391,9 @@ cmd_cf_dns() {
           --help|-h)
             args+=("--help"); shift ;;
           --dry-run)
-            print_cmd "${args[@]}"
-            echo -e "  ${CYAN}[DRY-RUN]${NC} 跳过执行"
+            echo -e "  ${CYAN}[DRY-RUN]${NC} cf dns create-preflight command prepared"
+            echo "  api-env: <redacted>"
+            echo "  No DNS mutation will be performed."
             return 0 ;;
           *)
             die "cf dns create-preflight: unknown option: $1"
@@ -1400,8 +1401,9 @@ cmd_cf_dns() {
         esac
       done
       if [[ "$DRY_RUN" == "1" ]]; then
-        print_cmd "${args[@]}"
-        echo -e "  ${CYAN}[DRY-RUN]${NC} 跳过执行"
+        echo -e "  ${CYAN}[DRY-RUN]${NC} cf dns create-preflight command prepared"
+        echo "  api-env: <redacted>"
+        echo "  No DNS mutation will be performed."
         return 0
       fi
       "${args[@]}"
