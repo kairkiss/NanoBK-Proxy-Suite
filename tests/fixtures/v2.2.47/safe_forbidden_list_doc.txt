@@ -1,0 +1,9 @@
+Do not print token.
+Do not print credential path.
+Do not print raw API response.
+Cloudflare API domain/path indicators must remain absent from runtime output.
+No /zones/ or /dns_records paths in output.
+No Authorization header in output.
+No CF_API_TOKEN in output.
+No record ID in output.
+No zone ID in output.

@@ -1,0 +1,1 @@
+vless://fake-uuid@server:443?encryption=none#test

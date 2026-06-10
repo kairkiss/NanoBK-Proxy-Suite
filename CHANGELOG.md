@@ -1,5 +1,23 @@
 # Changelog
 
+## v2.2.47 — Owner Smoke Report Scanner False-positive Hardening
+
+### Fixed
+
+- Hardened owner smoke report scanning to allow safe negative status fields such as `raw_api_response_printed=false`.
+- Avoided false positives for explicit "printed: no" safety checklist lines.
+- Kept real leak detection for API URLs, Authorization headers, token env values, credential paths, record IDs, zone IDs, raw API response bodies, protocol links, subscription URLs, and private keys.
+
+### Safety
+
+- Scanner/test/docs hardening only.
+- No runtime DNS behavior changed.
+- No Cloudflare calls.
+- No DNS create/update/delete.
+- No token/credential/zone ID/record ID/raw API output.
+- No Bot/Web/installer integration.
+- No release/tag.
+
 ## v2.2.46 — Archive T20-7 Real Owner Disposable DNS Create Smoke
 
 ### Added
