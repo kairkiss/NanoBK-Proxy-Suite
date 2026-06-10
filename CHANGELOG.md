@@ -1,5 +1,29 @@
 # Changelog
 
+## v2.2.37 — Fix Owner Smoke Fixture Permission Portability
+
+### Fixed
+
+- Fixed portable file mode detection in `tests/v2.2.29-local-credential-precheck.sh`: reversed `stat` probe order to try GNU `stat -c '%a'` first (clean error on BSD), then fall back to BSD `stat -f '%Lp'`. On GNU/Linux, the old BSD-first order produced filesystem info instead of the permission number, causing safe 0600 credentials to be misread.
+- Safe fake credential fixture is explicitly `chmod 600` at test runtime, independent of Git checkout permissions.
+- Unsafe fixture (`unsafe_world_readable_credential.env`) remains 0644 for negative test coverage.
+
+### Safety
+
+- Test-only change. No business logic modified.
+- No live Cloudflare behavior change.
+- No public UX integration.
+- No credential, token, or API path exposed.
+- No release/tag.
+
+### Not Changed
+
+- No public `bin/nanobk` integration.
+- No beginner console live button.
+- No Bot/Web live button.
+- No installer behavior changes.
+- No release tag.
+
 ## v2.2.36-polish — Commit Smoke Test Fixtures Despite Local Plan Ignore
 
 ### Fixed

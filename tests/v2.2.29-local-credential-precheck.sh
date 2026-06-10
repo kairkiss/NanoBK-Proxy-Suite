@@ -77,8 +77,17 @@ echo ""
 chmod 600 "$FIXTURES/safe_dummy_credential.env"
 chmod 644 "$FIXTURES/unsafe_world_readable_credential.env"
 
-SAFE_MODE=$(stat -f '%Lp' "$FIXTURES/safe_dummy_credential.env" 2>/dev/null || stat -c '%a' "$FIXTURES/safe_dummy_credential.env" 2>/dev/null)
-UNSAFE_MODE=$(stat -f '%Lp' "$FIXTURES/unsafe_world_readable_credential.env" 2>/dev/null || stat -c '%a' "$FIXTURES/unsafe_world_readable_credential.env" 2>/dev/null)
+# Portable file mode helper: GNU stat -c works on Linux, BSD stat -f on macOS.
+# Try GNU first (clean error on BSD), then fall back to BSD.
+nanobk_test_file_mode() {
+  if stat -c '%a' "$1" 2>/dev/null; then
+    return 0
+  fi
+  stat -f '%Lp' "$1"
+}
+
+SAFE_MODE=$(nanobk_test_file_mode "$FIXTURES/safe_dummy_credential.env")
+UNSAFE_MODE=$(nanobk_test_file_mode "$FIXTURES/unsafe_world_readable_credential.env")
 
 if [[ "$SAFE_MODE" == "600" ]]; then
   pass "B1: safe credential is 600"
