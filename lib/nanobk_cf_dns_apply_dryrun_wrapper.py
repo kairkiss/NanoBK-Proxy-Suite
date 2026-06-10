@@ -1540,12 +1540,12 @@ def run_cloudflare_live_create_postcheck(
                     result["reason"] = "postcheck GET failed"
                     return result
 
-                result["postcheck_succeeded"] = "yes"
                 records = body.get("result", [])
                 matching = [r for r in records if r.get("type") == record_type]
 
                 count = len(matching)
                 if count == 0:
+                    result["postcheck_succeeded"] = "no"
                     result["record_count_category"] = "zero"
                     result["created_record_found"] = "no"
                     result["status"] = "fail"
@@ -1559,6 +1559,7 @@ def run_cloudflare_live_create_postcheck(
                     if rec.get("type") == record_type:
                         result["created_record_type_match"] = "yes"
                     else:
+                        result["postcheck_succeeded"] = "no"
                         result["created_record_type_match"] = "no"
                         result["status"] = "fail"
                         result["reason"] = "created record type mismatch"
@@ -1568,6 +1569,7 @@ def run_cloudflare_live_create_postcheck(
                     if rec.get("proxied") is False:
                         result["created_record_dns_only"] = "yes"
                     else:
+                        result["postcheck_succeeded"] = "no"
                         result["created_record_dns_only"] = "no"
                         result["status"] = "fail"
                         result["reason"] = "created record not DNS-only"
@@ -1578,14 +1580,18 @@ def run_cloudflare_live_create_postcheck(
                     if managed_marker and managed_marker in comment:
                         result["created_record_managed"] = "yes"
                     else:
+                        result["postcheck_succeeded"] = "no"
                         result["created_record_managed"] = "no"
                         result["status"] = "fail"
                         result["reason"] = "created record not managed"
                         return result
 
+                    # All checks passed
+                    result["postcheck_succeeded"] = "yes"
                     result["status"] = "pass"
                     result["reason"] = "postcheck succeeded"
                 else:
+                    result["postcheck_succeeded"] = "no"
                     result["record_count_category"] = "multiple"
                     result["created_record_found"] = "yes"
                     result["status"] = "fail"

@@ -285,7 +285,7 @@ fi
 
 assert_contains "$C_OUT" "Live create succeeded: yes" "C2: live create succeeded"
 assert_contains "$C_OUT" "Live create post-check called: yes" "C3: postcheck called"
-assert_contains "$C_OUT" "Live create post-check succeeded: yes" "C4: postcheck GET succeeded"
+assert_contains "$C_OUT" "Live create post-check succeeded: no" "C4: postcheck succeeded no"
 assert_contains "$C_OUT" "Created record found: no" "C5: record not found"
 assert_contains "$C_OUT" "created record not found" "C6: not found reason"
 

@@ -1,5 +1,28 @@
 # Changelog
 
+## v2.2.34-polish — Fix Post-check Success Semantics
+
+### Fixed
+
+- Fixed live create post-check semantics so `postcheck_succeeded=yes` is emitted only after full semantic verification passes.
+- GET success alone no longer marks post-check success.
+- Post-check failure cases now report `postcheck_succeeded=no` while preserving `status=uncertain` after a live create mutation.
+
+### Safety
+
+- Prevents ambiguous summaries such as post-check success with created record not found.
+- No public apply path added.
+- No DNS update/delete/overwrite added.
+- Tokens, paths, zone IDs, record names, record contents, record IDs, and raw API responses remain hidden.
+
+### Not Changed
+
+- No public `bin/nanobk` integration.
+- No beginner console apply button.
+- No Bot/Web apply button.
+- No installer behavior changes.
+- No release tag.
+
 ## v2.2.34 — Live Create Post-check and Redacted Evidence
 
 ### Added
