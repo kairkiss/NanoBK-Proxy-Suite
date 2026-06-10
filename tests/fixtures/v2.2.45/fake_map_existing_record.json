@@ -1,0 +1,3 @@
+{
+  "pre_check": {"success": true, "result": [{"id": "existing-record-001", "type": "A", "name": "nanobk-smoke-test.example.com", "content": "192.0.2.1"}]}
+}

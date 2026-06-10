@@ -1,5 +1,42 @@
 # Changelog
 
+## v2.2.45 — Owner-Approved Disposable DNS Create Harness
+
+### Added
+
+- Added owner-approved disposable DNS create smoke harness for `nanobk-smoke-*` labels.
+- Added double-confirmation gate: `--owner-approve` + exact `--confirm-disposable-smoke` phrase required.
+- Added mandatory `--cleanup` flag — no persistent DNS changes allowed by default.
+- Added GET pre-check to prevent overwrite of existing records.
+- Added POST create → GET post-check → DELETE cleanup → GET cleanup verification flow.
+- Added rejection of dangerous flags: `--force`, `--overwrite`, `--apply`, `--yes`, `--keep-for-debug`.
+- Added rejection of non-disposable labels: `proxy`, `web`, `www`, `@`, `*`, `api`, `cdn`, `mail`, etc.
+- Added rejection of unsupported record types: CNAME, MX, NS, SRV, CAA.
+- Added post-check failure handling with automatic cleanup attempt.
+- Added cleanup failure handling with manual cleanup warning.
+- Added JSON and text output with full safety report.
+
+### Safety
+
+- Owner-only. Disposable-only. Smoke-only. Not production apply.
+- Requires exact confirmation phrase — no auto-approve.
+- Requires `--cleanup` — no persistent DNS changes by default.
+- `overwrite_existing=false`, `force=false`.
+- Record ID is never printed in text, JSON, error, or debug output.
+- Token is not printed.
+- Credential path is not printed.
+- Zone ID is not printed.
+- Raw API response is not printed.
+- No Bot/Web/installer integration.
+- No release/tag.
+
+### Not Changed
+
+- No live DNS apply added to nanobk.
+- No beginner console live apply button.
+- No Full Wizard auto-apply.
+- No DNS-01, Tunnel, Access, or Web public exposure changes.
+
 ## v2.2.44-polish — Redact Create Preflight Dry-run API Env Path
 
 ### Fixed

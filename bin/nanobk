@@ -512,6 +512,7 @@ NanoBK Proxy Suite — Unified CLI v${NANOBK_VERSION}
   cf dns availability summary --zone DOMAIN --api-env PATH [--nodes proxy,web]  多主机可用性摘要 [--json]
   cf dns plan-generator --zone DOMAIN --api-env PATH  Proxy DNS 计划生成 [--json]
   cf dns create-preflight --zone DOMAIN --api-env PATH  受控 DNS 创建预检 [--json]
+  cf dns owner-smoke-create --zone DOMAIN --api-env PATH --label ... --type ... --content ...  Owner 烟雾测试创建 [--json]
   cf dns report --zone DOMAIN --api-env PATH --ip-fixture PATH  综合 DNS 准备报告 [--json]
   cf dns profile preview --zone DOMAIN --node NODE --ipv4 VALUE  DNS 配置预览 [--json]
   cf dns profile generate --zone DOMAIN --node NODE --ipv4 VALUE --output PATH --yes  生成临时 DNS 配置 [--json]
@@ -1402,6 +1403,71 @@ cmd_cf_dns() {
       done
       if [[ "$DRY_RUN" == "1" ]]; then
         echo -e "  ${CYAN}[DRY-RUN]${NC} cf dns create-preflight command prepared"
+        echo "  api-env: <redacted>"
+        echo "  No DNS mutation will be performed."
+        return 0
+      fi
+      "${args[@]}"
+      ;;
+
+    owner-smoke-create)
+      local args=(python3 "$REPO_DIR/lib/nanobk_cf_dns_owner_smoke_create.py" smoke)
+      local confirm_phrase=""
+      while [[ $# -gt 0 ]]; do
+        case "$1" in
+          --zone)
+            [[ $# -ge 2 ]] || die "cf dns owner-smoke-create: --zone needs a value"
+            args+=("$1" "$2"); shift 2 ;;
+          --api-env)
+            [[ $# -ge 2 ]] || die "cf dns owner-smoke-create: --api-env needs a path"
+            args+=("$1" "$2"); shift 2 ;;
+          --label)
+            [[ $# -ge 2 ]] || die "cf dns owner-smoke-create: --label needs a value"
+            args+=("$1" "$2"); shift 2 ;;
+          --type)
+            [[ $# -ge 2 ]] || die "cf dns owner-smoke-create: --type needs a value"
+            args+=("$1" "$2"); shift 2 ;;
+          --content)
+            [[ $# -ge 2 ]] || die "cf dns owner-smoke-create: --content needs a value"
+            args+=("$1" "$2"); shift 2 ;;
+          --ttl)
+            [[ $# -ge 2 ]] || die "cf dns owner-smoke-create: --ttl needs a value"
+            args+=("$1" "$2"); shift 2 ;;
+          --owner-approve)
+            args+=("--owner-approve"); shift ;;
+          --cleanup)
+            args+=("--cleanup"); shift ;;
+          --confirm-disposable-smoke)
+            [[ $# -ge 2 ]] || die "cf dns owner-smoke-create: --confirm-disposable-smoke needs a value"
+            confirm_phrase="$2"
+            args+=("$1" "$2"); shift 2 ;;
+          --json)
+            args+=("--json"); shift ;;
+          --force|--overwrite|--apply|--yes|--keep-for-debug)
+            die "cf dns owner-smoke-create: $1 is not allowed" ;;
+          --help|-h)
+            echo "Usage: nanobk cf dns owner-smoke-create --zone DOMAIN --api-env PATH \\"
+            echo "  --label nanobk-smoke-xxxx --type A --content IP --ttl 60 \\"
+            echo "  --owner-approve --cleanup \\"
+            echo "  --confirm-disposable-smoke \"I UNDERSTAND THIS WILL CREATE AND DELETE ONE DISPOSABLE CLOUDFLARE DNS RECORD\""
+            echo ""
+            echo "  Owner-approved disposable DNS create smoke harness."
+            echo "  Creates, post-checks, and cleans up one disposable test record."
+            echo "  GET-only pre/post checks. POST for create. DELETE for cleanup."
+            echo "  No production DNS mutation. No overwrite. No force."
+            return 0 ;;
+          --dry-run)
+            echo -e "  ${CYAN}[DRY-RUN]${NC} cf dns owner-smoke-create command prepared"
+            echo "  api-env: <redacted>"
+            echo "  No DNS mutation will be performed."
+            return 0 ;;
+          *)
+            die "cf dns owner-smoke-create: unknown option: $1"
+            ;;
+        esac
+      done
+      if [[ "$DRY_RUN" == "1" ]]; then
+        echo -e "  ${CYAN}[DRY-RUN]${NC} cf dns owner-smoke-create command prepared"
         echo "  api-env: <redacted>"
         echo "  No DNS mutation will be performed."
         return 0
