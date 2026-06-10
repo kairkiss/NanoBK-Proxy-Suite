@@ -1,5 +1,30 @@
 # Changelog
 
+## v2.2.38 — Archive T20 Real Owner Smoke Validation
+
+### Added
+
+- Added redacted T20 real Cloudflare owner smoke validation record.
+- Documented real create → post-check → cleanup → leftover verification result.
+- Documented safety scan result and no-leak findings.
+- Documented that existing VPS protocol services were not modified.
+
+### Safety
+
+- Documentation-only change.
+- No real token, zone ID, record name, IP/content, record ID, credential path, or raw API response committed.
+- No live Cloudflare behavior changed.
+- No public UX integration.
+- No release/tag.
+
+### Not Changed
+
+- No public `bin/nanobk` integration.
+- No beginner console live button.
+- No Bot/Web live button.
+- No installer behavior changes.
+- No DNS-01, Tunnel, Access, or Web public exposure changes.
+
 ## v2.2.37 — Fix Owner Smoke Fixture Permission Portability
 
 ### Fixed
