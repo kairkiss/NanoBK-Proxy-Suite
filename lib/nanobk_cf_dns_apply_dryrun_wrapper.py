@@ -7,9 +7,12 @@ generates redacted preview summary. Can call the existing helper's safe
 --dry-run path (no API calls, no mutation). If no safe helper dry-run path
 is available, generates wrapper-level preview only.
 
-NOT imported by bin/nanobk. NOT a user-facing command. NOT real DNS apply.
-Does not create/update/delete DNS records.
-Does not execute live mutation.
+NOT imported by bin/nanobk. NOT a user-facing command. NOT public CLI.
+Default mode is dry-run/read-only.
+A non-public owner-approved one-record live create path exists behind
+explicit local flags and exact approval phrase.
+No public apply path exists.
+Update/delete/overwrite remain blocked.
 Does not print real domain, hostname, IP, token, API response, env path,
 subscription URL, workers.dev URL, protocol URI, private key, Authorization
 header, record ID, zone ID, account ID.
@@ -17,8 +20,8 @@ Does not cat/source/eval real env files.
 Does not echo tokens.
 Does not print raw helper stdout/stderr.
 
-can_apply is always "no".
-mutation_allowed is always "no".
+can_apply is always "no" in public/beginner semantics.
+mutation_allowed is always "no" outside the internal owner-approved live create gate.
 public_apply_allowed is always "no".
 
 Usage:
@@ -1003,6 +1006,7 @@ def render_dns_apply_dryrun_summary(model: dict) -> str:
     tok = model.get("token_metadata", {})
     dns = model.get("dns_record_precheck", {})
     lc = model.get("live_create", {})
+    lcp = model.get("live_create_postcheck", {})
 
     lines = [
         "NanoBK DNS Apply — Non-Public Dry-run Wrapper Summary",
@@ -1059,6 +1063,15 @@ def render_dns_apply_dryrun_summary(model: dict) -> str:
         f"Live mutation method used: {lc.get('mutation_method_used', 'no')}",
         f"Delete called: {lc.get('delete_called', 'no')}",
         f"Update called: {lc.get('update_called', 'no')}",
+        f"Live create post-check called: {lcp.get('postcheck_called', 'no')}",
+        f"Live create post-check succeeded: {lcp.get('postcheck_succeeded', 'unknown')}",
+        f"Created record found: {lcp.get('created_record_found', 'unknown')}",
+        f"Created record type match: {lcp.get('created_record_type_match', 'unknown')}",
+        f"Created record DNS-only: {lcp.get('created_record_dns_only', 'unknown')}",
+        f"Created record managed: {lcp.get('created_record_managed', 'unknown')}",
+        f"Post-check record count category: {lcp.get('record_count_category', 'unknown')}",
+        f"Post-check raw DNS values printed: {lcp.get('raw_dns_values_printed', 'no')}",
+        f"Post-check DNS identifier printed: {lcp.get('record_id_printed', 'no')}",
     ]
 
     if status == _STATUS_DRYRUN_READY:
@@ -1449,6 +1462,158 @@ def run_cloudflare_one_record_live_create(
     return result
 
 
+# ── Live create post-check ───────────────────────────────────────────────────
+
+
+def run_cloudflare_live_create_postcheck(
+    plan: dict, token: str | None, *, allow_postcheck: bool
+) -> dict:
+    """Run a read-only post-check after live create succeeds.
+
+    Only GET is allowed. No POST/PATCH/PUT/DELETE.
+    Never prints URL, response, zone_id, record name, IP, or record ID.
+    """
+    result = {
+        "postcheck_called": "no",
+        "postcheck_succeeded": "unknown",
+        "created_record_found": "unknown",
+        "created_record_type_match": "unknown",
+        "created_record_dns_only": "unknown",
+        "created_record_managed": "unknown",
+        "record_count_category": "unknown",
+        "raw_dns_values_printed": "no",
+        "raw_api_response_printed": "no",
+        "record_id_printed": "no",
+        "status": "fail",
+        "reason": "postcheck not called",
+    }
+
+    if not allow_postcheck:
+        result["reason"] = "postcheck not called"
+        return result
+
+    if not token:
+        result["reason"] = "postcheck not called"
+        return result
+
+    # Get live create plan for local-only values
+    live_plan = plan.get("live_create_plan", {})
+    if not isinstance(live_plan, dict):
+        result["reason"] = "postcheck not called"
+        return result
+
+    zone_id = live_plan.get("zone_id_local", "")
+    record_name = live_plan.get("record_name_local", "")
+    record_type = live_plan.get("record_type_local", "A")
+    managed_marker = live_plan.get("comment", "nanobk-test")
+
+    if not zone_id or not record_name:
+        result["reason"] = "postcheck not called"
+        return result
+
+    # Get base URL from readonly_probe plan
+    probe_plan = plan.get("readonly_probe", {})
+    base_url = probe_plan.get("base_url", "https://api.cloudflare.com/client/v4")
+
+    # Perform GET request
+    import urllib.request
+    import urllib.error
+    import urllib.parse
+
+    params = urllib.parse.urlencode({"name": record_name, "type": record_type})
+    url = f"{base_url}/zones/{zone_id}/dns_records?{params}"
+
+    req = urllib.request.Request(url, method="GET")
+    req.add_header("Authorization", f"Bearer {token}")
+    req.add_header("Content-Type", "application/json")
+
+    try:
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            result["postcheck_called"] = "yes"
+            if resp.status == 200:
+                raw_body = resp.read().decode("utf-8")
+                try:
+                    body = json.loads(raw_body)
+                except (json.JSONDecodeError, ValueError):
+                    result["postcheck_succeeded"] = "no"
+                    result["status"] = "fail"
+                    result["reason"] = "postcheck GET failed"
+                    return result
+
+                result["postcheck_succeeded"] = "yes"
+                records = body.get("result", [])
+                matching = [r for r in records if r.get("type") == record_type]
+
+                count = len(matching)
+                if count == 0:
+                    result["record_count_category"] = "zero"
+                    result["created_record_found"] = "no"
+                    result["status"] = "fail"
+                    result["reason"] = "created record not found"
+                elif count == 1:
+                    rec = matching[0]
+                    result["record_count_category"] = "one"
+                    result["created_record_found"] = "yes"
+
+                    # Check type match
+                    if rec.get("type") == record_type:
+                        result["created_record_type_match"] = "yes"
+                    else:
+                        result["created_record_type_match"] = "no"
+                        result["status"] = "fail"
+                        result["reason"] = "created record type mismatch"
+                        return result
+
+                    # Check DNS-only (proxied=false)
+                    if rec.get("proxied") is False:
+                        result["created_record_dns_only"] = "yes"
+                    else:
+                        result["created_record_dns_only"] = "no"
+                        result["status"] = "fail"
+                        result["reason"] = "created record not DNS-only"
+                        return result
+
+                    # Check managed marker
+                    comment = rec.get("comment", "") or ""
+                    if managed_marker and managed_marker in comment:
+                        result["created_record_managed"] = "yes"
+                    else:
+                        result["created_record_managed"] = "no"
+                        result["status"] = "fail"
+                        result["reason"] = "created record not managed"
+                        return result
+
+                    result["status"] = "pass"
+                    result["reason"] = "postcheck succeeded"
+                else:
+                    result["record_count_category"] = "multiple"
+                    result["created_record_found"] = "yes"
+                    result["status"] = "fail"
+                    result["reason"] = "multiple matching records"
+            else:
+                result["postcheck_succeeded"] = "no"
+                result["status"] = "fail"
+                result["reason"] = "postcheck GET failed"
+
+    except urllib.error.URLError:
+        result["postcheck_called"] = "yes"
+        result["postcheck_succeeded"] = "no"
+        result["status"] = "fail"
+        result["reason"] = "postcheck GET failed"
+    except TimeoutError:
+        result["postcheck_called"] = "yes"
+        result["postcheck_succeeded"] = "no"
+        result["status"] = "uncertain"
+        result["reason"] = "postcheck GET timed out"
+    except Exception:
+        result["postcheck_called"] = "yes"
+        result["postcheck_succeeded"] = "no"
+        result["status"] = "fail"
+        result["reason"] = "postcheck GET failed"
+
+    return result
+
+
 # ── CLI entry point ──────────────────────────────────────────────────────────
 
 _USAGE = """\
@@ -1716,10 +1881,40 @@ def main(argv: list[str] | None = None) -> int:
                     model["first_failed_gate"] = "live_create"
                     model["first_blocked_reason"] = create_result.get("reason", "live create timed out")
                 elif create_result.get("status") == "pass":
-                    # Live create succeeded — update status
-                    model["status"] = "live_create_succeeded"
+                    # Live create succeeded — run post-check
                     model["real_dns_mutation_performed"] = "yes"
                     model["live_cloudflare_called"] = "yes"
+
+                    # Run post-check
+                    if token_result["token_loaded"] == "yes" and token_result.get("_token"):
+                        postcheck_result = run_cloudflare_live_create_postcheck(
+                            data, token_result["_token"], allow_postcheck=True
+                        )
+                    else:
+                        postcheck_result = run_cloudflare_live_create_postcheck(
+                            data, None, allow_postcheck=True
+                        )
+
+                    model["live_create_postcheck"] = {
+                        "postcheck_called": postcheck_result.get("postcheck_called", "no"),
+                        "postcheck_succeeded": postcheck_result.get("postcheck_succeeded", "unknown"),
+                        "created_record_found": postcheck_result.get("created_record_found", "unknown"),
+                        "created_record_type_match": postcheck_result.get("created_record_type_match", "unknown"),
+                        "created_record_dns_only": postcheck_result.get("created_record_dns_only", "unknown"),
+                        "created_record_managed": postcheck_result.get("created_record_managed", "unknown"),
+                        "record_count_category": postcheck_result.get("record_count_category", "unknown"),
+                        "raw_dns_values_printed": "no",
+                        "raw_api_response_printed": "no",
+                        "record_id_printed": "no",
+                    }
+
+                    if postcheck_result.get("status") == "pass":
+                        model["status"] = "live_create_verified"
+                    else:
+                        # Mutation happened but verification failed
+                        model["status"] = _STATUS_UNCERTAIN
+                        model["first_failed_gate"] = "live_create_postcheck"
+                        model["first_blocked_reason"] = postcheck_result.get("reason", "postcheck failed")
 
                 # Ensure public safety locks remain
                 model["can_apply"] = "no"
@@ -1747,6 +1942,18 @@ def main(argv: list[str] | None = None) -> int:
                     "delete_called": "no",
                     "update_called": "no",
                 }
+                model["live_create_postcheck"] = {
+                    "postcheck_called": "no",
+                    "postcheck_succeeded": "unknown",
+                    "created_record_found": "unknown",
+                    "created_record_type_match": "unknown",
+                    "created_record_dns_only": "unknown",
+                    "created_record_managed": "unknown",
+                    "record_count_category": "unknown",
+                    "raw_dns_values_printed": "no",
+                    "raw_api_response_printed": "no",
+                    "record_id_printed": "no",
+                }
     else:
         model["token_metadata"] = {
             "token_loaded": "no",
@@ -1762,6 +1969,18 @@ def main(argv: list[str] | None = None) -> int:
             "existing_unmanaged_record_absent": "unknown",
             "existing_managed_test_record": "unknown",
             "create_only_first_safe": "unknown",
+            "record_count_category": "unknown",
+            "raw_dns_values_printed": "no",
+            "raw_api_response_printed": "no",
+            "record_id_printed": "no",
+        }
+        model["live_create_postcheck"] = {
+            "postcheck_called": "no",
+            "postcheck_succeeded": "unknown",
+            "created_record_found": "unknown",
+            "created_record_type_match": "unknown",
+            "created_record_dns_only": "unknown",
+            "created_record_managed": "unknown",
             "record_count_category": "unknown",
             "raw_dns_values_printed": "no",
             "raw_api_response_printed": "no",
@@ -1787,7 +2006,7 @@ def main(argv: list[str] | None = None) -> int:
 
     # Exit code based on status
     status = model.get("status", "uncertain")
-    if status in ("dryrun_preview_ready", "live_create_succeeded"):
+    if status in ("dryrun_preview_ready", "live_create_verified"):
         return 0
     elif status == "blocked":
         return 2

@@ -1,5 +1,37 @@
 # Changelog
 
+## v2.2.34 — Live Create Post-check and Redacted Evidence
+
+### Added
+
+- Added read-only post-check after owner-approved one-record live create.
+- Added safe post-check evidence metadata to the live summary.
+- Added `tests/v2.2.34-live-create-postcheck.sh` with a local mock HTTP server.
+- Added safe v2.2.34 fixtures for post-check success, not found, multiple, not DNS-only, not managed, and no-live cases.
+
+### Changed
+
+- Updated stale wrapper module wording to clarify that default mode is dry-run/read-only, while a non-public owner-approved one-record live create path exists behind explicit local flags.
+- Updated v2.2.33 mock server to handle post-check GET requests with call counting.
+
+### Safety
+
+- Post-check is read-only GET only.
+- Update/delete/overwrite remain blocked.
+- Public apply remains blocked.
+- Tokens are never printed.
+- Zone IDs, record names, record contents, and record IDs are never printed.
+- Raw API requests and responses are never printed.
+- If live create succeeds but post-check fails, status becomes uncertain instead of verified success.
+
+### Not Changed
+
+- No public `bin/nanobk` integration.
+- No beginner console apply button.
+- No Bot/Web apply button.
+- No installer behavior changes.
+- No release tag.
+
 ## v2.2.33 — Owner-Approved One-Record Live Create Path
 
 ### Added

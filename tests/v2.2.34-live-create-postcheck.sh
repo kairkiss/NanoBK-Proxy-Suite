@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
-# NanoBK Proxy Suite — Owner-Approved Live Create Test
+# NanoBK Proxy Suite — Live Create Post-check Test
 #
-# Tests the non-public owner-approved one-record live create path.
+# Tests the post-check after owner-approved one-record live create.
 # Uses a local mock HTTP server. Does NOT call real Cloudflare.
 #
 # Usage:
-#   bash tests/v2.2.33-owner-approved-live-create.sh
+#   bash tests/v2.2.34-live-create-postcheck.sh
 
 set -Eeuo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RUNNER="$ROOT/scripts/dev/nanobk-cf-dns-dryrun-wrapper"
-FIXTURES="$ROOT/tests/fixtures/v2.2.33"
+FIXTURES="$ROOT/tests/fixtures/v2.2.34"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -49,7 +49,7 @@ assert_not_contains() {
 APPROVAL_PHRASE="I UNDERSTAND THIS WILL CREATE ONE CLOUDFLARE DNS TEST RECORD"
 
 echo ""
-echo "=== Owner-Approved Live Create Test ==="
+echo "=== Live Create Post-check Test ==="
 echo ""
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -72,34 +72,60 @@ class MockHandler(http.server.BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.end_headers()
-            body = json.dumps({"success": True, "result": {"id": "fake", "status": "active"}})
-            self.wfile.write(body.encode())
+            self.wfile.write(json.dumps({"success": True, "result": {"id": "fake", "status": "active"}}).encode())
         elif "/client/v4/zones/" in self.path and "/dns_records" in self.path:
             scenario = self.server.scenario
+            query = self.path.split("?")[1] if "?" in self.path else ""
+            # Determine if this is precheck (first GET) or postcheck (second GET)
+            # We track call count on the server object
             if not hasattr(self.server, 'get_count'):
                 self.server.get_count = 0
             self.server.get_count += 1
             call_num = self.server.get_count
 
-            if scenario == "safe_create":
+            if scenario == "postcheck_success":
                 if call_num <= 1:
                     # Precheck: zero records
                     body = json.dumps({"success": True, "result": []})
                 else:
-                    # Postcheck: one managed record found
+                    # Postcheck: one managed record
                     body = json.dumps({"success": True, "result": [
                         {"id": "fake-created", "type": "A", "name": "test", "content": "192.0.2.100", "proxied": False, "comment": "nanobk-test managed disposable record"}
                     ]})
-            elif scenario == "cname_conflict":
-                body = json.dumps({"success": True, "result": [
-                    {"id": "fake-cname", "type": "CNAME", "name": "test", "content": "other", "comment": ""}
-                ]})
-            elif scenario == "existing_unmanaged":
-                body = json.dumps({"success": True, "result": [
-                    {"id": "fake-a", "type": "A", "name": "test", "content": "192.0.2.1", "comment": "other"}
-                ]})
+            elif scenario == "postcheck_not_found":
+                if call_num <= 1:
+                    body = json.dumps({"success": True, "result": []})
+                else:
+                    # Postcheck: zero records (not found)
+                    body = json.dumps({"success": True, "result": []})
+            elif scenario == "postcheck_multiple":
+                if call_num <= 1:
+                    body = json.dumps({"success": True, "result": []})
+                else:
+                    # Postcheck: multiple records
+                    body = json.dumps({"success": True, "result": [
+                        {"id": "fake-1", "type": "A", "name": "test", "content": "192.0.2.1", "proxied": False, "comment": "nanobk-test"},
+                        {"id": "fake-2", "type": "A", "name": "test", "content": "192.0.2.2", "proxied": False, "comment": "nanobk-test"}
+                    ]})
+            elif scenario == "postcheck_not_dns_only":
+                if call_num <= 1:
+                    body = json.dumps({"success": True, "result": []})
+                else:
+                    # Postcheck: proxied=true
+                    body = json.dumps({"success": True, "result": [
+                        {"id": "fake-created", "type": "A", "name": "test", "content": "192.0.2.100", "proxied": True, "comment": "nanobk-test managed"}
+                    ]})
+            elif scenario == "postcheck_not_managed":
+                if call_num <= 1:
+                    body = json.dumps({"success": True, "result": []})
+                else:
+                    # Postcheck: no managed marker
+                    body = json.dumps({"success": True, "result": [
+                        {"id": "fake-created", "type": "A", "name": "test", "content": "192.0.2.100", "proxied": False, "comment": "some other comment"}
+                    ]})
             else:
                 body = json.dumps({"success": True, "result": []})
+
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.end_headers()
@@ -110,7 +136,6 @@ class MockHandler(http.server.BaseHTTPRequestHandler):
 
     def do_POST(self):
         if "/client/v4/zones/" in self.path and "/dns_records" in self.path:
-            # Mock successful create
             body = json.dumps({
                 "success": True,
                 "result": {
@@ -143,12 +168,13 @@ class MockHandler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
 
     def log_message(self, format, *args):
-        pass  # Suppress server logs
+        pass
 
 port = int(sys.argv[1])
-scenario = sys.argv[2] if len(sys.argv) > 2 else "safe_create"
+scenario = sys.argv[2] if len(sys.argv) > 2 else "postcheck_success"
 server = http.server.HTTPServer(("127.0.0.1", port), MockHandler)
 server.scenario = scenario
+server.get_count = 0
 server.serve_forever()
 MOCKEOF
 
@@ -162,13 +188,6 @@ start_mock() {
   python3 "$MOCK_SCRIPT" "$MOCK_PORT" "$scenario" &
   MOCK_SERVER_PID=$!
   sleep 0.5
-}
-
-# Reset mock server get count (call after start_mock for scenarios that need it)
-reset_mock_get_count() {
-  # The mock server tracks get_count on the server object
-  # We need to restart it to reset the count
-  true
 }
 
 # Function to create temp plan with correct port
@@ -195,7 +214,7 @@ echo ""
 echo "--- A. No live flag ---"
 echo ""
 
-A_OUT=$("$RUNNER" --plan "$FIXTURES/runner_live_create_no_probe_no_call.json" 2>&1) && A_RC=0 || A_RC=$?
+A_OUT=$("$RUNNER" --plan "$FIXTURES/runner_live_create_postcheck_no_live_no_call.json" 2>&1) && A_RC=0 || A_RC=$?
 
 if [[ "$A_RC" == "0" ]]; then
   pass "A1: no live flag exits 0"
@@ -205,156 +224,145 @@ else
 fi
 
 assert_contains "$A_OUT" "Live create called: no" "A2: live create called no"
-assert_contains "$A_OUT" "Owner approval present: no" "A3: owner approval no"
+assert_contains "$A_OUT" "Live create post-check called: no" "A3: postcheck called no"
 
 echo ""
 
 # ══════════════════════════════════════════════════════════════════════════════
-# B. Missing approval
+# B. Post-check success
 # ══════════════════════════════════════════════════════════════════════════════
 
-echo "--- B. Missing approval ---"
+echo "--- B. Post-check success ---"
 echo ""
 
-start_mock "safe_create"
-TEMP_PLAN=$(make_plan "$FIXTURES/runner_live_create_missing_approval.json")
+start_mock "postcheck_success"
+TEMP_PLAN=$(make_plan "$FIXTURES/runner_live_create_postcheck_success.json")
 
-B_OUT=$("$RUNNER" --plan "$TEMP_PLAN" --allow-readonly-probe --allow-live-create 2>&1) && B_RC=0 || B_RC=$?
+B_OUT=$("$RUNNER" --plan "$TEMP_PLAN" --allow-readonly-probe --allow-live-create --owner-approval "$APPROVAL_PHRASE" 2>&1) && B_RC=0 || B_RC=$?
 rm -f "$TEMP_PLAN"
 
-if [[ "$B_RC" == "2" ]]; then
-  pass "B1: missing approval exits 2"
+if [[ "$B_RC" == "0" ]]; then
+  pass "B1: postcheck success exits 0"
 else
-  fail "B1: missing approval should exit 2, got $B_RC"
+  fail "B1: postcheck success should exit 0, got $B_RC"
   ERRORS=$((ERRORS + 1))
 fi
 
-assert_contains "$B_OUT" "Owner approval present: no" "B2: owner approval no"
-assert_contains "$B_OUT" "Live create called: no" "B3: live create called no"
-assert_contains "$B_OUT" "owner approval missing" "B4: owner approval missing reason"
-assert_not_contains "$B_OUT" "$APPROVAL_PHRASE" "B5: no approval phrase in output"
+assert_contains "$B_OUT" "Live create called: yes" "B2: live create called yes"
+assert_contains "$B_OUT" "Live create succeeded: yes" "B3: live create succeeded yes"
+assert_contains "$B_OUT" "Live create post-check called: yes" "B4: postcheck called yes"
+assert_contains "$B_OUT" "Live create post-check succeeded: yes" "B5: postcheck succeeded yes"
+assert_contains "$B_OUT" "Created record found: yes" "B6: record found yes"
+assert_contains "$B_OUT" "Created record type match: yes" "B7: type match yes"
+assert_contains "$B_OUT" "Created record DNS-only: yes" "B8: dns only yes"
+assert_contains "$B_OUT" "Created record managed: yes" "B9: managed yes"
+assert_contains "$B_OUT" "Post-check record count category: one" "B10: count one"
+assert_contains "$B_OUT" "Status: live_create_verified" "B11: status live_create_verified"
+assert_contains "$B_OUT" "Can apply: no" "B12: can apply no"
+assert_contains "$B_OUT" "Mutation allowed: no" "B13: mutation allowed no"
 
 echo ""
 
 # ══════════════════════════════════════════════════════════════════════════════
-# C. Safe live create success
+# C. Post-check not found
 # ══════════════════════════════════════════════════════════════════════════════
 
-echo "--- C. Safe live create success ---"
+echo "--- C. Post-check not found ---"
 echo ""
 
-start_mock "safe_create"
-TEMP_PLAN=$(make_plan "$FIXTURES/runner_live_create_success_local_mock.json")
+start_mock "postcheck_not_found"
+TEMP_PLAN=$(make_plan "$FIXTURES/runner_live_create_postcheck_not_found.json")
 
 C_OUT=$("$RUNNER" --plan "$TEMP_PLAN" --allow-readonly-probe --allow-live-create --owner-approval "$APPROVAL_PHRASE" 2>&1) && C_RC=0 || C_RC=$?
 rm -f "$TEMP_PLAN"
 
-if [[ "$C_RC" == "0" ]]; then
-  pass "C1: safe live create exits 0"
+if [[ "$C_RC" == "3" ]]; then
+  pass "C1: postcheck not found exits 3"
 else
-  fail "C1: safe live create should exit 0, got $C_RC"
+  fail "C1: postcheck not found should exit 3, got $C_RC"
   ERRORS=$((ERRORS + 1))
 fi
 
-assert_contains "$C_OUT" "Cloudflare GET called: yes" "C2: cf get called yes"
-assert_contains "$C_OUT" "Cloudflare GET succeeded: yes" "C3: cf get succeeded yes"
-assert_contains "$C_OUT" "DNS record GET called: yes" "C4: dns record get called yes"
-assert_contains "$C_OUT" "DNS record GET succeeded: yes" "C5: dns record get succeeded yes"
-assert_contains "$C_OUT" "Create-only-first safe: yes" "C6: create safe yes"
-assert_contains "$C_OUT" "Owner approval present: yes" "C7: owner approval yes"
-assert_contains "$C_OUT" "Live create prerequisites passed: yes" "C8: prereq passed yes"
-assert_contains "$C_OUT" "Live create allowed: yes" "C9: live create allowed yes"
-assert_contains "$C_OUT" "Live create called: yes" "C10: live create called yes"
-assert_contains "$C_OUT" "Live create succeeded: yes" "C11: live create succeeded yes"
-assert_contains "$C_OUT" "Created record category: one_disposable_test_record" "C12: created record category"
-assert_contains "$C_OUT" "Live create proxied: false" "C13: proxied false"
-assert_contains "$C_OUT" "Live mutation method used: POST" "C14: mutation method POST"
-assert_contains "$C_OUT" "Delete called: no" "C15: delete called no"
-assert_contains "$C_OUT" "Update called: no" "C16: update called no"
-assert_contains "$C_OUT" "Can apply: no" "C17: can apply no"
-assert_contains "$C_OUT" "Mutation allowed: no" "C18: mutation allowed no"
-assert_contains "$C_OUT" "Public apply allowed: no" "C19: public apply no"
-
-assert_not_contains "$C_OUT" "$APPROVAL_PHRASE" "C20: no approval phrase in output"
-assert_not_contains "$C_OUT" "LOCAL_ONLY_ZONE_ID_NOT_FOR_OUTPUT" "C21: no zone id in output"
-assert_not_contains "$C_OUT" "LOCAL_ONLY_RECORD_NAME_NOT_FOR_OUTPUT" "C22: no record name in output"
-assert_not_contains "$C_OUT" "LOCAL_ONLY_EXPECTED_CONTENT_NOT_FOR_OUTPUT" "C23: no content in output"
+assert_contains "$C_OUT" "Live create succeeded: yes" "C2: live create succeeded"
+assert_contains "$C_OUT" "Live create post-check called: yes" "C3: postcheck called"
+assert_contains "$C_OUT" "Live create post-check succeeded: yes" "C4: postcheck GET succeeded"
+assert_contains "$C_OUT" "Created record found: no" "C5: record not found"
+assert_contains "$C_OUT" "created record not found" "C6: not found reason"
 
 echo ""
 
 # ══════════════════════════════════════════════════════════════════════════════
-# D. Existing unmanaged
+# D. Multiple matching records
 # ══════════════════════════════════════════════════════════════════════════════
 
-echo "--- D. Existing unmanaged ---"
+echo "--- D. Multiple matching records ---"
 echo ""
 
-start_mock "existing_unmanaged"
-TEMP_PLAN=$(make_plan "$FIXTURES/runner_live_create_existing_unmanaged.json")
+start_mock "postcheck_multiple"
+TEMP_PLAN=$(make_plan "$FIXTURES/runner_live_create_postcheck_multiple.json")
 
 D_OUT=$("$RUNNER" --plan "$TEMP_PLAN" --allow-readonly-probe --allow-live-create --owner-approval "$APPROVAL_PHRASE" 2>&1) && D_RC=0 || D_RC=$?
 rm -f "$TEMP_PLAN"
 
-if [[ "$D_RC" == "2" ]]; then
-  pass "D1: existing unmanaged exits 2"
+if [[ "$D_RC" == "3" ]]; then
+  pass "D1: multiple records exits 3"
 else
-  fail "D1: existing unmanaged should exit 2, got $D_RC"
+  fail "D1: multiple records should exit 3, got $D_RC"
   ERRORS=$((ERRORS + 1))
 fi
 
-assert_contains "$D_OUT" "existing unmanaged record present" "D2: unmanaged reason"
-assert_contains "$D_OUT" "Live create called: no" "D3: live create called no"
+assert_contains "$D_OUT" "multiple matching records" "D2: multiple reason"
+assert_contains "$D_OUT" "Post-check record count category: multiple" "D3: count multiple"
 
 echo ""
 
 # ══════════════════════════════════════════════════════════════════════════════
-# E. CNAME conflict
+# E. Not DNS-only
 # ══════════════════════════════════════════════════════════════════════════════
 
-echo "--- E. CNAME conflict ---"
+echo "--- E. Not DNS-only ---"
 echo ""
 
-start_mock "cname_conflict"
-TEMP_PLAN=$(make_plan "$FIXTURES/runner_live_create_cname_conflict.json")
+start_mock "postcheck_not_dns_only"
+TEMP_PLAN=$(make_plan "$FIXTURES/runner_live_create_postcheck_not_dns_only.json")
 
 E_OUT=$("$RUNNER" --plan "$TEMP_PLAN" --allow-readonly-probe --allow-live-create --owner-approval "$APPROVAL_PHRASE" 2>&1) && E_RC=0 || E_RC=$?
 rm -f "$TEMP_PLAN"
 
-if [[ "$E_RC" == "2" ]]; then
-  pass "E1: cname conflict exits 2"
+if [[ "$E_RC" == "3" ]]; then
+  pass "E1: not dns-only exits 3"
 else
-  fail "E1: cname conflict should exit 2, got $E_RC"
+  fail "E1: not dns-only should exit 3, got $E_RC"
   ERRORS=$((ERRORS + 1))
 fi
 
-assert_contains "$E_OUT" "same-name CNAME present" "E2: cname reason"
-assert_contains "$E_OUT" "Live create called: no" "E3: live create called no"
+assert_contains "$E_OUT" "created record not DNS-only" "E2: not dns-only reason"
+assert_contains "$E_OUT" "Created record DNS-only: no" "E3: dns only no"
 
 echo ""
 
 # ══════════════════════════════════════════════════════════════════════════════
-# F. Unsafe update requested
+# F. Not managed
 # ══════════════════════════════════════════════════════════════════════════════
 
-echo "--- F. Unsafe update requested ---"
+echo "--- F. Not managed ---"
 echo ""
 
-start_mock "safe_create"
-TEMP_PLAN=$(make_plan "$FIXTURES/runner_live_create_unsafe_update_requested.json")
+start_mock "postcheck_not_managed"
+TEMP_PLAN=$(make_plan "$FIXTURES/runner_live_create_postcheck_not_managed.json")
 
 F_OUT=$("$RUNNER" --plan "$TEMP_PLAN" --allow-readonly-probe --allow-live-create --owner-approval "$APPROVAL_PHRASE" 2>&1) && F_RC=0 || F_RC=$?
 rm -f "$TEMP_PLAN"
 
-if [[ "$F_RC" == "2" ]]; then
-  pass "F1: unsafe update exits 2"
+if [[ "$F_RC" == "3" ]]; then
+  pass "F1: not managed exits 3"
 else
-  fail "F1: unsafe update should exit 2, got $F_RC"
+  fail "F1: not managed should exit 3, got $F_RC"
   ERRORS=$((ERRORS + 1))
 fi
 
-assert_contains "$F_OUT" "Live create prerequisites passed: no" "F2: prereq not passed"
-assert_contains "$F_OUT" "Live create called: no" "F3: live create called no"
-assert_contains "$F_OUT" "Live create allowed: no" "F4: live create allowed no"
+assert_contains "$F_OUT" "created record not managed" "F2: not managed reason"
+assert_contains "$F_OUT" "Created record managed: no" "F3: managed no"
 
 echo ""
 
@@ -404,8 +412,8 @@ echo "--- H. No public references ---"
 echo ""
 
 for loc in "$ROOT/bin/nanobk" "$ROOT/installer" "$ROOT/bot" "$ROOT/web"; do
-  if [[ -e "$loc" ]] && grep -rq 'owner-approved-live-create\|allow-live-create\|live_create_called' "$loc" 2>/dev/null; then
-    fail "H1: $loc references live create"
+  if [[ -e "$loc" ]] && grep -rq 'live-create-postcheck\|live_create_postcheck\|postcheck_called' "$loc" 2>/dev/null; then
+    fail "H1: $loc references postcheck"
     ERRORS=$((ERRORS + 1))
   fi
 done
@@ -420,17 +428,17 @@ echo ""
 echo "--- I. Compatibility ---"
 echo ""
 
-if bash "$ROOT/tests/v2.2.32-dns-record-readonly-precheck.sh" > /dev/null 2>&1; then
-  pass "I1: v2.2.32 test passes"
+if bash "$ROOT/tests/v2.2.33-owner-approved-live-create.sh" > /dev/null 2>&1; then
+  pass "I1: v2.2.33 test passes"
 else
-  fail "I1: v2.2.32 test fails"
+  fail "I1: v2.2.33 test fails"
   ERRORS=$((ERRORS + 1))
 fi
 
-if bash "$ROOT/tests/v2.2.31-readonly-cloudflare-get-probe.sh" > /dev/null 2>&1; then
-  pass "I2: v2.2.31 test passes"
+if bash "$ROOT/tests/v2.2.32-dns-record-readonly-precheck.sh" > /dev/null 2>&1; then
+  pass "I2: v2.2.32 test passes"
 else
-  fail "I2: v2.2.31 test fails"
+  fail "I2: v2.2.32 test fails"
   ERRORS=$((ERRORS + 1))
 fi
 
@@ -444,7 +452,7 @@ echo "=== Test Summary ==="
 echo ""
 
 if [[ $ERRORS -eq 0 ]]; then
-  echo -e "  ${GREEN}All v2.2.33 Owner-Approved Live Create tests passed!${NC}"
+  echo -e "  ${GREEN}All v2.2.34 Live Create Post-check tests passed!${NC}"
   exit 0
 else
   echo -e "  ${RED}${ERRORS} test(s) failed.${NC}"
