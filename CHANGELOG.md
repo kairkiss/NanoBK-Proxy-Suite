@@ -1,5 +1,37 @@
 # Changelog
 
+## v2.2.44 — Controlled Proxy DNS Create Preflight
+
+### Added
+
+- Added controlled DNS create preflight for `proxy.<zone>` and `web.<zone>`.
+- Added preflight status: `ready_for_owner_review` / `blocked` / `incomplete`.
+- Added execution gate: `requires_owner_approval` with disposable-first, post-check, cleanup requirements.
+- Added create candidates showing what WOULD be created without actually creating.
+- Added explicit rejection of `--apply`, `--yes`, `--force`, `--overwrite` flags.
+- Added JSON output with full preflight structure.
+
+### Safety
+
+- Preflight-only. No DNS mutation.
+- `mutation_allowed=false`, `apply_ready=false`, `preflight_only=true`.
+- `dns_changed=false`, `records_created=false`, `records_modified=false`, `records_deleted=false`.
+- `overwrite_existing=false`, `force=false`.
+- No Cloudflare POST/PATCH/PUT/DELETE.
+- Token is not printed.
+- Credential path is not printed.
+- Zone ID and record ID are not printed.
+- Raw API response is not printed.
+- No Bot/Web/installer integration.
+- No release/tag.
+
+### Not Changed
+
+- No live DNS apply added to nanobk.
+- No beginner console live apply button.
+- No Full Wizard auto-apply.
+- No DNS-01, Tunnel, Access, or Web public exposure changes.
+
 ## v2.2.43 — Proxy DNS Plan Generator
 
 ### Added

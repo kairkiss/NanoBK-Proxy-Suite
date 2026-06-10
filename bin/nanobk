@@ -511,6 +511,7 @@ NanoBK Proxy Suite — Unified CLI v${NANOBK_VERSION}
   cf dns availability check --zone DOMAIN --node NODE --api-env PATH  只读子域名可用性检查 [--json]
   cf dns availability summary --zone DOMAIN --api-env PATH [--nodes proxy,web]  多主机可用性摘要 [--json]
   cf dns plan-generator --zone DOMAIN --api-env PATH  Proxy DNS 计划生成 [--json]
+  cf dns create-preflight --zone DOMAIN --api-env PATH  受控 DNS 创建预检 [--json]
   cf dns report --zone DOMAIN --api-env PATH --ip-fixture PATH  综合 DNS 准备报告 [--json]
   cf dns profile preview --zone DOMAIN --node NODE --ipv4 VALUE  DNS 配置预览 [--json]
   cf dns profile generate --zone DOMAIN --node NODE --ipv4 VALUE --output PATH --yes  生成临时 DNS 配置 [--json]
@@ -1359,6 +1360,42 @@ cmd_cf_dns() {
             return 0 ;;
           *)
             die "cf dns plan-generator: unknown option: $1"
+            ;;
+        esac
+      done
+      if [[ "$DRY_RUN" == "1" ]]; then
+        print_cmd "${args[@]}"
+        echo -e "  ${CYAN}[DRY-RUN]${NC} 跳过执行"
+        return 0
+      fi
+      "${args[@]}"
+      ;;
+
+    create-preflight)
+      local args=(python3 "$REPO_DIR/lib/nanobk_cf_dns_create_preflight.py" preflight)
+      while [[ $# -gt 0 ]]; do
+        case "$1" in
+          --zone)
+            [[ $# -ge 2 ]] || die "cf dns create-preflight: --zone needs a value"
+            args+=("$1" "$2"); shift 2 ;;
+          --api-env)
+            [[ $# -ge 2 ]] || die "cf dns create-preflight: --api-env needs a path"
+            args+=("$1" "$2"); shift 2 ;;
+          --nodes)
+            [[ $# -ge 2 ]] || die "cf dns create-preflight: --nodes needs a value"
+            args+=("$1" "$2"); shift 2 ;;
+          --json)
+            args+=("--json"); shift ;;
+          --apply|--yes|--force|--overwrite)
+            die "cf dns create-preflight: $1 is not allowed in preflight mode" ;;
+          --help|-h)
+            args+=("--help"); shift ;;
+          --dry-run)
+            print_cmd "${args[@]}"
+            echo -e "  ${CYAN}[DRY-RUN]${NC} 跳过执行"
+            return 0 ;;
+          *)
+            die "cf dns create-preflight: unknown option: $1"
             ;;
         esac
       done
