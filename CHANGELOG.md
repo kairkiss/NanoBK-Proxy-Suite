@@ -1,5 +1,36 @@
 # Changelog
 
+## v2.2.33 — Owner-Approved One-Record Live Create Path
+
+### Added
+
+- Added a non-public owner-approved one-record live create path.
+- Added exact owner approval phrase gate for live create.
+- Added create-only-first prerequisites based on read-only DNS precheck.
+- Added safe live create metadata to the dry-run/live summary.
+- Added `tests/v2.2.33-owner-approved-live-create.sh` with a local mock HTTP server.
+- Added safe v2.2.33 fixtures for success, missing approval, unsafe precheck, existing unmanaged record, CNAME conflict, no-live, and unsafe update request cases.
+
+### Safety
+
+- v2.2.33 only supports one-record create.
+- Update/delete/overwrite remain blocked.
+- Public apply remains blocked.
+- Tokens are never printed.
+- Zone IDs, record names, record contents, and record IDs are never printed.
+- Raw API requests and responses are never printed.
+- `can_apply` remains always `no` in public/beginner semantics.
+- `mutation_allowed` remains always `no` outside the internal owner-approved live create gate.
+- No public `bin/nanobk` integration is added.
+
+### Not Changed
+
+- No public `bin/nanobk` integration.
+- No beginner console apply button.
+- No Bot/Web apply button.
+- No installer behavior changes.
+- No release tag.
+
 ## v2.2.32 — Non-Public Cloudflare DNS Record Read-only Precheck
 
 ### Added

@@ -1002,6 +1002,7 @@ def render_dns_apply_dryrun_summary(model: dict) -> str:
     ro = model.get("readonly_precheck", {})
     tok = model.get("token_metadata", {})
     dns = model.get("dns_record_precheck", {})
+    lc = model.get("live_create", {})
 
     lines = [
         "NanoBK DNS Apply — Non-Public Dry-run Wrapper Summary",
@@ -1048,6 +1049,16 @@ def render_dns_apply_dryrun_summary(model: dict) -> str:
         f"Record count category: {dns.get('record_count_category', 'unknown')}",
         f"Raw DNS values printed: {dns.get('raw_dns_values_printed', 'no')}",
         f"DNS identifier printed: {dns.get('record_id_printed', 'no')}",
+        f"Owner approval present: {lc.get('owner_approval_present', 'no')}",
+        f"Live create prerequisites passed: {lc.get('live_create_prerequisites_passed', 'no')}",
+        f"Live create allowed: {lc.get('live_create_allowed', 'no')}",
+        f"Live create called: {lc.get('live_create_called', 'no')}",
+        f"Live create succeeded: {lc.get('live_create_succeeded', 'unknown')}",
+        f"Created record category: {lc.get('created_record_category', 'none')}",
+        f"Live create proxied: {lc.get('proxied', 'unknown')}",
+        f"Live mutation method used: {lc.get('mutation_method_used', 'no')}",
+        f"Delete called: {lc.get('delete_called', 'no')}",
+        f"Update called: {lc.get('update_called', 'no')}",
     ]
 
     if status == _STATUS_DRYRUN_READY:
@@ -1194,21 +1205,267 @@ def _probe_prerequisites_passed(model: dict) -> bool:
     return True
 
 
+# ── Live create prerequisites ────────────────────────────────────────────────
+
+_LIVE_CREATE_APPROVAL_PHRASE = "I UNDERSTAND THIS WILL CREATE ONE CLOUDFLARE DNS TEST RECORD"
+
+
+def evaluate_live_create_prerequisites(
+    model: dict, plan: dict, approval: str | None
+) -> dict:
+    """Evaluate whether all prerequisites for live create are met.
+
+    Requires exact owner approval phrase, all readonly prechecks passed,
+    create_only_first_safe, and safe live_create_plan.
+    """
+    result = {
+        "live_create_prerequisites_passed": "no",
+        "owner_approval_present": "no",
+        "one_record_only": "no",
+        "create_only_first": "no",
+        "dns_only": "no",
+        "delete_allowed": "no",
+        "update_allowed": "no",
+        "overwrite_allowed": "no",
+        "status": "fail",
+        "reason": "owner approval missing",
+    }
+
+    # Check approval phrase
+    if approval != _LIVE_CREATE_APPROVAL_PHRASE:
+        result["reason"] = "owner approval missing"
+        return result
+    result["owner_approval_present"] = "yes"
+
+    # Check model status
+    if model.get("status") != _STATUS_DRYRUN_READY:
+        result["reason"] = "readonly precheck not passed"
+        return result
+
+    # Check token and probe
+    tok = model.get("token_metadata", {})
+    if tok.get("token_loaded") != "yes":
+        result["reason"] = "readonly precheck not passed"
+        return result
+
+    if model.get("cloudflare_get_succeeded") != "yes":
+        result["reason"] = "readonly precheck not passed"
+        return result
+
+    # Check DNS record precheck
+    dns = model.get("dns_record_precheck", {})
+    if dns.get("dns_record_get_succeeded") != "yes":
+        result["reason"] = "readonly precheck not passed"
+        return result
+    if dns.get("create_only_first_safe") != "yes":
+        result["reason"] = "not create-only-first safe"
+        return result
+    if dns.get("record_count_category") != "zero":
+        result["reason"] = "not create-only-first safe"
+        return result
+    if dns.get("same_name_cname_absent") != "yes":
+        result["reason"] = "not create-only-first safe"
+        return result
+    if dns.get("existing_unmanaged_record_absent") != "yes":
+        result["reason"] = "not create-only-first safe"
+        return result
+    if dns.get("existing_managed_test_record") != "no":
+        result["reason"] = "not create-only-first safe"
+        return result
+
+    # Check safety fields
+    if model.get("can_apply") != "no":
+        result["reason"] = "readonly precheck not passed"
+        return result
+    if model.get("mutation_allowed") != "no":
+        result["reason"] = "readonly precheck not passed"
+        return result
+    if model.get("public_apply_allowed") != "no":
+        result["reason"] = "readonly precheck not passed"
+        return result
+
+    # Check live_create_plan
+    live_plan = plan.get("live_create_plan", {})
+    if not isinstance(live_plan, dict) or not live_plan.get("enabled"):
+        result["reason"] = "live create plan missing"
+        return result
+
+    if live_plan.get("one_record_only") is not True:
+        result["reason"] = "live create plan unsafe"
+        return result
+    result["one_record_only"] = "yes"
+
+    if live_plan.get("create_only_first") is not True:
+        result["reason"] = "live create plan unsafe"
+        return result
+    result["create_only_first"] = "yes"
+
+    if live_plan.get("proxied") is not False:
+        result["reason"] = "live create plan unsafe"
+        return result
+    result["dns_only"] = "yes"
+
+    if live_plan.get("delete_allowed") is not False:
+        result["reason"] = "live create plan unsafe"
+        return result
+    result["delete_allowed"] = "no"
+
+    if live_plan.get("update_allowed") is not False:
+        result["reason"] = "live create plan unsafe"
+        return result
+    result["update_allowed"] = "no"
+
+    if live_plan.get("overwrite_allowed") is not False:
+        result["reason"] = "live create plan unsafe"
+        return result
+    result["overwrite_allowed"] = "no"
+
+    result["live_create_prerequisites_passed"] = "yes"
+    result["status"] = "pass"
+    result["reason"] = "live create prerequisites passed"
+    return result
+
+
+# ── Live create call ─────────────────────────────────────────────────────────
+
+
+def run_cloudflare_one_record_live_create(
+    plan: dict, token: str | None, *, allow_live_create: bool,
+    approval: str | None, model: dict
+) -> dict:
+    """Run a one-record live create via Cloudflare POST.
+
+    Only POST is allowed. No PUT/PATCH/DELETE.
+    Never prints request URL, JSON body, raw response, or record ID.
+    """
+    result = {
+        "live_create_allowed": "no",
+        "live_create_called": "no",
+        "live_create_succeeded": "unknown",
+        "created_record_category": "none",
+        "proxied": "unknown",
+        "raw_dns_values_printed": "no",
+        "raw_api_response_printed": "no",
+        "record_id_printed": "no",
+        "mutation_method_used": "no",
+        "delete_called": "no",
+        "update_called": "no",
+        "status": "fail",
+        "reason": "live create not allowed",
+    }
+
+    if not allow_live_create:
+        result["reason"] = "live create not allowed"
+        return result
+
+    if approval != _LIVE_CREATE_APPROVAL_PHRASE:
+        result["reason"] = "owner approval missing"
+        return result
+
+    if not token:
+        result["reason"] = "live create prerequisites failed"
+        return result
+
+    # Evaluate prerequisites
+    prereq = evaluate_live_create_prerequisites(model, plan, approval)
+    if prereq["status"] != "pass":
+        result["reason"] = prereq.get("reason", "live create prerequisites failed")
+        return result
+
+    result["live_create_allowed"] = "yes"
+
+    # Get live create plan
+    live_plan = plan.get("live_create_plan", {})
+    if not isinstance(live_plan, dict):
+        result["reason"] = "live create plan missing"
+        return result
+
+    zone_id = live_plan.get("zone_id_local", "")
+    record_name = live_plan.get("record_name_local", "")
+    record_type = live_plan.get("record_type_local", "A")
+    content = live_plan.get("content_local", "")
+    ttl = live_plan.get("ttl", 60)
+    comment = live_plan.get("comment", "nanobk-test managed disposable record")
+
+    if not zone_id or not record_name or not content:
+        result["reason"] = "live create prerequisites failed"
+        return result
+
+    # Get base URL from readonly_probe plan
+    probe_plan = plan.get("readonly_probe", {})
+    base_url = probe_plan.get("base_url", "https://api.cloudflare.com/client/v4")
+
+    # Build POST request
+    import urllib.request
+    import urllib.error
+
+    url = f"{base_url}/zones/{zone_id}/dns_records"
+    body = json.dumps({
+        "type": record_type,
+        "name": record_name,
+        "content": content,
+        "ttl": ttl,
+        "proxied": False,
+        "comment": comment,
+    }).encode("utf-8")
+
+    req = urllib.request.Request(url, data=body, method="POST")
+    req.add_header("Authorization", f"Bearer {token}")
+    req.add_header("Content-Type", "application/json")
+
+    try:
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            result["live_create_called"] = "yes"
+            result["mutation_method_used"] = "POST"
+            if resp.status in (200, 201):
+                result["live_create_succeeded"] = "yes"
+                result["created_record_category"] = "one_disposable_test_record"
+                result["proxied"] = "false"
+                result["status"] = "pass"
+                result["reason"] = "live create succeeded"
+            else:
+                result["live_create_succeeded"] = "no"
+                result["status"] = "fail"
+                result["reason"] = "live create failed"
+    except urllib.error.URLError:
+        result["live_create_called"] = "yes"
+        result["mutation_method_used"] = "POST"
+        result["live_create_succeeded"] = "no"
+        result["status"] = "fail"
+        result["reason"] = "live create failed"
+    except TimeoutError:
+        result["live_create_called"] = "yes"
+        result["mutation_method_used"] = "POST"
+        result["live_create_succeeded"] = "no"
+        result["status"] = "uncertain"
+        result["reason"] = "live create timed out"
+    except Exception:
+        result["live_create_called"] = "yes"
+        result["mutation_method_used"] = "POST"
+        result["live_create_succeeded"] = "no"
+        result["status"] = "fail"
+        result["reason"] = "live create failed"
+
+    return result
+
+
 # ── CLI entry point ──────────────────────────────────────────────────────────
 
 _USAGE = """\
-usage: nanobk-cf-dns-dryrun-wrapper --plan PATH [--precheck-only] [--allow-readonly-probe]
+usage: nanobk-cf-dns-dryrun-wrapper --plan PATH [--precheck-only] [--allow-readonly-probe] [--allow-live-create] [--owner-approval TEXT]
 
 Non-public local dry-run runner for safe plan files.
-Dry-run only. No DNS mutation. No live Cloudflare calls.
+Dry-run only by default. Live create requires explicit flags and approval.
 
 Options:
   --plan PATH                Path to a safe JSON plan file (required)
   --precheck-only            Run read-only precheck only
-  --allow-readonly-probe     Allow read-only probe (does not call Cloudflare in v2.2.30)
+  --allow-readonly-probe     Allow read-only probe
+  --allow-live-create        Allow one-record live create (requires --owner-approval)
+  --owner-approval TEXT      Exact owner approval phrase for live create
 
 Exit codes:
-  0  dryrun_preview_ready
+  0  dryrun_preview_ready or live create succeeded
   2  blocked
   3  uncertain
   4  invalid input / unsafe output
@@ -1239,6 +1496,8 @@ def main(argv: list[str] | None = None) -> int:
     plan_path = None
     precheck_only = False
     allow_readonly_probe = False
+    allow_live_create = False
+    owner_approval = None
     i = 0
     while i < len(argv):
         if argv[i] == "--plan" and i + 1 < len(argv):
@@ -1250,6 +1509,12 @@ def main(argv: list[str] | None = None) -> int:
         elif argv[i] == "--allow-readonly-probe":
             allow_readonly_probe = True
             i += 1
+        elif argv[i] == "--allow-live-create":
+            allow_live_create = True
+            i += 1
+        elif argv[i] == "--owner-approval" and i + 1 < len(argv):
+            owner_approval = argv[i + 1]
+            i += 2
         else:
             i += 1
 
@@ -1397,6 +1662,91 @@ def main(argv: list[str] | None = None) -> int:
                 model["status"] = _STATUS_UNCERTAIN
                 model["first_failed_gate"] = "readonly_probe"
                 model["first_blocked_reason"] = probe_result.get("reason", "readonly GET timed out")
+
+            # Run live create if requested
+            if allow_live_create:
+                prereq = evaluate_live_create_prerequisites(model, data, owner_approval)
+                model["live_create"] = {
+                    "owner_approval_present": prereq["owner_approval_present"],
+                    "live_create_prerequisites_passed": prereq["live_create_prerequisites_passed"],
+                    "one_record_only": prereq["one_record_only"],
+                    "create_only_first": prereq["create_only_first"],
+                    "dns_only": prereq["dns_only"],
+                    "delete_allowed": prereq["delete_allowed"],
+                    "update_allowed": prereq["update_allowed"],
+                    "overwrite_allowed": prereq["overwrite_allowed"],
+                }
+
+                if prereq["status"] == "pass" and token_result["token_loaded"] == "yes" and token_result.get("_token"):
+                    create_result = run_cloudflare_one_record_live_create(
+                        data, token_result["_token"],
+                        allow_live_create=True,
+                        approval=owner_approval,
+                        model=model,
+                    )
+                else:
+                    create_result = run_cloudflare_one_record_live_create(
+                        data, None,
+                        allow_live_create=True,
+                        approval=owner_approval,
+                        model=model,
+                    )
+
+                model["live_create"].update({
+                    "live_create_allowed": create_result.get("live_create_allowed", "no"),
+                    "live_create_called": create_result.get("live_create_called", "no"),
+                    "live_create_succeeded": create_result.get("live_create_succeeded", "unknown"),
+                    "created_record_category": create_result.get("created_record_category", "none"),
+                    "proxied": create_result.get("proxied", "unknown"),
+                    "raw_dns_values_printed": "no",
+                    "raw_api_response_printed": "no",
+                    "record_id_printed": "no",
+                    "mutation_method_used": create_result.get("mutation_method_used", "no"),
+                    "delete_called": "no",
+                    "update_called": "no",
+                })
+
+                # Update model status if live create failed
+                if create_result.get("status") == "fail" and model.get("status") == _STATUS_DRYRUN_READY:
+                    model["status"] = _STATUS_BLOCKED
+                    model["first_failed_gate"] = "live_create"
+                    model["first_blocked_reason"] = create_result.get("reason", "live create failed")
+                elif create_result.get("status") == "uncertain":
+                    model["status"] = _STATUS_UNCERTAIN
+                    model["first_failed_gate"] = "live_create"
+                    model["first_blocked_reason"] = create_result.get("reason", "live create timed out")
+                elif create_result.get("status") == "pass":
+                    # Live create succeeded — update status
+                    model["status"] = "live_create_succeeded"
+                    model["real_dns_mutation_performed"] = "yes"
+                    model["live_cloudflare_called"] = "yes"
+
+                # Ensure public safety locks remain
+                model["can_apply"] = "no"
+                model["mutation_allowed"] = "no"
+                model["public_apply_allowed"] = "no"
+            else:
+                model["live_create"] = {
+                    "owner_approval_present": "no",
+                    "live_create_prerequisites_passed": "no",
+                    "one_record_only": "no",
+                    "create_only_first": "no",
+                    "dns_only": "no",
+                    "delete_allowed": "no",
+                    "update_allowed": "no",
+                    "overwrite_allowed": "no",
+                    "live_create_allowed": "no",
+                    "live_create_called": "no",
+                    "live_create_succeeded": "unknown",
+                    "created_record_category": "none",
+                    "proxied": "unknown",
+                    "raw_dns_values_printed": "no",
+                    "raw_api_response_printed": "no",
+                    "record_id_printed": "no",
+                    "mutation_method_used": "no",
+                    "delete_called": "no",
+                    "update_called": "no",
+                }
     else:
         model["token_metadata"] = {
             "token_loaded": "no",
@@ -1437,7 +1787,7 @@ def main(argv: list[str] | None = None) -> int:
 
     # Exit code based on status
     status = model.get("status", "uncertain")
-    if status == "dryrun_preview_ready":
+    if status in ("dryrun_preview_ready", "live_create_succeeded"):
         return 0
     elif status == "blocked":
         return 2
