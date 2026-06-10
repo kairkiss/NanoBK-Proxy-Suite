@@ -2385,7 +2385,45 @@ def main(argv: list[str] | None = None) -> int:
         }
 
     # Run cleanup if requested (independent of live create)
-    if allow_live_cleanup and allow_readonly_probe:
+    if allow_live_cleanup and not allow_readonly_probe:
+        # Cleanup requested but read-only probe missing — fail closed
+        model["status"] = _STATUS_BLOCKED
+        model["first_failed_gate"] = "live_cleanup"
+        model["first_blocked_reason"] = "readonly probe required for cleanup"
+        model["live_cleanup_precheck"] = {
+            "cleanup_precheck_called": "no",
+            "cleanup_precheck_succeeded": "unknown",
+            "cleanup_record_found": "unknown",
+            "cleanup_record_single_match": "unknown",
+            "cleanup_record_managed": "unknown",
+            "cleanup_record_dns_only": "unknown",
+            "cleanup_safe": "unknown",
+            "record_id_printed": "no",
+            "raw_dns_values_printed": "no",
+            "raw_api_response_printed": "no",
+        }
+        model["live_cleanup"] = {
+            "cleanup_approval_present": "yes" if owner_cleanup_approval else "no",
+            "cleanup_prerequisites_passed": "no",
+            "cleanup_one_record_only": "no",
+            "delete_only_if_managed": "no",
+            "delete_only_if_dns_only": "no",
+            "delete_only_if_single_match": "no",
+            "cleanup_allowed": "no",
+            "cleanup_called": "no",
+            "cleanup_succeeded": "unknown",
+            "deleted_record_category": "none",
+            "cleanup_mutation_method_used": "no",
+            "record_id_printed": "no",
+            "raw_api_response_printed": "no",
+            "delete_called": "no",
+            "update_called": "no",
+            "create_called": "no",
+        }
+        model["can_apply"] = "no"
+        model["mutation_allowed"] = "no"
+        model["public_apply_allowed"] = "no"
+    elif allow_live_cleanup and allow_readonly_probe:
         # Run cleanup readonly precheck
         cleanup_precheck_result = run_cloudflare_cleanup_readonly_precheck(
             data,

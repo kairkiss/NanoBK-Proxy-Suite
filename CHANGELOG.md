@@ -1,5 +1,30 @@
 # Changelog
 
+## v2.2.35-polish2 — Block Explicit Cleanup Without Read-only Probe
+
+### Fixed
+
+- Explicit cleanup requests now fail closed when `--allow-readonly-probe` is missing.
+- Prevented cleanup commands from silently no-oping with exit 0 when cleanup was requested without the required read-only probe gate.
+- Added regression coverage for cleanup flag without read-only probe.
+
+### Safety
+
+- Cleanup still requires exact owner approval.
+- Cleanup still requires read-only token verification and cleanup precheck.
+- Cleanup still deletes only one verified managed DNS-only disposable test record.
+- No public cleanup path added.
+- No DNS create/update/overwrite behavior added.
+- Tokens, paths, zone IDs, record names, record contents, record IDs, and raw API responses remain hidden.
+
+### Not Changed
+
+- No public `bin/nanobk` integration.
+- No beginner console cleanup button.
+- No Bot/Web cleanup button.
+- No installer behavior changes.
+- No release tag.
+
 ## v2.2.35-polish — Fix Cleanup Precheck Success Semantics
 
 ### Fixed

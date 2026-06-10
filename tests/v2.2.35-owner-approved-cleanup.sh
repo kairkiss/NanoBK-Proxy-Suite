@@ -190,6 +190,34 @@ assert_contains "$A_OUT" "Cleanup approval present: no" "A3: cleanup approval no
 echo ""
 
 # ══════════════════════════════════════════════════════════════════════════════
+# A2. Cleanup flag without read-only probe
+# ══════════════════════════════════════════════════════════════════════════════
+
+echo "--- A2. Cleanup flag without read-only probe ---"
+echo ""
+
+A2_OUT=$("$RUNNER" --plan "$FIXTURES/runner_cleanup_success_local_mock.json" --allow-live-cleanup --owner-cleanup-approval "$CLEANUP_APPROVAL" 2>&1) && A2_RC=0 || A2_RC=$?
+
+if [[ "$A2_RC" == "2" ]]; then
+  pass "A2-1: cleanup without probe exits 2"
+else
+  fail "A2-1: cleanup without probe should exit 2, got $A2_RC"
+  ERRORS=$((ERRORS + 1))
+fi
+
+assert_contains "$A2_OUT" "Status: blocked" "A2-2: blocked status"
+assert_contains "$A2_OUT" "First failed gate: live_cleanup" "A2-3: first failed gate"
+assert_contains "$A2_OUT" "First blocked reason: readonly probe required for cleanup" "A2-4: blocked reason"
+assert_contains "$A2_OUT" "Cleanup precheck called: no" "A2-5: precheck called no"
+assert_contains "$A2_OUT" "Cleanup called: no" "A2-6: cleanup called no"
+assert_contains "$A2_OUT" "Cleanup prerequisites passed: no" "A2-7: prereq not passed"
+assert_not_contains "$A2_OUT" "$CLEANUP_APPROVAL" "A2-8: no approval phrase"
+assert_not_contains "$A2_OUT" "LOCAL_ONLY_ZONE_ID" "A2-9: no zone id"
+assert_not_contains "$A2_OUT" "LOCAL_ONLY_RECORD_ID" "A2-10: no record id"
+
+echo ""
+
+# ══════════════════════════════════════════════════════════════════════════════
 # B. Missing approval
 # ══════════════════════════════════════════════════════════════════════════════
 
