@@ -345,6 +345,149 @@ assert_contains "$L_OUT" "A record: ready" "L4: CLI A record ready"
 echo ""
 
 # ══════════════════════════════════════════════════════════════════════════════
+# M. HTTPS IPv6 fail, local IPv6 fallback detected
+# ══════════════════════════════════════════════════════════════════════════════
+
+echo "--- M. HTTPS IPv6 fail, local IPv6 fallback ---"
+echo ""
+
+M_OUT=$(NANOBK_TEST_DETECTED_IPV4="203.0.113.50" \
+  NANOBK_TEST_FORCE_ENDPOINT_IPV6_FAIL="1" \
+  NANOBK_TEST_LOCAL_IPV6="2001:db8::50" \
+  python3 "$MODULE" detect 2>&1) && M_RC=0 || M_RC=$?
+
+if [[ "$M_RC" == "0" ]]; then
+  pass "M1: IPv6 fallback exits 0"
+else
+  fail "M1: IPv6 fallback should exit 0, got $M_RC"
+  ERRORS=$((ERRORS + 1))
+fi
+
+M_JSON=$(NANOBK_TEST_DETECTED_IPV4="203.0.113.50" \
+  NANOBK_TEST_FORCE_ENDPOINT_IPV6_FAIL="1" \
+  NANOBK_TEST_LOCAL_IPV6="2001:db8::50" \
+  python3 "$MODULE" detect --json 2>&1) && M_JRC=0 || M_JRC=$?
+
+assert_contains "$M_OUT" "IPv6: detected" "M2: text IPv6 detected"
+assert_contains "$M_OUT" "2001:db8::50" "M3: text IPv6 address"
+assert_contains "$M_OUT" "AAAA record: ready" "M4: text AAAA record ready"
+assert_contains "$M_JSON" '"status": "detected"' "M5: JSON IPv6 status detected"
+assert_contains "$M_JSON" '"2001:db8::50"' "M6: JSON IPv6 address"
+assert_contains "$M_JSON" '"aaaa_record": "ready"' "M7: JSON AAAA record ready"
+
+echo ""
+
+# ══════════════════════════════════════════════════════════════════════════════
+# N. HTTPS IPv4 fail, local IPv4 fallback detected
+# ══════════════════════════════════════════════════════════════════════════════
+
+echo "--- N. HTTPS IPv4 fail, local IPv4 fallback ---"
+echo ""
+
+N_OUT=$(NANOBK_TEST_DETECT_IPV6_FAIL="1" \
+  NANOBK_TEST_FORCE_ENDPOINT_IPV4_FAIL="1" \
+  NANOBK_TEST_LOCAL_IPV4="203.0.113.60" \
+  python3 "$MODULE" detect 2>&1) && N_RC=0 || N_RC=$?
+
+if [[ "$N_RC" == "0" ]]; then
+  pass "N1: IPv4 fallback exits 0"
+else
+  fail "N1: IPv4 fallback should exit 0, got $N_RC"
+  ERRORS=$((ERRORS + 1))
+fi
+
+assert_contains "$N_OUT" "IPv4: detected" "N2: text IPv4 detected"
+assert_contains "$N_OUT" "203.0.113.60" "N3: text IPv4 address"
+assert_contains "$N_OUT" "A record: ready" "N4: text A record ready"
+
+echo ""
+
+# ══════════════════════════════════════════════════════════════════════════════
+# O. Local fallback private IPv4 ignored
+# ══════════════════════════════════════════════════════════════════════════════
+
+echo "--- O. Local fallback private IPv4 ignored ---"
+echo ""
+
+O_OUT=$(NANOBK_TEST_DETECT_IPV6_FAIL="1" \
+  NANOBK_TEST_FORCE_ENDPOINT_IPV4_FAIL="1" \
+  NANOBK_TEST_LOCAL_IPV4="10.0.0.1" \
+  python3 "$MODULE" detect 2>&1) && O_RC=0 || O_RC=$?
+
+if [[ "$O_RC" != "0" ]]; then
+  pass "O1: private local fallback exits non-zero ($O_RC)"
+else
+  fail "O1: private local fallback should exit non-zero"
+  ERRORS=$((ERRORS + 1))
+fi
+
+assert_not_contains "$O_OUT" "10.0.0.1" "O2: private local IPv4 not shown"
+
+echo ""
+
+# ══════════════════════════════════════════════════════════════════════════════
+# P. Local fallback link-local / ULA IPv6 ignored
+# ══════════════════════════════════════════════════════════════════════════════
+
+echo "--- P. Local fallback link-local / ULA IPv6 ignored ---"
+echo ""
+
+for label_addr in "link_local:fe80::1" "ula:fd00::1"; do
+  label="${label_addr%%:*}"
+  addr="${label_addr##*:}"
+  P_OUT=$(NANOBK_TEST_DETECT_IPV4_FAIL="1" \
+    NANOBK_TEST_FORCE_ENDPOINT_IPV6_FAIL="1" \
+    NANOBK_TEST_LOCAL_IPV6="$addr" \
+    python3 "$MODULE" detect 2>&1) && P_RC=0 || P_RC=$?
+  if [[ "$P_RC" != "0" ]]; then
+    pass "P: $label ($addr) local fallback exits non-zero"
+  else
+    fail "P: $label ($addr) local fallback should exit non-zero"
+    ERRORS=$((ERRORS + 1))
+  fi
+done
+
+echo ""
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Q. Fallback no raw dump
+# ══════════════════════════════════════════════════════════════════════════════
+
+echo "--- Q. Fallback no raw dump ---"
+echo ""
+
+FALLBACK_OUTPUTS="$M_OUT $N_OUT $M_JSON"
+
+for forbidden in "ip addr" "inet " "scope global" "default via" "link/ether" "mtu " "qdisc"; do
+  if echo "$FALLBACK_OUTPUTS" | grep -q "$forbidden"; then
+    fail "Q: fallback output contains raw dump fragment: '$forbidden'"
+    ERRORS=$((ERRORS + 1))
+  else
+    pass "Q: no '$forbidden' in fallback output"
+  fi
+done
+
+echo ""
+
+# ══════════════════════════════════════════════════════════════════════════════
+# R. Fallback Cloudflare isolation
+# ══════════════════════════════════════════════════════════════════════════════
+
+echo "--- R. Fallback Cloudflare isolation ---"
+echo ""
+
+for forbidden in "api.cloudflare.com" "Authorization:" "CF_API_TOKEN" "CLOUDFLARE_API_TOKEN"; do
+  if echo "$FALLBACK_OUTPUTS" | grep -qi "$forbidden"; then
+    fail "R: fallback output contains Cloudflare reference: '$forbidden'"
+    ERRORS=$((ERRORS + 1))
+  else
+    pass "R: no '$forbidden' in fallback output"
+  fi
+done
+
+echo ""
+
+# ══════════════════════════════════════════════════════════════════════════════
 # Summary
 # ══════════════════════════════════════════════════════════════════════════════
 

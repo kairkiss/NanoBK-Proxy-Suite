@@ -1710,10 +1710,9 @@ cmd_vps_ip_detect() {
       --help|-h)
         echo "Usage: nanobk vps ip detect [--json]"
         echo ""
-        echo "  Read-only VPS IP candidate detection and classification."
-        echo "  Uses test fixtures only (NANOBK_IP_DETECT_FIXTURE)."
-        echo "  Output is masked/redacted by default."
-        echo "  No DNS mutation. No Cloudflare calls."
+        echo "  Detects public IPv4/IPv6 using safe read-only checks."
+        echo "  Supports test fixtures via NANOBK_IP_DETECT_FIXTURE."
+        echo "  No DNS mutation. No Cloudflare calls. No system changes."
         return 0 ;;
       --dry-run)
         print_cmd "${args[@]}"

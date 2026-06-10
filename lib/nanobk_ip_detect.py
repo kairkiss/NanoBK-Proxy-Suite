@@ -14,12 +14,18 @@ Test hooks (env vars):
     NANOBK_TEST_DETECTED_IPV6=2001:db8::10            — mock IPv6 result
     NANOBK_TEST_DETECT_IPV4_FAIL=1                    — simulate IPv4 detection failure
     NANOBK_TEST_DETECT_IPV6_FAIL=1                    — simulate IPv6 detection failure
+    NANOBK_TEST_LOCAL_IPV4=203.0.113.20               — mock local interface IPv4 fallback
+    NANOBK_TEST_LOCAL_IPV6=2001:db8::20               — mock local interface IPv6 fallback
+    NANOBK_TEST_FORCE_ENDPOINT_IPV4_FAIL=1            — force HTTPS endpoint IPv4 failure (triggers fallback)
+    NANOBK_TEST_FORCE_ENDPOINT_IPV6_FAIL=1            — force HTTPS endpoint IPv6 failure (triggers fallback)
 """
 
 import argparse
 import ipaddress
 import json
 import os
+import re
+import subprocess
 import sys
 import urllib.request
 import urllib.error
@@ -145,6 +151,11 @@ def _parse_ip_from_response(text, family):
 
 def detect_public_ip(family):
     """Detect public IP via HTTPS endpoints. Returns (address, source) or (None, None)."""
+    # Test override: force endpoint failure
+    if family == "ipv4" and os.environ.get("NANOBK_TEST_FORCE_ENDPOINT_IPV4_FAIL") == "1":
+        return None, None
+    if family == "ipv6" and os.environ.get("NANOBK_TEST_FORCE_ENDPOINT_IPV6_FAIL") == "1":
+        return None, None
     endpoints = _IPV4_ENDPOINTS if family == "ipv4" else _IPV6_ENDPOINTS
     for url in endpoints:
         text = _fetch_text(url)
@@ -154,15 +165,71 @@ def detect_public_ip(family):
     return None, None
 
 
+def detect_local_interface(family):
+    """Detect IP from local network interfaces. Returns (address, source) or (None, None).
+
+    Uses 'ip addr show scope global' to extract candidates.
+    Only returns addresses that pass ipaddress validation and DNS usability check.
+    Does NOT print raw interface dump.
+    """
+    # Test override: mock local fallback
+    if family == "ipv4":
+        mock = os.environ.get("NANOBK_TEST_LOCAL_IPV4")
+        if mock:
+            scope = classify_scope(mock, "ipv4")
+            if is_usable_for_dns(scope):
+                return mock, "local_interface_mock"
+            return None, None
+    else:
+        mock = os.environ.get("NANOBK_TEST_LOCAL_IPV6")
+        if mock:
+            scope = classify_scope(mock, "ipv6")
+            if is_usable_for_dns(scope):
+                return mock, "local_interface_mock"
+            return None, None
+
+    # Real local interface detection
+    ip_flag = "-4" if family == "ipv4" else "-6"
+    try:
+        result = subprocess.run(
+            ["ip", ip_flag, "-o", "addr", "show", "scope", "global"],
+            capture_output=True, text=True, timeout=5
+        )
+        if result.returncode != 0:
+            return None, None
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        return None, None
+
+    # Parse ip output: "N: iface inet ADDR/MASK scope global ..."
+    # Extract the IP address (4th field)
+    candidates = []
+    for line in result.stdout.splitlines():
+        parts = line.split()
+        if len(parts) < 4:
+            continue
+        addr_with_mask = parts[3]
+        # Strip CIDR prefix length if present
+        addr = addr_with_mask.split("/")[0]
+        scope = classify_scope(addr, family)
+        if is_usable_for_dns(scope):
+            candidates.append(addr)
+
+    if not candidates:
+        return None, None
+
+    # Return first usable candidate (stable global address)
+    return candidates[0], "local_interface"
+
+
 # ── Detection orchestration ─────────────────────────────────────────────────
 
 def detect_ipv4():
-    """Detect IPv4 with test override support."""
-    # Test override: simulate failure
+    """Detect IPv4: env mock → HTTPS endpoint → local interface fallback → not_detected."""
+    # 1. Test override: simulate failure
     if os.environ.get("NANOBK_TEST_DETECT_IPV4_FAIL") == "1":
         return {"status": "not_detected", "address": None, "scope": None,
                 "source": "test_override_fail"}
-    # Test override: mock result
+    # 2. Test override: mock result
     mock = os.environ.get("NANOBK_TEST_DETECTED_IPV4")
     if mock:
         scope = classify_scope(mock, "ipv4")
@@ -171,7 +238,7 @@ def detect_ipv4():
                     "source": "test_override"}
         return {"status": "detected", "address": mock, "scope": scope,
                 "source": "test_override"}
-    # Real detection
+    # 3. HTTPS endpoint detection
     addr, source = detect_public_ip("ipv4")
     if addr:
         scope = classify_scope(addr, "ipv4")
@@ -180,17 +247,23 @@ def detect_ipv4():
                     "source": source}
         return {"status": "detected", "address": addr, "scope": scope,
                 "source": source}
+    # 4. Local interface fallback
+    addr, source = detect_local_interface("ipv4")
+    if addr:
+        scope = classify_scope(addr, "ipv4")
+        return {"status": "detected", "address": addr, "scope": scope,
+                "source": source}
     return {"status": "not_detected", "address": None, "scope": None,
             "source": None}
 
 
 def detect_ipv6():
-    """Detect IPv6 with test override support."""
-    # Test override: simulate failure
+    """Detect IPv6: env mock → HTTPS endpoint → local interface fallback → not_detected."""
+    # 1. Test override: simulate failure
     if os.environ.get("NANOBK_TEST_DETECT_IPV6_FAIL") == "1":
         return {"status": "not_detected", "address": None, "scope": None,
                 "source": "test_override_fail"}
-    # Test override: mock result
+    # 2. Test override: mock result
     mock = os.environ.get("NANOBK_TEST_DETECTED_IPV6")
     if mock:
         scope = classify_scope(mock, "ipv6")
@@ -199,13 +272,19 @@ def detect_ipv6():
                     "source": "test_override"}
         return {"status": "detected", "address": mock, "scope": scope,
                 "source": "test_override"}
-    # Real detection
+    # 3. HTTPS endpoint detection
     addr, source = detect_public_ip("ipv6")
     if addr:
         scope = classify_scope(addr, "ipv6")
         if not is_usable_for_dns(scope):
             return {"status": "not_usable", "address": addr, "scope": scope,
                     "source": source}
+        return {"status": "detected", "address": addr, "scope": scope,
+                "source": source}
+    # 4. Local interface fallback
+    addr, source = detect_local_interface("ipv6")
+    if addr:
+        scope = classify_scope(addr, "ipv6")
         return {"status": "detected", "address": addr, "scope": scope,
                 "source": source}
     return {"status": "not_detected", "address": None, "scope": None,

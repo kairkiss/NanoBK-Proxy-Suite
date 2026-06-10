@@ -1,5 +1,31 @@
 # Changelog
 
+## v2.2.41-polish — Stabilize VPS IP Detect Text/JSON Consistency
+
+### Fixed
+
+- Added local interface fallback for VPS IP detection when public HTTPS echo endpoints are temporarily unavailable.
+- Improved IPv6 detection stability so text and JSON outputs do not diverge on dual-stack VPSes.
+- Updated `nanobk vps ip detect --help` wording to reflect real read-only detection plus test fixture support.
+
+### Safety
+
+- Dry-run only.
+- No system configuration changed.
+- No Cloudflare touched.
+- No DNS record create/update/delete.
+- No token/env/credential output.
+- No raw interface or route dump printed.
+- No Bot/Web/installer integration.
+- No release/tag.
+
+### Not Changed
+
+- No DNS apply behavior changed.
+- No Full Wizard auto-apply.
+- No Web public exposure.
+- No DNS-01, Tunnel, or Access changes.
+
 ## v2.2.41 — VPS IP Auto-detect Dry-run
 
 ### Added
