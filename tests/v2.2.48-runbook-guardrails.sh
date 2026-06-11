@@ -140,6 +140,54 @@ fi
 echo ""
 
 # ══════════════════════════════════════════════════════════════════════════════
+# F. Format sanity checks
+# ══════════════════════════════════════════════════════════════════════════════
+
+echo "--- F. Format sanity checks ---"
+echo ""
+
+RUNBOOK_LINES=$(wc -l < "$RUNBOOK")
+GUARD_LINES=$(wc -l < "$GUARDDOC")
+SELF_LINES=$(wc -l < "$0")
+
+if [[ "$RUNBOOK_LINES" -ge 80 ]]; then
+  pass "F1: runbook has $RUNBOOK_LINES lines (>= 80)"
+else
+  fail "F1: runbook has only $RUNBOOK_LINES lines (expected >= 80)"
+  ERRORS=$((ERRORS + 1))
+fi
+
+if [[ "$GUARD_LINES" -ge 30 ]]; then
+  pass "F2: production-blocked doc has $GUARD_LINES lines (>= 30)"
+else
+  fail "F2: production-blocked doc has only $GUARD_LINES lines (expected >= 30)"
+  ERRORS=$((ERRORS + 1))
+fi
+
+if [[ "$SELF_LINES" -ge 80 ]]; then
+  pass "F3: this test script has $SELF_LINES lines (>= 80)"
+else
+  fail "F3: this test script has only $SELF_LINES lines (expected >= 80)"
+  ERRORS=$((ERRORS + 1))
+fi
+
+if head -1 "$0" | grep -q "#!/usr/bin/env bash"; then
+  pass "F4: test script has shebang"
+else
+  fail "F4: test script missing shebang"
+  ERRORS=$((ERRORS + 1))
+fi
+
+if grep -q "set -Eeuo pipefail" "$0"; then
+  pass "F5: test script has set -Eeuo pipefail"
+else
+  fail "F5: test script missing set -Eeuo pipefail"
+  ERRORS=$((ERRORS + 1))
+fi
+
+echo ""
+
+# ══════════════════════════════════════════════════════════════════════════════
 # Summary
 # ══════════════════════════════════════════════════════════════════════════════
 

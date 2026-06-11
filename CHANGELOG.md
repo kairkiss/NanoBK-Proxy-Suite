@@ -1,5 +1,23 @@
 # Changelog
 
+## v2.2.48-polish — Reformat Runbook and Guardrail Test
+
+### Fixed
+
+- Reformatted the v2.2.48 operator runbook as a readable multi-line markdown document.
+- Reformatted the production-apply-blocked note as readable markdown with safe wording.
+- Added line-count sanity checks to prevent accidentally compressed docs/tests.
+
+### Safety
+
+- Documentation/test formatting only.
+- No runtime DNS behavior changed.
+- No Cloudflare calls.
+- No DNS create/update/delete.
+- No production proxy/web apply.
+- No Bot/Web/installer integration.
+- No release/tag.
+
 ## v2.2.48 — Operator-only Controlled Create Runbook
 
 ### Added
