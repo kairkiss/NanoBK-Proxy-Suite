@@ -1,5 +1,22 @@
 # Changelog
 
+## v2.2.53-polish — Redact Profile Path in Home Permission Hints
+
+### Fixed
+
+- Replaced the explicit saved profile path in the home permission fix hint with a redacted placeholder.
+- Added regression checks to ensure home/status output does not print `~/.nanobk`, `setup-profile.json`, or real profile paths.
+
+### Safety
+
+- Output redaction/test polish only.
+- No DNS mutation.
+- No Cloudflare POST/PATCH/PUT/DELETE.
+- No owner-smoke-create execution.
+- No production proxy/web DNS creation.
+- No Bot/Web/installer live create.
+- No release/tag.
+
 ## v2.2.53 — Unified Setup Status and CLI Home
 
 ### Added

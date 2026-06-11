@@ -130,7 +130,7 @@ def run_home():
                 "next_actions": [
                     {
                         "label": "Fix profile permissions",
-                        "command": "chmod 600 ~/.nanobk/setup-profile.json",
+                        "command": "chmod 600 <profile-file>",
                         "safe": True,
                     },
                 ],
@@ -149,7 +149,7 @@ def run_home():
             "next_actions": [
                 {
                     "label": "Fix profile permissions",
-                    "command": "chmod 600 ~/.nanobk/setup-profile.json",
+                    "command": "chmod 600 <profile-file>",
                     "safe": True,
                 },
             ],

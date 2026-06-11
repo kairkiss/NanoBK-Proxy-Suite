@@ -169,8 +169,15 @@ else
 fi
 
 assert_contains "$D_JSON" "blocked_profile_permission" "D2: status blocked"
-assert_not_contains "$D_JSON" "example.com" "D3: no zone name leaked"
-assert_not_contains "$D_JSON" "DUMMY_PLACEHOLDER" "D4: no token"
+assert_contains "$D_JSON" '"profile_path_printed": false' "D3: profile_path_printed false"
+assert_not_contains "$D_JSON" "example.com" "D4: no zone name leaked"
+assert_not_contains "$D_JSON" "DUMMY_PLACEHOLDER" "D5: no token"
+assert_not_contains "$D_JSON" "~/.nanobk" "D6: no profile path"
+assert_not_contains "$D_JSON" "setup-profile.json" "D7: no profile filename"
+
+D_TEXT=$(python3 "$STATUS_MODULE" home 2>&1) || true
+assert_not_contains "$D_TEXT" "~/.nanobk" "D8: no profile path in text"
+assert_not_contains "$D_TEXT" "setup-profile.json" "D9: no profile filename in text"
 
 # Clean up
 rm -f "$PROFILE_FILE"
@@ -255,7 +262,8 @@ ALL_OUTPUTS="$A_JSON $A_TEXT $B_JSON $B_TEXT $C_JSON $D_JSON $E_JSON $F_JSON $G_
 for forbidden in "DUMMY_PLACEHOLDER_NOT_A_REAL_TOKEN" "CF_API_TOKEN" "CLOUDFLARE_API_TOKEN" \
   "safe_api_env.env" "unsafe_world_readable" "fake-zone-id" "Authorization:" "Bearer " \
   "/dns_records" "/zones/" "api.cloudflare.com" "workers.dev" "vless://" "trojan://" \
-  "hysteria2://" "tuic://" "PRIVATE KEY" "subscription"; do
+  "hysteria2://" "tuic://" "PRIVATE KEY" "subscription" \
+  "~/.nanobk" "setup-profile.json" "/root/" "/home/"; do
   if echo "$ALL_OUTPUTS" | grep -qi "$forbidden"; then
     fail "H: output contains forbidden: '$forbidden'"
     ERRORS=$((ERRORS + 1))
