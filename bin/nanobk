@@ -272,28 +272,36 @@ console_dns_submenu() {
   ui_section "域名和 Cloudflare 设置"
   ui_hint "我会先检查，不会直接改你的 DNS。"
   echo ""
-  echo "  1) 引导设置向导"
-  echo "  2) DNS 设置助手"
-  echo "  3) 检测 VPS IP"
-  echo "  4) 检查域名可用性"
-  echo "  5) 生成 DNS 计划"
-  echo "  6) 预检摘要"
-  echo "  7) 保存设置配置"
-  echo "  8) 查看设置配置"
-  echo "  9) 清除设置配置"
-  echo " 10) 返回"
+  echo "  1) 连接 Cloudflare / 选择域名"
+  echo "  2) 引导设置向导"
+  echo "  3) DNS 设置助手"
+  echo "  4) 检测 VPS IP"
+  echo "  5) 检查域名可用性"
+  echo "  6) 生成 DNS 计划"
+  echo "  7) 预检摘要"
+  echo "  8) 保存设置配置"
+  echo "  9) 查看设置配置"
+  echo " 10) 清除设置配置"
+  echo " 11) 返回"
   echo ""
   local choice
-  read -rp "  选择 [1-10]: " choice || { echo ""; return; }
+  read -rp "  选择 [1-11]: " choice || { echo ""; return; }
   case "$choice" in
     1)
+      echo ""
+      ui_safe_action "连接 Cloudflare（只读验证，不会创建 DNS）:"
+      echo ""
+      cmd_cf_connect || true
+      console_pause
+      ;;
+    2)
       echo ""
       ui_safe_action "引导设置向导（只读，不会修改 DNS）:"
       echo ""
       cmd_setup_wizard || true
       console_pause
       ;;
-    2)
+    3)
       echo ""
       ui_safe_action "DNS 设置助手（只读，不会修改 DNS）:"
       echo ""
@@ -303,14 +311,14 @@ console_dns_submenu() {
       echo "  不会修改 DNS，不会修改 Cloudflare。"
       console_pause
       ;;
-    3)
+    4)
       echo ""
       ui_safe_action "检测 VPS 公网 IP（只读）:"
       echo ""
       cmd_vps_ip_detect || true
       console_pause
       ;;
-    4)
+    5)
       echo ""
       ui_safe_action "检查子域名可用性（只读）:"
       echo ""
@@ -319,7 +327,7 @@ console_dns_submenu() {
       echo "  检查 proxy 和 web 子域名是否已被占用。"
       console_pause
       ;;
-    5)
+    6)
       echo ""
       ui_safe_action "生成 DNS 计划（只读，不会修改 DNS）:"
       echo ""
@@ -328,7 +336,7 @@ console_dns_submenu() {
       echo "  结合 IP 检测和可用性检查，生成 DNS 配置计划。"
       console_pause
       ;;
-    6)
+    7)
       echo ""
       ui_safe_action "预检摘要（只读，不会创建记录）:"
       echo ""
@@ -337,7 +345,7 @@ console_dns_submenu() {
       echo "  显示将会创建什么，但不会实际创建。"
       console_pause
       ;;
-    7)
+    8)
       echo ""
       ui_safe_action "保存设置配置（本地存储，不上传）:"
       echo ""
@@ -346,14 +354,14 @@ console_dns_submenu() {
       echo "  保存你的 DNS 设置，下次运行 setup dns 时不用重新输入。"
       console_pause
       ;;
-    8)
+    9)
       echo ""
       ui_safe_action "查看已保存的设置配置（脱敏显示）:"
       echo ""
       cmd_setup_profile show || true
       console_pause
       ;;
-    9)
+    10)
       echo ""
       ui_safe_action "清除设置配置:"
       echo ""
@@ -362,11 +370,11 @@ console_dns_submenu() {
       echo "  删除已保存的 DNS 设置配置。"
       console_pause
       ;;
-    10|"")
+    11|"")
       return
       ;;
     *)
-      echo "  无效输入，请选择 1-10。"
+      echo "  无效输入，请选择 1-11。"
       console_pause
       ;;
   esac
@@ -377,32 +385,42 @@ console_setup_submenu() {
   ui_section "开始配置 NanoBK"
   ui_hint "选择一个开始方式："
   echo ""
-  echo "  1) 开始引导设置"
-  echo "  2) 查看设置状态"
-  echo "  3) 返回"
+  echo "  1) 连接 Cloudflare 并选择域名"
+  echo "  2) 开始引导设置"
+  echo "  3) 查看设置状态"
+  echo "  4) 返回"
   echo ""
   local choice
-  read -rp "  选择 [1-3]: " choice || { echo ""; return; }
+  read -rp "  选择 [1-4]: " choice || { echo ""; return; }
   case "$choice" in
     1)
+      echo ""
+      ui_safe_action "连接 Cloudflare（只读验证，不会创建 DNS）:"
+      echo "  我只会验证授权并读取你的域名列表。"
+      echo "  本步骤不会创建 DNS，不会修改 Cloudflare。"
+      echo ""
+      cmd_cf_connect || true
+      console_pause
+      ;;
+    2)
       echo ""
       ui_safe_action "开始引导设置（只读，不会修改 DNS）:"
       echo ""
       cmd_setup_wizard || true
       console_pause
       ;;
-    2)
+    3)
       echo ""
       ui_safe_action "查看当前设置状态:"
       echo ""
       cmd_home || true
       console_pause
       ;;
-    3|"")
+    4|"")
       return
       ;;
     *)
-      echo "  无效输入，请选择 1-3。"
+      echo "  无效输入，请选择 1-4。"
       console_pause
       ;;
   esac
@@ -1899,6 +1917,54 @@ cmd_cf_zones() {
   esac
 }
 
+# ── cf connect ──────────────────────────────────────────────────────────────
+
+cmd_cf_connect() {
+  local api_token="" api_env="" auto_yes=0
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --api-token)
+        [[ $# -ge 2 ]] || die "cf connect: --api-token needs a value"
+        api_token="$2"; shift 2 ;;
+      --api-env)
+        [[ $# -ge 2 ]] || die "cf connect: --api-env needs a path"
+        api_env="$2"; shift 2 ;;
+      --yes)
+        auto_yes=1; shift ;;
+      --json)
+        JSON_OUT=1; shift ;;
+      --dry-run)
+        DRY_RUN=1; shift ;;
+      --help|-h)
+        echo "Usage: nanobk cf connect [--api-token TOKEN] [--api-env PATH] [--yes] [--json]"
+        echo ""
+        echo "  连接 Cloudflare 账户并选择域名。"
+        echo "  验证 API token，列出域名，保存到 setup profile。"
+        echo "  只读操作：不会创建 DNS，不会修改 Cloudflare。"
+        return 0 ;;
+      *)
+        die "cf connect: unknown option: $1"
+        ;;
+    esac
+  done
+
+  if [[ "$DRY_RUN" == "1" ]]; then
+    echo -e "  ${CYAN}[DRY-RUN]${NC} cf connect command prepared"
+    echo "  token: <redacted>"
+    echo "  No Cloudflare API call will be made."
+    return 0
+  fi
+
+  local args=(python3 "$REPO_DIR/lib/nanobk_cf_onboarding.py")
+  [[ -n "$api_token" ]] && args+=(--api-token "$api_token")
+  [[ -n "$api_env" ]] && args+=(--api-env "$api_env")
+  [[ "$auto_yes" == "1" ]] && args+=(--yes)
+  [[ "$JSON_OUT" == "1" ]] && args+=(--json)
+
+  "${args[@]}"
+}
+
 # ── home / setup status ───────────────────────────────────────────────────
 
 cmd_home() {
@@ -2372,12 +2438,13 @@ main() {
         cf_rest=("${cmd_rest[@]:1}")
       fi
       case "$cf_sub" in
+        connect) cmd_cf_connect ${cf_rest[@]+"${cf_rest[@]}"} ;;
         deploy)  cmd_cf_deploy ${cf_rest[@]+"${cf_rest[@]}"} ;;
         verify)  cmd_cf_verify ${cf_rest[@]+"${cf_rest[@]}"} ;;
         install-admin-env) cmd_cf_install_admin_env ;;
         dns)     cmd_cf_dns ${cf_rest[@]+"${cf_rest[@]}"} ;;
         zones)   cmd_cf_zones ${cf_rest[@]+"${cf_rest[@]}"} ;;
-        *)       die "Usage: nanobk cf <deploy|verify|install-admin-env|dns|zones> [args...]" ;;
+        *)       die "Usage: nanobk cf <connect|deploy|verify|install-admin-env|dns|zones> [args...]" ;;
       esac
       ;;
     vps)

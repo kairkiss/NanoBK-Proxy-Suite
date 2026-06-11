@@ -1,5 +1,29 @@
 # Changelog
 
+## v2.3.2 — Cloudflare Account and Zone Onboarding
+
+### Added
+
+- Added beginner-friendly `nanobk cf connect` flow.
+- Added safe local Cloudflare token env creation (`~/.nanobk/cloudflare.env`).
+- Added zone discovery and zone selection with auto-select support.
+- Saved selected zone into setup profile.
+- Added "连接 Cloudflare" to setup and DNS submenus.
+- Added onboarding regression test with fake fixtures.
+
+### Safety
+
+- No DNS mutation.
+- No Cloudflare DNS mutation.
+- GET-only Cloudflare zone discovery.
+- No Cloudflare POST/PATCH/PUT/DELETE.
+- No certificate request.
+- No token rotation.
+- No owner-smoke-create execution.
+- No Web/Bot behavior change.
+- No token, zone ID, record ID, raw API URL, raw API response, private key, or subscription URL output.
+- No release/tag.
+
 ## v2.3.1 — Brand CLI Console Shell
 
 ### Changed
