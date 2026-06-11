@@ -351,7 +351,11 @@ echo ""
 echo "--- L. Console menu ---"
 echo ""
 
-for pattern in "Guided setup wizard"; do
+# Check menu labels exist
+for pattern in "Guided setup wizard" "Beginner DNS setup assistant" "VPS IP detect" \
+  "Check proxy/web availability" "Generate DNS plan" "Create preflight summary" \
+  "Owner disposable smoke create" "Save setup profile" "Show setup profile" \
+  "Clear setup profile" "Back"; do
   if grep -q "$pattern" "$ROOT/bin/nanobk" 2>/dev/null; then
     pass "L: console contains '$pattern'"
   else
@@ -359,6 +363,39 @@ for pattern in "Guided setup wizard"; do
     ERRORS=$((ERRORS + 1))
   fi
 done
+
+# Check correct numbering in menu display
+MENU_SRC=$(sed -n '/console_dns_submenu/,/^}/p' "$ROOT/bin/nanobk")
+
+for num_label in "1) Guided setup wizard" "2) Beginner DNS setup assistant" \
+  "3) VPS IP detect" "4) Check proxy/web availability" "5) Generate DNS plan" \
+  "6) Create preflight summary" "7) Owner disposable smoke create" \
+  "8) Save setup profile" "9) Show setup profile" "10) Clear setup profile" \
+  "11) Back"; do
+  if echo "$MENU_SRC" | grep -q "$num_label"; then
+    pass "L: menu has '$num_label'"
+  else
+    fail "L: menu missing '$num_label'"
+    ERRORS=$((ERRORS + 1))
+  fi
+done
+
+# Check prompt matches
+if echo "$MENU_SRC" | grep -q 'Select \[1-11\]'; then
+  pass "L: prompt is Select [1-11]"
+else
+  fail "L: prompt should be Select [1-11]"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# Check for stale duplicate numbering (e.g. two "2)" entries)
+DUPES=$(echo "$MENU_SRC" | grep -oE '^\s+[0-9]+\)' | sort | uniq -d)
+if [[ -z "$DUPES" ]]; then
+  pass "L: no duplicate menu numbers"
+else
+  fail "L: duplicate menu numbers found: $DUPES"
+  ERRORS=$((ERRORS + 1))
+fi
 
 echo ""
 

@@ -1,5 +1,23 @@
 # Changelog
 
+## v2.2.51-polish — Fix Guided Setup Console Menu Numbering
+
+### Fixed
+
+- Fixed the Cloudflare DNS console submenu numbering after adding the guided setup wizard.
+- Added assertions that menu labels match the 1-11 selection range.
+- Added regression checks for duplicate/stale menu numbers.
+
+### Safety
+
+- Console display/test polish only.
+- No DNS mutation.
+- No Cloudflare POST/PATCH/PUT/DELETE.
+- No owner-smoke-create execution.
+- No production proxy/web DNS creation.
+- No Bot/Web/installer live create.
+- No release/tag.
+
 ## v2.2.51 — Guided CLI Setup Wizard
 
 ### Added
