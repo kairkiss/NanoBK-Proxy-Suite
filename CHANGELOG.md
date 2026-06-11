@@ -1,5 +1,27 @@
 # Changelog
 
+## v2.3.1 — Brand CLI Console Shell
+
+### Changed
+
+- Improved nanobk interactive console into a beginner-friendly product entry.
+- Added branded NanoBK ASCII header and simpler main menu.
+- Moved "开始配置 NanoBK" to the first menu entry.
+- Replaced English menu labels with beginner-friendly Chinese labels.
+- Added setup submenu with guided wizard and status view.
+- Kept advanced commands available behind the advanced menu.
+
+### Safety
+
+- No DNS mutation.
+- No Cloudflare mutation.
+- No Cloudflare POST/PATCH/PUT/DELETE.
+- No certificate request.
+- No token rotation.
+- No owner-smoke-create execution.
+- No Web/Bot behavior change.
+- No release/tag.
+
 ## v2.3.0 — CLI Cloudflare/DNS/Cert/Token Automation Scope Lock
 
 ### Added

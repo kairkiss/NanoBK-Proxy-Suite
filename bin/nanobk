@@ -238,156 +238,171 @@ console_pause() {
 
 print_console_header() {
   echo ""
-  echo -e "${BOLD}╔══════════════════════════════════════════════════════════╗${NC}"
-  echo -e "${BOLD}║                    NanoBK Proxy Suite                   ║${NC}"
-  echo -e "${BOLD}║              VPS Proxy Automation Console               ║${NC}"
-  echo -e "${BOLD}╚══════════════════════════════════════════════════════════╝${NC}"
+  echo -e "${CYAN}${BOLD}"
+  echo "  ╔╗ ╔═╗╔╗╔╔╦╗╔╗╔╔═╗╦  ╦╔═╗"
+  echo "  ╠╩╗║╣ ║║║ ║║║║║╠═╣║  ║║ ║"
+  echo "  ╚═╝╚═╝╝╚╝═╩╝╝╚╝╩ ╩╩═╝╩╚═╝"
+  echo -e "${NC}"
+  echo -e "  ${BOLD}NanoBK Proxy Suite${NC} v${NANOBK_VERSION}"
   echo ""
-  echo "  NanoBK v${NANOBK_VERSION}"
-  echo "  Safe by default · deployment requires explicit confirmation"
+  echo -e "  ${CYAN}欢迎使用 NanoBK${NC}"
+  echo "  让 VPS 代理部署变简单"
+  echo ""
+  echo "  Safe by default · 需要明确确认才会执行操作"
   echo ""
 }
 
 print_console_menu() {
-  echo "  1) Home / Setup status"
-  echo "  2) Status"
-  echo "  3) Doctor / diagnostics"
-  echo "  4) New deployment / Full Wizard"
-  echo "  5) Cloudflare DNS tools"
-  echo "  6) Export protocol links"
-  echo "  7) Rotate keys"
-  echo "  8) Install / repair CLI"
-  echo "  9) Advanced commands / full help"
-  echo " 10) Exit"
+  echo -e "  ${BOLD}主菜单${NC}"
+  echo ""
+  echo "  1) 开始配置 NanoBK"
+  echo "  2) 查看当前状态"
+  echo "  3) 诊断问题"
+  echo "  4) 域名和 Cloudflare 设置"
+  echo "  5) 安全与密钥"
+  echo "  6) 导出订阅 / 节点"
+  echo "  7) 安装或修复 CLI"
+  echo "  8) 高级命令"
+  echo "  9) 退出"
   echo ""
 }
 
-# DNS submenu — guidance-first (does not auto-run commands)
+# DNS submenu — guidance-first, beginner-friendly
 console_dns_submenu() {
-  ui_section "Cloudflare DNS Tools"
-  ui_hint "Read-only guidance in this console"
+  ui_section "域名和 Cloudflare 设置"
+  ui_hint "我会先检查，不会直接改你的 DNS。"
   echo ""
-  echo "  1) Guided setup wizard"
-  echo "  2) Beginner DNS setup assistant"
-  echo "  3) VPS IP detect"
-  echo "  4) Check proxy/web availability"
-  echo "  5) Generate DNS plan"
-  echo "  6) Create preflight summary"
-  echo "  7) Owner disposable smoke create (advanced/owner-only)"
-  echo "  8) Save setup profile"
-  echo "  9) Show setup profile"
-  echo " 10) Clear setup profile"
-  echo " 11) Back"
+  echo "  1) 引导设置向导"
+  echo "  2) DNS 设置助手"
+  echo "  3) 检测 VPS IP"
+  echo "  4) 检查域名可用性"
+  echo "  5) 生成 DNS 计划"
+  echo "  6) 预检摘要"
+  echo "  7) 保存设置配置"
+  echo "  8) 查看设置配置"
+  echo "  9) 清除设置配置"
+  echo " 10) 返回"
   echo ""
   local choice
-  read -rp "  Select [1-11]: " choice || { echo ""; return; }
+  read -rp "  选择 [1-10]: " choice || { echo ""; return; }
   case "$choice" in
     1)
       echo ""
-      ui_safe_action "Guided setup wizard (read-only, no mutation):"
+      ui_safe_action "引导设置向导（只读，不会修改 DNS）:"
       echo ""
-      echo "    nanobk setup wizard"
-      echo ""
-      echo "  Guides you through zone, API env, nodes, profile save, and read-only summary."
-      echo "  No DNS mutation. No Cloudflare mutation."
+      cmd_setup_wizard || true
       console_pause
       ;;
     2)
       echo ""
-      ui_safe_action "Beginner DNS setup assistant (read-only, no mutation):"
+      ui_safe_action "DNS 设置助手（只读，不会修改 DNS）:"
       echo ""
-      echo "    nanobk setup dns --zone example.com --api-env /path/to/cloudflare.env"
+      echo "    nanobk setup dns --zone your-domain.com --api-env /path/to/cloudflare.env"
       echo ""
-      echo "  Combines VPS IP detection, availability checks, DNS plan, and preflight."
-      echo "  No DNS mutation. No Cloudflare mutation."
+      echo "  自动检测 IP、检查可用性、生成 DNS 计划。"
+      echo "  不会修改 DNS，不会修改 Cloudflare。"
       console_pause
       ;;
     3)
       echo ""
-      ui_safe_action "VPS IP detect (read-only, no mutation):"
+      ui_safe_action "检测 VPS 公网 IP（只读）:"
       echo ""
-      echo "    nanobk vps ip detect"
-      echo ""
-      echo "  Detects public IPv4/IPv6 of the current VPS."
+      cmd_vps_ip_detect || true
       console_pause
       ;;
     4)
       echo ""
-      ui_safe_action "Check proxy/web availability (read-only, GET-only):"
+      ui_safe_action "检查子域名可用性（只读）:"
       echo ""
-      echo "    nanobk cf dns availability summary --zone example.com --api-env /path/to/cloudflare.env"
+      echo "    nanobk cf dns availability summary --zone your-domain.com --api-env /path/to/cloudflare.env"
       echo ""
-      echo "  Checks if proxy.<zone> and web.<zone> are available."
+      echo "  检查 proxy 和 web 子域名是否已被占用。"
       console_pause
       ;;
     5)
       echo ""
-      ui_safe_action "Generate DNS plan (read-only, no mutation):"
+      ui_safe_action "生成 DNS 计划（只读，不会修改 DNS）:"
       echo ""
-      echo "    nanobk cf dns plan-generator --zone example.com --api-env /path/to/cloudflare.env"
+      echo "    nanobk cf dns plan-generator --zone your-domain.com --api-env /path/to/cloudflare.env"
       echo ""
-      echo "  Combines IP detection and availability into a DNS plan."
+      echo "  结合 IP 检测和可用性检查，生成 DNS 配置计划。"
       console_pause
       ;;
     6)
       echo ""
-      ui_safe_action "Create preflight summary (read-only, no mutation):"
+      ui_safe_action "预检摘要（只读，不会创建记录）:"
       echo ""
-      echo "    nanobk cf dns create-preflight --zone example.com --api-env /path/to/cloudflare.env"
+      echo "    nanobk cf dns create-preflight --zone your-domain.com --api-env /path/to/cloudflare.env"
       echo ""
-      echo "  Shows what would be created without actually creating."
-      echo "  mutation_allowed=false, apply_ready=false, preflight_only=true."
+      echo "  显示将会创建什么，但不会实际创建。"
       console_pause
       ;;
     7)
       echo ""
-      ui_safe_action "Owner disposable smoke create (advanced, owner-only, disposable-only):"
+      ui_safe_action "保存设置配置（本地存储，不上传）:"
       echo ""
-      echo "    nanobk cf dns owner-smoke-create \\"
-      echo "      --zone example.com --api-env /path/to/cloudflare.env \\"
-      echo "      --label nanobk-smoke-xxxx --type A --content YOUR_IP --ttl 60 \\"
-      echo "      --owner-approve --cleanup \\"
-      echo "      --confirm-disposable-smoke \"I UNDERSTAND THIS WILL CREATE AND DELETE ONE DISPOSABLE CLOUDFLARE DNS RECORD\""
+      echo "    nanobk setup profile save --zone your-domain.com --api-env /path/to/cloudflare.env"
       echo ""
-      echo "  WARNING: This creates and deletes a disposable DNS record."
-      echo "  Requires owner approval, exact confirmation, and cleanup."
-      echo "  Only for nanobk-smoke-* labels. Not for production proxy/web."
-      echo "  Production proxy/web create remains blocked."
+      echo "  保存你的 DNS 设置，下次运行 setup dns 时不用重新输入。"
       console_pause
       ;;
     8)
       echo ""
-      ui_safe_action "Save setup profile (stores zone/api-env/nodes locally):"
+      ui_safe_action "查看已保存的设置配置（脱敏显示）:"
       echo ""
-      echo "    nanobk setup profile save --zone example.com --api-env /path/to/cloudflare.env"
-      echo ""
-      echo "  Saves your DNS setup so you can run 'nanobk setup dns' without re-entering."
-      echo "  Profile stored at ~/.nanobk/setup-profile.json with mode 0600."
+      cmd_setup_profile show || true
       console_pause
       ;;
     9)
       echo ""
-      ui_safe_action "Show setup profile (redacted):"
-      echo ""
-      echo "    nanobk setup profile show"
-      echo ""
-      echo "  Shows the saved DNS setup profile without exposing secrets."
-      console_pause
-      ;;
-    10)
-      echo ""
-      ui_safe_action "Clear setup profile:"
+      ui_safe_action "清除设置配置:"
       echo ""
       echo "    nanobk setup profile clear"
       echo ""
-      echo "  Removes the saved DNS setup profile."
+      echo "  删除已保存的 DNS 设置配置。"
       console_pause
       ;;
-    11|"")
+    10|"")
       return
       ;;
     *)
-      echo "  Invalid input. Please enter 1-11."
+      echo "  无效输入，请选择 1-10。"
+      console_pause
+      ;;
+  esac
+}
+
+# "Start NanoBK Setup" submenu
+console_setup_submenu() {
+  ui_section "开始配置 NanoBK"
+  ui_hint "选择一个开始方式："
+  echo ""
+  echo "  1) 开始引导设置"
+  echo "  2) 查看设置状态"
+  echo "  3) 返回"
+  echo ""
+  local choice
+  read -rp "  选择 [1-3]: " choice || { echo ""; return; }
+  case "$choice" in
+    1)
+      echo ""
+      ui_safe_action "开始引导设置（只读，不会修改 DNS）:"
+      echo ""
+      cmd_setup_wizard || true
+      console_pause
+      ;;
+    2)
+      echo ""
+      ui_safe_action "查看当前设置状态:"
+      echo ""
+      cmd_home || true
+      console_pause
+      ;;
+    3|"")
+      return
+      ;;
+    *)
+      echo "  无效输入，请选择 1-3。"
       console_pause
       ;;
   esac
@@ -398,64 +413,48 @@ console_loop() {
   while true; do
     print_console_menu
     local choice
-    read -rp "  Select [1-10]: " choice || { echo ""; break; }
+    read -rp "  选择 [1-9]: " choice || { echo ""; break; }
     case "$choice" in
       1)
-        ui_section "Home / Setup Status"
-        ui_safe_action "Read-only home overview"
+        console_setup_submenu
+        ;;
+      2)
+        ui_section "查看当前状态"
+        ui_safe_action "只读状态概览"
         echo ""
         cmd_home || true
         console_pause
         ;;
-      2)
-        ui_section "Status"
-        ui_safe_action "Read-only status view"
-        echo ""
-        cmd_status || true
-        console_pause
-        ;;
       3)
-        ui_section "Doctor / Diagnostics"
-        ui_safe_action "Read-only diagnostics"
+        ui_section "诊断问题"
+        ui_safe_action "只读环境检查"
         echo ""
         cmd_doctor || true
         console_pause
         ;;
       4)
-        ui_section "New Deployment / Full Wizard"
-        ui_explicit_action "Explicit deployment flow"
-        echo ""
-        echo "  This starts the legacy Full Wizard."
-        echo "  Command: nanobk install --mode full"
-        echo ""
-        echo "    1) Start Full Wizard"
-        echo "    2) Back"
-        echo ""
-        local deploy_choice
-        read -rp "  Select [1-2]: " deploy_choice || { echo ""; continue; }
-        case "$deploy_choice" in
-          1)
-            echo ""
-            echo "  Starting Full Wizard..."
-            echo ""
-            cmd_install --mode full || true
-            ;;
-          2|"")
-            continue
-            ;;
-          *)
-            echo "  Invalid input. Returning to menu."
-            ;;
-        esac
-        ;;
-      5)
         console_dns_submenu
         ;;
-      6)
-        ui_section "Export Protocol Links"
-        ui_warning "Sensitive output; run explicit export command"
+      5)
+        ui_section "安全与密钥"
+        ui_hint "本轮不会自动更换订阅访问密码。"
+        echo "  订阅 token 产品化将在 v2.3.6 完成。"
         echo ""
-        echo "  Export commands:"
+        echo "  密钥轮换命令："
+        echo "    nanobk rotate all"
+        echo "    nanobk rotate hy2"
+        echo "    nanobk rotate tuic"
+        echo "    nanobk rotate reality"
+        echo "    nanobk rotate trojan"
+        echo ""
+        echo "  需要时请手动运行以上命令。"
+        console_pause
+        ;;
+      6)
+        ui_section "导出订阅 / 节点"
+        ui_warning "包含敏感信息，请在安全环境下使用"
+        echo ""
+        echo "  导出命令："
         echo "    nanobk export link hy2"
         echo "    nanobk export link tuic"
         echo "    nanobk export link reality"
@@ -464,41 +463,27 @@ console_loop() {
         console_pause
         ;;
       7)
-        ui_section "Rotate Keys"
-        ui_explicit_action "Credential-changing operation; run explicit command"
-        echo ""
-        echo "  Rotate commands:"
-        echo "    nanobk rotate all"
-        echo "    nanobk rotate hy2"
-        echo "    nanobk rotate tuic"
-        echo "    nanobk rotate reality"
-        echo "    nanobk rotate trojan"
-        echo ""
-        echo "  Run these commands explicitly when ready."
-        console_pause
-        ;;
-      8)
-        ui_section "Install / Repair CLI"
-        ui_safe_action "Install nanobk symlink to /usr/local/bin"
+        ui_section "安装或修复 CLI"
+        ui_safe_action "安装 nanobk 到 /usr/local/bin"
         echo ""
         cmd_install_cli || true
         console_pause
         ;;
-      9)
-        ui_section "Advanced Commands / Full Help"
-        ui_advanced_action "Full CLI reference"
+      8)
+        ui_section "高级命令"
+        ui_advanced_action "完整 CLI 参考"
         echo ""
         cmd_help
         console_pause
         ;;
-      10|"")
+      9|"")
         echo ""
-        echo "  Goodbye."
+        echo "  再见！"
         echo ""
         break
         ;;
       *)
-        echo "  Invalid input. Please enter 1-10."
+        echo "  无效输入，请选择 1-9。"
         console_pause
         ;;
     esac
@@ -528,36 +513,24 @@ cmd_entry() {
   echo ""
   echo -e "${BOLD}NanoBK Proxy Suite${NC} v${NANOBK_VERSION}"
   echo ""
-  echo "  NanoBK is ready."
+  echo "  欢迎使用 NanoBK — 让 VPS 代理部署变简单"
   echo ""
-  echo "  Start here:"
-  echo "    nanobk status             Show current status"
-  echo "    nanobk doctor             Run environment diagnostics"
-  echo ""
-  echo "  Deployment (explicit):"
-  echo "    nanobk install --mode full        Full Wizard (VPS + Cloudflare + Bot + Web)"
-  echo "    nanobk install --mode vps         VPS only"
-  echo "    nanobk install --mode cloudflare  Cloudflare only"
-  echo "    nanobk install --mode bot         Telegram Bot only"
-  echo "    nanobk install --mode web         Web Panel only"
-  echo ""
-  echo "  DNS (Cloudflare):"
-  echo "    nanobk cf dns plan                Preview DNS plan"
-  echo "    nanobk cf dns validate-profile    Validate DNS profile"
-  echo "    nanobk cf dns apply --check       Check existing records (read-only)"
-  echo "    nanobk --help                     See advanced DNS apply options"
-  echo ""
-  echo "  Management:"
-  echo "    nanobk rotate <protocol>          Rotate keys"
-  echo "    nanobk export link <protocol>     Export protocol link"
-  echo "    nanobk export links               Export all links"
-  echo "    nanobk test                       Run local tests"
-  echo "    nanobk install-cli                Install nanobk to /usr/local/bin"
-  echo "    nanobk console                    Interactive console (TTY required)"
-  echo "    nanobk --help                     Full help"
+  echo "  NanoBK 已就绪。"
   echo ""
   echo "  Deployment is not started automatically."
-  echo "  Use explicit commands above to deploy."
+  echo "  部署不会自动启动，需要你手动执行命令。"
+  echo ""
+  echo "  开始使用："
+  echo "    nanobk                    交互式控制台（推荐）"
+  echo "    nanobk home               查看当前状态"
+  echo "    nanobk doctor             环境诊断"
+  echo ""
+  echo "  设置："
+  echo "    nanobk setup wizard       引导设置向导"
+  echo "    nanobk setup dns          DNS 设置助手"
+  echo ""
+  echo "  更多命令："
+  echo "    nanobk --help             查看完整帮助"
   echo ""
 }
 
