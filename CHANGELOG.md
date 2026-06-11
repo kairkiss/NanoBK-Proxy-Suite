@@ -1,5 +1,27 @@
 # Changelog
 
+## v2.2.53 — Unified Setup Status and CLI Home
+
+### Added
+
+- Added `nanobk home` as a beginner-friendly setup status overview.
+- Added `nanobk setup status` as a setup-focused status alias.
+- Summarized saved profile state, setup status, explanation, next actions, and safety flags.
+- Added JSON output suitable for future Web/Bot read-only integration.
+- Added tests for no profile, configured profile, setup status alias, unsafe profile permissions, malformed profile, no IP, subdomain conflict, redaction, mutation blocking, help, console, and formatting.
+
+### Safety
+
+- Home/status overview only.
+- Read-only setup checks only.
+- No DNS mutation.
+- No Cloudflare POST/PATCH/PUT/DELETE.
+- No owner-smoke-create execution.
+- No production proxy/web DNS creation.
+- No token, credential path, profile path, zone ID, record ID, raw API URL, or raw API response output.
+- No Bot/Web/installer live create.
+- No release/tag.
+
 ## v2.2.52 — Setup Result Explanations and Next Actions
 
 ### Added

@@ -249,15 +249,16 @@ print_console_header() {
 }
 
 print_console_menu() {
-  echo "  1) Status"
-  echo "  2) Doctor / diagnostics"
-  echo "  3) New deployment / Full Wizard"
-  echo "  4) Cloudflare DNS tools"
-  echo "  5) Export protocol links"
-  echo "  6) Rotate keys"
-  echo "  7) Install / repair CLI"
-  echo "  8) Advanced commands / full help"
-  echo "  9) Exit"
+  echo "  1) Home / Setup status"
+  echo "  2) Status"
+  echo "  3) Doctor / diagnostics"
+  echo "  4) New deployment / Full Wizard"
+  echo "  5) Cloudflare DNS tools"
+  echo "  6) Export protocol links"
+  echo "  7) Rotate keys"
+  echo "  8) Install / repair CLI"
+  echo "  9) Advanced commands / full help"
+  echo " 10) Exit"
   echo ""
 }
 
@@ -397,23 +398,30 @@ console_loop() {
   while true; do
     print_console_menu
     local choice
-    read -rp "  Select [1-9]: " choice || { echo ""; break; }
+    read -rp "  Select [1-10]: " choice || { echo ""; break; }
     case "$choice" in
       1)
+        ui_section "Home / Setup Status"
+        ui_safe_action "Read-only home overview"
+        echo ""
+        cmd_home || true
+        console_pause
+        ;;
+      2)
         ui_section "Status"
         ui_safe_action "Read-only status view"
         echo ""
         cmd_status || true
         console_pause
         ;;
-      2)
+      3)
         ui_section "Doctor / Diagnostics"
         ui_safe_action "Read-only diagnostics"
         echo ""
         cmd_doctor || true
         console_pause
         ;;
-      3)
+      4)
         ui_section "New Deployment / Full Wizard"
         ui_explicit_action "Explicit deployment flow"
         echo ""
@@ -440,10 +448,10 @@ console_loop() {
             ;;
         esac
         ;;
-      4)
+      5)
         console_dns_submenu
         ;;
-      5)
+      6)
         ui_section "Export Protocol Links"
         ui_warning "Sensitive output; run explicit export command"
         echo ""
@@ -455,7 +463,7 @@ console_loop() {
         echo "    nanobk export links"
         console_pause
         ;;
-      6)
+      7)
         ui_section "Rotate Keys"
         ui_explicit_action "Credential-changing operation; run explicit command"
         echo ""
@@ -469,28 +477,28 @@ console_loop() {
         echo "  Run these commands explicitly when ready."
         console_pause
         ;;
-      7)
+      8)
         ui_section "Install / Repair CLI"
         ui_safe_action "Install nanobk symlink to /usr/local/bin"
         echo ""
         cmd_install_cli || true
         console_pause
         ;;
-      8)
+      9)
         ui_section "Advanced Commands / Full Help"
         ui_advanced_action "Full CLI reference"
         echo ""
         cmd_help
         console_pause
         ;;
-      9|"")
+      10|"")
         echo ""
         echo "  Goodbye."
         echo ""
         break
         ;;
       *)
-        echo "  Invalid input. Please enter 1-9."
+        echo "  Invalid input. Please enter 1-10."
         console_pause
         ;;
     esac
@@ -590,8 +598,10 @@ NanoBK Proxy Suite — Unified CLI v${NANOBK_VERSION}
   cf dns profile generate --zone DOMAIN --node NODE --ipv4 VALUE --output PATH --yes  生成临时 DNS 配置 [--json]
   cf zones list --api-env PATH  只读列出 Cloudflare zones [--json]
   vps ip detect               只读 VPS IP 候选检测 [--json]
+  home                              NanoBK 状态总览 [--json]
   setup wizard [--zone DOMAIN] [--api-env PATH] [--yes]  引导式 DNS 设置向导 [--json]
   setup dns --zone DOMAIN --api-env PATH  初学者 DNS 设置助手 [--json]
+  setup status                      设置状态总览 [--json]
   setup profile save --zone DOMAIN --api-env PATH  保存 DNS 设置配置 [--json]
   setup profile show                     显示已保存的 DNS 设置配置 [--json]
   setup profile clear                    清除已保存的 DNS 设置配置 [--json]
@@ -1916,6 +1926,37 @@ cmd_cf_zones() {
   esac
 }
 
+# ── home / setup status ───────────────────────────────────────────────────
+
+cmd_home() {
+  local args=(python3 "$REPO_DIR/lib/nanobk_setup_status.py" home)
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --json)
+        args+=("--json"); shift ;;
+      --help|-h)
+        echo "Usage: nanobk home [--json]"
+        echo ""
+        echo "  Show NanoBK home / setup status overview."
+        echo "  Read-only. No DNS mutation. No Cloudflare mutation."
+        return 0 ;;
+      --dry-run)
+        echo -e "  ${CYAN}[DRY-RUN]${NC} home command prepared"
+        echo "  No DNS mutation will be performed."
+        return 0 ;;
+      *)
+        die "home: unknown option: $1"
+        ;;
+    esac
+  done
+  if [[ "$DRY_RUN" == "1" ]]; then
+    echo -e "  ${CYAN}[DRY-RUN]${NC} home command prepared"
+    echo "  No DNS mutation will be performed."
+    return 0
+  fi
+  "${args[@]}"
+}
+
 # ── setup dns ────────────────────────────────────────────────────────────
 
 cmd_setup_dns() {
@@ -2346,6 +2387,7 @@ main() {
   resolve_repo_dir
 
   case "$command" in
+    home)         cmd_home ${cmd_rest[@]+"${cmd_rest[@]}"} ;;
     status)       cmd_status ${cmd_rest[@]+"${cmd_rest[@]}"} ;;
     doctor)       cmd_doctor ${cmd_rest[@]+"${cmd_rest[@]}"} ;;
     install)      cmd_install ${cmd_rest[@]+"${cmd_rest[@]}"} ;;
@@ -2392,8 +2434,9 @@ main() {
       case "$setup_sub" in
         dns)      cmd_setup_dns ${setup_rest[@]+"${setup_rest[@]}"} ;;
         profile)  cmd_setup_profile ${setup_rest[@]+"${setup_rest[@]}"} ;;
+        status)   cmd_home ${setup_rest[@]+"${setup_rest[@]}"} ;;
         wizard)   cmd_setup_wizard ${setup_rest[@]+"${setup_rest[@]}"} ;;
-        *)        die "Usage: nanobk setup <dns|profile|wizard> [args...]" ;;
+        *)        die "Usage: nanobk setup <dns|profile|status|wizard> [args...]" ;;
       esac
       ;;
     rotate)   cmd_rotate ${cmd_rest[@]+"${cmd_rest[@]}"} ;;
