@@ -1,5 +1,24 @@
 # Changelog
 
+## v2.2.55 — Final CLI/Web/Bot Safety Regression and Closeout Candidate
+
+### Added
+
+- Added final v2.2 closeout regression covering setup profile, setup wizard, setup DNS, home/status, Web `/api/home`, Bot `/home`, Bot `/setup_status`, renderer/adapters, redaction, and no-mutation behavior.
+- Added v2.2 closeout checklist.
+- Added v2.2 to v2.3 handoff document.
+
+### Safety
+
+- Regression/documentation closeout only.
+- No DNS mutation.
+- No Cloudflare POST/PATCH/PUT/DELETE.
+- No owner-smoke-create execution.
+- No production proxy/web DNS creation.
+- No Web/Bot live create beyond existing read-only route/command.
+- No token, credential path, profile path, zone ID, record ID, raw API URL, or raw API response output.
+- No release/tag.
+
 ## v2.2.54-polish — Wire Home Bridge into Web and Bot
 
 ### Fixed
