@@ -1,5 +1,27 @@
 # Changelog
 
+## v2.2.49 — Beginner DNS Setup Assistant
+
+### Added
+
+- Added a beginner-friendly DNS setup assistant CLI entry.
+- Combined VPS IP detection, proxy/web availability checks, DNS plan generation, and create-preflight summary into one safe flow.
+- Added JSON output for future Web/Bot read-only integration.
+- Updated the console DNS menu to point users at the new assistant and current DNS commands.
+- Added tests for happy path, IP partials, subdomain conflicts, API failure, unsafe credentials, JSON shape, redaction, mutation blocking, help, and console menu visibility.
+
+### Safety
+
+- Assistant-only and plan-only.
+- No production proxy/web DNS creation.
+- No Cloudflare mutation.
+- No POST/PATCH/PUT/DELETE.
+- No owner-smoke-create execution.
+- No apply --yes, force, or overwrite.
+- No token, credential path, zone ID, record ID, raw API URL, or raw API response output.
+- No Bot/Web/installer live create.
+- No release/tag.
+
 ## v2.2.48-polish5 — Commit Actual Runbook Newline Fixes
 
 ### Fixed

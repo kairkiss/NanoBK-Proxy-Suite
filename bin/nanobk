@@ -266,55 +266,85 @@ console_dns_submenu() {
   ui_section "Cloudflare DNS Tools"
   ui_hint "Read-only guidance in this console"
   echo ""
-  echo "  1) Preview DNS plan"
-  echo "  2) Validate DNS profile"
-  echo "  3) Read-only check (--check)"
-  echo "  4) DNS readiness report"
-  echo "  5) Back"
+  echo "  1) Beginner DNS setup assistant"
+  echo "  2) VPS IP detect"
+  echo "  3) Check proxy/web availability"
+  echo "  4) Generate DNS plan"
+  echo "  5) Create preflight summary"
+  echo "  6) Owner disposable smoke create (advanced/owner-only)"
+  echo "  7) Back"
   echo ""
   local choice
-  read -rp "  Select [1-5]: " choice || { echo ""; return; }
+  read -rp "  Select [1-7]: " choice || { echo ""; return; }
   case "$choice" in
     1)
       echo ""
-      ui_safe_action "Preview DNS plan (dry-run, no mutation):"
+      ui_safe_action "Beginner DNS setup assistant (read-only, no mutation):"
       echo ""
-      echo "    nanobk cf dns plan --profile /etc/nanobk/cloudflare-dns-profile.json"
+      echo "    nanobk setup dns --zone example.com --api-env /path/to/cloudflare.env"
       echo ""
-      echo "  Or with direct arguments:"
-      echo ""
-      echo "    nanobk cf dns plan --zone example.com --node proxy --ipv4 YOUR_VPS_IPV4"
+      echo "  Combines VPS IP detection, availability checks, DNS plan, and preflight."
+      echo "  No DNS mutation. No Cloudflare mutation."
       console_pause
       ;;
     2)
       echo ""
-      ui_safe_action "Validate DNS profile (read-only):"
+      ui_safe_action "VPS IP detect (read-only, no mutation):"
       echo ""
-      echo "    nanobk cf dns validate-profile --profile /etc/nanobk/cloudflare-dns-profile.json"
+      echo "    nanobk vps ip detect"
+      echo ""
+      echo "  Detects public IPv4/IPv6 of the current VPS."
       console_pause
       ;;
     3)
       echo ""
-      ui_safe_action "Read-only check (GET-only, no DNS mutation):"
+      ui_safe_action "Check proxy/web availability (read-only, GET-only):"
       echo ""
-      echo "    nanobk cf dns apply --profile /etc/nanobk/cloudflare-dns-profile.json \\"
-      echo "      --api-env /etc/nanobk/cloudflare-api.env --check"
+      echo "    nanobk cf dns availability summary --zone example.com --api-env /path/to/cloudflare.env"
+      echo ""
+      echo "  Checks if proxy.<zone> and web.<zone> are available."
       console_pause
       ;;
     4)
       echo ""
-      ui_safe_action "DNS readiness report (read-only):"
+      ui_safe_action "Generate DNS plan (read-only, no mutation):"
       echo ""
-      echo "    nanobk cf dns readiness \\"
-      echo "      --api-env /etc/nanobk/cloudflare-api.env \\"
-      echo "      --profile /etc/nanobk/cloudflare-dns-profile.json"
+      echo "    nanobk cf dns plan-generator --zone example.com --api-env /path/to/cloudflare.env"
+      echo ""
+      echo "  Combines IP detection and availability into a DNS plan."
       console_pause
       ;;
-    5|"")
+    5)
+      echo ""
+      ui_safe_action "Create preflight summary (read-only, no mutation):"
+      echo ""
+      echo "    nanobk cf dns create-preflight --zone example.com --api-env /path/to/cloudflare.env"
+      echo ""
+      echo "  Shows what would be created without actually creating."
+      echo "  mutation_allowed=false, apply_ready=false, preflight_only=true."
+      console_pause
+      ;;
+    6)
+      echo ""
+      ui_safe_action "Owner disposable smoke create (advanced, owner-only, disposable-only):"
+      echo ""
+      echo "    nanobk cf dns owner-smoke-create \\"
+      echo "      --zone example.com --api-env /path/to/cloudflare.env \\"
+      echo "      --label nanobk-smoke-xxxx --type A --content YOUR_IP --ttl 60 \\"
+      echo "      --owner-approve --cleanup \\"
+      echo "      --confirm-disposable-smoke \"I UNDERSTAND THIS WILL CREATE AND DELETE ONE DISPOSABLE CLOUDFLARE DNS RECORD\""
+      echo ""
+      echo "  WARNING: This creates and deletes a disposable DNS record."
+      echo "  Requires owner approval, exact confirmation, and cleanup."
+      echo "  Only for nanobk-smoke-* labels. Not for production proxy/web."
+      echo "  Production proxy/web create remains blocked."
+      console_pause
+      ;;
+    7|"")
       return
       ;;
     *)
-      echo "  Invalid input. Please enter 1-5."
+      echo "  Invalid input. Please enter 1-7."
       console_pause
       ;;
   esac
@@ -518,6 +548,7 @@ NanoBK Proxy Suite — Unified CLI v${NANOBK_VERSION}
   cf dns profile generate --zone DOMAIN --node NODE --ipv4 VALUE --output PATH --yes  生成临时 DNS 配置 [--json]
   cf zones list --api-env PATH  只读列出 Cloudflare zones [--json]
   vps ip detect               只读 VPS IP 候选检测 [--json]
+  setup dns --zone DOMAIN --api-env PATH  初学者 DNS 设置助手 [--json]
   rotate <protocol> [args.]  换密钥: all|hy2|tuic|reality|trojan
   export link <protocol>     导出单个协议链接: hy2|tuic|reality|trojan
   export links               导出所有协议链接
@@ -1839,6 +1870,49 @@ cmd_cf_zones() {
   esac
 }
 
+# ── setup dns ────────────────────────────────────────────────────────────
+
+cmd_setup_dns() {
+  local args=(python3 "$REPO_DIR/lib/nanobk_dns_setup_assistant.py" setup)
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --zone)
+        [[ $# -ge 2 ]] || die "setup dns: --zone needs a value"
+        args+=("$1" "$2"); shift 2 ;;
+      --api-env)
+        [[ $# -ge 2 ]] || die "setup dns: --api-env needs a path"
+        args+=("$1" "$2"); shift 2 ;;
+      --nodes)
+        [[ $# -ge 2 ]] || die "setup dns: --nodes needs a value"
+        args+=("$1" "$2"); shift 2 ;;
+      --json)
+        args+=("--json"); shift ;;
+      --help|-h)
+        echo "Usage: nanobk setup dns --zone DOMAIN --api-env PATH [--nodes proxy,web] [--json]"
+        echo ""
+        echo "  Beginner-friendly DNS setup assistant."
+        echo "  Combines VPS IP detection, availability checks, DNS plan, and preflight."
+        echo "  Read-only. No DNS mutation. No Cloudflare mutation."
+        return 0 ;;
+      --dry-run)
+        echo -e "  ${CYAN}[DRY-RUN]${NC} setup dns command prepared"
+        echo "  api-env: <redacted>"
+        echo "  No DNS mutation will be performed."
+        return 0 ;;
+      *)
+        die "setup dns: unknown option: $1"
+        ;;
+    esac
+  done
+  if [[ "$DRY_RUN" == "1" ]]; then
+    echo -e "  ${CYAN}[DRY-RUN]${NC} setup dns command prepared"
+    echo "  api-env: <redacted>"
+    echo "  No DNS mutation will be performed."
+    return 0
+  fi
+  "${args[@]}"
+}
+
 # ── vps ip detect ────────────────────────────────────────────────────────
 
 cmd_vps_ip_detect() {
@@ -2130,6 +2204,14 @@ main() {
           esac
           ;;
         *)       die "Usage: nanobk vps <ip> [args...]" ;;
+      esac
+      ;;
+    setup)
+      local setup_sub="${cmd_rest[0]:-}"
+      local setup_rest=("${cmd_rest[@]:1}")
+      case "$setup_sub" in
+        dns)  cmd_setup_dns ${setup_rest[@]+"${setup_rest[@]}"} ;;
+        *)    die "Usage: nanobk setup dns --zone DOMAIN --api-env PATH [--json]" ;;
       esac
       ;;
     rotate)   cmd_rotate ${cmd_rest[@]+"${cmd_rest[@]}"} ;;
