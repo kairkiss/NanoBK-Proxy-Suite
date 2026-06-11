@@ -200,6 +200,54 @@ else
   ERRORS=$((ERRORS + 1))
 fi
 
+# ══════════════════════════════════════════════════════════════════════════════
+# G. Git object checks (staged index)
+# ══════════════════════════════════════════════════════════════════════════════
+
+echo "--- G. Git object checks ---"
+echo ""
+
+GIT_RUNBOOK_LINES=$(git show ':docs/runbooks/v2.2.48-operator-controlled-dns-create-runbook.md' 2>/dev/null | wc -l || echo 0)
+GIT_GUARD_LINES=$(git show ':docs/validation/v2.2.48-production-apply-is-still-blocked.md' 2>/dev/null | wc -l || echo 0)
+GIT_SELF_LINES=$(git show ':tests/v2.2.48-runbook-guardrails.sh' 2>/dev/null | wc -l || echo 0)
+GIT_SELF_LINE1=$(git show ':tests/v2.2.48-runbook-guardrails.sh' 2>/dev/null | sed -n '1p' || echo '')
+GIT_SELF_LINE2=$(git show ':tests/v2.2.48-runbook-guardrails.sh' 2>/dev/null | sed -n '2p' || echo '')
+
+if [[ "$GIT_RUNBOOK_LINES" -ge 80 ]]; then
+  pass "G1: staged runbook has $GIT_RUNBOOK_LINES lines (>= 80)"
+else
+  fail "G1: staged runbook has only $GIT_RUNBOOK_LINES lines (expected >= 80)"
+  ERRORS=$((ERRORS + 1))
+fi
+
+if [[ "$GIT_GUARD_LINES" -ge 30 ]]; then
+  pass "G2: staged production doc has $GIT_GUARD_LINES lines (>= 30)"
+else
+  fail "G2: staged production doc has only $GIT_GUARD_LINES lines (expected >= 30)"
+  ERRORS=$((ERRORS + 1))
+fi
+
+if [[ "$GIT_SELF_LINES" -ge 80 ]]; then
+  pass "G3: staged script has $GIT_SELF_LINES lines (>= 80)"
+else
+  fail "G3: staged script has only $GIT_SELF_LINES lines (expected >= 80)"
+  ERRORS=$((ERRORS + 1))
+fi
+
+if [[ "$GIT_SELF_LINE1" == "#!/usr/bin/env bash" ]]; then
+  pass "G4: staged script first line is shebang"
+else
+  fail "G4: staged script first line is not shebang: $GIT_SELF_LINE1"
+  ERRORS=$((ERRORS + 1))
+fi
+
+if [[ "$GIT_SELF_LINE2" == "set -Eeuo pipefail" ]]; then
+  pass "G5: staged script second line is set -Eeuo pipefail"
+else
+  fail "G5: staged script second line is not set -Eeuo pipefail: $GIT_SELF_LINE2"
+  ERRORS=$((ERRORS + 1))
+fi
+
 echo ""
 
 # ══════════════════════════════════════════════════════════════════════════════
