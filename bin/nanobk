@@ -266,7 +266,8 @@ console_dns_submenu() {
   ui_section "Cloudflare DNS Tools"
   ui_hint "Read-only guidance in this console"
   echo ""
-  echo "  1) Beginner DNS setup assistant"
+  echo "  1) Guided setup wizard"
+  echo "  2) Beginner DNS setup assistant"
   echo "  2) VPS IP detect"
   echo "  3) Check proxy/web availability"
   echo "  4) Generate DNS plan"
@@ -278,9 +279,19 @@ console_dns_submenu() {
   echo " 10) Back"
   echo ""
   local choice
-  read -rp "  Select [1-10]: " choice || { echo ""; return; }
+  read -rp "  Select [1-11]: " choice || { echo ""; return; }
   case "$choice" in
     1)
+      echo ""
+      ui_safe_action "Guided setup wizard (read-only, no mutation):"
+      echo ""
+      echo "    nanobk setup wizard"
+      echo ""
+      echo "  Guides you through zone, API env, nodes, profile save, and read-only summary."
+      echo "  No DNS mutation. No Cloudflare mutation."
+      console_pause
+      ;;
+    2)
       echo ""
       ui_safe_action "Beginner DNS setup assistant (read-only, no mutation):"
       echo ""
@@ -290,7 +301,7 @@ console_dns_submenu() {
       echo "  No DNS mutation. No Cloudflare mutation."
       console_pause
       ;;
-    2)
+    3)
       echo ""
       ui_safe_action "VPS IP detect (read-only, no mutation):"
       echo ""
@@ -299,7 +310,7 @@ console_dns_submenu() {
       echo "  Detects public IPv4/IPv6 of the current VPS."
       console_pause
       ;;
-    3)
+    4)
       echo ""
       ui_safe_action "Check proxy/web availability (read-only, GET-only):"
       echo ""
@@ -308,7 +319,7 @@ console_dns_submenu() {
       echo "  Checks if proxy.<zone> and web.<zone> are available."
       console_pause
       ;;
-    4)
+    5)
       echo ""
       ui_safe_action "Generate DNS plan (read-only, no mutation):"
       echo ""
@@ -317,7 +328,7 @@ console_dns_submenu() {
       echo "  Combines IP detection and availability into a DNS plan."
       console_pause
       ;;
-    5)
+    6)
       echo ""
       ui_safe_action "Create preflight summary (read-only, no mutation):"
       echo ""
@@ -327,7 +338,7 @@ console_dns_submenu() {
       echo "  mutation_allowed=false, apply_ready=false, preflight_only=true."
       console_pause
       ;;
-    6)
+    7)
       echo ""
       ui_safe_action "Owner disposable smoke create (advanced, owner-only, disposable-only):"
       echo ""
@@ -343,7 +354,7 @@ console_dns_submenu() {
       echo "  Production proxy/web create remains blocked."
       console_pause
       ;;
-    7)
+    8)
       echo ""
       ui_safe_action "Save setup profile (stores zone/api-env/nodes locally):"
       echo ""
@@ -353,7 +364,7 @@ console_dns_submenu() {
       echo "  Profile stored at ~/.nanobk/setup-profile.json with mode 0600."
       console_pause
       ;;
-    8)
+    9)
       echo ""
       ui_safe_action "Show setup profile (redacted):"
       echo ""
@@ -362,7 +373,7 @@ console_dns_submenu() {
       echo "  Shows the saved DNS setup profile without exposing secrets."
       console_pause
       ;;
-    9)
+    10)
       echo ""
       ui_safe_action "Clear setup profile:"
       echo ""
@@ -371,11 +382,11 @@ console_dns_submenu() {
       echo "  Removes the saved DNS setup profile."
       console_pause
       ;;
-    10|"")
+    11|"")
       return
       ;;
     *)
-      echo "  Invalid input. Please enter 1-10."
+      echo "  Invalid input. Please enter 1-11."
       console_pause
       ;;
   esac
@@ -579,6 +590,7 @@ NanoBK Proxy Suite — Unified CLI v${NANOBK_VERSION}
   cf dns profile generate --zone DOMAIN --node NODE --ipv4 VALUE --output PATH --yes  生成临时 DNS 配置 [--json]
   cf zones list --api-env PATH  只读列出 Cloudflare zones [--json]
   vps ip detect               只读 VPS IP 候选检测 [--json]
+  setup wizard [--zone DOMAIN] [--api-env PATH] [--yes]  引导式 DNS 设置向导 [--json]
   setup dns --zone DOMAIN --api-env PATH  初学者 DNS 设置助手 [--json]
   setup profile save --zone DOMAIN --api-env PATH  保存 DNS 设置配置 [--json]
   setup profile show                     显示已保存的 DNS 设置配置 [--json]
@@ -2036,6 +2048,51 @@ cmd_setup_profile() {
   esac
 }
 
+# ── setup wizard ───────────────────────────────────────────────────────────
+
+cmd_setup_wizard() {
+  local args=(python3 "$REPO_DIR/lib/nanobk_setup_wizard.py" wizard)
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --zone)
+        [[ $# -ge 2 ]] || die "setup wizard: --zone needs a value"
+        args+=("$1" "$2"); shift 2 ;;
+      --api-env)
+        [[ $# -ge 2 ]] || die "setup wizard: --api-env needs a path"
+        args+=("$1" "$2"); shift 2 ;;
+      --nodes)
+        [[ $# -ge 2 ]] || die "setup wizard: --nodes needs a value"
+        args+=("$1" "$2"); shift 2 ;;
+      --yes)
+        args+=("--yes"); shift ;;
+      --json)
+        args+=("--json"); shift ;;
+      --help|-h)
+        echo "Usage: nanobk setup wizard [--zone DOMAIN] [--api-env PATH] [--nodes proxy,web] [--yes] [--json]"
+        echo ""
+        echo "  Guided CLI setup wizard for beginners."
+        echo "  Saves profile and runs read-only DNS setup summary."
+        echo "  No DNS mutation. No Cloudflare mutation."
+        return 0 ;;
+      --dry-run)
+        echo -e "  ${CYAN}[DRY-RUN]${NC} setup wizard command prepared"
+        echo "  api-env: <redacted>"
+        echo "  No DNS mutation will be performed."
+        return 0 ;;
+      *)
+        die "setup wizard: unknown option: $1"
+        ;;
+    esac
+  done
+  if [[ "$DRY_RUN" == "1" ]]; then
+    echo -e "  ${CYAN}[DRY-RUN]${NC} setup wizard command prepared"
+    echo "  api-env: <redacted>"
+    echo "  No DNS mutation will be performed."
+    return 0
+  fi
+  "${args[@]}"
+}
+
 # ── vps ip detect ────────────────────────────────────────────────────────
 
 cmd_vps_ip_detect() {
@@ -2335,7 +2392,8 @@ main() {
       case "$setup_sub" in
         dns)      cmd_setup_dns ${setup_rest[@]+"${setup_rest[@]}"} ;;
         profile)  cmd_setup_profile ${setup_rest[@]+"${setup_rest[@]}"} ;;
-        *)        die "Usage: nanobk setup <dns|profile> [args...]" ;;
+        wizard)   cmd_setup_wizard ${setup_rest[@]+"${setup_rest[@]}"} ;;
+        *)        die "Usage: nanobk setup <dns|profile|wizard> [args...]" ;;
       esac
       ;;
     rotate)   cmd_rotate ${cmd_rest[@]+"${cmd_rest[@]}"} ;;

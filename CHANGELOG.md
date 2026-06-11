@@ -1,5 +1,26 @@
 # Changelog
 
+## v2.2.51 — Guided CLI Setup Wizard
+
+### Added
+
+- Added `nanobk setup wizard` as a beginner-friendly guided CLI setup flow.
+- Guided users through zone, API env, nodes, profile save, and read-only DNS setup summary.
+- Added non-interactive `--yes` mode for tests and advanced users.
+- Updated help and console DNS menu.
+- Added tests for interactive flow, non-interactive flow, cancellation, missing args, unsafe credentials, profile permissions, JSON shape, redaction, mutation blocking, help, console, and formatting.
+
+### Safety
+
+- Wizard/profile/assistant only.
+- No DNS mutation.
+- No Cloudflare POST/PATCH/PUT/DELETE.
+- No owner-smoke-create execution.
+- No production proxy/web DNS creation.
+- No token, credential path, profile path, zone ID, record ID, raw API URL, or raw API response output.
+- No Bot/Web/installer live create.
+- No release/tag.
+
 ## v2.2.50 — Saved DNS Setup Profile
 
 ### Added
