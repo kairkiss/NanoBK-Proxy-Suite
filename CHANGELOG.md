@@ -1,5 +1,23 @@
 # Changelog
 
+## v2.2.48-polish5 — Commit Actual Runbook Newline Fixes
+
+### Fixed
+
+- Recommitted the v2.2.48 runbook, production-blocked note, and guardrail test with real LF newlines.
+- Verified the staged and committed git objects include the corrected multi-line files.
+- Ensured the guardrail script has a standalone shebang and standalone `set -Eeuo pipefail`.
+
+### Safety
+
+- Documentation/test formatting only.
+- No runtime DNS behavior changed.
+- No Cloudflare calls.
+- No DNS create/update/delete.
+- No production proxy/web apply.
+- No Bot/Web/installer integration.
+- No release/tag.
+
 ## v2.2.48-polish4 — Verify Runbook Newlines in Git Objects
 
 ### Fixed
