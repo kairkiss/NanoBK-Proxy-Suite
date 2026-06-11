@@ -30,6 +30,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from nanobk_setup_profile import save_profile, load_profile, default_profile_path
 from nanobk_dns_setup_assistant import run_setup
+from nanobk_setup_explain import explain_setup_result, format_explanation_text
 
 
 # ── Safety constants ────────────────────────────────────────────────────────
@@ -68,28 +69,31 @@ def run_wizard(zone, api_env, nodes, confirm_yes, interactive):
             if user_nodes:
                 nodes = user_nodes
     except EOFError:
-        return {
+        result = {
             "ok": True,
             "wizard_status": "cancelled",
             "profile": {"saved": False},
             "safety": _safety(),
         }
+        return explain_setup_result(result, zone)
 
     # Validate required inputs
     if not zone:
-        return {
+        result = {
             "ok": False,
             "wizard_status": "blocked",
             "error": "zone is required",
             "safety": _safety(),
         }
+        return explain_setup_result(result, zone)
     if not api_env:
-        return {
+        result = {
             "ok": False,
             "wizard_status": "blocked",
             "error": "api-env path is required",
             "safety": _safety(),
         }
+        return explain_setup_result(result, zone)
 
     # Interactive confirmation
     if interactive and not confirm_yes:
@@ -100,19 +104,21 @@ def run_wizard(zone, api_env, nodes, confirm_yes, interactive):
         try:
             answer = input("  Continue saving profile and running read-only setup? [y/N]: ").strip().lower()
         except EOFError:
-            return {
+            result = {
                 "ok": True,
                 "wizard_status": "cancelled",
                 "profile": {"saved": False},
                 "safety": _safety(),
             }
+            return explain_setup_result(result, zone)
         if answer not in ("y", "yes"):
-            return {
+            result = {
                 "ok": True,
                 "wizard_status": "cancelled",
                 "profile": {"saved": False},
                 "safety": _safety(),
             }
+            return explain_setup_result(result, zone)
 
     # Parse nodes
     nodes_list = [n.strip() for n in nodes.split(",") if n.strip()]
@@ -120,18 +126,19 @@ def run_wizard(zone, api_env, nodes, confirm_yes, interactive):
     # Save profile
     profile_result = save_profile(zone, api_env, nodes_list)
     if not profile_result.get("ok", False):
-        return {
+        result = {
             "ok": False,
             "wizard_status": "blocked",
             "error": profile_result.get("error", "failed to save profile"),
             "safety": _safety(),
         }
+        return explain_setup_result(result, zone)
 
     # Run setup assistant
     try:
         setup_result = run_setup(zone, api_env, nodes)
     except Exception as e:
-        return {
+        result = {
             "ok": False,
             "wizard_status": "blocked",
             "error": "setup assistant failed: {}".format(e),
@@ -145,10 +152,11 @@ def run_wizard(zone, api_env, nodes, confirm_yes, interactive):
             },
             "safety": _safety(),
         }
+        return explain_setup_result(result, zone)
 
     wizard_status = setup_result.get("setup_status", "unknown")
 
-    return {
+    result = {
         "ok": setup_result.get("ok", False),
         "wizard_status": wizard_status,
         "profile": {
@@ -174,6 +182,11 @@ def run_wizard(zone, api_env, nodes, confirm_yes, interactive):
         },
         "safety": _safety(),
     }
+
+    # Add explanation
+    result["setup_status"] = wizard_status
+    result = explain_setup_result(result, zone)
+    return result
 
 
 # ── Output ──────────────────────────────────────────────────────────────────
@@ -236,10 +249,10 @@ def output_text(result):
     print("    Owner smoke create executed: {}".format(str(safety.get("owner_smoke_create_executed", False)).lower()))
     print()
 
-    print("  Next step:")
-    print("    Review the setup summary.")
-    print("    Production proxy/web DNS creation remains blocked.")
-    print()
+    # Print explanation if available
+    explanation = result.get("explanation", {})
+    if explanation:
+        print(format_explanation_text(explanation))
 
 
 def output_error(message, json_mode=False):

@@ -87,7 +87,12 @@ A_TEXT=$(NANOBK_TEST_DETECTED_IPV4="8.8.8.8" NANOBK_TEST_DETECTED_IPV6="2001:486
   --nodes proxy,web --yes 2>&1)
 
 assert_contains "$A_TEXT" "ready_for_owner_review" "A9: text final status"
-assert_contains "$A_TEXT" "Production proxy/web DNS creation remains blocked" "A10: text blocked message"
+if echo "$A_TEXT" | grep -qi "production.*blocked\|production.*not enabled"; then
+  pass "A10: text blocked message"
+else
+  fail "A10: text should mention production blocked"
+  ERRORS=$((ERRORS + 1))
+fi
 
 echo ""
 

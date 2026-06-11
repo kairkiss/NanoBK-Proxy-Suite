@@ -1,5 +1,26 @@
 # Changelog
 
+## v2.2.52 — Setup Result Explanations and Next Actions
+
+### Added
+
+- Added beginner-friendly explanations for setup wizard and DNS setup assistant results.
+- Added stable `explanation` JSON output with completed steps, not-done steps, blocked reasons, next actions, and fix hints.
+- Added status-specific guidance for ready, no IP, subdomain conflict, API/manual review, credential blocked, cancelled, and unknown states.
+- Added redacted next-action commands for setup review and create-preflight.
+- Added tests for explanation text, JSON shape, redaction, mutation blocking, help stability, and formatting.
+
+### Safety
+
+- Explanation/output polish only.
+- No DNS mutation.
+- No Cloudflare POST/PATCH/PUT/DELETE.
+- No owner-smoke-create execution.
+- No production proxy/web DNS creation.
+- No token, credential path, profile path, zone ID, record ID, raw API URL, or raw API response output.
+- No Bot/Web/installer live create.
+- No release/tag.
+
 ## v2.2.51-polish — Fix Guided Setup Console Menu Numbering
 
 ### Fixed

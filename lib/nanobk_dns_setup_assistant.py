@@ -34,6 +34,7 @@ from nanobk_cf_dns_availability import (
 from nanobk_cf_dns_plan_generator import generate_plan
 from nanobk_cf_dns_create_preflight import run_preflight
 from nanobk_setup_profile import load_profile
+from nanobk_setup_explain import explain_setup_result, format_explanation_text
 
 
 # ── Safety constants ────────────────────────────────────────────────────────
@@ -373,11 +374,15 @@ def main():
         sys.exit(1)
 
     result = run_setup(zone, api_env, nodes)
+    result = explain_setup_result(result, zone)
 
     if args.json:
         print(json.dumps(result, indent=2))
     else:
         output_text(result)
+        explanation = result.get("explanation", {})
+        if explanation:
+            print(format_explanation_text(explanation))
 
     if not result.get("ok", False):
         sys.exit(1)
