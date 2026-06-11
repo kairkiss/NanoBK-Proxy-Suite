@@ -74,6 +74,8 @@ def run_plan(zone_override=None, api_env_override=None):
     # Step 1: Load profile or use overrides
     zone_name = zone_override
     api_env_path = api_env_override
+    profile_loaded = False
+    overrides_used = False
 
     if not zone_name or not api_env_path:
         profile, err = load_profile()
@@ -81,19 +83,28 @@ def run_plan(zone_override=None, api_env_override=None):
             if not zone_name and not api_env_path:
                 return {
                     "ok": False,
-                    "error": f"未找到 setup profile。请先运行：nanobk cf connect",
+                    "error": "未找到 setup profile。请先运行：nanobk cf connect",
                     "mutation": False,
                 }
-            # Partial override
+            # Partial override with missing profile
             if not zone_name:
                 zone_name = profile.get("zone_name") if profile else None
             if not api_env_path:
                 api_env_path = profile.get("api_env_path") if profile else None
+            overrides_used = True
         else:
             if not zone_name:
                 zone_name = profile.get("zone_name")
+            else:
+                overrides_used = True
             if not api_env_path:
                 api_env_path = profile.get("api_env_path")
+            else:
+                overrides_used = True
+            profile_loaded = True
+
+    if zone_override or api_env_override:
+        overrides_used = True
 
     if not zone_name:
         return {"ok": False, "error": "未指定域名。请先运行 nanobk cf connect 或使用 --zone。", "mutation": False}
@@ -154,14 +165,13 @@ def run_plan(zone_override=None, api_env_override=None):
                 "records_found": analysis.get("records_found", 0),
             })
         except RuntimeError as e:
-            records_data.append({
-                "node": node,
-                "hostname": f"{node}.{zone_name}",
-                "available": False,
-                "status": "error",
-                "records_found": 0,
-                "error": str(e),
-            })
+            # API error / auth error / fixture error — fail the planner
+            return {
+                "ok": False,
+                "error": "无法完成 Cloudflare DNS 可用性检查。请检查 API token 权限或稍后重试。",
+                "mutation": False,
+                "apply_ready": False,
+            }
 
     # Step 7: Build plan
     plan_records = []
@@ -200,7 +210,8 @@ def run_plan(zone_override=None, api_env_override=None):
     return {
         "ok": True,
         "zone_name": zone_name,
-        "profile_loaded": True,
+        "profile_loaded": profile_loaded,
+        "overrides_used": overrides_used,
         "ip_detected": ipv4_detected or ipv6_detected,
         "ipv4_detected": ipv4_detected,
         "ipv6_detected": ipv6_detected,
@@ -297,7 +308,7 @@ def output_text(result):
 def output_error(message, json_mode=False):
     """Print error message."""
     if json_mode:
-        result = {"ok": False, "error": message, "mutation": False}
+        result = {"ok": False, "error": message, "mutation": False, "apply_ready": False}
         print(json.dumps(result, indent=2))
     else:
         print(f"  错误：{message}", file=sys.stderr)

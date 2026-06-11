@@ -1,5 +1,27 @@
 # Changelog
 
+## v2.3.3-polish — Harden Planner Error Handling
+
+### Fixed
+
+- Made Cloudflare availability API errors fail the planner instead of returning a successful plan.
+- Strengthened API error regression test with strict ok=false/mutation=false/apply_ready=false assertions.
+- Preserved conflict handling as successful read-only planning (ok=true, available=false, planned=false).
+- Fixed planner JSON `profile_loaded` / `overrides_used` semantics.
+
+### Safety
+
+- No DNS mutation.
+- No Cloudflare DNS mutation.
+- GET-only availability checks.
+- No Cloudflare POST/PATCH/PUT/DELETE.
+- No certificate request.
+- No token rotation.
+- No owner-smoke-create execution.
+- No Web/Bot behavior change.
+- No token, zone ID, record ID, raw API URL, raw API response, private key, or subscription URL output.
+- No release/tag.
+
 ## v2.3.3 — Domain IP and Subdomain Planner
 
 ### Added
