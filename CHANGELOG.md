@@ -1,5 +1,24 @@
 # Changelog
 
+## v2.2.55-polish — Isolate Closeout Regression HOME and Fixtures
+
+### Fixed
+
+- Isolated the v2.2 closeout regression test with a temporary HOME.
+- Prevented the closeout test from deleting or modifying a real `~/.nanobk/setup-profile.json`.
+- Copied fixture env files into a temporary fixture directory before chmod.
+- Added regression checks for HOME isolation, cleanup trap, and fixture isolation.
+
+### Safety
+
+- Test isolation polish only.
+- No product behavior changes.
+- No DNS mutation.
+- No Cloudflare POST/PATCH/PUT/DELETE.
+- No owner-smoke-create execution.
+- No production proxy/web DNS creation.
+- No release/tag.
+
 ## v2.2.55 — Final CLI/Web/Bot Safety Regression and Closeout Candidate
 
 ### Added

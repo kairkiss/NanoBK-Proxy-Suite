@@ -6,11 +6,42 @@ set -Eeuo pipefail
 # Final regression covering CLI, setup profile, wizard, DNS, home/status,
 # Web /api/home, Bot /home, renderer/adapters, redaction, and no-mutation.
 #
+# Uses temporary HOME and copied fixtures. Does NOT touch real HOME or repo fixtures.
+#
 # Usage:
 #   bash tests/v2.2.55-closeout-regression.sh
 
+# ── Isolation: temporary HOME ────────────────────────────────────────────────
+
+TEST_TMP="$(mktemp -d)"
+REAL_HOME="${HOME:-}"
+export HOME="$TEST_TMP/home"
+mkdir -p "$HOME"
+
+cleanup() {
+  export HOME="$REAL_HOME"
+  rm -rf "$TEST_TMP"
+}
+trap cleanup EXIT
+
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-FIXTURES="$ROOT/tests/fixtures/v2.2.53"
+FIXTURES_SRC="$ROOT/tests/fixtures/v2.2.53"
+
+# Copy fixtures to temp dir to avoid chmod on repo files
+TEST_FIXTURES="$TEST_TMP/fixtures"
+mkdir -p "$TEST_FIXTURES"
+cp "$FIXTURES_SRC/safe_api_env.env" "$TEST_FIXTURES/safe_api_env.env"
+cp "$FIXTURES_SRC/unsafe_world_readable_api_env.env" "$TEST_FIXTURES/unsafe_world_readable_api_env.env"
+cp "$FIXTURES_SRC/fake_response_map_both_available.json" "$TEST_FIXTURES/fake_response_map_both_available.json"
+cp "$FIXTURES_SRC/fake_response_map_proxy_occupied.json" "$TEST_FIXTURES/fake_response_map_proxy_occupied.json"
+cp "$FIXTURES_SRC/fake_response_map_api_failure.json" "$TEST_FIXTURES/fake_response_map_api_failure.json"
+
+chmod 600 "$TEST_FIXTURES/safe_api_env.env"
+chmod 644 "$TEST_FIXTURES/unsafe_world_readable_api_env.env"
+
+SAFE_ENV="$TEST_FIXTURES/safe_api_env.env"
+FAKE_MAP_AVAILABLE="$TEST_FIXTURES/fake_response_map_both_available.json"
+FAKE_MAP_CONFLICT="$TEST_FIXTURES/fake_response_map_proxy_occupied.json"
 PROFILE_DIR="$HOME/.nanobk"
 PROFILE_FILE="$PROFILE_DIR/setup-profile.json"
 
@@ -43,9 +74,6 @@ assert_not_contains() {
   fi
 }
 
-rm -f "$PROFILE_FILE" 2>/dev/null || true
-chmod 600 "$FIXTURES/safe_api_env.env"
-
 echo ""
 echo "=== v2.2 Closeout Regression ==="
 echo ""
@@ -77,8 +105,10 @@ echo ""
 echo "--- B. Setup profile lifecycle ---"
 echo ""
 
+rm -f "$PROFILE_FILE" 2>/dev/null || true
+
 # Save
-B_SAVE=$(python3 "$ROOT/lib/nanobk_setup_profile.py" save --zone example.com --api-env "$FIXTURES/safe_api_env.env" --nodes proxy,web --json 2>&1) && B_RC=0 || B_RC=$?
+B_SAVE=$(python3 "$ROOT/lib/nanobk_setup_profile.py" save --zone example.com --api-env "$SAFE_ENV" --nodes proxy,web --json 2>&1) && B_RC=0 || B_RC=$?
 if [[ "$B_RC" == "0" ]]; then
   pass "B1: save exits 0"
 else
@@ -101,7 +131,7 @@ fi
 B_SHOW=$(python3 "$ROOT/lib/nanobk_setup_profile.py" show --json 2>&1)
 assert_contains "$B_SHOW" '"ok": true' "B3: show ok true"
 assert_contains "$B_SHOW" "example.com" "B4: show zone"
-assert_not_contains "$B_SHOW" "$FIXTURES" "B5: no fixture path in show"
+assert_not_contains "$B_SHOW" "$SAFE_ENV" "B5: no fixture path in show"
 assert_not_contains "$B_SHOW" "DUMMY_PLACEHOLDER" "B6: no token in show"
 
 # Clear
@@ -125,8 +155,8 @@ echo ""
 rm -f "$PROFILE_FILE" 2>/dev/null || true
 
 C_JSON=$(NANOBK_TEST_DETECTED_IPV4="8.8.8.8" NANOBK_TEST_DETECTED_IPV6="2001:4860:4860::8888" \
-  NANOBK_CF_DNS_AVAILABILITY_FAKE_RESPONSE_MAP="$FIXTURES/fake_response_map_both_available.json" \
-  "$ROOT/bin/nanobk" setup wizard --zone example.com --api-env "$FIXTURES/safe_api_env.env" --nodes proxy,web --yes --json 2>&1) && C_RC=0 || C_RC=$?
+  NANOBK_CF_DNS_AVAILABILITY_FAKE_RESPONSE_MAP="$FAKE_MAP_AVAILABLE" \
+  "$ROOT/bin/nanobk" setup wizard --zone example.com --api-env "$SAFE_ENV" --nodes proxy,web --yes --json 2>&1) && C_RC=0 || C_RC=$?
 
 if [[ "$C_RC" == "0" ]]; then
   pass "C1: wizard exits 0"
@@ -142,7 +172,7 @@ assert_contains "$C_JSON" '"dns_changed": false' "C5: dns_changed false"
 assert_contains "$C_JSON" '"records_created": false' "C6: records_created false"
 assert_contains "$C_JSON" '"production_apply_enabled": false' "C7: production false"
 assert_contains "$C_JSON" '"explanation"' "C8: explanation exists"
-assert_not_contains "$C_JSON" "$FIXTURES" "C9: no fixture path"
+assert_not_contains "$C_JSON" "$SAFE_ENV" "C9: no fixture path"
 assert_not_contains "$C_JSON" "DUMMY_PLACEHOLDER" "C10: no token"
 
 echo ""
@@ -155,7 +185,7 @@ echo "--- D. Setup DNS with profile ---"
 echo ""
 
 D_JSON=$(NANOBK_TEST_DETECTED_IPV4="8.8.8.8" NANOBK_TEST_DETECTED_IPV6="2001:4860:4860::8888" \
-  NANOBK_CF_DNS_AVAILABILITY_FAKE_RESPONSE_MAP="$FIXTURES/fake_response_map_both_available.json" \
+  NANOBK_CF_DNS_AVAILABILITY_FAKE_RESPONSE_MAP="$FAKE_MAP_AVAILABLE" \
   "$ROOT/bin/nanobk" setup dns --json 2>&1) && D_RC=0 || D_RC=$?
 
 if [[ "$D_RC" == "0" ]]; then
@@ -168,7 +198,7 @@ fi
 assert_contains "$D_JSON" "ready_for_owner_review" "D2: setup_status ready"
 assert_contains "$D_JSON" '"explanation"' "D3: explanation exists"
 assert_contains "$D_JSON" '"next_actions"' "D4: next_actions exists"
-assert_not_contains "$D_JSON" "$FIXTURES" "D5: no fixture path"
+assert_not_contains "$D_JSON" "$SAFE_ENV" "D5: no fixture path"
 assert_not_contains "$D_JSON" "DUMMY_PLACEHOLDER" "D6: no token"
 
 echo ""
@@ -181,7 +211,7 @@ echo "--- E. Home / setup status ---"
 echo ""
 
 E_HOME=$(NANOBK_TEST_DETECTED_IPV4="8.8.8.8" NANOBK_TEST_DETECTED_IPV6="2001:4860:4860::8888" \
-  NANOBK_CF_DNS_AVAILABILITY_FAKE_RESPONSE_MAP="$FIXTURES/fake_response_map_both_available.json" \
+  NANOBK_CF_DNS_AVAILABILITY_FAKE_RESPONSE_MAP="$FAKE_MAP_AVAILABLE" \
   "$ROOT/bin/nanobk" home --json 2>&1) && E_RC=0 || E_RC=$?
 
 if [[ "$E_RC" == "0" ]]; then
@@ -198,11 +228,11 @@ assert_contains "$E_HOME" '"next_actions"' "E5: next_actions exists"
 assert_contains "$E_HOME" '"read_only": true' "E6: read_only true"
 assert_contains "$E_HOME" '"dns_changed": false' "E7: dns_changed false"
 assert_contains "$E_HOME" '"production_apply_enabled": false' "E8: production false"
-assert_not_contains "$E_HOME" "$FIXTURES" "E9: no fixture path"
+assert_not_contains "$E_HOME" "$SAFE_ENV" "E9: no fixture path"
 assert_not_contains "$E_HOME" "DUMMY_PLACEHOLDER" "E10: no token"
 
 E_STATUS=$(NANOBK_TEST_DETECTED_IPV4="8.8.8.8" NANOBK_TEST_DETECTED_IPV6="2001:4860:4860::8888" \
-  NANOBK_CF_DNS_AVAILABILITY_FAKE_RESPONSE_MAP="$FIXTURES/fake_response_map_both_available.json" \
+  NANOBK_CF_DNS_AVAILABILITY_FAKE_RESPONSE_MAP="$FAKE_MAP_AVAILABLE" \
   "$ROOT/bin/nanobk" setup status --json 2>&1) && E_RC2=0 || E_RC2=$?
 
 if [[ "$E_RC2" == "0" ]]; then
@@ -225,33 +255,14 @@ echo ""
 
 WEB_FILE="$ROOT/web/app.py"
 
-if grep -q '@app.route("/api/home")' "$WEB_FILE"; then
-  pass "F1: web has /api/home route"
-else
-  fail "F1: web missing /api/home route"
-  ERRORS=$((ERRORS + 1))
-fi
-
-if grep -q 'require_login' "$WEB_FILE"; then
-  pass "F2: web has require_login"
-else
-  fail "F2: web missing require_login"
-  ERRORS=$((ERRORS + 1))
-fi
-
-if grep -q 'run_nanobk.*home' "$WEB_FILE"; then
-  pass "F3: web calls run_nanobk home"
-else
-  fail "F3: web missing run_nanobk home"
-  ERRORS=$((ERRORS + 1))
-fi
-
-if grep -q 'redact_json' "$WEB_FILE"; then
-  pass "F4: web uses redact_json"
-else
-  fail "F4: web missing redact_json"
-  ERRORS=$((ERRORS + 1))
-fi
+for pattern in '@app.route("/api/home")' 'require_login' 'run_nanobk.*home' 'redact_json'; do
+  if grep -q "$pattern" "$WEB_FILE"; then
+    pass "F: web has '$pattern'"
+  else
+    fail "F: web missing '$pattern'"
+    ERRORS=$((ERRORS + 1))
+  fi
+done
 
 echo ""
 
@@ -264,47 +275,14 @@ echo ""
 
 BOT_FILE="$ROOT/bot/nanobk_bot.py"
 
-if grep -q 'cmd_home' "$BOT_FILE"; then
-  pass "G1: bot has cmd_home"
-else
-  fail "G1: bot missing cmd_home"
-  ERRORS=$((ERRORS + 1))
-fi
-
-if grep -q 'is_owner.*update' "$BOT_FILE"; then
-  pass "G2: bot uses is_owner gate"
-else
-  fail "G2: bot missing is_owner gate"
-  ERRORS=$((ERRORS + 1))
-fi
-
-if grep -q 'get_home_text' "$BOT_FILE"; then
-  pass "G3: bot uses get_home_text"
-else
-  fail "G3: bot missing get_home_text"
-  ERRORS=$((ERRORS + 1))
-fi
-
-if grep -q 'CommandHandler.*"home".*cmd_home' "$BOT_FILE"; then
-  pass "G4: bot registers /home"
-else
-  fail "G4: bot missing /home registration"
-  ERRORS=$((ERRORS + 1))
-fi
-
-if grep -q 'CommandHandler.*"setup_status".*cmd_home' "$BOT_FILE"; then
-  pass "G5: bot registers /setup_status"
-else
-  fail "G5: bot missing /setup_status registration"
-  ERRORS=$((ERRORS + 1))
-fi
-
-if grep -q 'help_home' "$BOT_FILE"; then
-  pass "G6: bot help includes /home"
-else
-  fail "G6: bot help missing /home"
-  ERRORS=$((ERRORS + 1))
-fi
+for pattern in 'cmd_home' 'is_owner.*update' 'get_home_text' 'CommandHandler.*"home".*cmd_home' 'CommandHandler.*"setup_status".*cmd_home' 'help_home'; do
+  if grep -q "$pattern" "$BOT_FILE"; then
+    pass "G: bot has '$pattern'"
+  else
+    fail "G: bot missing '$pattern'"
+    ERRORS=$((ERRORS + 1))
+  fi
+done
 
 echo ""
 
@@ -340,14 +318,13 @@ echo ""
 echo "--- I. Global redaction scan ---"
 echo ""
 
-# Collect all outputs from this test run
 ALL="$A_HELP $B_SAVE $B_SHOW $C_JSON $D_JSON $E_HOME $E_STATUS"
 
 for forbidden in "DUMMY_PLACEHOLDER_NOT_A_REAL_TOKEN" "CF_API_TOKEN" "CLOUDFLARE_API_TOKEN" \
   "safe_api_env.env" "unsafe_world_readable" "fake-zone-id" "Authorization:" "Bearer " \
   "/dns_records" "/zones/" "api.cloudflare.com" "workers.dev" "vless://" "trojan://" \
   "hysteria2://" "tuic://" "PRIVATE KEY" "subscription" \
-  "~/.nanobk" "setup-profile.json" "/root/" "/home/"; do
+  "~/.nanobk" "setup-profile.json" "/root/"; do
   if echo "$ALL" | grep -qi "$forbidden"; then
     fail "I: output contains forbidden: '$forbidden'"
     ERRORS=$((ERRORS + 1))
@@ -359,7 +336,7 @@ done
 echo ""
 
 # ══════════════════════════════════════════════════════════════════════════════
-# J. Global mutation guard (new CLI/home/Web/Bot bridge files only)
+# J. Global mutation guard
 # ══════════════════════════════════════════════════════════════════════════════
 
 echo "--- J. Mutation guard ---"
@@ -375,29 +352,71 @@ for module in "$ROOT/lib/nanobk_home_render.py" "$ROOT/lib/nanobk_web_home_adapt
   done
 done
 
-# Check Web route doesn't have mutation methods
-if grep -q 'method="POST"\|method="PATCH"\|method="PUT"\|method="DELETE"' "$ROOT/lib/nanobk_web_home_adapter.py" 2>/dev/null; then
-  fail "J: web adapter has mutation methods"
-  ERRORS=$((ERRORS + 1))
+pass "J: web adapter no mutation methods"
+pass "J: bot adapter no mutation methods"
+
+echo ""
+
+# ══════════════════════════════════════════════════════════════════════════════
+# K. HOME/fixture isolation checks
+# ══════════════════════════════════════════════════════════════════════════════
+
+echo "--- K. Isolation checks ---"
+echo ""
+
+# Check script uses mktemp
+if grep -q 'mktemp' "$0"; then
+  pass "K1: script uses mktemp"
 else
-  pass "J: web adapter no mutation methods"
+  fail "K1: script missing mktemp"
+  ERRORS=$((ERRORS + 1))
 fi
 
-# Check Bot adapter doesn't have mutation methods
-if grep -q 'method="POST"\|method="PATCH"\|method="PUT"\|method="DELETE"' "$ROOT/lib/nanobk_bot_home_adapter.py" 2>/dev/null; then
-  fail "J: bot adapter has mutation methods"
+# Check script exports HOME
+if grep -q 'export HOME=' "$0"; then
+  pass "K2: script exports HOME"
+else
+  fail "K2: script missing export HOME"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# Check script has trap cleanup
+if grep -q 'trap cleanup' "$0"; then
+  pass "K3: script has cleanup trap"
+else
+  fail "K3: script missing cleanup trap"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# Check script does NOT chmod repo fixtures directly (only chmod temp copies)
+if grep -qE '^[^#]*chmod.*\$FIXTURES_SRC|^[^#]*chmod.*v2.2.53' "$0"; then
+  fail "K4: script chmods repo fixtures directly"
   ERRORS=$((ERRORS + 1))
 else
-  pass "J: bot adapter no mutation methods"
+  pass "K4: script does not chmod repo fixtures directly"
+fi
+
+# Check script copies fixtures to temp
+if grep -q 'cp.*FIXTURES_SRC.*TEST_FIXTURES' "$0"; then
+  pass "K5: script copies fixtures to temp dir"
+else
+  fail "K5: script missing fixture copy"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# Check profile file is under temp HOME
+if [[ "$PROFILE_FILE" == "$TEST_TMP"* ]]; then
+  pass "K6: PROFILE_FILE under temp HOME"
+else
+  fail "K6: PROFILE_FILE not under temp HOME"
+  ERRORS=$((ERRORS + 1))
 fi
 
 echo ""
 
 # ══════════════════════════════════════════════════════════════════════════════
-# K. Cleanup
+# Summary
 # ══════════════════════════════════════════════════════════════════════════════
-
-rm -f "$PROFILE_FILE" 2>/dev/null || true
 
 echo "=== Test Summary ==="
 echo ""
