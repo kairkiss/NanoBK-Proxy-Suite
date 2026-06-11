@@ -1,5 +1,23 @@
 # Changelog
 
+## v2.3.0 — CLI Cloudflare/DNS/Cert/Token Automation Scope Lock
+
+### Added
+
+- Added `docs/v2.3-cli-cf-automation-plan.md` — v2.3 CLI automation plan with inventory, work split, safety rules.
+- Added `tests/v2.3.0-inventory-contract.sh` — lightweight plan document contract test.
+- Locked v2.3 direction toward CLI-first Cloudflare/DNS/cert/token automation.
+
+### Safety
+
+- No runtime behavior changed.
+- No DNS mutation.
+- No Cloudflare mutation.
+- No certificate request.
+- No token rotation.
+- No Web/Bot behavior change.
+- No release/tag.
+
 ## v2.2.56 — Real VPS Web/Bot Bridge Fix Pack
 
 ### Fixed
