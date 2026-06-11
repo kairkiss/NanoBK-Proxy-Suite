@@ -1,5 +1,24 @@
 # Changelog
 
+## v2.2.49-polish — Fix Beginner DNS Assistant Newlines and Syntax
+
+### Fixed
+
+- Rewrote the beginner DNS setup assistant helper with real LF newlines and valid Python syntax.
+- Rewrote the v2.2.49 test script with a standalone shebang and standalone `set -Eeuo pipefail`.
+- Added Python compile and git object newline checks for the setup assistant helper and test script.
+
+### Safety
+
+- Formatting/syntax/test polish only.
+- No runtime DNS mutation behavior added.
+- No Cloudflare mutation.
+- No POST/PATCH/PUT/DELETE.
+- No production proxy/web DNS creation.
+- No owner-smoke-create execution.
+- No Bot/Web/installer live create.
+- No release/tag.
+
 ## v2.2.49 — Beginner DNS Setup Assistant
 
 ### Added
