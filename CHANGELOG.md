@@ -1,5 +1,24 @@
 # Changelog
 
+## v2.2.48 — Operator-only Controlled Create Runbook
+
+### Added
+
+- Added an operator-only runbook for controlled disposable DNS create smoke usage.
+- Documented required gates, operation order, post-run evidence, failure handling, scanner rules, and promotion rules.
+- Added explicit documentation that production proxy/web DNS creation remains blocked.
+- Added local guardrail tests for runbook wording.
+
+### Safety
+
+- Documentation/test-only.
+- No runtime DNS behavior changed.
+- No Cloudflare calls.
+- No DNS create/update/delete.
+- No production proxy/web apply.
+- No Bot/Web/installer integration.
+- No release/tag.
+
 ## v2.2.47 — Owner Smoke Report Scanner False-positive Hardening
 
 ### Fixed
