@@ -1,5 +1,24 @@
 # Changelog
 
+## v2.2.48-polish2 — Restore Real Newlines in Runbook Guardrails
+
+### Fixed
+
+- Rewrote the v2.2.48 operator runbook as a real multi-line markdown file.
+- Rewrote the production-apply-blocked note as a real multi-line markdown file.
+- Rewrote the v2.2.48 guardrail test as a real executable bash script.
+- Added strict standalone shebang and `set -Eeuo pipefail` checks.
+
+### Safety
+
+- Documentation/test formatting only.
+- No runtime DNS behavior changed.
+- No Cloudflare calls.
+- No DNS create/update/delete.
+- No production proxy/web apply.
+- No Bot/Web/installer integration.
+- No release/tag.
+
 ## v2.2.48-polish — Reformat Runbook and Guardrail Test
 
 ### Fixed

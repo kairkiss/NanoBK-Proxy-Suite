@@ -50,7 +50,7 @@ fi
 echo ""
 
 # ══════════════════════════════════════════════════════════════════════════════
-# B. Runbook contains required guardrails
+# B. Runbook required content
 # ══════════════════════════════════════════════════════════════════════════════
 
 echo "--- B. Runbook required content ---"
@@ -76,14 +76,13 @@ fi
 echo ""
 
 # ══════════════════════════════════════════════════════════════════════════════
-# C. Guard doc contains required guardrails
+# C. Guard doc required content
 # ══════════════════════════════════════════════════════════════════════════════
 
 echo "--- C. Guard doc required content ---"
 echo ""
 
-for pattern in "production proxy/web" "remains blocked\|not enabled" "Bot/Web/installer" \
-  "Full Wizard" "T20-7" "disposable"; do
+for pattern in "production proxy/web" "Bot/Web/installer" "Full Wizard" "T20-7" "disposable"; do
   if grep -qi "$pattern" "$GUARDDOC" 2>/dev/null; then
     pass "C: guard doc contains '$pattern'"
   else
@@ -92,10 +91,17 @@ for pattern in "production proxy/web" "remains blocked\|not enabled" "Bot/Web/in
   fi
 done
 
+if grep -qEi "remains blocked|not enabled" "$GUARDDOC" 2>/dev/null; then
+  pass "C: guard doc contains 'remains blocked / not enabled'"
+else
+  fail "C: guard doc missing 'remains blocked / not enabled'"
+  ERRORS=$((ERRORS + 1))
+fi
+
 echo ""
 
 # ══════════════════════════════════════════════════════════════════════════════
-# D. No dangerous positive language in docs
+# D. No dangerous positive language
 # ══════════════════════════════════════════════════════════════════════════════
 
 echo "--- D. No dangerous positive language ---"
@@ -124,7 +130,7 @@ done
 echo ""
 
 # ══════════════════════════════════════════════════════════════════════════════
-# E. Promotion rule documented
+# E. Promotion rule
 # ══════════════════════════════════════════════════════════════════════════════
 
 echo "--- E. Promotion rule ---"
@@ -171,17 +177,17 @@ else
   ERRORS=$((ERRORS + 1))
 fi
 
-if head -1 "$0" | grep -q "#!/usr/bin/env bash"; then
-  pass "F4: test script has shebang"
+if [[ "$(head -1 "$0")" == "#!/usr/bin/env bash" ]]; then
+  pass "F4: first line is exactly shebang"
 else
-  fail "F4: test script missing shebang"
+  fail "F4: first line is not shebang: $(head -1 "$0")"
   ERRORS=$((ERRORS + 1))
 fi
 
-if grep -q "set -Eeuo pipefail" "$0"; then
-  pass "F5: test script has set -Eeuo pipefail"
+if grep -qx 'set -Eeuo pipefail' "$0"; then
+  pass "F5: standalone set -Eeuo pipefail found"
 else
-  fail "F5: test script missing set -Eeuo pipefail"
+  fail "F5: standalone set -Eeuo pipefail not found"
   ERRORS=$((ERRORS + 1))
 fi
 
