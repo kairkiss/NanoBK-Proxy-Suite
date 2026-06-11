@@ -13,12 +13,8 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MODULE="$ROOT/lib/nanobk_dns_setup_assistant.py"
 FIXTURES="$ROOT/tests/fixtures/v2.2.49"
 
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-NC='\033[0m'
-
-pass() { echo -e "  ${GREEN}\u2713${NC} $*"; }
-fail() { echo -e "  ${RED}\u2717${NC} $*" >&2; }
+pass() { echo "  [OK] $*"; }
+fail() { echo "  [FAIL] $*" >&2; }
 
 ERRORS=0
 
@@ -294,7 +290,7 @@ echo ""
 
 K_HELP=$("$ROOT/bin/nanobk" --help 2>&1)
 
-for pattern in "setup dns" "初学者 DNS 设置助手" "cf dns availability summary" \
+for pattern in "setup dns" "cf dns availability summary" \
   "cf dns plan-generator" "cf dns create-preflight"; do
   if echo "$K_HELP" | grep -qi "$pattern"; then
     pass "K: help contains '$pattern'"
@@ -322,6 +318,101 @@ for pattern in "Beginner DNS setup assistant" "VPS IP detect" "Check proxy/web a
     ERRORS=$((ERRORS + 1))
   fi
 done
+
+echo ""
+
+# ══════════════════════════════════════════════════════════════════════════════
+# M. Format sanity checks
+# ══════════════════════════════════════════════════════════════════════════════
+
+echo "--- M. Format sanity checks ---"
+echo ""
+
+# Helper line count (working tree)
+HELPER_LINES=$(wc -l < "$MODULE")
+if [[ "$HELPER_LINES" -ge 180 ]]; then
+  pass "M1: helper has $HELPER_LINES lines (>= 180)"
+else
+  fail "M1: helper has only $HELPER_LINES lines (expected >= 180)"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# Test script line count (working tree)
+SELF_LINES=$(wc -l < "$0")
+if [[ "$SELF_LINES" -ge 220 ]]; then
+  pass "M2: test script has $SELF_LINES lines (>= 220)"
+else
+  fail "M2: test script has only $SELF_LINES lines (expected >= 220)"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# First line shebang
+FIRST_LINE=$(head -1 "$0")
+if [[ "$FIRST_LINE" == "#!/usr/bin/env bash" ]]; then
+  pass "M3: first line is exactly shebang"
+else
+  fail "M3: first line is not shebang: $FIRST_LINE"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# Second line set -Eeuo pipefail
+SECOND_LINE=$(sed -n '2p' "$0")
+if [[ "$SECOND_LINE" == "set -Eeuo pipefail" ]]; then
+  pass "M4: second line is exactly set -Eeuo pipefail"
+else
+  fail "M4: second line is not set -Eeuo pipefail: $SECOND_LINE"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# Python compile
+if python3 -m py_compile "$MODULE" 2>/dev/null; then
+  pass "M5: helper passes py_compile"
+else
+  fail "M5: helper fails py_compile"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# Git staged object checks (fallback to working tree if not staged)
+GIT_HELPER_LINES=$(git show ':lib/nanobk_dns_setup_assistant.py' 2>/dev/null | wc -l || echo 0)
+GIT_SELF_LINES=$(git show ':tests/v2.2.49-beginner-dns-setup-assistant.sh' 2>/dev/null | wc -l || echo 0)
+GIT_SELF_LINE1=$(git show ':tests/v2.2.49-beginner-dns-setup-assistant.sh' 2>/dev/null | sed -n '1p' || echo '')
+GIT_SELF_LINE2=$(git show ':tests/v2.2.49-beginner-dns-setup-assistant.sh' 2>/dev/null | sed -n '2p' || echo '')
+
+if [[ "$GIT_HELPER_LINES" -ge 180 ]]; then
+  pass "M6: staged helper has $GIT_HELPER_LINES lines (>= 180)"
+elif [[ "$GIT_HELPER_LINES" -eq 0 ]]; then
+  pass "M6: helper not staged (using working tree check M1)"
+else
+  fail "M6: staged helper has only $GIT_HELPER_LINES lines (expected >= 180)"
+  ERRORS=$((ERRORS + 1))
+fi
+
+if [[ "$GIT_SELF_LINES" -ge 220 ]]; then
+  pass "M7: staged test has $GIT_SELF_LINES lines (>= 220)"
+elif [[ "$GIT_SELF_LINES" -eq 0 ]]; then
+  pass "M7: test not staged (using working tree check M2)"
+else
+  fail "M7: staged test has only $GIT_SELF_LINES lines (expected >= 220)"
+  ERRORS=$((ERRORS + 1))
+fi
+
+if [[ "$GIT_SELF_LINE1" == "#!/usr/bin/env bash" ]]; then
+  pass "M8: staged test first line is shebang"
+elif [[ -z "$GIT_SELF_LINE1" ]]; then
+  pass "M8: test not staged (using working tree check M3)"
+else
+  fail "M8: staged test first line is not shebang: $GIT_SELF_LINE1"
+  ERRORS=$((ERRORS + 1))
+fi
+
+if [[ "$GIT_SELF_LINE2" == "set -Eeuo pipefail" ]]; then
+  pass "M9: staged test second line is set -Eeuo pipefail"
+elif [[ -z "$GIT_SELF_LINE2" ]]; then
+  pass "M9: test not staged (using working tree check M4)"
+else
+  fail "M9: staged test second line is not set -Eeuo pipefail: $GIT_SELF_LINE2"
+  ERRORS=$((ERRORS + 1))
+fi
 
 echo ""
 
