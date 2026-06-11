@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+set -Eeuo pipefail
+
 # NanoBK Proxy Suite — Runbook Guardrails Test
 #
 # Tests that runbook/guard docs contain required guardrail wording.
@@ -6,8 +8,6 @@
 #
 # Usage:
 #   bash tests/v2.2.48-runbook-guardrails.sh
-
-set -Eeuo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RUNBOOK="$ROOT/docs/runbooks/v2.2.48-operator-controlled-dns-create-runbook.md"
@@ -177,17 +177,26 @@ else
   ERRORS=$((ERRORS + 1))
 fi
 
-if [[ "$(head -1 "$0")" == "#!/usr/bin/env bash" ]]; then
+FIRST_LINE=$(head -1 "$0")
+if [[ "$FIRST_LINE" == "#!/usr/bin/env bash" ]]; then
   pass "F4: first line is exactly shebang"
 else
-  fail "F4: first line is not shebang: $(head -1 "$0")"
+  fail "F4: first line is not shebang: $FIRST_LINE"
+  ERRORS=$((ERRORS + 1))
+fi
+
+SECOND_LINE=$(sed -n '2p' "$0")
+if [[ "$SECOND_LINE" == "set -Eeuo pipefail" ]]; then
+  pass "F5: second line is exactly set -Eeuo pipefail"
+else
+  fail "F5: second line is not set -Eeuo pipefail: $SECOND_LINE"
   ERRORS=$((ERRORS + 1))
 fi
 
 if grep -qx 'set -Eeuo pipefail' "$0"; then
-  pass "F5: standalone set -Eeuo pipefail found"
+  pass "F6: standalone set -Eeuo pipefail found"
 else
-  fail "F5: standalone set -Eeuo pipefail not found"
+  fail "F6: standalone set -Eeuo pipefail not found"
   ERRORS=$((ERRORS + 1))
 fi
 

@@ -1,5 +1,23 @@
 # Changelog
 
+## v2.2.48-polish3 — Fix Actual Runbook Newline Encoding
+
+### Fixed
+
+- Rewrote the v2.2.48 runbook files with real newline characters using Python `pathlib.write_text`.
+- Rewrote the v2.2.48 guardrail test with a standalone shebang and standalone `set -Eeuo pipefail`.
+- Added stricter local verification for actual newline counts and script headers.
+
+### Safety
+
+- Documentation/test formatting only.
+- No runtime DNS behavior changed.
+- No Cloudflare calls.
+- No DNS create/update/delete.
+- No production proxy/web apply.
+- No Bot/Web/installer integration.
+- No release/tag.
+
 ## v2.2.48-polish2 — Restore Real Newlines in Runbook Guardrails
 
 ### Fixed
