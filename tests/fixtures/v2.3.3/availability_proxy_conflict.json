@@ -1,0 +1,18 @@
+{
+  "proxy": {
+    "success": true,
+    "result": [
+      {
+        "type": "A",
+        "name": "proxy.example.com",
+        "content": "198.51.100.50",
+        "proxied": false,
+        "comment": "some-other-service"
+      }
+    ]
+  },
+  "web": {
+    "success": true,
+    "result": []
+  }
+}

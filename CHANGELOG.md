@@ -1,5 +1,29 @@
 # Changelog
 
+## v2.3.3 — Domain IP and Subdomain Planner
+
+### Added
+
+- Added read-only `nanobk setup plan` and `nanobk cf dns planner` commands.
+- Loaded zone and Cloudflare env from setup profile.
+- Suggested proxy/web subdomains with availability check.
+- Produced beginner-friendly Chinese text and JSON planning output.
+- Added "规划域名和 DNS" to setup submenu and "规划 proxy/web 子域名" to DNS submenu.
+- Added planner regression test with fake fixtures.
+
+### Safety
+
+- No DNS mutation.
+- No Cloudflare DNS mutation.
+- GET-only availability checks.
+- No Cloudflare POST/PATCH/PUT/DELETE.
+- No certificate request.
+- No token rotation.
+- No owner-smoke-create execution.
+- No Web/Bot behavior change.
+- No token, zone ID, record ID, raw API URL, raw API response, private key, or subscription URL output.
+- No release/tag.
+
 ## v2.3.2-polish — Fix Interactive Cloudflare Connect Prompt
 
 ### Fixed
