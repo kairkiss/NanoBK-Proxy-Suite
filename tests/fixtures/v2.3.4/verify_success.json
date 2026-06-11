@@ -1,0 +1,12 @@
+{
+  "success": true,
+  "result": [
+    {
+      "id": "fake-record-id-12345678",
+      "type": "A",
+      "name": "proxy.example.com",
+      "content": "203.0.113.10",
+      "comment": "managed-by=nanobk"
+    }
+  ]
+}

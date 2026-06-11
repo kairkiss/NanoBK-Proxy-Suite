@@ -274,19 +274,20 @@ console_dns_submenu() {
   echo ""
   echo "  1) 连接 Cloudflare / 选择域名"
   echo "  2) 规划 proxy/web 子域名"
-  echo "  3) 引导设置向导"
-  echo "  4) DNS 设置助手"
-  echo "  5) 检测 VPS IP"
-  echo "  6) 检查域名可用性"
-  echo "  7) 生成 DNS 计划"
-  echo "  8) 预检摘要"
-  echo "  9) 保存设置配置"
-  echo " 10) 查看设置配置"
-  echo " 11) 清除设置配置"
-  echo " 12) 返回"
+  echo "  3) 准备创建 DNS 记录"
+  echo "  4) 引导设置向导"
+  echo "  5) DNS 设置助手"
+  echo "  6) 检测 VPS IP"
+  echo "  7) 检查域名可用性"
+  echo "  8) 生成 DNS 计划"
+  echo "  9) 预检摘要"
+  echo " 10) 保存设置配置"
+  echo " 11) 查看设置配置"
+  echo " 12) 清除设置配置"
+  echo " 13) 返回"
   echo ""
   local choice
-  read -rp "  选择 [1-12]: " choice || { echo ""; return; }
+  read -rp "  选择 [1-13]: " choice || { echo ""; return; }
   case "$choice" in
     1)
       echo ""
@@ -305,12 +306,21 @@ console_dns_submenu() {
       ;;
     3)
       echo ""
+      ui_safe_action "准备创建 DNS 记录:"
+      echo "  我会先生成创建预案。"
+      echo "  真正创建 DNS 需要你复制命令并输入确认短语。"
+      echo ""
+      cmd_setup_dns_apply || true
+      console_pause
+      ;;
+    4)
+      echo ""
       ui_safe_action "引导设置向导（只读，不会修改 DNS）:"
       echo ""
       cmd_setup_wizard || true
       console_pause
       ;;
-    4)
+    5)
       echo ""
       ui_safe_action "DNS 设置助手（只读，不会修改 DNS）:"
       echo ""
@@ -320,14 +330,14 @@ console_dns_submenu() {
       echo "  不会修改 DNS，不会修改 Cloudflare。"
       console_pause
       ;;
-    5)
+    6)
       echo ""
       ui_safe_action "检测 VPS 公网 IP（只读）:"
       echo ""
       cmd_vps_ip_detect || true
       console_pause
       ;;
-    6)
+    7)
       echo ""
       ui_safe_action "检查子域名可用性（只读）:"
       echo ""
@@ -336,7 +346,7 @@ console_dns_submenu() {
       echo "  检查 proxy 和 web 子域名是否已被占用。"
       console_pause
       ;;
-    7)
+    8)
       echo ""
       ui_safe_action "生成 DNS 计划（只读，不会修改 DNS）:"
       echo ""
@@ -345,7 +355,7 @@ console_dns_submenu() {
       echo "  结合 IP 检测和可用性检查，生成 DNS 配置计划。"
       console_pause
       ;;
-    8)
+    9)
       echo ""
       ui_safe_action "预检摘要（只读，不会创建记录）:"
       echo ""
@@ -354,7 +364,7 @@ console_dns_submenu() {
       echo "  显示将会创建什么，但不会实际创建。"
       console_pause
       ;;
-    9)
+    10)
       echo ""
       ui_safe_action "保存设置配置（本地存储，不上传）:"
       echo ""
@@ -363,14 +373,14 @@ console_dns_submenu() {
       echo "  保存你的 DNS 设置，下次运行 setup dns 时不用重新输入。"
       console_pause
       ;;
-    10)
+    11)
       echo ""
       ui_safe_action "查看已保存的设置配置（脱敏显示）:"
       echo ""
       cmd_setup_profile show || true
       console_pause
       ;;
-    11)
+    12)
       echo ""
       ui_safe_action "清除设置配置:"
       echo ""
@@ -379,11 +389,11 @@ console_dns_submenu() {
       echo "  删除已保存的 DNS 设置配置。"
       console_pause
       ;;
-    12|"")
+    13|"")
       return
       ;;
     *)
-      echo "  无效输入，请选择 1-12。"
+      echo "  无效输入，请选择 1-13。"
       console_pause
       ;;
   esac
@@ -1881,12 +1891,16 @@ cmd_cf_dns() {
       cmd_cf_dns_planner "$@"
       ;;
 
+    apply-plan)
+      cmd_cf_dns_apply_plan "$@"
+      ;;
+
     "")
-      die "Usage: nanobk cf dns <plan|planner|validate-profile|apply|readiness|target|availability|report|profile> [options...]"
+      die "Usage: nanobk cf dns <plan|planner|apply-plan|validate-profile|apply|readiness|target|availability|report|profile> [options...]"
       ;;
 
     *)
-      die "Unknown cf dns subcommand: ${dns_sub}. Use: nanobk cf dns <plan|planner|validate-profile|apply|readiness|target|availability|report|profile>"
+      die "Unknown cf dns subcommand: ${dns_sub}. Use: nanobk cf dns <plan|planner|apply-plan|validate-profile|apply|readiness|target|availability|report|profile>"
       ;;
   esac
 }
@@ -2284,6 +2298,109 @@ cmd_cf_dns_planner() {
   "${args[@]}"
 }
 
+# ── setup dns apply ─────────────────────────────────────────────────────
+
+cmd_setup_dns_apply() {
+  local zone="" api_env="" apply_mode=0 confirm=""
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --zone)
+        [[ $# -ge 2 ]] || die "setup dns apply: --zone needs a value"
+        zone="$2"; shift 2 ;;
+      --api-env)
+        [[ $# -ge 2 ]] || die "setup dns apply: --api-env needs a path"
+        api_env="$2"; shift 2 ;;
+      --apply)
+        apply_mode=1; shift ;;
+      --confirm)
+        [[ $# -ge 2 ]] || die "setup dns apply: --confirm needs a value"
+        confirm="$2"; shift 2 ;;
+      --json)
+        JSON_OUT=1; shift ;;
+      --dry-run)
+        echo -e "  ${CYAN}[DRY-RUN]${NC} setup dns apply command prepared"
+        echo "  No DNS mutation will be performed."
+        return 0 ;;
+      --help|-h)
+        echo "Usage: nanobk setup dns apply [--zone DOMAIN] [--api-env PATH] [--apply] [--confirm PHRASE] [--json]"
+        echo ""
+        echo "  DNS 创建引擎（默认只显示预案）。"
+        echo "  带 --apply + --confirm 才会真正创建 DNS。"
+        return 0 ;;
+      *)
+        die "setup dns apply: unknown option: $1"
+        ;;
+    esac
+  done
+
+  if [[ "$DRY_RUN" == "1" ]]; then
+    echo -e "  ${CYAN}[DRY-RUN]${NC} setup dns apply command prepared"
+    echo "  No DNS mutation will be performed."
+    return 0
+  fi
+
+  local args=(python3 "$REPO_DIR/lib/nanobk_dns_apply_engine.py")
+  [[ -n "$zone" ]] && args+=(--zone "$zone")
+  [[ -n "$api_env" ]] && args+=(--api-env "$api_env")
+  [[ "$apply_mode" == "1" ]] && args+=(--apply)
+  [[ -n "$confirm" ]] && args+=(--confirm "$confirm")
+  [[ "$JSON_OUT" == "1" ]] && args+=(--json)
+
+  "${args[@]}"
+}
+
+# ── cf dns apply-plan ──────────────────────────────────────────────────
+
+cmd_cf_dns_apply_plan() {
+  local zone="" api_env="" apply_mode=0 confirm=""
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --zone)
+        [[ $# -ge 2 ]] || die "cf dns apply-plan: --zone needs a value"
+        zone="$2"; shift 2 ;;
+      --api-env)
+        [[ $# -ge 2 ]] || die "cf dns apply-plan: --api-env needs a path"
+        api_env="$2"; shift 2 ;;
+      --apply)
+        apply_mode=1; shift ;;
+      --confirm)
+        [[ $# -ge 2 ]] || die "cf dns apply-plan: --confirm needs a value"
+        confirm="$2"; shift 2 ;;
+      --json)
+        JSON_OUT=1; shift ;;
+      --dry-run)
+        echo -e "  ${CYAN}[DRY-RUN]${NC} cf dns apply-plan command prepared"
+        echo "  No DNS mutation will be performed."
+        return 0 ;;
+      --help|-h)
+        echo "Usage: nanobk cf dns apply-plan [--zone DOMAIN] [--api-env PATH] [--apply] [--confirm PHRASE] [--json]"
+        echo ""
+        echo "  DNS 创建引擎（默认只显示预案）。"
+        return 0 ;;
+      *)
+        die "cf dns apply-plan: unknown option: $1"
+        ;;
+    esac
+  done
+
+  if [[ "$DRY_RUN" == "1" ]]; then
+    echo -e "  ${CYAN}[DRY-RUN]${NC} cf dns apply-plan command prepared"
+    echo "  No DNS mutation will be performed."
+    return 0
+  fi
+
+  local args=(python3 "$REPO_DIR/lib/nanobk_dns_apply_engine.py")
+  [[ -n "$zone" ]] && args+=(--zone "$zone")
+  [[ -n "$api_env" ]] && args+=(--api-env "$api_env")
+  [[ "$apply_mode" == "1" ]] && args+=(--apply)
+  [[ -n "$confirm" ]] && args+=(--confirm "$confirm")
+  [[ "$JSON_OUT" == "1" ]] && args+=(--json)
+
+  "${args[@]}"
+}
+
 # ── vps ip detect ────────────────────────────────────────────────────────
 
 cmd_vps_ip_detect() {
@@ -2583,7 +2700,15 @@ main() {
       local setup_sub="${cmd_rest[0]:-}"
       local setup_rest=("${cmd_rest[@]:1}")
       case "$setup_sub" in
-        dns)      cmd_setup_dns ${setup_rest[@]+"${setup_rest[@]}"} ;;
+        dns)
+          local dns_sub="${setup_rest[0]:-}"
+          local dns_rest=("${setup_rest[@]:1}")
+          if [[ "$dns_sub" == "apply" ]]; then
+            cmd_setup_dns_apply ${dns_rest[@]+"${dns_rest[@]}"}
+          else
+            cmd_setup_dns ${setup_rest[@]+"${setup_rest[@]}"}
+          fi
+          ;;
         plan)     cmd_setup_plan ${setup_rest[@]+"${setup_rest[@]}"} ;;
         profile)  cmd_setup_profile ${setup_rest[@]+"${setup_rest[@]}"} ;;
         status)   cmd_home ${setup_rest[@]+"${setup_rest[@]}"} ;;

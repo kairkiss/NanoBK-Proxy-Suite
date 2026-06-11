@@ -1,0 +1,10 @@
+{
+  "success": false,
+  "errors": [
+    {
+      "code": 81053,
+      "message": "DNS record already exists"
+    }
+  ],
+  "result": []
+}

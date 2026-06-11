@@ -1,5 +1,34 @@
 # Changelog
 
+## v2.3.4 — DNS Apply Engine with Confirmation
+
+### Added
+
+- Added gated DNS apply engine (`nanobk setup dns apply`).
+- Added plan-only default mode for DNS creation.
+- Added exact confirmation phrase requirement for real DNS create.
+- Added preflight recheck before creation.
+- Added post-create verification.
+- Added strict hostname/type safety checks (only proxy/web, only A/AAAA).
+- Added `nanobk cf dns apply-plan` alias.
+- Added "准备创建 DNS 记录" to DNS submenu (plan-only from menu).
+- Added DNS apply regression test with fake fixtures.
+
+### Safety
+
+- DNS mutation only with explicit `--apply` and exact confirmation phrase.
+- No overwrite of existing non-NanoBK DNS records.
+- No DNS deletion.
+- No DNS update.
+- No wildcard/root/www/api/mail/cdn records.
+- No Cloudflare PATCH/PUT/DELETE.
+- No certificate request.
+- No token rotation.
+- No owner-smoke-create execution.
+- No Web/Bot behavior change.
+- No token, zone ID, record ID, raw API URL, raw API response, private key, or subscription URL output.
+- No release/tag.
+
 ## v2.3.3-polish — Harden Planner Error Handling
 
 ### Fixed
