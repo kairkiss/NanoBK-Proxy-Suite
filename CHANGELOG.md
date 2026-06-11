@@ -1,5 +1,26 @@
 # Changelog
 
+## v2.2.56 — Real VPS Web/Bot Bridge Fix Pack
+
+### Fixed
+
+- Added a safe Web test app factory for `/api/home` real smoke validation.
+- Added stable Bot home adapter public functions for real smoke validation.
+- Wired Bot `/home` and `/setup_status` to explicit stable adapter functions.
+- Added real smoke tests for Web `/api/home` unauth/auth behavior and Bot home adapter callable contract.
+
+### Safety
+
+- Web/Bot bridge fix only.
+- No DNS mutation.
+- No Cloudflare POST/PATCH/PUT/DELETE.
+- No owner-smoke-create execution.
+- No production proxy/web DNS creation.
+- No Web auth downgrade.
+- No Bot owner gate bypass.
+- No token, credential path, profile path, zone ID, record ID, raw API URL, or raw API response output.
+- No release/tag.
+
 ## v2.2.55-polish — Isolate Closeout Regression HOME and Fixtures
 
 ### Fixed

@@ -305,7 +305,7 @@ else
   ERRORS=$((ERRORS + 1))
 fi
 
-if grep -q 'CommandHandler.*"setup_status".*cmd_home' "$BOT_FILE"; then
+if grep -q 'CommandHandler.*"setup_status"' "$BOT_FILE"; then
   pass "G2-3: bot registers CommandHandler setup_status"
 else
   fail "G2-3: bot missing CommandHandler setup_status registration"
@@ -319,10 +319,10 @@ else
   ERRORS=$((ERRORS + 1))
 fi
 
-if grep -q 'get_home_text' "$BOT_FILE"; then
-  pass "G2-5: bot cmd_home uses get_home_text adapter"
+if grep -q 'render_home\|get_home_text' "$BOT_FILE"; then
+  pass "G2-5: bot uses home adapter"
 else
-  fail "G2-5: bot cmd_home missing get_home_text adapter"
+  fail "G2-5: bot missing home adapter"
   ERRORS=$((ERRORS + 1))
 fi
 

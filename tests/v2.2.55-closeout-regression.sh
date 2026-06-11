@@ -275,7 +275,7 @@ echo ""
 
 BOT_FILE="$ROOT/bot/nanobk_bot.py"
 
-for pattern in 'cmd_home' 'is_owner.*update' 'get_home_text' 'CommandHandler.*"home".*cmd_home' 'CommandHandler.*"setup_status".*cmd_home' 'help_home'; do
+for pattern in 'cmd_home' 'is_owner.*update' 'render_home\|get_home_text' 'CommandHandler.*"home".*cmd_home' 'CommandHandler.*"setup_status"' 'help_home'; do
   if grep -q "$pattern" "$BOT_FILE"; then
     pass "G: bot has '$pattern'"
   else

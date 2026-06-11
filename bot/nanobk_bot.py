@@ -31,7 +31,7 @@ from lib.nanobk_redaction import (
     strip_ansi as _shared_strip_ansi,
     redact_text as _shared_redact_text,
 )
-from lib.nanobk_bot_home_adapter import get_home_text
+from lib.nanobk_bot_home_adapter import render_home, render_setup_status
 
 try:
     from dotenv import load_dotenv
@@ -112,6 +112,10 @@ BOT_TEXT: dict[str, dict[str, str]] = {
     "help_home": {
         "en": "Setup home summary",
         "zh": "设置首页摘要",
+    },
+    "help_setup_status": {
+        "en": "Setup status summary",
+        "zh": "设置状态摘要",
     },
     "help_status": {
         "en": "Safe status summary",
@@ -1153,6 +1157,7 @@ def build_help_text(lang: str = "en") -> str:
     lines.append(f"{bt(lang, 'help_basic')}")
     lines.append(f"/start          — {bt(lang, 'help_start')}")
     lines.append(f"/home           — {bt(lang, 'help_home')}")
+    lines.append(f"/setup_status   — {bt(lang, 'help_setup_status')}")
     lines.append(f"/status         — {bt(lang, 'help_status')}")
     lines.append(f"/doctor         — {bt(lang, 'help_doctor')}")
     lines.append(f"/cancel         — {bt(lang, 'help_cancel')}")
@@ -1748,7 +1753,12 @@ def create_bot_app(config: BotConfig):
     async def cmd_home(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not is_owner(update):
             return await unauthorized(update, context)
-        await update.message.reply_text(get_home_text())
+        await update.message.reply_text(render_home())
+
+    async def cmd_setup_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        if not is_owner(update):
+            return await unauthorized(update, context)
+        await update.message.reply_text(render_setup_status())
 
     async def cmd_status_json(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not is_owner(update):
@@ -1991,7 +2001,7 @@ def create_bot_app(config: BotConfig):
     app.add_handler(CommandHandler("help", cmd_help))
     app.add_handler(CommandHandler("status", cmd_status))
     app.add_handler(CommandHandler("home", cmd_home))
-    app.add_handler(CommandHandler("setup_status", cmd_home))
+    app.add_handler(CommandHandler("setup_status", cmd_setup_status))
     app.add_handler(CommandHandler("status_json", cmd_status_json))
     app.add_handler(CommandHandler("doctor", cmd_doctor))
     app.add_handler(CommandHandler("cancel", cmd_cancel))

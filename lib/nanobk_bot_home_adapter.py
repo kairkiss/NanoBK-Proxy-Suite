@@ -84,3 +84,31 @@ def get_home_compact():
             "requires_auth": True,
         }
     return compact_home_status(home)
+
+
+# ── Stable public aliases ───────────────────────────────────────────────────
+
+def render_home():
+    """Render home summary text for Bot /home command."""
+    return get_home_text()
+
+
+def render_setup_status():
+    """Render setup status text for Bot /setup_status command."""
+    return get_home_text()
+
+
+# ── Public contract metadata ────────────────────────────────────────────────
+
+ADAPTER_CONTRACT = {
+    "requires_auth": True,
+    "read_only": True,
+    "dns_changed": False,
+    "production_apply_enabled": False,
+    "public_functions": [
+        "get_home_text",
+        "get_home_compact",
+        "render_home",
+        "render_setup_status",
+    ],
+}

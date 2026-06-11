@@ -1307,6 +1307,43 @@ def create_app(config: WebConfig):
 
     return app
 
+
+# ── Test app factory ───────────────────────────────────────────────────────
+
+def create_test_config(
+    *,
+    nanobk_cli: str | None = None,
+    repo_dir: str | None = None,
+    web_token: str = "test-web-token",
+    secret_key: str = "test-secret-key",
+) -> WebConfig:
+    """Create a WebConfig for testing. Does not read real .env files."""
+    return WebConfig(
+        web_token=web_token,
+        host="127.0.0.1",
+        port=0,
+        nanobk_cli=nanobk_cli or str(Path(__file__).resolve().parents[1] / "bin" / "nanobk"),
+        nanobk_repo_dir=repo_dir or str(Path(__file__).resolve().parents[1]),
+        command_timeout=30,
+        rotate_timeout=30,
+        dry_run=False,
+        secret_key=secret_key,
+        lang="en",
+    )
+
+
+def create_app_for_test(config: WebConfig | None = None) -> Flask:
+    """Create a Flask app for testing. Sets TESTING=True.
+
+    Does not read real .env, does not start server, does not downgrade auth.
+    """
+    if config is None:
+        config = create_test_config()
+    app = create_app(config)
+    app.config["TESTING"] = True
+    return app
+
+
 # ── Main ────────────────────────────────────────────────────────────────────
 
 def main():
