@@ -1143,6 +1143,18 @@ def create_app(config: WebConfig):
                 return jsonify({"ok": False, "error": "Failed to parse status JSON"}), 500
         return jsonify({"ok": False, "error": safe_output(result.stderr or result.stdout)}), 500
 
+    @app.route("/api/home")
+    @require_login
+    def api_home():
+        result = run_nanobk(config, ["home", "--json"])
+        if result.code == 0:
+            try:
+                data = json.loads(result.stdout)
+                return jsonify(redact_json(data))
+            except json.JSONDecodeError:
+                return jsonify({"ok": False, "error": "Failed to parse home JSON"}), 500
+        return jsonify({"ok": False, "error": safe_output(result.stderr or result.stdout)}), 500
+
     # ── Doctor ────────────────────────────────────────────────────────────
 
     @app.route("/doctor", methods=["GET", "POST"])

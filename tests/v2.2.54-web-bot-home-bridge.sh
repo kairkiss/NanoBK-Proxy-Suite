@@ -243,7 +243,100 @@ echo ""
 # G. Mutation guard
 # ══════════════════════════════════════════════════════════════════════════════
 
-echo "--- G. Mutation guard ---"
+# ══════════════════════════════════════════════════════════════════════════════
+# G1. Web real route exists
+# ══════════════════════════════════════════════════════════════════════════════
+
+echo "--- G1. Web real route ---"
+echo ""
+
+WEB_FILE="$ROOT/web/app.py"
+
+if grep -q '/api/home' "$WEB_FILE"; then
+  pass "G1-1: web has /api/home route"
+else
+  fail "G1-1: web missing /api/home route"
+  ERRORS=$((ERRORS + 1))
+fi
+
+if grep -q 'require_login' "$WEB_FILE"; then
+  pass "G1-2: web /api/home has require_login"
+else
+  fail "G1-2: web /api/home missing require_login"
+  ERRORS=$((ERRORS + 1))
+fi
+
+if grep -q 'run_nanobk.*home' "$WEB_FILE"; then
+  pass "G1-3: web /api/home calls run_nanobk home"
+else
+  fail "G1-3: web /api/home missing run_nanobk home call"
+  ERRORS=$((ERRORS + 1))
+fi
+
+if grep -q 'redact_json' "$WEB_FILE"; then
+  pass "G1-4: web /api/home uses redact_json"
+else
+  fail "G1-4: web /api/home missing redact_json"
+  ERRORS=$((ERRORS + 1))
+fi
+
+echo ""
+
+# ══════════════════════════════════════════════════════════════════════════════
+# G2. Bot real command exists
+# ══════════════════════════════════════════════════════════════════════════════
+
+echo "--- G2. Bot real command ---"
+echo ""
+
+BOT_FILE="$ROOT/bot/nanobk_bot.py"
+
+if grep -q 'cmd_home' "$BOT_FILE"; then
+  pass "G2-1: bot has cmd_home handler"
+else
+  fail "G2-1: bot missing cmd_home handler"
+  ERRORS=$((ERRORS + 1))
+fi
+
+if grep -q 'CommandHandler.*"home".*cmd_home' "$BOT_FILE"; then
+  pass "G2-2: bot registers CommandHandler home"
+else
+  fail "G2-2: bot missing CommandHandler home registration"
+  ERRORS=$((ERRORS + 1))
+fi
+
+if grep -q 'CommandHandler.*"setup_status".*cmd_home' "$BOT_FILE"; then
+  pass "G2-3: bot registers CommandHandler setup_status"
+else
+  fail "G2-3: bot missing CommandHandler setup_status registration"
+  ERRORS=$((ERRORS + 1))
+fi
+
+if grep -q 'is_owner.*update' "$BOT_FILE"; then
+  pass "G2-4: bot cmd_home uses is_owner gate"
+else
+  fail "G2-4: bot cmd_home missing is_owner gate"
+  ERRORS=$((ERRORS + 1))
+fi
+
+if grep -q 'get_home_text' "$BOT_FILE"; then
+  pass "G2-5: bot cmd_home uses get_home_text adapter"
+else
+  fail "G2-5: bot cmd_home missing get_home_text adapter"
+  ERRORS=$((ERRORS + 1))
+fi
+
+if grep -q 'help_home' "$BOT_FILE"; then
+  pass "G2-6: bot help includes /home"
+else
+  fail "G2-6: bot help missing /home"
+  ERRORS=$((ERRORS + 1))
+fi
+
+echo ""
+
+# ══════════════════════════════════════════════════════════════════════════════
+# G. Mutation guard ---
 echo ""
 
 for module in "$RENDER_MODULE" "$WEB_ADAPTER" "$BOT_ADAPTER"; do

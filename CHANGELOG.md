@@ -1,5 +1,24 @@
 # Changelog
 
+## v2.2.54-polish — Wire Home Bridge into Web and Bot
+
+### Fixed
+
+- Wired the read-only home/status bridge into the existing Flask Web app as `/api/home`.
+- Wired the Bot home/status adapter into the existing Telegram Bot as `/home`.
+- Preserved Web login protection and Bot owner-only authorization.
+- Added regression checks for real route/command registration and auth gates.
+
+### Safety
+
+- Web/Bot read-only route/command wiring only.
+- No DNS mutation.
+- No Cloudflare POST/PATCH/PUT/DELETE.
+- No owner-smoke-create execution.
+- No production proxy/web DNS creation.
+- No token, credential path, profile path, zone ID, record ID, raw API URL, or raw API response output.
+- No release/tag.
+
 ## v2.2.54 — Read-only Web/Bot Home Bridge
 
 ### Added
