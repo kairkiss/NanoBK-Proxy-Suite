@@ -1,5 +1,27 @@
 # Changelog
 
+## v2.2.50 — Saved DNS Setup Profile
+
+### Added
+
+- Added local saved setup profile support for beginner DNS setup.
+- Added `nanobk setup profile save/show/clear`.
+- Allowed `nanobk setup dns` to use a saved profile when `--zone` and `--api-env` are omitted.
+- Added safe profile permissions and redacted profile output.
+- Updated help and console DNS menu.
+- Added tests for save/show/clear, profile-backed setup, CLI override, missing/malformed/unsafe profile, redaction, help, console, and no-mutation behavior.
+
+### Safety
+
+- Profile support only.
+- No DNS mutation.
+- No Cloudflare POST/PATCH/PUT/DELETE.
+- No owner-smoke-create execution.
+- No production proxy/web DNS creation.
+- No token, credential path, zone ID, record ID, raw API URL, or raw API response output.
+- No Bot/Web/installer live create.
+- No release/tag.
+
 ## v2.2.49-polish — Fix Beginner DNS Assistant Newlines and Syntax
 
 ### Fixed

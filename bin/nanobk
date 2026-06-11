@@ -272,10 +272,13 @@ console_dns_submenu() {
   echo "  4) Generate DNS plan"
   echo "  5) Create preflight summary"
   echo "  6) Owner disposable smoke create (advanced/owner-only)"
-  echo "  7) Back"
+  echo "  7) Save setup profile"
+  echo "  8) Show setup profile"
+  echo "  9) Clear setup profile"
+  echo " 10) Back"
   echo ""
   local choice
-  read -rp "  Select [1-7]: " choice || { echo ""; return; }
+  read -rp "  Select [1-10]: " choice || { echo ""; return; }
   case "$choice" in
     1)
       echo ""
@@ -340,11 +343,39 @@ console_dns_submenu() {
       echo "  Production proxy/web create remains blocked."
       console_pause
       ;;
-    7|"")
+    7)
+      echo ""
+      ui_safe_action "Save setup profile (stores zone/api-env/nodes locally):"
+      echo ""
+      echo "    nanobk setup profile save --zone example.com --api-env /path/to/cloudflare.env"
+      echo ""
+      echo "  Saves your DNS setup so you can run 'nanobk setup dns' without re-entering."
+      echo "  Profile stored at ~/.nanobk/setup-profile.json with mode 0600."
+      console_pause
+      ;;
+    8)
+      echo ""
+      ui_safe_action "Show setup profile (redacted):"
+      echo ""
+      echo "    nanobk setup profile show"
+      echo ""
+      echo "  Shows the saved DNS setup profile without exposing secrets."
+      console_pause
+      ;;
+    9)
+      echo ""
+      ui_safe_action "Clear setup profile:"
+      echo ""
+      echo "    nanobk setup profile clear"
+      echo ""
+      echo "  Removes the saved DNS setup profile."
+      console_pause
+      ;;
+    10|"")
       return
       ;;
     *)
-      echo "  Invalid input. Please enter 1-7."
+      echo "  Invalid input. Please enter 1-10."
       console_pause
       ;;
   esac
@@ -549,6 +580,9 @@ NanoBK Proxy Suite — Unified CLI v${NANOBK_VERSION}
   cf zones list --api-env PATH  只读列出 Cloudflare zones [--json]
   vps ip detect               只读 VPS IP 候选检测 [--json]
   setup dns --zone DOMAIN --api-env PATH  初学者 DNS 设置助手 [--json]
+  setup profile save --zone DOMAIN --api-env PATH  保存 DNS 设置配置 [--json]
+  setup profile show                     显示已保存的 DNS 设置配置 [--json]
+  setup profile clear                    清除已保存的 DNS 设置配置 [--json]
   rotate <protocol> [args.]  换密钥: all|hy2|tuic|reality|trojan
   export link <protocol>     导出单个协议链接: hy2|tuic|reality|trojan
   export links               导出所有协议链接
@@ -1913,6 +1947,95 @@ cmd_setup_dns() {
   "${args[@]}"
 }
 
+# ── setup profile ─────────────────────────────────────────────────────────
+
+cmd_setup_profile() {
+  local profile_sub="${1:-}"
+  shift 2>/dev/null || true
+
+  case "$profile_sub" in
+    save)
+      local args=(python3 "$REPO_DIR/lib/nanobk_setup_profile.py" save)
+      while [[ $# -gt 0 ]]; do
+        case "$1" in
+          --zone)
+            [[ $# -ge 2 ]] || die "setup profile save: --zone needs a value"
+            args+=("$1" "$2"); shift 2 ;;
+          --api-env)
+            [[ $# -ge 2 ]] || die "setup profile save: --api-env needs a path"
+            args+=("$1" "$2"); shift 2 ;;
+          --nodes)
+            [[ $# -ge 2 ]] || die "setup profile save: --nodes needs a value"
+            args+=("$1" "$2"); shift 2 ;;
+          --json)
+            args+=("--json"); shift ;;
+          --help|-h)
+            echo "Usage: nanobk setup profile save --zone DOMAIN --api-env PATH [--nodes proxy,web] [--json]"
+            echo ""
+            echo "  Save a local DNS setup profile."
+            echo "  Profile is stored at ~/.nanobk/setup-profile.json with mode 0600."
+            return 0 ;;
+          --dry-run)
+            echo -e "  ${CYAN}[DRY-RUN]${NC} setup profile save command prepared"
+            echo "  api-env: <redacted>"
+            return 0 ;;
+          *)
+            die "setup profile save: unknown option: $1"
+            ;;
+        esac
+      done
+      if [[ "$DRY_RUN" == "1" ]]; then
+        echo -e "  ${CYAN}[DRY-RUN]${NC} setup profile save command prepared"
+        echo "  api-env: <redacted>"
+        return 0
+      fi
+      "${args[@]}"
+      ;;
+    show)
+      local args=(python3 "$REPO_DIR/lib/nanobk_setup_profile.py" show)
+      while [[ $# -gt 0 ]]; do
+        case "$1" in
+          --json)
+            args+=("--json"); shift ;;
+          --help|-h)
+            echo "Usage: nanobk setup profile show [--json]"
+            echo ""
+            echo "  Show the saved DNS setup profile (redacted)."
+            return 0 ;;
+          *)
+            die "setup profile show: unknown option: $1"
+            ;;
+        esac
+      done
+      "${args[@]}"
+      ;;
+    clear)
+      local args=(python3 "$REPO_DIR/lib/nanobk_setup_profile.py" clear)
+      while [[ $# -gt 0 ]]; do
+        case "$1" in
+          --json)
+            args+=("--json"); shift ;;
+          --help|-h)
+            echo "Usage: nanobk setup profile clear [--json]"
+            echo ""
+            echo "  Clear the saved DNS setup profile."
+            return 0 ;;
+          *)
+            die "setup profile clear: unknown option: $1"
+            ;;
+        esac
+      done
+      "${args[@]}"
+      ;;
+    "")
+      die "Usage: nanobk setup profile <save|show|clear> [args...]"
+      ;;
+    *)
+      die "Unknown setup profile subcommand: ${profile_sub}. Use: nanobk setup profile <save|show|clear>"
+      ;;
+  esac
+}
+
 # ── vps ip detect ────────────────────────────────────────────────────────
 
 cmd_vps_ip_detect() {
@@ -2210,8 +2333,9 @@ main() {
       local setup_sub="${cmd_rest[0]:-}"
       local setup_rest=("${cmd_rest[@]:1}")
       case "$setup_sub" in
-        dns)  cmd_setup_dns ${setup_rest[@]+"${setup_rest[@]}"} ;;
-        *)    die "Usage: nanobk setup dns --zone DOMAIN --api-env PATH [--json]" ;;
+        dns)      cmd_setup_dns ${setup_rest[@]+"${setup_rest[@]}"} ;;
+        profile)  cmd_setup_profile ${setup_rest[@]+"${setup_rest[@]}"} ;;
+        *)        die "Usage: nanobk setup <dns|profile> [args...]" ;;
       esac
       ;;
     rotate)   cmd_rotate ${cmd_rest[@]+"${cmd_rest[@]}"} ;;

@@ -33,6 +33,7 @@ from nanobk_cf_dns_availability import (
 )
 from nanobk_cf_dns_plan_generator import generate_plan
 from nanobk_cf_dns_create_preflight import run_preflight
+from nanobk_setup_profile import load_profile
 
 
 # ── Safety constants ────────────────────────────────────────────────────────
@@ -346,14 +347,32 @@ def main():
         parser.print_help()
         sys.exit(1)
 
-    if not args.zone:
-        output_error("zone is required", args.json)
+    zone = args.zone
+    api_env = args.api_env
+    nodes = args.nodes
+
+    # Fall back to saved profile if CLI args not provided
+    if not zone or not api_env:
+        profile, profile_err = load_profile()
+        if profile_err:
+            msg = "No setup profile found. Run: nanobk setup profile save --zone example.com --api-env /path/to/cloudflare.env"
+            output_error(msg, args.json)
+            sys.exit(1)
+        if not zone:
+            zone = profile.get("zone_name", "")
+        if not api_env:
+            api_env = profile.get("api_env_path", "")
+        if nodes == "proxy,web" and profile.get("nodes"):
+            nodes = ",".join(profile["nodes"])
+
+    if not zone:
+        output_error("zone is required (provide --zone or save a profile)", args.json)
         sys.exit(1)
-    if not args.api_env:
-        output_error("api-env is required", args.json)
+    if not api_env:
+        output_error("api-env is required (provide --api-env or save a profile)", args.json)
         sys.exit(1)
 
-    result = run_setup(args.zone, args.api_env, args.nodes)
+    result = run_setup(zone, api_env, nodes)
 
     if args.json:
         print(json.dumps(result, indent=2))
