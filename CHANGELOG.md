@@ -1,5 +1,26 @@
 # Changelog
 
+## v2.2.54 — Read-only Web/Bot Home Bridge
+
+### Added
+
+- Added shared home/status renderer for Web/Bot/CLI surfaces.
+- Added read-only Web home/status bridge or adapter backed by `run_home()`.
+- Added read-only Bot home/status bridge or adapter backed by `run_home()`.
+- Added Web/Bot-safe redacted home summary text and compact JSON.
+- Added tests for renderer output, Web bridge JSON, Bot bridge text, auth contract, redaction, mutation blocking, help stability, and formatting.
+
+### Safety
+
+- Web/Bot read-only bridge only.
+- No DNS mutation.
+- No Cloudflare POST/PATCH/PUT/DELETE.
+- No owner-smoke-create execution.
+- No production proxy/web DNS creation.
+- No token, credential path, profile path, zone ID, record ID, raw API URL, or raw API response output.
+- No Web/Bot live create.
+- No release/tag.
+
 ## v2.2.53-polish — Redact Profile Path in Home Permission Hints
 
 ### Fixed
