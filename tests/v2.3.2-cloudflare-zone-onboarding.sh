@@ -128,11 +128,13 @@ for leak in "CF_API_TOKEN=" "super-secret-fake-token" "api.cloudflare.com/client
   fi
 done
 
-# 13. No POST/PATCH/PUT/DELETE in onboarding module
-if grep -qE "POST|PATCH|PUT|DELETE" "$ONBOARDING" | grep -v "^#" | grep -v "docstring\|comment\|'POST'" 2>/dev/null; then
-  fail "Onboarding module contains mutation methods"
+# 13. No POST/PATCH/PUT/DELETE mutation calls in onboarding module
+# Check for actual mutation method calls, not docstring mentions
+MUTATION_LINES=$(grep -nE 'method="(POST|PATCH|PUT|DELETE)"|urlopen.*POST|requests\.(post|put|patch|delete)' "$ONBOARDING" 2>/dev/null || true)
+if [[ -n "$MUTATION_LINES" ]]; then
+  fail "Onboarding module contains mutation method calls"
 else
-  ok "No POST/PATCH/PUT/DELETE in onboarding"
+  ok "No POST/PATCH/PUT/DELETE mutation calls in onboarding"
 fi
 
 # 14. No owner-smoke-create auto-execution
@@ -149,6 +151,49 @@ if echo "$MENU_OUT" | grep -q "连接 Cloudflare"; then
   ok "TTY menu contains '连接 Cloudflare'"
 else
   fail "TTY menu missing '连接 Cloudflare'"
+fi
+
+# 16. No-args non-TTY JSON returns error (does not hang)
+rm -rf "$HOME/.nanobk"
+export NANOBK_CF_ZONES_FAKE_RESPONSE="$FIXTURES/zones_two.json"
+NOARG_OUT=$(bash "$CLI" cf connect --json 2>&1 || true)
+if echo "$NOARG_OUT" | python3 -c "import json,sys; d=json.load(sys.stdin); assert d.get('ok')==False; assert 'error' in d" 2>/dev/null; then
+  ok "No-args non-TTY JSON returns error without hanging"
+else
+  fail "No-args non-TTY JSON did not return expected error"
+fi
+
+# 17. Interactive prompt text exists in onboarding helper
+if grep -q "请粘贴 Cloudflare API token" "$ONBOARDING" 2>/dev/null; then
+  ok "Onboarding helper contains interactive prompt text"
+else
+  fail "Onboarding helper missing interactive prompt text"
+fi
+
+# 18. Interactive no-args TTY with stdin token completes onboarding
+rm -rf "$HOME/.nanobk"
+export NANOBK_CF_ZONES_FAKE_RESPONSE="$FIXTURES/zones_two.json"
+export NANOBK_TEST_FORCE_INTERACTIVE=1
+INTERACTIVE_OUT=$(echo "fake-interactive-token-for-test" | NANOBK_TEST_FORCE_TTY=1 bash "$CLI" cf connect --yes 2>&1 || true)
+unset NANOBK_TEST_FORCE_INTERACTIVE
+if echo "$INTERACTIVE_OUT" | grep -q "连接成功\|example.com"; then
+  ok "Interactive TTY with stdin token completes onboarding"
+else
+  fail "Interactive TTY with stdin token did not complete"
+fi
+
+# 19. Interactive output does not leak token
+if echo "$INTERACTIVE_OUT" | grep -q "fake-interactive-token-for-test"; then
+  fail "Interactive output leaks token"
+else
+  ok "Interactive output does not leak token"
+fi
+
+# 20. Interactive onboarding created profile
+if python3 -c "import json; d=json.load(open('$HOME/.nanobk/setup-profile.json')); assert d.get('zone_name')=='example.com'" 2>/dev/null; then
+  ok "Interactive onboarding saved profile"
+else
+  fail "Interactive onboarding did not save profile"
 fi
 
 # Summary

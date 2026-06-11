@@ -1,5 +1,28 @@
 # Changelog
 
+## v2.3.2-polish — Fix Interactive Cloudflare Connect Prompt
+
+### Fixed
+
+- Fixed no-argument `nanobk cf connect` interactive behavior.
+- Added beginner prompt for Cloudflare API token when launched from CLI menu.
+- Kept non-TTY and JSON mode non-interactive.
+- Strengthened onboarding safety grep tests.
+- Fixed v2.3.1 owner-smoke-create grep safety check.
+
+### Safety
+
+- No DNS mutation.
+- No Cloudflare DNS mutation.
+- GET-only Cloudflare zone discovery.
+- No Cloudflare POST/PATCH/PUT/DELETE.
+- No certificate request.
+- No token rotation.
+- No owner-smoke-create execution.
+- No Web/Bot behavior change.
+- No token, zone ID, record ID, raw API URL, raw API response, private key, or subscription URL output.
+- No release/tag.
+
 ## v2.3.2 — Cloudflare Account and Zone Onboarding
 
 ### Added

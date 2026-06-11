@@ -110,7 +110,9 @@ for leak in "CF_API_TOKEN" "PRIVATE KEY" "api.cloudflare.com/client/v4" "/dns_re
 done
 
 # 13. No owner-smoke-create auto-execution in bin/nanobk
-if grep -q "owner-smoke-create.*--owner-approve.*--cleanup.*--confirm" "$CLI" | grep -v "^#" | grep -v "echo\|cat\|help\|Usage" 2>/dev/null; then
+# Check for actual auto-execution (not echo/help/Usage lines)
+SMOKE_EXEC=$(grep -n 'owner-smoke-create' "$CLI" 2>/dev/null | grep -v 'echo\|help\|Usage\|cat\|die\|#' | grep 'cmd_cf_dns\|run_script\|bash.*owner-smoke-create' || true)
+if [[ -n "$SMOKE_EXEC" ]]; then
   fail "bin/nanobk appears to auto-execute owner-smoke-create"
 else
   ok "No owner-smoke-create auto-execution path"

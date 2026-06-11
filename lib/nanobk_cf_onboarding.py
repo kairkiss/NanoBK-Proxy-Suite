@@ -15,6 +15,7 @@ Test hooks:
 """
 
 import argparse
+import getpass
 import json
 import os
 import stat
@@ -128,6 +129,28 @@ def select_zone(zones, auto_select=False):
 
 # ── Onboarding flow ─────────────────────────────────────────────────────────
 
+def prompt_for_token():
+    """Interactively prompt user for Cloudflare API token. Returns token or None."""
+    # Test hook: NANOBK_TEST_FORCE_INTERACTIVE=1 bypasses TTY check
+    if not os.environ.get("NANOBK_TEST_FORCE_INTERACTIVE") and not sys.stdin.isatty():
+        return None
+    print()
+    print("  请粘贴 Cloudflare API token")
+    print("  我只会读取你的域名列表，不会创建 DNS，不会修改 Cloudflare。")
+    print()
+    try:
+        token = getpass.getpass("  API token: ")
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return None
+    token = token.strip()
+    if not token:
+        print()
+        print("  错误：token 不能为空。")
+        return None
+    return token
+
+
 def run_onboarding(api_token=None, api_env_path=None, auto_select=False, json_mode=False):
     """Run the full Cloudflare onboarding flow. Returns result dict."""
 
@@ -148,10 +171,22 @@ def run_onboarding(api_token=None, api_env_path=None, auto_select=False, json_mo
             if not ok:
                 return {"ok": False, "error": err}
             env_path = default
+        elif not json_mode:
+            # Interactive prompt for TTY users
+            token = prompt_for_token()
+            if not token:
+                return {
+                    "ok": False,
+                    "error": "未提供 Cloudflare API token。请使用 --api-token 或从菜单选择此选项。",
+                }
+            result = save_token_env(token)
+            if not result["ok"]:
+                return result
+            env_path = result["env_path"]
         else:
             return {
                 "ok": False,
-                "error": "no Cloudflare API token provided. Use --api-token or --api-env."
+                "error": "no Cloudflare API token provided. Use --api-token or --api-env.",
             }
 
     # Step 2: Validate env file
