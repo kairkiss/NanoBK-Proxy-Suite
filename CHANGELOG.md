@@ -1,5 +1,38 @@
 # Changelog
 
+## v2.3.7 — Subscription Token Rotation Gate
+
+### Added
+
+- Added gated subscription token rotation command (`nanobk setup token rotate`).
+- Added plan-only default mode for token rotation.
+- Added exact confirmation phrase requirement for real token rotation.
+- Added token masking and fake Worker update runner.
+- Added production Worker safety block (nanok/nanob and biankai314.uk domain markers).
+- Added `nanobk token rotate` alias.
+- Added "订阅 Token 轮换预案" to setup submenu (plan-only from menu).
+- Added token rotation regression test with fake fixtures.
+
+### Fixed
+
+- Clarified v2.3.6 DNS-01 safety wording: no direct DNS mutation by NanoBK; ACME DNS-01 may create temporary challenge TXT records only after explicit certificate issue confirmation.
+
+### Safety
+
+- Token rotation only with explicit `--rotate` and exact confirmation phrase.
+- No default token rotation.
+- No default Worker update.
+- Production Worker nanok / nanok.biankai314.uk blocked.
+- No raw token output.
+- No raw Worker script output.
+- No certificate request.
+- No DNS mutation.
+- No service reload/restart.
+- No config mutation.
+- No owner-smoke-create execution.
+- No Web/Bot behavior change.
+- No release/tag.
+
 ## v2.3.6 — Certificate Issue Gate
 
 ### Added
@@ -26,7 +59,7 @@
 - No installcert.
 - No service reload/restart.
 - No config mutation.
-- No DNS mutation.
+- No direct DNS mutation by NanoBK. ACME DNS-01 may create temporary challenge TXT records only after explicit `--issue` and exact confirmation.
 - No Cloudflare POST/PATCH/PUT/DELETE.
 - No token rotation.
 - No owner-smoke-create execution.

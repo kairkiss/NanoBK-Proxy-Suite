@@ -429,11 +429,12 @@ console_setup_submenu() {
   echo "  3) 开始引导设置"
   echo "  4) 证书自动化预检"
   echo "  5) 证书签发预案"
-  echo "  6) 查看设置状态"
-  echo "  7) 返回"
+  echo "  6) 订阅 Token 轮换预案"
+  echo "  7) 查看设置状态"
+  echo "  8) 返回"
   echo ""
   local choice
-  read -rp "  选择 [1-7]: " choice || { echo ""; return; }
+  read -rp "  选择 [1-8]: " choice || { echo ""; return; }
   case "$choice" in
     1)
       echo ""
@@ -479,6 +480,15 @@ console_setup_submenu() {
       ;;
     6)
       echo ""
+      ui_safe_action "订阅 Token 轮换预案（只读，不会轮换）:"
+      echo "  我会生成 Token 轮换预案。"
+      echo "  真正轮换需要你复制命令并输入确认短语。"
+      echo ""
+      cmd_setup_token_rotate || true
+      console_pause
+      ;;
+    7)
+      echo ""
       ui_safe_action "查看当前设置状态:"
       echo ""
       cmd_home || true
@@ -488,7 +498,7 @@ console_setup_submenu() {
       return
       ;;
     *)
-      echo "  无效输入，请选择 1-7。"
+      echo "  无效输入，请选择 1-8。"
       console_pause
       ;;
   esac
@@ -616,6 +626,7 @@ cmd_entry() {
   echo "    nanobk setup dns          DNS 设置助手"
   echo "    nanobk setup cert plan    证书自动化预检"
   echo "    nanobk setup cert issue   证书签发预案"
+  echo "    nanobk setup token rotate Token 轮换预案"
   echo ""
   echo "  更多命令："
   echo "    nanobk --help             查看完整帮助"
@@ -670,6 +681,8 @@ NanoBK Proxy Suite — Unified CLI v${NANOBK_VERSION}
   setup cert issue [--zone DOMAIN] [--api-env PATH] [--issue] [--confirm PHRASE]  证书签发预案 [--json]
   cert plan [--zone DOMAIN] [--api-env PATH]        证书自动化预检（别名） [--json]
   cert issue [--zone DOMAIN] [--api-env PATH] [--issue] [--confirm PHRASE]  证书签发（别名） [--json]
+  setup token rotate [--worker-name NAME] [--api-env PATH] [--token-kind both] [--rotate] [--confirm PHRASE]  订阅 Token 轮换 [--json]
+  token rotate [--worker-name NAME] [--api-env PATH] [--token-kind both] [--rotate] [--confirm PHRASE]  Token 轮换（别名） [--json]
   rotate <protocol> [args.]  换密钥: all|hy2|tuic|reality|trojan
   export link <protocol>     导出单个协议链接: hy2|tuic|reality|trojan
   export links               导出所有协议链接
@@ -2544,6 +2557,62 @@ cmd_setup_cert_issue() {
   "${args[@]}"
 }
 
+# ── setup token rotate ──────────────────────────────────────────────────
+
+cmd_setup_token_rotate() {
+  local worker_name="" api_env="" token_kind="both" rotate_mode=0 confirm=""
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --worker-name)
+        [[ $# -ge 2 ]] || die "setup token rotate: --worker-name needs a value"
+        worker_name="$2"; shift 2 ;;
+      --api-env)
+        [[ $# -ge 2 ]] || die "setup token rotate: --api-env needs a path"
+        api_env="$2"; shift 2 ;;
+      --token-kind)
+        [[ $# -ge 2 ]] || die "setup token rotate: --token-kind needs a value"
+        token_kind="$2"; shift 2 ;;
+      --rotate)
+        rotate_mode=1; shift ;;
+      --confirm)
+        [[ $# -ge 2 ]] || die "setup token rotate: --confirm needs a value"
+        confirm="$2"; shift 2 ;;
+      --json)
+        JSON_OUT=1; shift ;;
+      --help|-h)
+        echo "Usage: nanobk setup token rotate [--worker-name NAME] [--api-env PATH] [--token-kind both] [--rotate] [--confirm PHRASE] [--json]"
+        echo ""
+        echo "  订阅 Token 轮换预案（默认只读，不会轮换）。"
+        echo "  带 --rotate + --confirm 才会真正轮换 Token。"
+        return 0 ;;
+      --dry-run)
+        echo -e "  ${CYAN}[DRY-RUN]${NC} setup token rotate command prepared"
+        echo "  No token rotation will be performed."
+        return 0 ;;
+      *)
+        die "setup token rotate: unknown option: $1"
+        ;;
+    esac
+  done
+
+  if [[ "$DRY_RUN" == "1" ]]; then
+    echo -e "  ${CYAN}[DRY-RUN]${NC} setup token rotate command prepared"
+    echo "  No token rotation will be performed."
+    return 0
+  fi
+
+  local args=(python3 "$REPO_DIR/lib/nanobk_token_rotation_gate.py")
+  [[ -n "$worker_name" ]] && args+=(--worker-name "$worker_name")
+  [[ -n "$api_env" ]] && args+=(--api-env "$api_env")
+  args+=(--token-kind "$token_kind")
+  [[ "$rotate_mode" == "1" ]] && args+=(--rotate)
+  [[ -n "$confirm" ]] && args+=(--confirm "$confirm")
+  [[ "$JSON_OUT" == "1" ]] && args+=(--json)
+
+  "${args[@]}"
+}
+
 # ── vps ip detect ────────────────────────────────────────────────────────
 
 cmd_vps_ip_detect() {
@@ -2866,8 +2935,17 @@ main() {
         plan)     cmd_setup_plan ${setup_rest[@]+"${setup_rest[@]}"} ;;
         profile)  cmd_setup_profile ${setup_rest[@]+"${setup_rest[@]}"} ;;
         status)   cmd_home ${setup_rest[@]+"${setup_rest[@]}"} ;;
+        token)
+          local token_sub="${setup_rest[0]:-}"
+          local token_rest=("${setup_rest[@]:1}")
+          if [[ "$token_sub" == "rotate" ]]; then
+            cmd_setup_token_rotate ${token_rest[@]+"${token_rest[@]}"}
+          else
+            die "Usage: nanobk setup token <rotate> [args...]"
+          fi
+          ;;
         wizard)   cmd_setup_wizard ${setup_rest[@]+"${setup_rest[@]}"} ;;
-        *)        die "Usage: nanobk setup <dns|cert|plan|profile|status|wizard> [args...]" ;;
+        *)        die "Usage: nanobk setup <dns|cert|plan|profile|status|token|wizard> [args...]" ;;
       esac
       ;;
     cert)
@@ -2880,6 +2958,17 @@ main() {
         plan)     cmd_setup_cert_plan ${cert_rest[@]+"${cert_rest[@]}"} ;;
         issue)    cmd_setup_cert_issue ${cert_rest[@]+"${cert_rest[@]}"} ;;
         *)        die "Usage: nanobk cert <plan|issue> [args...]" ;;
+      esac
+      ;;
+    token)
+      local token_sub="${cmd_rest[0]:-}"
+      local token_rest=()
+      if [[ ${#cmd_rest[@]} -gt 1 ]]; then
+        token_rest=("${cmd_rest[@]:1}")
+      fi
+      case "$token_sub" in
+        rotate)   cmd_setup_token_rotate ${token_rest[@]+"${token_rest[@]}"} ;;
+        *)        die "Usage: nanobk token <rotate> [args...]" ;;
       esac
       ;;
     rotate)   cmd_rotate ${cmd_rest[@]+"${cmd_rest[@]}"} ;;
