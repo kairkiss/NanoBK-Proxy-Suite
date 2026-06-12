@@ -20,7 +20,7 @@ set -Eeuo pipefail
 
 # ── Version ─────────────────────────────────────────────────────────────────
 
-NANOBK_VERSION="2.4.2"
+NANOBK_VERSION="2.4.3"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -725,6 +725,7 @@ NanoBK Proxy Suite — Unified CLI v${NANOBK_VERSION}
   beginner                          新手设置流程 [--json]
   beginner status                   新手状态概览 [--json]
   beginner flow                     新手设置流程 [--json]
+  beginner subdomain [--domain D]   子域名冲突检查 [--json]
   setup flow [--zone DOMAIN] [--api-env PATH] [--worker-name NAME]  一键设置流程（只读） [--json]
   setup run  [--zone DOMAIN] [--api-env PATH] [--worker-name NAME]  一键设置流程（别名） [--json]
   setup wizard [--zone DOMAIN] [--api-env PATH] [--yes]  引导式 DNS 设置向导 [--json]
@@ -2167,6 +2168,7 @@ cmd_home() {
 cmd_beginner() {
   local subcommand=""
   local use_json=0
+  local subdomain_args=()
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --json)
@@ -2175,13 +2177,21 @@ cmd_beginner() {
         subcommand="status"; shift ;;
       flow)
         subcommand="flow"; shift ;;
+      subdomain)
+        subcommand="subdomain"; shift
+        # Pass remaining args to subdomain handler
+        subdomain_args=("$@")
+        break
+        ;;
       --help|-h)
         echo "Usage: nanobk beginner [--json]"
         echo "       nanobk beginner status [--json]"
         echo "       nanobk beginner flow [--json]"
+        echo "       nanobk beginner subdomain [--json] [--domain DOMAIN]"
         echo ""
         echo "  Show beginner-friendly setup flow and status."
         echo "  显示新手设置流程和状态概览。"
+        echo "  subdomain: 检查子域名是否可用"
         echo "  Read-only. No DNS mutation. No Cloudflare mutation."
         return 0 ;;
       --dry-run)
@@ -2198,10 +2208,17 @@ cmd_beginner() {
     echo "  No DNS mutation will be performed."
     return 0
   fi
-  local args=(python3 "$REPO_DIR/lib/nanobk_beginner_flow.py")
-  [[ -n "$subcommand" ]] && args+=("$subcommand")
-  [[ "$use_json" == "1" ]] && args+=("--json")
-  "${args[@]}"
+  if [[ "$subcommand" == "subdomain" ]]; then
+    local args=(python3 "$REPO_DIR/lib/nanobk_subdomain_conflict_ux.py" check)
+    args+=("${subdomain_args[@]}")
+    [[ "$use_json" == "1" ]] && args+=("--json")
+    "${args[@]}"
+  else
+    local args=(python3 "$REPO_DIR/lib/nanobk_beginner_flow.py")
+    [[ -n "$subcommand" ]] && args+=("$subcommand")
+    [[ "$use_json" == "1" ]] && args+=("--json")
+    "${args[@]}"
+  fi
 }
 
 # ── setup dns ────────────────────────────────────────────────────────────

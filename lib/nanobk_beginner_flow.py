@@ -35,7 +35,7 @@ _LOGO = r"""
 
 # ── Status gathering (profile-only, no network) ────────────────────────────
 
-def _gather_flow_status(ip_fixture=None, dns_fixture=None, cert_fixture=None, token_fixture=None):
+def _gather_flow_status(ip_fixture=None, dns_fixture=None, cert_fixture=None, token_fixture=None, subdomain_fixture=None):
     """Gather flow status from profile and optional fixtures.
 
     Read-only. No network calls. No mutation.
@@ -115,6 +115,17 @@ def _gather_flow_status(ip_fixture=None, dns_fixture=None, cert_fixture=None, to
         elif dns_status == "configured":
             next_step = "review_cert_plan"
 
+    # Apply subdomain conflict fixture if provided
+    subdomain_info = None
+    if subdomain_fixture:
+        from nanobk_subdomain_conflict_ux import plan_subdomain
+        availability = subdomain_fixture.get("availability", {})
+        subdomain_info = plan_subdomain(domain, availability=availability)
+        if subdomain_info.get("blocked"):
+            stage = "dns_conflict"
+            next_step = "ask_custom_subdomain"
+            dns_status = "conflict"
+
     # Apply cert fixture if provided
     if cert_fixture:
         cert_status = cert_fixture.get("certificate", "not_checked")
@@ -146,6 +157,7 @@ def _gather_flow_status(ip_fixture=None, dns_fixture=None, cert_fixture=None, to
         "subscription_token": token_status,
         "safety": safety,
         "next_step": next_step,
+        "subdomain_info": subdomain_info,
     }
 
 
@@ -266,12 +278,33 @@ def _build_steps(status):
         })
 
     # 5. DNS plan
+    subdomain_info = status.get("subdomain_info")
     if dns == "configured":
         steps.append({
             "id": "dns_plan",
             "title": "域名指向",
             "status": "done",
             "message": f"已将 proxy.{domain} 和 web.{domain} 指向你的服务器。",
+        })
+    elif dns == "conflict" and subdomain_info:
+        # Build conflict message
+        conflict_parts = []
+        for rec in subdomain_info.get("records", []):
+            name = rec.get("name", "")
+            rec_status = rec.get("status", "")
+            role = rec.get("role", "")
+            if rec_status == "occupied":
+                conflict_parts.append(f"{name} 这个名字已经被用了")
+                conflict_parts.append(f"  不会覆盖，也不会删除已有配置")
+                conflict_parts.append(f"  请换一个新的 {role} 子域名")
+            else:
+                conflict_parts.append(f"{name} 可以使用")
+        conflict_msg = "\n".join(conflict_parts)
+        steps.append({
+            "id": "dns_plan",
+            "title": "域名指向",
+            "status": "blocked",
+            "message": f"检查子域名是否可用：\n{conflict_msg}",
         })
     elif dns == "pending":
         steps.append({
@@ -410,7 +443,7 @@ def render_flow_text(steps, status):
 
 # ── JSON output ────────────────────────────────────────────────────────────
 
-def gather_flow_json(ip_fixture=None, dns_fixture=None, cert_fixture=None, token_fixture=None):
+def gather_flow_json(ip_fixture=None, dns_fixture=None, cert_fixture=None, token_fixture=None, subdomain_fixture=None):
     """Gather flow status as safe JSON dict.
 
     Never includes:
@@ -423,16 +456,23 @@ def gather_flow_json(ip_fixture=None, dns_fixture=None, cert_fixture=None, token
         dns_fixture=dns_fixture,
         cert_fixture=cert_fixture,
         token_fixture=token_fixture,
+        subdomain_fixture=subdomain_fixture,
     )
     steps = _build_steps(status)
 
-    return {
+    result = {
         "ok": True,
         "stage": status["stage"],
         "steps": steps,
         "next_step": status["next_step"],
         "safety": status["safety"],
     }
+
+    # Include subdomain conflict info if present
+    if status.get("subdomain_info"):
+        result["subdomain"] = status["subdomain_info"]
+
+    return result
 
 
 def gather_status_json(ip_fixture=None, dns_fixture=None, cert_fixture=None, token_fixture=None):

@@ -1,5 +1,24 @@
 # Changelog
 
+## v2.4.3 — Subdomain Conflict UX
+
+### Added
+
+- Added beginner-friendly proxy/web subdomain conflict handling.
+- Added safe subdomain availability planning with fixture coverage.
+- Added custom subdomain retry guidance.
+- Added conflict blocking before DNS confirmation.
+
+### Safety
+
+- No release/tag created.
+- No DNS/certificate/token/Worker mutation.
+- No DNS overwrite or delete behavior.
+- No service reload/restart.
+- No Web/Bot behavior change.
+- v2.3 exact confirmation gates remain authoritative.
+- No raw secret output.
+
 ## v2.4.2 — Beginner Flow Renderer
 
 ### Added
