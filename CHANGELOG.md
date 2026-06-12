@@ -1,5 +1,26 @@
 # Changelog
 
+## v2.5.0 — Production Setup Integration Spine
+
+### Added
+
+- Added v2.5 production setup spine.
+- Added `nanobk setup production` read-only production setup entry.
+- Added `nanobk beginner production` alias.
+- Mapped legacy VPS, Cloudflare, DNS, cert, token, and key rotation capabilities into the new beginner CLI flow.
+- Added safe JSON output for production setup planning.
+
+### Safety
+
+- No runtime deployment executed.
+- No release/tag created.
+- No DNS/certificate/token/Worker mutation.
+- No DNS overwrite or delete behavior.
+- No service reload/restart.
+- No Web/Bot behavior change.
+- v2.3 exact confirmation gates remain authoritative.
+- No raw secret output.
+
 ## v2.4.7 — Beginner Production Setup UX Closeout
 
 ### Added

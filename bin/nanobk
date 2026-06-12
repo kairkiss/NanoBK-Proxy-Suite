@@ -20,7 +20,7 @@ set -Eeuo pipefail
 
 # ── Version ─────────────────────────────────────────────────────────────────
 
-NANOBK_VERSION="2.4.5"
+NANOBK_VERSION="2.5.0"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -728,6 +728,8 @@ NanoBK Proxy Suite — Unified CLI v${NANOBK_VERSION}
   beginner subdomain [--domain D]   子域名冲突检查 [--json]
   beginner ip [--ipv4 V4] [--ipv6 V6]  VPS IP 检测状态 [--json]
   beginner gate dns|cert|token      DNS/证书/密钥 gate 预览 [--json]
+  beginner production              生产设置主线 [--json]
+  setup production                 生产设置主线（只读） [--json]
   setup flow [--zone DOMAIN] [--api-env PATH] [--worker-name NAME]  一键设置流程（只读） [--json]
   setup run  [--zone DOMAIN] [--api-env PATH] [--worker-name NAME]  一键设置流程（别名） [--json]
   setup wizard [--zone DOMAIN] [--api-env PATH] [--yes]  引导式 DNS 设置向导 [--json]
@@ -2194,6 +2196,11 @@ cmd_beginner() {
         extra_args=("$@")
         break
         ;;
+      production)
+        subcommand="production"; shift
+        extra_args=("$@")
+        break
+        ;;
       --help|-h)
         echo "Usage: nanobk beginner [--json]"
         echo "       nanobk beginner status [--json]"
@@ -2201,6 +2208,7 @@ cmd_beginner() {
         echo "       nanobk beginner subdomain [--json] [--domain DOMAIN]"
         echo "       nanobk beginner ip [--json] [--ipv4 ADDR] [--ipv6 ADDR]"
         echo "       nanobk beginner gate dns|cert|token [--json]"
+        echo "       nanobk beginner production [--json]"
         echo ""
         echo "  Show beginner-friendly setup flow and status."
         echo "  显示新手设置流程和状态概览。"
@@ -2235,6 +2243,11 @@ cmd_beginner() {
     "${args[@]}"
   elif [[ "$subcommand" == "gate" ]]; then
     local args=(python3 "$REPO_DIR/lib/nanobk_friendly_gate_wrappers.py")
+    args+=(${extra_args[@]+"${extra_args[@]}"})
+    [[ "$use_json" == "1" ]] && args+=("--json")
+    "${args[@]}"
+  elif [[ "$subcommand" == "production" ]]; then
+    local args=(python3 "$REPO_DIR/lib/nanobk_production_setup_spine.py")
     args+=(${extra_args[@]+"${extra_args[@]}"})
     [[ "$use_json" == "1" ]] && args+=("--json")
     "${args[@]}"
@@ -2817,6 +2830,48 @@ cmd_setup_token_rotate() {
   "${args[@]}"
 }
 
+# ── setup production ─────────────────────────────────────────────────────
+
+cmd_setup_production() {
+  local subcommand=""
+  local use_json=0
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --json)
+        use_json=1; shift ;;
+      status)
+        subcommand="status"; shift ;;
+      plan)
+        subcommand="plan"; shift ;;
+      --help|-h)
+        echo "Usage: nanobk setup production [--json]"
+        echo "       nanobk setup production status [--json]"
+        echo "       nanobk setup production plan [--json]"
+        echo ""
+        echo "  生产设置主线（只读，不会执行部署）。"
+        echo "  显示完整的生产部署路线图和旧能力入口映射。"
+        echo "  Read-only. No DNS mutation. No Cloudflare mutation."
+        return 0 ;;
+      --dry-run)
+        echo -e "  ${CYAN}[DRY-RUN]${NC} setup production command prepared"
+        echo "  No mutations will be performed."
+        return 0 ;;
+      *)
+        die "setup production: unknown option: $1"
+        ;;
+    esac
+  done
+  if [[ "$DRY_RUN" == "1" ]]; then
+    echo -e "  ${CYAN}[DRY-RUN]${NC} setup production command prepared"
+    echo "  No mutations will be performed."
+    return 0
+  fi
+  local args=(python3 "$REPO_DIR/lib/nanobk_production_setup_spine.py")
+  [[ -n "$subcommand" ]] && args+=("$subcommand")
+  [[ "$use_json" == "1" ]] && args+=("--json")
+  "${args[@]}"
+}
+
 # ── vps ip detect ────────────────────────────────────────────────────────
 
 cmd_vps_ip_detect() {
@@ -3151,7 +3206,8 @@ main() {
           fi
           ;;
         wizard)   cmd_setup_wizard ${setup_rest[@]+"${setup_rest[@]}"} ;;
-        *)        die "Usage: nanobk setup <dns|cert|flow|plan|profile|run|status|token|wizard> [args...]" ;;
+        production) cmd_setup_production ${setup_rest[@]+"${setup_rest[@]}"} ;;
+        *)        die "Usage: nanobk setup <dns|cert|flow|plan|profile|production|run|status|token|wizard> [args...]" ;;
       esac
       ;;
     cert)
