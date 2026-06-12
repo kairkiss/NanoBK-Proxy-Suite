@@ -1,5 +1,22 @@
 # Changelog
 
+## v2.3.10-t23-polish — Non-Interactive TTY Smoke Fix
+
+### Fixed
+
+- Fixed v2.3.2 Cloudflare onboarding regression hang in background/non-interactive VPS runs.
+- Made interactive onboarding smoke deterministic under timeout/CI/non-interactive execution.
+- Replaced `NANOBK_TEST_FORCE_TTY=1` (causes terminal blocking) with direct Python helper invocation via `NANOBK_TEST_FORCE_INTERACTIVE=1`.
+- Added `timeout 30` guard to prevent any hang scenario.
+
+### Safety
+
+- No release/tag created.
+- No runtime behavior change.
+- No DNS/certificate/token/Worker mutation.
+- No service reload/restart.
+- No Web/Bot behavior change.
+
 ## v2.3.10-t22-polish — v2.3.2 GNU Stat Compatibility
 
 ### Fixed

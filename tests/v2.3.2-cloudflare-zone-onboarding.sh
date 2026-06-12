@@ -173,16 +173,23 @@ else
   fail "Onboarding helper missing interactive prompt text"
 fi
 
-# 18. Interactive no-args TTY with stdin token completes onboarding
+# 18. Non-interactive stdin token via helper completes onboarding
+# Use NANOBK_TEST_FORCE_INTERACTIVE to skip TTY check in Python helper,
+# but do NOT set NANOBK_TEST_FORCE_TTY to avoid terminal blocking in CI/background.
+# NANOBK_TEST_FORCE_INTERACTIVE makes helper use stdin instead of /dev/tty.
 rm -rf "$HOME/.nanobk"
 export NANOBK_CF_ZONES_FAKE_RESPONSE="$FIXTURES/zones_two.json"
 export NANOBK_TEST_FORCE_INTERACTIVE=1
-INTERACTIVE_OUT=$(echo "fake-interactive-token-for-test" | NANOBK_TEST_FORCE_TTY=1 bash "$CLI" cf connect --yes 2>&1 || true)
+INTERACTIVE_OUT=$(printf 'fake-interactive-token-for-test\n' | \
+  NANOBK_CF_ZONES_FAKE_RESPONSE="$FIXTURES/zones_two.json" \
+  NANOBK_TEST_FORCE_INTERACTIVE=1 \
+  HOME="$HOME" \
+  python3 "$ONBOARDING" --yes 2>&1 || true)
 unset NANOBK_TEST_FORCE_INTERACTIVE
 if echo "$INTERACTIVE_OUT" | grep -q "连接成功\|example.com"; then
-  ok "Interactive TTY with stdin token completes onboarding"
+  ok "Interactive stdin token completes onboarding"
 else
-  fail "Interactive TTY with stdin token did not complete"
+  fail "Interactive stdin token did not complete"
 fi
 
 # 19. Interactive output does not leak token

@@ -132,14 +132,20 @@ def select_zone(zones, auto_select=False):
 def prompt_for_token():
     """Interactively prompt user for Cloudflare API token. Returns token or None."""
     # Test hook: NANOBK_TEST_FORCE_INTERACTIVE=1 bypasses TTY check
-    if not os.environ.get("NANOBK_TEST_FORCE_INTERACTIVE") and not sys.stdin.isatty():
+    # and uses stdin instead of /dev/tty (which would hang in CI/background)
+    force_interactive = os.environ.get("NANOBK_TEST_FORCE_INTERACTIVE")
+    if not force_interactive and not sys.stdin.isatty():
         return None
     print()
     print("  请粘贴 Cloudflare API token")
     print("  我只会读取你的域名列表，不会创建 DNS，不会修改 Cloudflare。")
     print()
     try:
-        token = getpass.getpass("  API token: ")
+        if force_interactive:
+            # In test mode, read from stdin (pipe) instead of /dev/tty
+            token = input("  API token: ")
+        else:
+            token = getpass.getpass("  API token: ")
     except (EOFError, KeyboardInterrupt):
         print()
         return None
