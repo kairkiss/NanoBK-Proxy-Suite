@@ -1,5 +1,36 @@
 # Changelog
 
+## v2.3.8 — Full CLI Setup Flow Integration
+
+### Added
+
+- Added full setup flow command (`nanobk setup flow` / `nanobk setup run`).
+- Added read-only orchestration across Cloudflare, domain planning, DNS apply plan, certificate preflight, certificate issue plan, and token rotation plan.
+- Added manual confirmation step summaries for dangerous actions.
+- Added "一键设置流程（只读引导）" to setup submenu.
+- Added full setup flow regression test.
+
+### Fixed
+
+- Token rotation plan-only now warns and disables `ready_to_rotate` for protected production Worker names/domains.
+
+### Safety
+
+- Setup flow is read-only.
+- No automatic DNS creation.
+- No automatic certificate request.
+- No automatic token rotation.
+- No Worker mutation.
+- No direct Cloudflare mutation.
+- Dangerous actions only appear as manually copied commands with exact confirmation phrases.
+- Production Worker nanok/nanob/nanok.biankai314.uk/nanob.biankai314.uk remain protected.
+- No raw token output.
+- No raw Worker script output.
+- No service reload/restart.
+- No owner-smoke-create execution.
+- No Web/Bot behavior change.
+- No release/tag.
+
 ## v2.3.7 — Subscription Token Rotation Gate
 
 ### Added

@@ -226,6 +226,22 @@ def run_rotation_gate(worker_name=None, api_env_override=None,
 
     # Step 6: Plan-only mode
     if not rotate_mode:
+        # Check production worker even in plan-only mode
+        is_prod = False
+        prod_reason = None
+        if worker_name != "(未指定)":
+            is_prod, prod_reason = is_production_worker(worker_name, api_env_path)
+
+        ready = worker_name != "(未指定)" and not is_prod
+        safety_warning = None
+        next_cmd = None
+        if is_prod:
+            safety_warning = prod_reason
+        elif worker_name == "(未指定)":
+            safety_warning = "worker name 未指定，请使用 --worker-name"
+        else:
+            next_cmd = f'nanobk setup token rotate --rotate --worker-name {worker_name} --confirm "{_CONFIRM_PHRASE}"'
+
         return {
             "ok": True,
             "mode": "token_rotation_plan",
@@ -236,8 +252,9 @@ def run_rotation_gate(worker_name=None, api_env_override=None,
             "new_tokens_generated": True,
             "sub_token_masked": sub_token_masked if token_kind in ("sub", "both") else None,
             "admin_token_masked": admin_token_masked if token_kind in ("admin", "both") else None,
-            "ready_to_rotate": worker_name != "(未指定)",
-            "next_command": f'nanobk setup token rotate --rotate --worker-name {worker_name} --confirm "{_CONFIRM_PHRASE}"',
+            "ready_to_rotate": ready,
+            "safety_warning": safety_warning,
+            "next_command": next_cmd,
         }
 
     # Step 7: Rotate mode — check confirmation
@@ -315,6 +332,7 @@ def _output_plan_text(result):
     worker = result.get("worker_name", "(未指定)")
     kind = result.get("token_kind", "both")
     ready = result.get("ready_to_rotate", False)
+    safety_warning = result.get("safety_warning")
 
     print(f"  Worker: {worker}")
     print(f"  Token 类型: {kind}")
@@ -327,7 +345,11 @@ def _output_plan_text(result):
         print(f"  新 ADMIN_TOKEN: {admin_masked}")
     print()
 
-    if ready:
+    if safety_warning:
+        print(f"  ⚠ 警告: {safety_warning}")
+        print()
+        print("  生产 Worker 受保护，不允许通过此命令轮换。")
+    elif ready:
         print("  真正轮换 Token 请执行：")
         print(f'    nanobk setup token rotate --rotate --worker-name {worker} --confirm "{_CONFIRM_PHRASE}"')
     else:

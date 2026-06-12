@@ -166,6 +166,48 @@ else
   fail "Production worker nanok: not blocked"
 fi
 
+# 10b. Plan-only production worker nanok: ready_to_rotate=false
+PROD_PLAN=$(bash "$CLI" setup token rotate --worker-name nanok --json 2>&1 || true)
+if echo "$PROD_PLAN" | python3 -c "
+import json,sys
+d=json.load(sys.stdin)
+assert d.get('ok') == True, f'ok={d.get(\"ok\")}'
+assert d.get('mode') == 'token_rotation_plan'
+assert d.get('ready_to_rotate') == False, f'ready_to_rotate={d.get(\"ready_to_rotate\")}'
+assert d.get('safety_warning') is not None, 'missing safety_warning'
+nc = d.get('next_command') or ''
+assert '--rotate' not in nc, f'next_command should not contain --rotate: {nc}'
+" 2>/dev/null; then
+  ok "Plan-only production worker nanok: ready_to_rotate=false, no rotate command"
+else
+  fail "Plan-only production worker nanok: unexpected"
+fi
+
+# 10c. Plan-only production domain marker: ready_to_rotate=false
+# Put domain marker in a comment (raw file scan by is_production_worker)
+mkdir -p "$HOME/.nanobk"
+cat > "$HOME/.nanobk/cloudflare.env" <<'EOF'
+CF_API_TOKEN="fake-token"
+# route: nanok.biankai314.uk
+EOF
+chmod 600 "$HOME/.nanobk/cloudflare.env"
+PROD_DOM_PLAN=$(bash "$CLI" setup token rotate --worker-name test-worker --json 2>&1 || true)
+if echo "$PROD_DOM_PLAN" | python3 -c "
+import json,sys
+d=json.load(sys.stdin)
+assert d.get('ok') == True, f'ok={d.get(\"ok\")}'
+assert d.get('ready_to_rotate') == False, f'ready_to_rotate={d.get(\"ready_to_rotate\")}'
+assert d.get('safety_warning') is not None, 'missing safety_warning'
+" 2>/dev/null; then
+  ok "Plan-only production domain marker: ready_to_rotate=false"
+else
+  fail "Plan-only production domain marker: unexpected"
+fi
+
+# Restore env
+setup_env
+set_fixtures
+
 # 11. Production domain marker: blocked
 mkdir -p "$HOME/.nanobk"
 cat > "$HOME/.nanobk/cloudflare.env" <<'EOF'

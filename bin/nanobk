@@ -424,19 +424,29 @@ console_setup_submenu() {
   ui_section "开始配置 NanoBK"
   ui_hint "选择一个开始方式："
   echo ""
-  echo "  1) 连接 Cloudflare 并选择域名"
-  echo "  2) 规划域名和 DNS"
-  echo "  3) 开始引导设置"
-  echo "  4) 证书自动化预检"
-  echo "  5) 证书签发预案"
-  echo "  6) 订阅 Token 轮换预案"
-  echo "  7) 查看设置状态"
-  echo "  8) 返回"
+  echo "  1) 一键设置流程（只读引导）"
+  echo "  2) 连接 Cloudflare 并选择域名"
+  echo "  3) 规划域名和 DNS"
+  echo "  4) 开始引导设置"
+  echo "  5) 证书自动化预检"
+  echo "  6) 证书签发预案"
+  echo "  7) 订阅 Token 轮换预案"
+  echo "  8) 查看设置状态"
+  echo "  9) 返回"
   echo ""
   local choice
-  read -rp "  选择 [1-8]: " choice || { echo ""; return; }
+  read -rp "  选择 [1-9]: " choice || { echo ""; return; }
   case "$choice" in
     1)
+      echo ""
+      ui_safe_action "一键设置流程（只读引导）:"
+      echo "  我会把完整配置流程串起来。"
+      echo "  危险动作只会显示命令，不会自动执行。"
+      echo ""
+      cmd_setup_flow || true
+      console_pause
+      ;;
+    2)
       echo ""
       ui_safe_action "连接 Cloudflare（只读验证，不会创建 DNS）:"
       echo "  我只会验证授权并读取你的域名列表。"
@@ -445,7 +455,7 @@ console_setup_submenu() {
       cmd_cf_connect || true
       console_pause
       ;;
-    2)
+    3)
       echo ""
       ui_safe_action "规划域名和 DNS（只读，不会创建 DNS）:"
       echo "  我只会检查和规划，不会创建 DNS。"
@@ -453,14 +463,14 @@ console_setup_submenu() {
       cmd_setup_plan || true
       console_pause
       ;;
-    3)
+    4)
       echo ""
       ui_safe_action "开始引导设置（只读，不会修改 DNS）:"
       echo ""
       cmd_setup_wizard || true
       console_pause
       ;;
-    4)
+    5)
       echo ""
       ui_safe_action "证书自动化预检（只读，不会申请证书）:"
       echo "  我只会检查证书申请条件。"
@@ -469,7 +479,7 @@ console_setup_submenu() {
       cmd_setup_cert_plan || true
       console_pause
       ;;
-    5)
+    6)
       echo ""
       ui_safe_action "证书签发预案（只读，不会申请证书）:"
       echo "  我会生成证书签发预案。"
@@ -478,7 +488,7 @@ console_setup_submenu() {
       cmd_setup_cert_issue || true
       console_pause
       ;;
-    6)
+    7)
       echo ""
       ui_safe_action "订阅 Token 轮换预案（只读，不会轮换）:"
       echo "  我会生成 Token 轮换预案。"
@@ -487,18 +497,18 @@ console_setup_submenu() {
       cmd_setup_token_rotate || true
       console_pause
       ;;
-    7)
+    8)
       echo ""
       ui_safe_action "查看当前设置状态:"
       echo ""
       cmd_home || true
       console_pause
       ;;
-    7|"")
+    9|"")
       return
       ;;
     *)
-      echo "  无效输入，请选择 1-8。"
+      echo "  无效输入，请选择 1-9。"
       console_pause
       ;;
   esac
@@ -622,6 +632,7 @@ cmd_entry() {
   echo "    nanobk doctor             环境诊断"
   echo ""
   echo "  设置："
+  echo "    nanobk setup flow         一键设置流程（只读引导）"
   echo "    nanobk setup wizard       引导设置向导"
   echo "    nanobk setup dns          DNS 设置助手"
   echo "    nanobk setup cert plan    证书自动化预检"
@@ -671,6 +682,8 @@ NanoBK Proxy Suite — Unified CLI v${NANOBK_VERSION}
   cf zones list --api-env PATH  只读列出 Cloudflare zones [--json]
   vps ip detect               只读 VPS IP 候选检测 [--json]
   home                              NanoBK 状态总览 [--json]
+  setup flow [--zone DOMAIN] [--api-env PATH] [--worker-name NAME]  一键设置流程（只读） [--json]
+  setup run  [--zone DOMAIN] [--api-env PATH] [--worker-name NAME]  一键设置流程（别名） [--json]
   setup wizard [--zone DOMAIN] [--api-env PATH] [--yes]  引导式 DNS 设置向导 [--json]
   setup dns --zone DOMAIN --api-env PATH  初学者 DNS 设置助手 [--json]
   setup status                      设置状态总览 [--json]
@@ -2557,6 +2570,55 @@ cmd_setup_cert_issue() {
   "${args[@]}"
 }
 
+# ── setup flow ──────────────────────────────────────────────────────────
+
+cmd_setup_flow() {
+  local zone="" api_env="" worker_name=""
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --zone)
+        [[ $# -ge 2 ]] || die "setup flow: --zone needs a value"
+        zone="$2"; shift 2 ;;
+      --api-env)
+        [[ $# -ge 2 ]] || die "setup flow: --api-env needs a path"
+        api_env="$2"; shift 2 ;;
+      --worker-name)
+        [[ $# -ge 2 ]] || die "setup flow: --worker-name needs a value"
+        worker_name="$2"; shift 2 ;;
+      --json)
+        JSON_OUT=1; shift ;;
+      --help|-h)
+        echo "Usage: nanobk setup flow [--zone DOMAIN] [--api-env PATH] [--worker-name NAME] [--json]"
+        echo ""
+        echo "  一键设置流程（只读引导）。"
+        echo "  串联完整配置流程，危险动作只显示命令，不会自动执行。"
+        return 0 ;;
+      --dry-run)
+        echo -e "  ${CYAN}[DRY-RUN]${NC} setup flow command prepared"
+        echo "  No mutations will be performed."
+        return 0 ;;
+      *)
+        die "setup flow: unknown option: $1"
+        ;;
+    esac
+  done
+
+  if [[ "$DRY_RUN" == "1" ]]; then
+    echo -e "  ${CYAN}[DRY-RUN]${NC} setup flow command prepared"
+    echo "  No mutations will be performed."
+    return 0
+  fi
+
+  local args=(python3 "$REPO_DIR/lib/nanobk_setup_flow.py")
+  [[ -n "$zone" ]] && args+=(--zone "$zone")
+  [[ -n "$api_env" ]] && args+=(--api-env "$api_env")
+  [[ -n "$worker_name" ]] && args+=(--worker-name "$worker_name")
+  [[ "$JSON_OUT" == "1" ]] && args+=(--json)
+
+  "${args[@]}"
+}
+
 # ── setup token rotate ──────────────────────────────────────────────────
 
 cmd_setup_token_rotate() {
@@ -2932,6 +2994,7 @@ main() {
             die "Usage: nanobk setup cert <plan|issue> [args...]"
           fi
           ;;
+        flow|run) cmd_setup_flow ${setup_rest[@]+"${setup_rest[@]}"} ;;
         plan)     cmd_setup_plan ${setup_rest[@]+"${setup_rest[@]}"} ;;
         profile)  cmd_setup_profile ${setup_rest[@]+"${setup_rest[@]}"} ;;
         status)   cmd_home ${setup_rest[@]+"${setup_rest[@]}"} ;;
@@ -2945,7 +3008,7 @@ main() {
           fi
           ;;
         wizard)   cmd_setup_wizard ${setup_rest[@]+"${setup_rest[@]}"} ;;
-        *)        die "Usage: nanobk setup <dns|cert|plan|profile|status|token|wizard> [args...]" ;;
+        *)        die "Usage: nanobk setup <dns|cert|flow|plan|profile|run|status|token|wizard> [args...]" ;;
       esac
       ;;
     cert)

@@ -1,0 +1,5 @@
+{
+  "success": true,
+  "cert_path": "/root/.acme.sh/proxy.example.com_ecc/fullchain.cer",
+  "key_path": "/root/.acme.sh/proxy.example.com_ecc/proxy.example.com.key"
+}
