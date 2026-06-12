@@ -1,5 +1,27 @@
 # Changelog
 
+## v2.5.3 — Cloudflare Worker Readiness and Route Mapping
+
+### Added
+
+- Added production Worker readiness flow.
+- Added `nanobk setup production worker`.
+- Added `nanobk beginner production worker`.
+- Added safe JSON for nanok/nanob/web route mapping.
+- Added local Worker route plan save.
+- Added Worker source and tool readiness checks.
+
+### Safety
+
+- No runtime deployment executed.
+- No release/tag created.
+- No DNS/certificate/token/Worker mutation.
+- No Worker deploy executed.
+- No Cloudflare route mutation.
+- No service reload/restart.
+- No Web/Bot behavior change.
+- No raw secret output.
+
 ## v2.5.2 — Cloudflare Domain DNS Readiness Flow
 
 ### Added

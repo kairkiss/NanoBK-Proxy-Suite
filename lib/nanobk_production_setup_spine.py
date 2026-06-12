@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-NanoBK Production Setup Integration Spine (v2.5.1)
+NanoBK Production Setup Integration Spine (v2.5.3)
 
 Read-only production setup state machine that maps legacy v1.9 capabilities
 into the new nanobk beginner CLI entry point.
@@ -15,6 +15,8 @@ Usage:
     python3 lib/nanobk_production_setup_spine.py status [--json]
     python3 lib/nanobk_production_setup_spine.py plan [--json]
     python3 lib/nanobk_production_setup_spine.py actions [--json]
+    python3 lib/nanobk_production_setup_spine.py dns [--json]
+    python3 lib/nanobk_production_setup_spine.py worker [--json]
 """
 
 import argparse
@@ -837,6 +839,19 @@ def main():
     dns_parser.add_argument("--save", action="store_true", help="Save local setup profile after check")
     dns_parser.add_argument("--json", action="store_true", help="JSON output")
 
+    # Worker readiness
+    worker_parser = sub.add_parser("worker", help="Check Worker readiness (read-only)")
+    worker_parser.add_argument("--zone", help="Domain zone to use")
+    worker_parser.add_argument("--nanok-subdomain", default="nanok", help="nanok subdomain prefix (default: nanok)")
+    worker_parser.add_argument("--nanob-subdomain", default="nanob", help="nanob subdomain prefix (default: nanob)")
+    worker_parser.add_argument("--web-subdomain", default="web", help="web subdomain prefix (default: web)")
+    worker_parser.add_argument("--save", action="store_true", help="Save local Worker route plan")
+    worker_parser.add_argument("--json", action="store_true", help="JSON output")
+    # Dangerous args — recognized but rejected
+    worker_parser.add_argument("--deploy", action="store_true", help=argparse.SUPPRESS)
+    worker_parser.add_argument("--yes", action="store_true", help=argparse.SUPPRESS)
+    worker_parser.add_argument("--apply", action="store_true", help=argparse.SUPPRESS)
+
     # Also accept --json at top level (no subcommand = status)
     parser.add_argument("--json", action="store_true", help="JSON output")
 
@@ -897,6 +912,54 @@ def main():
                     output_text(result)
                 else:
                     output_error(result.get("error", "unknown error"), False)
+                    sys.exit(1)
+    elif command == "worker":
+        # Reject dangerous args
+        if getattr(args, "deploy", False) or getattr(args, "yes", False) or getattr(args, "apply", False):
+            msg = "此命令仅用于预览，不会执行部署。"
+            if use_json:
+                print(json.dumps({"ok": False, "error": msg, "mode": "production_worker_readiness_v2_5", "version": "2.5.3", "mutation": False}, indent=2, ensure_ascii=False))
+            else:
+                print(f"  错误：{msg}", file=sys.stderr)
+            sys.exit(1)
+        from nanobk_production_worker_readiness import (
+            run_readiness as worker_readiness,
+            run_save as worker_save,
+            output_text as worker_text,
+            output_error as worker_error,
+        )
+        if args.save:
+            result = worker_save(
+                zone=args.zone,
+                nanok_subdomain=args.nanok_subdomain,
+                nanob_subdomain=args.nanob_subdomain,
+                web_subdomain=args.web_subdomain,
+            )
+            if use_json:
+                print(json.dumps(result, indent=2, ensure_ascii=False))
+            else:
+                if result.get("ok"):
+                    print()
+                    print("  已保存 Worker 路由计划。")
+                    print(f"  域名：{result.get('zone_name', '***')}")
+                    print()
+                else:
+                    worker_error(result.get("error", "unknown error"), False)
+                    sys.exit(1)
+        else:
+            result = worker_readiness(
+                zone=args.zone,
+                nanok_subdomain=args.nanok_subdomain,
+                nanob_subdomain=args.nanob_subdomain,
+                web_subdomain=args.web_subdomain,
+            )
+            if use_json:
+                print(json.dumps(result, indent=2, ensure_ascii=False))
+            else:
+                if result.get("ok"):
+                    worker_text(result)
+                else:
+                    worker_error(result.get("error", "unknown error"), False)
                     sys.exit(1)
     else:
         parser.print_help()

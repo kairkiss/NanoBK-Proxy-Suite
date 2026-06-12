@@ -20,7 +20,7 @@ set -Eeuo pipefail
 
 # ── Version ─────────────────────────────────────────────────────────────────
 
-NANOBK_VERSION="2.5.1"
+NANOBK_VERSION="2.5.3"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -731,9 +731,11 @@ NanoBK Proxy Suite — Unified CLI v${NANOBK_VERSION}
   beginner production              生产设置主线 [--json]
   beginner production actions      生产动作预案 [--json]
   beginner production dns          域名/DNS 准备检查 [--json]
+  beginner production worker       Worker 部署准备检查 [--json]
   setup production                 生产设置主线（只读） [--json]
   setup production actions         生产动作预案 [--json]
   setup production dns             域名/DNS 准备检查 [--json]
+  setup production worker          Worker 部署准备检查 [--json]
   setup flow [--zone DOMAIN] [--api-env PATH] [--worker-name NAME]  一键设置流程（只读） [--json]
   setup run  [--zone DOMAIN] [--api-env PATH] [--worker-name NAME]  一键设置流程（别名） [--json]
   setup wizard [--zone DOMAIN] [--api-env PATH] [--yes]  引导式 DNS 设置向导 [--json]
@@ -2215,6 +2217,7 @@ cmd_beginner() {
         echo "       nanobk beginner production [--json]"
         echo "       nanobk beginner production actions [--json]"
         echo "       nanobk beginner production dns [--json]"
+        echo "       nanobk beginner production worker [--json]"
         echo ""
         echo "  Show beginner-friendly setup flow and status."
         echo "  显示新手设置流程和状态概览。"
@@ -2857,6 +2860,11 @@ cmd_setup_production() {
         extra_args=("$@")
         break
         ;;
+      worker)
+        subcommand="worker"; shift
+        extra_args=("$@")
+        break
+        ;;
       --help|-h)
         echo "Usage: nanobk setup production [--json]"
         echo "       nanobk setup production status [--json]"
@@ -2864,13 +2872,17 @@ cmd_setup_production() {
         echo "       nanobk setup production actions [--json]"
         echo "       nanobk setup production dns [--zone DOMAIN] [--api-env PATH] [--proxy-subdomain NAME] [--web-subdomain NAME] [--json]"
         echo "       nanobk setup production dns --save --zone DOMAIN [--api-env PATH]"
+        echo "       nanobk setup production worker [--zone DOMAIN] [--nanok-subdomain NAME] [--nanob-subdomain NAME] [--web-subdomain NAME] [--json]"
+        echo "       nanobk setup production worker --save --zone DOMAIN [--json]"
         echo ""
         echo "  生产设置主线（只读，不会执行部署）。"
         echo "  显示完整的生产部署路线图和旧能力入口映射。"
         echo "  actions: 显示详细的生产动作预案和命令卡片"
         echo "  dns: Cloudflare 域名/IP/子域名/DNS 准备检查（只读）"
         echo "  dns save: 保存本地设置 profile（不创建 DNS）"
-        echo "  Read-only. No DNS mutation. No Cloudflare mutation."
+        echo "  worker: nanok/nanob Worker 部署准备检查（只读）"
+        echo "  worker save: 保存本地 Worker 路由计划（不部署 Worker）"
+        echo "  Read-only. No DNS mutation. No Cloudflare mutation. No Worker deployment."
         return 0 ;;
       --dry-run)
         echo -e "  ${CYAN}[DRY-RUN]${NC} setup production command prepared"
