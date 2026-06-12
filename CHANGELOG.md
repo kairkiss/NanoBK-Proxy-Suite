@@ -1,5 +1,27 @@
 # Changelog
 
+## v2.4.6 — Real VPS Test Harness Polish
+
+### Changed
+
+- Stabilized v2.4 test harness for real VPS acceptance.
+- Replaced recursive long-chain regression calls with bounded smoke checks.
+- Made environment-dependent legacy regression tests opt-in / NOTE-only by default.
+- Improved leak scan behavior to avoid test self-report false positives.
+- Added portable `run_with_timeout` helper to all v2.4 test scripts.
+- Added `NANOBK_RUN_LONG_REGRESSION=1` opt-in for legacy regression tests.
+
+### Safety
+
+- No runtime behavior change.
+- No release/tag created.
+- No DNS/certificate/token/Worker mutation.
+- No DNS overwrite or delete behavior.
+- No service reload/restart.
+- No Web/Bot behavior change.
+- v2.3 exact confirmation gates remain authoritative.
+- No raw secret output.
+
 ## v2.4.5 — Friendly Gate Wrappers
 
 ### Added
