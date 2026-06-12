@@ -1,5 +1,23 @@
 # Changelog
 
+## v2.4.1 — CLI Home UX
+
+### Added
+
+- Added beginner-friendly NanoBK CLI home screen.
+- Added Chinese status dashboard and beginner menu.
+- Added safe home JSON output for automation and tests.
+- Added CLI home UX regression test.
+
+### Safety
+
+- No release/tag created.
+- No DNS/certificate/token/Worker mutation.
+- No service reload/restart.
+- No Web/Bot behavior change.
+- v2.3 exact confirmation gates remain authoritative.
+- No raw secret output.
+
 ## v2.4.0 — Beginner Production Setup UX Scope Lock
 
 ### Added

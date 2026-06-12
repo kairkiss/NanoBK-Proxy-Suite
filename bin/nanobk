@@ -20,7 +20,7 @@ set -Eeuo pipefail
 
 # ── Version ─────────────────────────────────────────────────────────────────
 
-NANOBK_VERSION="2.3.10"
+NANOBK_VERSION="2.4.1"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -614,39 +614,73 @@ cmd_console() {
 }
 
 cmd_entry() {
-  # TTY: open interactive console
+  # TTY: show beginner home screen with interactive menu
   if is_interactive_tty; then
-    print_console_header
-    console_loop
+    # Show beginner home screen (logo + status card + menu)
+    python3 "$REPO_DIR/lib/nanobk_cli_home.py" home || true
+    echo ""
+
+    # Interactive menu loop
+    while true; do
+      local choice
+      read -rp "  选择 [1-5]: " choice || { echo ""; break; }
+      case "$choice" in
+        1)
+          ui_section "开始新手设置"
+          ui_safe_action "只读引导，不会自动执行任何操作"
+          echo ""
+          cmd_setup_flow || true
+          console_pause
+          # Refresh home screen after setup
+          python3 "$REPO_DIR/lib/nanobk_cli_home.py" home || true
+          echo ""
+          ;;
+        2)
+          ui_section "查看当前状态"
+          ui_safe_action "只读状态概览"
+          echo ""
+          cmd_home || true
+          console_pause
+          # Refresh home screen
+          python3 "$REPO_DIR/lib/nanobk_cli_home.py" home || true
+          echo ""
+          ;;
+        3)
+          ui_section "修复问题"
+          ui_safe_action "只读环境检查"
+          echo ""
+          cmd_doctor || true
+          console_pause
+          # Refresh home screen
+          python3 "$REPO_DIR/lib/nanobk_cli_home.py" home || true
+          echo ""
+          ;;
+        4)
+          # Advanced: open full console
+          print_console_header
+          console_loop
+          # After exiting console, refresh home screen
+          python3 "$REPO_DIR/lib/nanobk_cli_home.py" home || true
+          echo ""
+          ;;
+        5|"")
+          echo ""
+          echo "  再见！"
+          echo ""
+          break
+          ;;
+        *)
+          echo "  无效输入，请选择 1-5。"
+          ;;
+      esac
+    done
     return
   fi
 
-  # Non-TTY: safe non-interactive entry screen
+  # Non-TTY: safe non-interactive summary, no hang
+  python3 "$REPO_DIR/lib/nanobk_cli_home.py" home || true
   echo ""
-  echo -e "${BOLD}NanoBK Proxy Suite${NC} v${NANOBK_VERSION}"
-  echo ""
-  echo "  欢迎使用 NanoBK — 让 VPS 代理部署变简单"
-  echo ""
-  echo "  NanoBK 已就绪。"
-  echo ""
-  echo "  Deployment is not started automatically."
-  echo "  部署不会自动启动，需要你手动执行命令。"
-  echo ""
-  echo "  开始使用："
-  echo "    nanobk                    交互式控制台（推荐）"
-  echo "    nanobk home               查看当前状态"
-  echo "    nanobk doctor             环境诊断"
-  echo ""
-  echo "  设置："
-  echo "    nanobk setup flow         一键设置流程（只读引导）"
-  echo "    nanobk setup wizard       引导设置向导"
-  echo "    nanobk setup dns          DNS 设置助手"
-  echo "    nanobk setup cert plan    证书自动化预检"
-  echo "    nanobk setup cert issue   证书签发预案"
-  echo "    nanobk setup token rotate Token 轮换预案"
-  echo ""
-  echo "  更多命令："
-  echo "    nanobk --help             查看完整帮助"
+  echo "  NanoBK 已就绪。使用 'nanobk home' 查看状态。"
   echo ""
 }
 
@@ -2082,15 +2116,16 @@ cmd_cf_connect() {
 # ── home / setup status ───────────────────────────────────────────────────
 
 cmd_home() {
-  local args=(python3 "$REPO_DIR/lib/nanobk_setup_status.py" home)
+  local use_json=0
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --json)
-        args+=("--json"); shift ;;
+        use_json=1; shift ;;
       --help|-h)
         echo "Usage: nanobk home [--json]"
         echo ""
-        echo "  Show NanoBK home / setup status overview."
+        echo "  Show NanoBK beginner-friendly home screen."
+        echo "  显示 NanoBK 小白首页和状态概览。"
         echo "  Read-only. No DNS mutation. No Cloudflare mutation."
         return 0 ;;
       --dry-run)
@@ -2107,7 +2142,13 @@ cmd_home() {
     echo "  No DNS mutation will be performed."
     return 0
   fi
-  "${args[@]}"
+  if [[ "$use_json" == "1" ]]; then
+    # JSON: use setup status module for backward-compatible format
+    python3 "$REPO_DIR/lib/nanobk_setup_status.py" home --json
+  else
+    # Text: use beginner-friendly CLI home
+    python3 "$REPO_DIR/lib/nanobk_cli_home.py" home
+  fi
 }
 
 # ── setup dns ────────────────────────────────────────────────────────────
