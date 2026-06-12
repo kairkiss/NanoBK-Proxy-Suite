@@ -293,39 +293,34 @@ done
 echo ""
 echo "=== Regression tests ==="
 
-for ver in v2.3.8 v2.3.7 v2.3.6 v2.3.5 v2.3.4 v2.3.3 v2.3.2 v2.3.1 v2.3.0; do
-  test_file="tests/${ver}-"*.sh
-  # Find the right test file
-  for tf in $test_file; do
-    if [[ -f "$tf" ]]; then
-      TEST_OUT=$(bash "$tf" 2>&1 || true)
-      if echo "$TEST_OUT" | grep -q "passed"; then
-        ok "$ver test passes"
-      else
-        fail "$ver test failed"
-        echo "$TEST_OUT" | tail -3
-      fi
-      break
-    fi
-  done
-done
+REGRESSION_TESTS=(
+  "tests/v2.3.8-full-cli-setup-flow.sh"
+  "tests/v2.3.7-token-rotation-gate.sh"
+  "tests/v2.3.6-cert-issue-gate.sh"
+  "tests/v2.3.5-cert-automation-preflight.sh"
+  "tests/v2.3.4-dns-apply-engine.sh"
+  "tests/v2.3.3-domain-ip-subdomain-planner.sh"
+  "tests/v2.3.2-cloudflare-zone-onboarding.sh"
+  "tests/v2.3.1-brand-cli-console-shell.sh"
+  "tests/v2.3.0-inventory-contract.sh"
+  "tests/v2.2.55-closeout-regression.sh"
+  "tests/v2.2.56-real-web-bot-bridge-fix.sh"
+)
 
-# Optional: v2.2.55 and v2.2.56
-for ver in v2.2.55 v2.2.56; do
-  test_file="tests/${ver}-"*.sh
-  for tf in $test_file; do
-    if [[ -f "$tf" ]]; then
-      TEST_OUT=$(bash "$tf" 2>&1 || true)
-      if echo "$TEST_OUT" | grep -q "passed"; then
-        ok "$ver test passes"
-      elif echo "$TEST_OUT" | grep -q "skipped.*Flask"; then
-        ok "$ver test passes (Flask not available, static checks only)"
-      else
-        fail "$ver test failed"
-      fi
-      break
-    fi
-  done
+for tf in "${REGRESSION_TESTS[@]}"; do
+  if [[ ! -f "$tf" ]]; then
+    fail "$tf: file not found"
+    continue
+  fi
+  TEST_OUT=$(bash "$tf" 2>&1 || true)
+  if echo "$TEST_OUT" | grep -q "passed"; then
+    ok "$(basename "$tf") passes"
+  elif echo "$TEST_OUT" | grep -q "skipped.*Flask"; then
+    ok "$(basename "$tf") passes (Flask not available, static checks only)"
+  else
+    fail "$(basename "$tf") failed"
+    echo "$TEST_OUT" | tail -3
+  fi
 done
 
 # Summary

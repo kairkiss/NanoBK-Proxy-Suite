@@ -1,5 +1,34 @@
 # Changelog
 
+## v2.3.10 — Closeout Manifest and Release Readiness
+
+### Added
+
+- Added v2.3 closeout manifest (`docs/v2.3-closeout-manifest.md`).
+- Added closeout manifest regression test (`tests/v2.3.10-closeout-manifest.sh`).
+- Added explicit test matrix for v2.3.9 real VPS acceptance.
+- Added release readiness checklist.
+
+### Fixed
+
+- v2.3.9 real VPS acceptance now uses explicit test file list instead of glob-based selection.
+
+### Safety
+
+- No release/tag created.
+- No automatic DNS creation.
+- No automatic certificate request.
+- No automatic token rotation.
+- No Worker mutation.
+- No direct Cloudflare mutation.
+- Dangerous actions remain manually confirmed.
+- Production Worker nanok/nanob/nanok.biankai314.uk/nanob.biankai314.uk remain protected.
+- No raw token output.
+- No raw Worker script output.
+- No service reload/restart.
+- No owner-smoke-create execution.
+- No Web/Bot behavior change.
+
 ## v2.3.9 — Real VPS Acceptance and Closeout
 
 ### Added
