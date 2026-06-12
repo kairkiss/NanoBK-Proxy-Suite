@@ -1,5 +1,25 @@
 # Changelog
 
+## v2.4.7 — Beginner Production Setup UX Closeout
+
+### Added
+
+- Added v2.4 closeout manifest.
+- Documented v2.4.0–v2.4.6 acceptance status.
+- Documented T22-2 real VPS acceptance results.
+- Documented safety invariants and non-blocking notes.
+
+### Safety
+
+- No runtime behavior change.
+- No release/tag created.
+- No DNS/certificate/token/Worker mutation.
+- No DNS overwrite or delete behavior.
+- No service reload/restart.
+- No Web/Bot behavior change.
+- v2.3 exact confirmation gates remain authoritative.
+- No raw secret output.
+
 ## v2.4.6 — Real VPS Test Harness Polish
 
 ### Changed
