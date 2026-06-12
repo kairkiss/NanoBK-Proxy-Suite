@@ -1,5 +1,21 @@
 # Changelog
 
+## v2.3.10-t21-polish — Dirty VPS Compatibility
+
+### Fixed
+
+- Fixed Ubuntu GNU stat compatibility in v2.2.55 closeout regression.
+- Fixed fresh clone repo-dir resolution so script-local repository wins over stale `/opt` installs.
+- Updated CLI version display to v2.3.10.
+
+### Safety
+
+- No release/tag created.
+- No runtime deployment behavior change.
+- No DNS/certificate/token/Worker mutation.
+- No service reload/restart.
+- No Web/Bot behavior change.
+
 ## v2.3.10-polish — Closeout Manifest Head Fix
 
 ### Fixed

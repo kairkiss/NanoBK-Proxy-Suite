@@ -116,9 +116,9 @@ else
   ERRORS=$((ERRORS + 1))
 fi
 
-# File mode
+# File mode (portable: GNU stat -c first, then BSD stat -f)
 if [[ -f "$PROFILE_FILE" ]]; then
-  B_MODE=$(stat -f '%Lp' "$PROFILE_FILE" 2>/dev/null || stat -c '%a' "$PROFILE_FILE" 2>/dev/null)
+  B_MODE=$(stat -c '%a' "$PROFILE_FILE" 2>/dev/null || stat -f '%Lp' "$PROFILE_FILE" 2>/dev/null || true)
   if [[ "$B_MODE" == "600" ]]; then
     pass "B2: profile mode 0600"
   else

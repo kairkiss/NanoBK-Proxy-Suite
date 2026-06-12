@@ -20,7 +20,7 @@ set -Eeuo pipefail
 
 # ── Version ─────────────────────────────────────────────────────────────────
 
-NANOBK_VERSION="2.1.1"
+NANOBK_VERSION="2.3.10"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -114,15 +114,27 @@ read_env_value() {
 # ── Repo resolution ─────────────────────────────────────────────────────────
 
 resolve_repo_dir() {
+  # 1. Explicit --repo-dir already set
   if [[ -n "$REPO_DIR" ]]; then
     return
   fi
 
+  # 2. Environment variable
   if [[ -n "${NANOBK_REPO_DIR:-}" ]]; then
     REPO_DIR="$NANOBK_REPO_DIR"
     return
   fi
 
+  # 3. Script-local repository (highest auto-detect priority)
+  #    When running ./some-clone/bin/nanobk, that clone should win.
+  local script_dir
+  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  if [[ -f "${script_dir}/../installer/install.sh" ]]; then
+    REPO_DIR="$(cd "${script_dir}/.." && pwd)"
+    return
+  fi
+
+  # 4. Config file
   local config_file="${CONFIG_DIR}/config.env"
   if [[ -f "$config_file" ]]; then
     local repo_from_config
@@ -133,19 +145,13 @@ resolve_repo_dir() {
     fi
   fi
 
+  # 5. Well-known paths
   for candidate in "/opt/NanoBK-Proxy-Suite" "${HOME}/NanoBK-Proxy-Suite"; do
     if [[ -d "$candidate" ]] && [[ -f "$candidate/installer/install.sh" ]]; then
       REPO_DIR="$candidate"
       return
     fi
   done
-
-  local script_dir
-  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  if [[ -f "${script_dir}/../installer/install.sh" ]]; then
-    REPO_DIR="$(cd "${script_dir}/.." && pwd)"
-    return
-  fi
 
   die "无法定位 NanoBK 仓库。
 请设置:
