@@ -130,6 +130,14 @@ def _step_dns_apply_plan(apply_result):
 
 def _step_dns_apply_execute(zone_name):
     """Step 4: DNS apply execute (manual confirm required)."""
+    if not zone_name or zone_name == "(未指定)":
+        return {
+            "id": "dns_apply_execute",
+            "title": "真正创建 DNS",
+            "status": "missing_input",
+            "detail": "请先运行 nanobk cf connect",
+            "command": None,
+        }
     return {
         "id": "dns_apply_execute",
         "title": "真正创建 DNS",
@@ -160,6 +168,14 @@ def _step_cert_preflight(preflight_result):
 
 def _step_cert_issue_execute(zone_name):
     """Step 6: Certificate issue (manual confirm required)."""
+    if not zone_name or zone_name == "(未指定)":
+        return {
+            "id": "cert_issue_execute",
+            "title": "真正申请证书",
+            "status": "missing_input",
+            "detail": "请先运行 nanobk cf connect",
+            "command": None,
+        }
     return {
         "id": "cert_issue_execute",
         "title": "真正申请证书",
@@ -202,7 +218,7 @@ def _step_token_rotation(rotation_result, worker_name):
         "title": "Token 轮换预案",
         "status": "missing_input",
         "detail": "需要指定 worker-name",
-        "command": f"nanobk setup token rotate --worker-name <name>",
+        "command": "nanobk setup token rotate --worker-name <name>",
     }
 
 
@@ -275,8 +291,8 @@ def run_setup_flow(zone_override=None, api_env_override=None, worker_name=None):
             "command": "nanobk setup dns apply",
         })
 
-    # Step 4: DNS apply execute (always manual)
-    steps.append(_step_dns_apply_execute(zone_name or "(未指定)"))
+    # Step 4: DNS apply execute (manual confirm, or missing_input if no zone)
+    steps.append(_step_dns_apply_execute(zone_name))
 
     # Step 5: Certificate preflight
     if zone_name and api_env_path:
@@ -300,8 +316,8 @@ def run_setup_flow(zone_override=None, api_env_override=None, worker_name=None):
             "command": "nanobk setup cert plan",
         })
 
-    # Step 6: Certificate issue (always manual)
-    steps.append(_step_cert_issue_execute(zone_name or "(未指定)"))
+    # Step 6: Certificate issue (manual confirm, or missing_input if no zone)
+    steps.append(_step_cert_issue_execute(zone_name))
 
     # Step 7: Token rotation plan
     if api_env_path:

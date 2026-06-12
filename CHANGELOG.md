@@ -1,5 +1,36 @@
 # Changelog
 
+## v2.3.9 — Real VPS Acceptance and Closeout
+
+### Added
+
+- Added real VPS acceptance regression script (`tests/v2.3.9-real-vps-acceptance.sh`).
+- Added v2.3 real VPS acceptance documentation (`docs/v2.3-real-vps-acceptance.md`).
+- Added full closeout safety matrix.
+- Added final v2.3 setup flow regression coverage.
+
+### Fixed
+
+- Setup flow no longer displays dangerous placeholder commands when zone is missing.
+- DNS apply execute step returns `missing_input` instead of `manual_confirm_required` with `(未指定)` placeholder.
+- Certificate issue execute step returns `missing_input` instead of `manual_confirm_required` with `(未指定)` placeholder.
+
+### Safety
+
+- No automatic DNS creation.
+- No automatic certificate request.
+- No automatic token rotation.
+- No Worker mutation.
+- No direct Cloudflare mutation in setup flow.
+- Dangerous actions remain manually confirmed.
+- Production Worker nanok/nanob/nanok.biankai314.uk/nanob.biankai314.uk remain protected.
+- No raw token output.
+- No raw Worker script output.
+- No service reload/restart.
+- No owner-smoke-create execution.
+- No Web/Bot behavior change.
+- No release/tag.
+
 ## v2.3.8 — Full CLI Setup Flow Integration
 
 ### Added

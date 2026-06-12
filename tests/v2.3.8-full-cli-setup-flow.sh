@@ -106,6 +106,42 @@ else
   fail "No profile: flow crashed or unexpected"
 fi
 
+# 4b. No profile: no dangerous placeholder commands with (未指定)
+if echo "$NOPROF_OUT" | python3 -c "
+import json,sys
+d=json.load(sys.stdin)
+steps = d.get('steps', [])
+for s in steps:
+    cmd = s.get('command') or ''
+    assert '(未指定)' not in cmd, f'step {s[\"id\"]} has placeholder: {cmd}'
+    if s['id'] in ('dns_apply_execute', 'cert_issue_execute'):
+        assert s['status'] != 'manual_confirm_required' or s.get('command'), \
+            f'step {s[\"id\"]} is manual_confirm but has no command'
+        assert '--zone' not in cmd or '(未指定)' not in cmd, \
+            f'step {s[\"id\"]} has dangerous placeholder: {cmd}'
+" 2>/dev/null; then
+  ok "No profile: no dangerous placeholder commands"
+else
+  fail "No profile: contains dangerous placeholder commands"
+fi
+
+# 4c. No profile: dns_apply_execute and cert_issue_execute are missing_input
+if echo "$NOPROF_OUT" | python3 -c "
+import json,sys
+d=json.load(sys.stdin)
+steps = d.get('steps', [])
+dns_exec = next((s for s in steps if s['id'] == 'dns_apply_execute'), None)
+cert_exec = next((s for s in steps if s['id'] == 'cert_issue_execute'), None)
+assert dns_exec is not None, 'missing dns_apply_execute'
+assert cert_exec is not None, 'missing cert_issue_execute'
+assert dns_exec['status'] == 'missing_input', f'dns_apply_execute status={dns_exec[\"status\"]}'
+assert cert_exec['status'] == 'missing_input', f'cert_issue_execute status={cert_exec[\"status\"]}'
+" 2>/dev/null; then
+  ok "No profile: dangerous steps are missing_input"
+else
+  fail "No profile: dangerous steps not properly gated"
+fi
+
 # 5. With fake profile/env: can identify zone
 setup_env
 set_fixtures
