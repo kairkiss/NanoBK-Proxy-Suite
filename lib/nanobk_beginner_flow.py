@@ -102,9 +102,25 @@ def _gather_flow_status(ip_fixture=None, dns_fixture=None, cert_fixture=None, to
     if ip_fixture:
         vps_ipv4 = ip_fixture.get("ipv4", "unknown")
         vps_ipv6 = ip_fixture.get("ipv6", "unknown")
-        if vps_ipv4 != "unknown" or vps_ipv6 != "unknown":
+
+        # Determine IP stage based on detection results
+        has_detected = (vps_ipv4 == "detected" or vps_ipv6 == "detected")
+        has_failed = (vps_ipv4 == "failed" or vps_ipv6 == "failed")
+        has_manual = (vps_ipv4 == "manual" or vps_ipv6 == "manual")
+        both_failed = (vps_ipv4 == "failed" and vps_ipv6 == "failed")
+
+        if has_detected or has_manual:
+            # At least one IP detected or manually provided
             stage = "ip_ready"
             next_step = "review_dns_plan"
+        elif both_failed:
+            # Both IPs failed detection
+            stage = "ip_failed"
+            next_step = "manual_ip_input"
+        elif has_failed:
+            # One failed, other unknown
+            stage = "ip_failed"
+            next_step = "check_network"
 
     # Apply DNS fixture if provided
     if dns_fixture:

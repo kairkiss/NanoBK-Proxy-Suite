@@ -1,5 +1,28 @@
 # Changelog
 
+## v2.4.4 — IPv4 / IPv6 Friendly UX
+
+### Added
+
+- Added beginner-friendly IPv4/IPv6 status renderer.
+- Added safe IP status JSON output.
+- Added dual-stack, IPv4-only, IPv6-only, failed-detection, and manual-IP fixture coverage.
+- Added beginner flow handling for IP detection failure.
+
+### Fixed
+
+- Fixed failed IP detection flow state so it no longer advances as ip_ready.
+
+### Safety
+
+- No release/tag created.
+- No DNS/certificate/token/Worker mutation.
+- No DNS overwrite or delete behavior.
+- No service reload/restart.
+- No Web/Bot behavior change.
+- v2.3 exact confirmation gates remain authoritative.
+- No raw secret output.
+
 ## v2.4.3 — Subdomain Conflict UX
 
 ### Added

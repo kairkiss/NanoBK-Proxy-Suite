@@ -245,7 +245,7 @@ steps = _build_steps(status)
 print(render_flow_text(steps, status))
 " 2>&1)
 assert_contains "D23a: detection_failed shows blocked" "无法检测" "$FAIL_TEXT"
-assert_json_field "D23b: detection_failed stage" "$FAIL_JSON" "d['stage']" "ip_ready"
+assert_json_field "D23b: detection_failed stage" "$FAIL_JSON" "d['stage']" "ip_failed"
 
 # ── Section E: Secret leak checks ──────────────────────────────────────────
 

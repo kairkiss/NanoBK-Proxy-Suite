@@ -20,7 +20,7 @@ set -Eeuo pipefail
 
 # ── Version ─────────────────────────────────────────────────────────────────
 
-NANOBK_VERSION="2.4.3"
+NANOBK_VERSION="2.4.4"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -726,6 +726,7 @@ NanoBK Proxy Suite — Unified CLI v${NANOBK_VERSION}
   beginner status                   新手状态概览 [--json]
   beginner flow                     新手设置流程 [--json]
   beginner subdomain [--domain D]   子域名冲突检查 [--json]
+  beginner ip [--ipv4 V4] [--ipv6 V6]  VPS IP 检测状态 [--json]
   setup flow [--zone DOMAIN] [--api-env PATH] [--worker-name NAME]  一键设置流程（只读） [--json]
   setup run  [--zone DOMAIN] [--api-env PATH] [--worker-name NAME]  一键设置流程（别名） [--json]
   setup wizard [--zone DOMAIN] [--api-env PATH] [--yes]  引导式 DNS 设置向导 [--json]
@@ -2168,7 +2169,7 @@ cmd_home() {
 cmd_beginner() {
   local subcommand=""
   local use_json=0
-  local subdomain_args=()
+  local extra_args=()
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --json)
@@ -2179,8 +2180,12 @@ cmd_beginner() {
         subcommand="flow"; shift ;;
       subdomain)
         subcommand="subdomain"; shift
-        # Pass remaining args to subdomain handler
-        subdomain_args=("$@")
+        extra_args=("$@")
+        break
+        ;;
+      ip)
+        subcommand="ip"; shift
+        extra_args=("$@")
         break
         ;;
       --help|-h)
@@ -2188,10 +2193,12 @@ cmd_beginner() {
         echo "       nanobk beginner status [--json]"
         echo "       nanobk beginner flow [--json]"
         echo "       nanobk beginner subdomain [--json] [--domain DOMAIN]"
+        echo "       nanobk beginner ip [--json] [--ipv4 ADDR] [--ipv6 ADDR]"
         echo ""
         echo "  Show beginner-friendly setup flow and status."
         echo "  显示新手设置流程和状态概览。"
         echo "  subdomain: 检查子域名是否可用"
+        echo "  ip: 显示 VPS IP 检测状态"
         echo "  Read-only. No DNS mutation. No Cloudflare mutation."
         return 0 ;;
       --dry-run)
@@ -2210,7 +2217,12 @@ cmd_beginner() {
   fi
   if [[ "$subcommand" == "subdomain" ]]; then
     local args=(python3 "$REPO_DIR/lib/nanobk_subdomain_conflict_ux.py" check)
-    args+=("${subdomain_args[@]}")
+    args+=(${extra_args[@]+"${extra_args[@]}"})
+    [[ "$use_json" == "1" ]] && args+=("--json")
+    "${args[@]}"
+  elif [[ "$subcommand" == "ip" ]]; then
+    local args=(python3 "$REPO_DIR/lib/nanobk_ip_friendly_ux.py" status)
+    args+=(${extra_args[@]+"${extra_args[@]}"})
     [[ "$use_json" == "1" ]] && args+=("--json")
     "${args[@]}"
   else
