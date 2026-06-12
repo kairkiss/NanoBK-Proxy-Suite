@@ -113,7 +113,20 @@ else
   echo "$V239_OUT" | tail -5
 fi
 
-# ── 6. No mutation in this test ──────────────────────────────────────────────
+# ── 6. v2.3.2 zone onboarding passes ─────────────────────────────────────────
+
+echo ""
+echo "=== v2.3.2 zone onboarding ==="
+
+V232_OUT=$(bash tests/v2.3.2-cloudflare-zone-onboarding.sh 2>&1 || true)
+if echo "$V232_OUT" | grep -q "All v2.3.2 Cloudflare zone onboarding checks passed"; then
+  ok "v2.3.2 zone onboarding passes"
+else
+  fail "v2.3.2 zone onboarding failed"
+  echo "$V232_OUT" | tail -5
+fi
+
+# ── 7. No mutation in this test ──────────────────────────────────────────────
 
 echo ""
 echo "=== Safety checks ==="

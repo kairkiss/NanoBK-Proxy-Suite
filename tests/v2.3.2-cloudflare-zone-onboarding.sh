@@ -10,6 +10,9 @@ FAIL=0
 ok() { echo "[OK] $1"; PASS=$((PASS + 1)); }
 fail() { echo "[FAIL] $1"; FAIL=$((FAIL + 1)); }
 
+# Portable file mode: GNU stat -c first, then BSD stat -f
+file_mode() { stat -c '%a' "$1" 2>/dev/null || stat -f '%Lp' "$1" 2>/dev/null || echo "unknown"; }
+
 CLI="bin/nanobk"
 ONBOARDING="lib/nanobk_cf_onboarding.py"
 FIXTURES="tests/fixtures/v2.3.2"
@@ -51,7 +54,7 @@ else
 fi
 
 # 5. cloudflare.env permissions 600
-ENV_MODE=$(stat -f '%Lp' "$HOME/.nanobk/cloudflare.env" 2>/dev/null || stat -c '%a' "$HOME/.nanobk/cloudflare.env" 2>/dev/null || echo "unknown")
+ENV_MODE="$(file_mode "$HOME/.nanobk/cloudflare.env")"
 if [[ "$ENV_MODE" == "600" ]]; then
   ok "cloudflare.env permissions 600"
 else
@@ -59,7 +62,7 @@ else
 fi
 
 # 6. setup-profile.json permissions 600
-PROFILE_MODE=$(stat -f '%Lp' "$HOME/.nanobk/setup-profile.json" 2>/dev/null || stat -c '%a' "$HOME/.nanobk/setup-profile.json" 2>/dev/null || echo "unknown")
+PROFILE_MODE="$(file_mode "$HOME/.nanobk/setup-profile.json")"
 if [[ "$PROFILE_MODE" == "600" ]]; then
   ok "setup-profile.json permissions 600"
 else

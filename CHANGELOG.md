@@ -1,5 +1,20 @@
 # Changelog
 
+## v2.3.10-t22-polish — v2.3.2 GNU Stat Compatibility
+
+### Fixed
+
+- Fixed Ubuntu GNU stat compatibility in v2.3.2 Cloudflare zone onboarding regression.
+- Permission checks for `cloudflare.env` and `setup-profile.json` now use GNU stat first and BSD stat as fallback.
+
+### Safety
+
+- No release/tag created.
+- No runtime behavior change.
+- No DNS/certificate/token/Worker mutation.
+- No service reload/restart.
+- No Web/Bot behavior change.
+
 ## v2.3.10-t21-polish — Dirty VPS Compatibility
 
 ### Fixed
