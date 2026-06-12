@@ -9,7 +9,7 @@ Read-only plan by default. Mutation only with --apply + exact confirm.
 
 Usage:
     python3 lib/nanobk_dns_apply_engine.py [--zone DOMAIN] [--api-env PATH] [--json]
-    python3 lib/nanobk_dns_apply_ENGINE.py --apply --confirm "I UNDERSTAND NANOBK WILL CREATE CLOUDFLARE DNS RECORDS" [--zone DOMAIN] [--api-env PATH] [--json]
+    python3 lib/nanobk_dns_apply_engine.py --apply --confirm "I UNDERSTAND NANOBK WILL CREATE CLOUDFLARE DNS RECORDS" [--zone DOMAIN] [--api-env PATH] [--json]
 
 Test hooks:
     NANOBK_CF_ZONES_FAKE_RESPONSE=/path/to/zones.json
@@ -17,11 +17,13 @@ Test hooks:
     NANOBK_DNS_APPLY_FAKE_PREFLIGHT_RESPONSE=/path/to/preflight.json
     NANOBK_DNS_APPLY_FAKE_CREATE_RESPONSE=/path/to/create.json
     NANOBK_DNS_APPLY_FAKE_VERIFY_RESPONSE=/path/to/verify.json
+    NANOBK_DNS_APPLY_FAKE_CAPTURE_PAYLOAD=/tmp/payload.jsonl
     NANOBK_TEST_DETECTED_IPV4=203.0.113.10
     NANOBK_TEST_DETECTED_IPV6=2001:db8::10
 """
 
 import argparse
+import ipaddress
 import json
 import os
 import sys
@@ -34,7 +36,7 @@ from nanobk_cf_zones import parse_env_file, fetch_zones, mask_domain
 from nanobk_cf_dns_availability import (
     validate_zone, load_fake_map, fetch_records_for_node, analyze_records,
 )
-from nanobk_ip_detect import mask_ipv4, mask_ipv6
+from nanobk_ip_detect import mask_ipv4, mask_ipv6, run_detect
 from nanobk_domain_planner import run_plan, lookup_zone_id, mask_ip
 
 
@@ -48,6 +50,30 @@ _DANGEROUS_HOSTNAMES = {
     "pop", "imap", "ssh", "rdp", "admin", "test", "staging",
 }
 _NANOBK_MARKER = "managed-by=nanobk"
+
+
+# ── IP validation ────────────────────────────────────────────────────────────
+
+def is_valid_ipv4(addr):
+    """Check if string is a valid IPv4 address."""
+    if not addr:
+        return False
+    try:
+        ipaddress.IPv4Address(addr)
+        return True
+    except (ipaddress.AddressValueError, ValueError):
+        return False
+
+
+def is_valid_ipv6(addr):
+    """Check if string is a valid IPv6 address."""
+    if not addr:
+        return False
+    try:
+        ipaddress.IPv6Address(addr)
+        return True
+    except (ipaddress.AddressValueError, ValueError):
+        return False
 
 
 # ── Safety validation ────────────────────────────────────────────────────────
@@ -85,6 +111,51 @@ def validate_apply_target(record):
         return False, f"只允许 A 或 AAAA 记录: {rec_type}"
 
     return True, None
+
+
+# ── Resolve real content from IP detection ───────────────────────────────────
+
+def resolve_content(rec_type):
+    """Resolve real DNS record content from IP detection. Returns (content, error)."""
+    try:
+        ip_result = run_detect()
+    except Exception as e:
+        return None, f"IP 检测失败: {e}"
+
+    ipv4 = ip_result.get("ipv4", {})
+    ipv6 = ip_result.get("ipv6", {})
+
+    if rec_type == "A":
+        if ipv4.get("status") == "detected" and ipv4.get("address"):
+            addr = ipv4["address"]
+            if is_valid_ipv4(addr):
+                return addr, None
+            return None, f"检测到的 IPv4 地址无效: {addr}"
+        return None, "未检测到可用的 IPv4 地址"
+
+    elif rec_type == "AAAA":
+        if ipv6.get("status") == "detected" and ipv6.get("address"):
+            addr = ipv6["address"]
+            if is_valid_ipv6(addr):
+                return addr, None
+            return None, f"检测到的 IPv6 地址无效: {addr}"
+        return None, "未检测到可用的 IPv6 地址"
+
+    return None, f"不支持的记录类型: {rec_type}"
+
+
+# ── Payload capture ──────────────────────────────────────────────────────────
+
+def capture_payload(payload_dict):
+    """Write payload to capture file if hook is set. Test-only."""
+    capture_path = os.environ.get("NANOBK_DNS_APPLY_FAKE_CAPTURE_PAYLOAD")
+    if not capture_path:
+        return
+    try:
+        with open(capture_path, "a") as f:
+            f.write(json.dumps(payload_dict) + "\n")
+    except OSError:
+        pass
 
 
 # ── Cloudflare DNS create ────────────────────────────────────────────────────
@@ -149,7 +220,16 @@ def create_dns_record_fake(fake_path):
 
 
 def create_dns_record(token, zone_id, name, rec_type, content, ttl=1):
-    """Create DNS record using real or fake transport."""
+    """Create DNS record using real or fake transport. Captures payload for testing."""
+    # Capture payload for test verification
+    capture_payload({
+        "name": name,
+        "type": rec_type,
+        "content": content,
+        "ttl": ttl,
+        "comment": _NANOBK_MARKER,
+    })
+
     fake_path = os.environ.get("NANOBK_DNS_APPLY_FAKE_CREATE_RESPONSE")
     if fake_path:
         return create_dns_record_fake(fake_path)
@@ -223,13 +303,45 @@ def verify_dns_record(token, zone_id, hostname):
 # ── Preflight recheck ────────────────────────────────────────────────────────
 
 def preflight_recheck(token, zone_id, zone_name, node, fake_map=None):
-    """Re-check availability before creation. Returns (available, error)."""
+    """Re-check availability before creation. Returns (available, error).
+
+    Supports NANOBK_DNS_APPLY_FAKE_PREFLIGHT_RESPONSE for testing.
+    """
+    preflight_fake = os.environ.get("NANOBK_DNS_APPLY_FAKE_PREFLIGHT_RESPONSE")
+    if preflight_fake:
+        return _preflight_recheck_fake(preflight_fake, node)
+
     try:
         records = fetch_records_for_node(node, zone_name, zone_id, token, fake_map)
         analysis = analyze_records(records, zone_name)
         return analysis.get("available", False), None
     except RuntimeError as e:
         return False, f"预检失败: {e}"
+
+
+def _preflight_recheck_fake(fake_path, node):
+    """Load fake preflight response. Expects JSON with node->result mapping."""
+    try:
+        with open(fake_path, "r") as f:
+            data = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError, OSError) as e:
+        return False, f"Cannot read fake preflight response: {e}"
+
+    node_data = data.get(node)
+    if node_data is None:
+        return False, f"Node '{node}' not found in fake preflight response"
+
+    if not node_data.get("success", False):
+        errors = node_data.get("errors", [])
+        msg = "; ".join(str(e.get("message", "unknown")) for e in errors) or "unknown error"
+        return False, f"Preflight API error: {msg}"
+
+    records = node_data.get("result", [])
+    if records:
+        # Records exist => not available
+        return False, None
+
+    return True, None
 
 
 # ── Main apply engine ────────────────────────────────────────────────────────
@@ -246,6 +358,7 @@ def run_apply_engine(zone_override=None, api_env_override=None,
             "ok": False,
             "mode": "blocked",
             "apply_executed": False,
+            "attempted_create": False,
             "mutation": False,
             "error": plan.get("error", "planning failed"),
         }
@@ -271,6 +384,7 @@ def run_apply_engine(zone_override=None, api_env_override=None,
             "ok": False,
             "mode": "blocked",
             "apply_executed": False,
+            "attempted_create": False,
             "mutation": False,
             "blocked_reason": "missing exact confirmation",
             "hint": f'需要输入: --confirm "{_CONFIRM_PHRASE}"',
@@ -285,43 +399,60 @@ def run_apply_engine(zone_override=None, api_env_override=None,
             api_env_path = profile.get("api_env_path")
 
     if not api_env_path:
-        return {"ok": False, "mode": "blocked", "apply_executed": False, "mutation": False,
-                "error": "未找到 API 配置"}
+        return {"ok": False, "mode": "blocked", "apply_executed": False, "attempted_create": False,
+                "mutation": False, "error": "未找到 API 配置"}
 
     try:
         env = parse_env_file(api_env_path)
     except (FileNotFoundError, PermissionError, ValueError) as e:
-        return {"ok": False, "mode": "blocked", "apply_executed": False, "mutation": False,
-                "error": str(e)}
+        return {"ok": False, "mode": "blocked", "apply_executed": False, "attempted_create": False,
+                "mutation": False, "error": str(e)}
 
     token = env.get("CF_API_TOKEN")
     if not token:
-        return {"ok": False, "mode": "blocked", "apply_executed": False, "mutation": False,
-                "error": "CF_API_TOKEN not found"}
+        return {"ok": False, "mode": "blocked", "apply_executed": False, "attempted_create": False,
+                "mutation": False, "error": "CF_API_TOKEN not found"}
 
     # Look up zone_id
     zone_id, zone_err = lookup_zone_id(token, zone_name)
     if zone_err:
-        return {"ok": False, "mode": "blocked", "apply_executed": False, "mutation": False,
-                "error": zone_err}
+        return {"ok": False, "mode": "blocked", "apply_executed": False, "attempted_create": False,
+                "mutation": False, "error": zone_err}
 
     # Step 6: Load fake map for preflight
     try:
         fake_map = load_fake_map()
     except RuntimeError as e:
-        return {"ok": False, "mode": "blocked", "apply_executed": False, "mutation": False,
-                "error": str(e)}
+        return {"ok": False, "mode": "blocked", "apply_executed": False, "attempted_create": False,
+                "mutation": False, "error": str(e)}
 
-    # Step 7: Preflight recheck + create + verify
+    # Step 7: Resolve real content for each safe record
+    content_map = {}
+    for rec in safe_records:
+        rec_type = rec.get("type", "A")
+        content, content_err = resolve_content(rec_type)
+        if content_err:
+            return {
+                "ok": False,
+                "mode": "blocked",
+                "apply_executed": False,
+                "attempted_create": False,
+                "mutation": False,
+                "error": f"无法解析 {rec.get('name', '?')} 的 DNS 内容: {content_err}",
+            }
+        content_map[rec.get("name", "")] = content
+
+    # Step 8: Preflight recheck + create + verify
     created_records = []
     created_count = 0
     verified_count = 0
     any_mutation = False
+    any_attempted = False
 
     for rec in safe_records:
         hostname = rec.get("name", "")
         rec_type = rec.get("type", "A")
-        content = rec.get("content", "")
+        content = content_map.get(hostname, "")
         node = rec.get("role", "")
 
         # Preflight recheck
@@ -337,7 +468,42 @@ def run_apply_engine(zone_override=None, api_env_override=None,
             })
             continue
 
+        # Validate content is non-empty and valid
+        if not content:
+            created_records.append({
+                "name": hostname,
+                "type": rec_type,
+                "content_masked": rec.get("content_masked", "***"),
+                "created": False,
+                "verified": False,
+                "error": "DNS 内容为空，无法创建",
+            })
+            continue
+
+        if rec_type == "A" and not is_valid_ipv4(content):
+            created_records.append({
+                "name": hostname,
+                "type": rec_type,
+                "content_masked": rec.get("content_masked", "***"),
+                "created": False,
+                "verified": False,
+                "error": f"IPv4 地址无效: {content}",
+            })
+            continue
+
+        if rec_type == "AAAA" and not is_valid_ipv6(content):
+            created_records.append({
+                "name": hostname,
+                "type": rec_type,
+                "content_masked": rec.get("content_masked", "***"),
+                "created": False,
+                "verified": False,
+                "error": f"IPv6 地址无效: {content}",
+            })
+            continue
+
         # Create
+        any_attempted = True
         result, create_err = create_dns_record(token, zone_id, hostname, rec_type, content)
         any_mutation = True
 
@@ -370,17 +536,16 @@ def run_apply_engine(zone_override=None, api_env_override=None,
 
     # Determine overall status
     all_verified = verified_count == len(safe_records) and len(safe_records) > 0
-    any_failed = any(not r.get("created") for r in created_records)
 
     if all_verified:
         ok = True
         mode = "applied"
-    elif created_count > 0 and not all_verified:
+    elif created_count > 0:
         ok = False
         mode = "partial"
-    elif any_mutation:
+    elif any_attempted:
         ok = False
-        mode = "partial"
+        mode = "failed"
     else:
         ok = False
         mode = "failed"
@@ -389,6 +554,7 @@ def run_apply_engine(zone_override=None, api_env_override=None,
         "ok": ok,
         "mode": mode,
         "apply_executed": True,
+        "attempted_create": any_attempted,
         "mutation": any_mutation,
         "created_count": created_count,
         "verified_count": verified_count,
@@ -413,6 +579,7 @@ def _build_plan_only_result(zone_name, safe_records, plan):
         "ok": True,
         "mode": "plan",
         "apply_executed": False,
+        "attempted_create": False,
         "mutation": False,
         "zone_name": zone_name,
         "records": records,
@@ -522,8 +689,8 @@ def _output_failed_text(result):
 def output_error(message, json_mode=False):
     """Print error message."""
     if json_mode:
-        result = {"ok": False, "mode": "blocked", "apply_executed": False, "mutation": False,
-                  "error": message}
+        result = {"ok": False, "mode": "blocked", "apply_executed": False,
+                  "attempted_create": False, "mutation": False, "error": message}
         print(json.dumps(result, indent=2))
     else:
         print(f"  错误：{message}", file=sys.stderr)

@@ -1,5 +1,35 @@
 # Changelog
 
+## v2.3.4-polish — Fix DNS Apply Content and Tests
+
+### Fixed
+
+- Fixed DNS apply engine content source: now uses real IP detection instead of planner's masked content.
+- Added hard block for empty or invalid DNS record content (validates IPv4/IPv6).
+- Added fake payload capture test hook (`NANOBK_DNS_APPLY_FAKE_CAPTURE_PAYLOAD`).
+- Implemented preflight fake response hook (`NANOBK_DNS_APPLY_FAKE_PREFLIGHT_RESPONSE`).
+- Fixed test `unset_fixtures` to also clear `NANOBK_TEST_DETECT_IPV4_FAIL`.
+- Strengthened DNS apply tests to fail on broken preflight/create/verify paths.
+- Added `attempted_create` field to apply engine result.
+- Added `preflight_both_conflict.json` fixture for proper preflight conflict testing.
+
+### Safety
+
+- DNS mutation only with explicit `--apply` and exact confirmation phrase.
+- No empty DNS content POST.
+- No invalid IP DNS content POST.
+- No overwrite of existing non-NanoBK DNS records.
+- No DNS deletion.
+- No DNS update.
+- No wildcard/root/www/api/mail/cdn records.
+- No Cloudflare PATCH/PUT/DELETE.
+- No certificate request.
+- No token rotation.
+- No owner-smoke-create execution.
+- No Web/Bot behavior change.
+- No token, zone ID, record ID, raw API URL, raw API response, private key, or subscription URL output.
+- No release/tag.
+
 ## v2.3.4 — DNS Apply Engine with Confirmation
 
 ### Added
