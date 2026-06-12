@@ -58,6 +58,28 @@ for phrase in \
   fi
 done
 
+# 5b. Manifest contains correct head references
+if grep -q "Final implementation head before closeout" "$MANIFEST" 2>/dev/null; then
+  ok "Manifest contains 'Final implementation head before closeout'"
+else
+  fail "Manifest missing 'Final implementation head before closeout'"
+fi
+if grep -q "2cef31d" "$MANIFEST" 2>/dev/null; then
+  ok "Manifest contains implementation head 2cef31d"
+else
+  fail "Manifest missing implementation head 2cef31d"
+fi
+if grep -q "Closeout manifest head" "$MANIFEST" 2>/dev/null; then
+  ok "Manifest contains 'Closeout manifest head'"
+else
+  fail "Manifest missing 'Closeout manifest head'"
+fi
+if grep -q "9dbec7a" "$MANIFEST" 2>/dev/null; then
+  ok "Manifest contains closeout head 9dbec7a"
+else
+  fail "Manifest missing closeout head 9dbec7a"
+fi
+
 # 6. Manifest says no release/tag in this commit
 if grep -qi "no release/tag\|no tag.*release\|no release.*tag" "$MANIFEST" 2>/dev/null; then
   ok "Manifest states no release/tag"

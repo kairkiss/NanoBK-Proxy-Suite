@@ -1,5 +1,20 @@
 # Changelog
 
+## v2.3.10-polish — Closeout Manifest Head Fix
+
+### Fixed
+
+- Clarified closeout manifest baseline/head fields.
+- Distinguished final implementation head before closeout from closeout manifest head.
+
+### Safety
+
+- No release/tag created.
+- No runtime behavior change.
+- No DNS/certificate/token/Worker mutation.
+- No service reload/restart.
+- No Web/Bot behavior change.
+
 ## v2.3.10 — Closeout Manifest and Release Readiness
 
 ### Added
