@@ -1,5 +1,22 @@
 # Changelog
 
+## v2.4.0 — Beginner Production Setup UX Scope Lock
+
+### Added
+
+- Added v2.4 beginner production setup UX scope document (`docs/v2.4-beginner-production-setup-ux.md`).
+- Added static scope test for v2.4.0 (`tests/v2.4.0-beginner-production-setup-scope.sh`).
+- Defined v2.4 as a user-facing UX layer on top of the v2.3 CLI Automation Gate.
+
+### Safety
+
+- No release/tag created.
+- No runtime behavior change.
+- No DNS/certificate/token/Worker mutation.
+- No service reload/restart.
+- No Web/Bot behavior change.
+- v2.3 exact confirmation gates remain authoritative.
+
 ## v2.3.10-t23-polish — Non-Interactive TTY Smoke Fix
 
 ### Fixed
