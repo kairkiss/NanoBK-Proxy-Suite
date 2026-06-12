@@ -1,0 +1,12 @@
+{
+  "proxy": {
+    "success": false,
+    "errors": [{"message": "Invalid API token"}],
+    "result": []
+  },
+  "web": {
+    "success": false,
+    "errors": [{"message": "Invalid API token"}],
+    "result": []
+  }
+}

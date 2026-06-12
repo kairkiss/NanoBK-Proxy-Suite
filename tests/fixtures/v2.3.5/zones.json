@@ -1,0 +1,10 @@
+{
+  "success": true,
+  "result": [
+    {
+      "id": "fake-zone-id-aaaabbbbcccc",
+      "name": "example.com",
+      "status": "active"
+    }
+  ]
+}

@@ -1,5 +1,33 @@
 # Changelog
 
+## v2.3.5 — Certificate Automation Preflight
+
+### Added
+
+- Added certificate automation preflight command (`nanobk setup cert plan`).
+- Added DNS readiness checks for proxy/web domains.
+- Added local ACME tool detection (acme.sh, certbot).
+- Added port 80/443 readiness checks.
+- Added DNS-01/HTTP-01 method recommendation.
+- Added `nanobk cert plan` alias.
+- Added "证书自动化预检" to setup and DNS submenus (plan-only from menu).
+- Added certificate preflight regression test with fake fixtures.
+
+### Safety
+
+- No certificate request.
+- No acme.sh issue.
+- No certbot certonly.
+- No service reload/restart.
+- No config mutation.
+- No DNS mutation.
+- No Cloudflare POST/PATCH/PUT/DELETE.
+- No token rotation.
+- No owner-smoke-create execution.
+- No Web/Bot behavior change.
+- No token, zone ID, record ID, raw API URL, raw API response, private key, or subscription URL output.
+- No release/tag.
+
 ## v2.3.4-polish — Fix DNS Apply Content and Tests
 
 ### Fixed

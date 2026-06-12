@@ -1,0 +1,26 @@
+{
+  "proxy": {
+    "success": true,
+    "result": [
+      {
+        "type": "A",
+        "name": "proxy.example.com",
+        "content": "198.51.100.10",
+        "proxied": false,
+        "comment": "some-other-record"
+      }
+    ]
+  },
+  "web": {
+    "success": true,
+    "result": [
+      {
+        "type": "A",
+        "name": "web.example.com",
+        "content": "198.51.100.20",
+        "proxied": false,
+        "comment": "another-record"
+      }
+    ]
+  }
+}
