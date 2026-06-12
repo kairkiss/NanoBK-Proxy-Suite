@@ -1,5 +1,25 @@
 # Changelog
 
+## v2.4.5 — Friendly Gate Wrappers
+
+### Added
+
+- Added beginner-friendly DNS, certificate, and subscription token gate previews.
+- Added safe preview-only JSON output for gate wrappers.
+- Added exact confirmation phrase visibility without lowering v2.3 gate requirements.
+- Added regression coverage for friendly gate wrappers.
+
+### Safety
+
+- No release/tag created.
+- No DNS/certificate/token/Worker mutation.
+- No DNS overwrite or delete behavior.
+- No service reload/restart.
+- No Web/Bot behavior change.
+- v2.3 exact confirmation gates remain authoritative.
+- No raw secret output.
+- Friendly wrappers are preview-only and do not execute apply/issue/rotate.
+
 ## v2.4.4 — IPv4 / IPv6 Friendly UX
 
 ### Added
