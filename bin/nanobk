@@ -20,7 +20,7 @@ set -Eeuo pipefail
 
 # ── Version ─────────────────────────────────────────────────────────────────
 
-NANOBK_VERSION="2.4.1"
+NANOBK_VERSION="2.4.2"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -722,6 +722,9 @@ NanoBK Proxy Suite — Unified CLI v${NANOBK_VERSION}
   cf zones list --api-env PATH  只读列出 Cloudflare zones [--json]
   vps ip detect               只读 VPS IP 候选检测 [--json]
   home                              NanoBK 状态总览 [--json]
+  beginner                          新手设置流程 [--json]
+  beginner status                   新手状态概览 [--json]
+  beginner flow                     新手设置流程 [--json]
   setup flow [--zone DOMAIN] [--api-env PATH] [--worker-name NAME]  一键设置流程（只读） [--json]
   setup run  [--zone DOMAIN] [--api-env PATH] [--worker-name NAME]  一键设置流程（别名） [--json]
   setup wizard [--zone DOMAIN] [--api-env PATH] [--yes]  引导式 DNS 设置向导 [--json]
@@ -2117,15 +2120,20 @@ cmd_cf_connect() {
 
 cmd_home() {
   local use_json=0
+  local use_legacy_json=0
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --json)
         use_json=1; shift ;;
+      --legacy-json)
+        use_legacy_json=1; shift ;;
       --help|-h)
-        echo "Usage: nanobk home [--json]"
+        echo "Usage: nanobk home [--json] [--legacy-json]"
         echo ""
         echo "  Show NanoBK beginner-friendly home screen."
         echo "  显示 NanoBK 小白首页和状态概览。"
+        echo "  --json         v2.4 safe beginner JSON (no secrets, no network)"
+        echo "  --legacy-json  old setup status JSON format (backward compat)"
         echo "  Read-only. No DNS mutation. No Cloudflare mutation."
         return 0 ;;
       --dry-run)
@@ -2142,13 +2150,58 @@ cmd_home() {
     echo "  No DNS mutation will be performed."
     return 0
   fi
-  if [[ "$use_json" == "1" ]]; then
-    # JSON: use setup status module for backward-compatible format
+  if [[ "$use_legacy_json" == "1" ]]; then
+    # Legacy JSON: use old setup status module for backward compat
     python3 "$REPO_DIR/lib/nanobk_setup_status.py" home --json
+  elif [[ "$use_json" == "1" ]]; then
+    # JSON: use v2.4 safe beginner JSON (no secrets, no network)
+    python3 "$REPO_DIR/lib/nanobk_cli_home.py" home --json
   else
     # Text: use beginner-friendly CLI home
     python3 "$REPO_DIR/lib/nanobk_cli_home.py" home
   fi
+}
+
+# ── beginner ─────────────────────────────────────────────────────────────
+
+cmd_beginner() {
+  local subcommand=""
+  local use_json=0
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --json)
+        use_json=1; shift ;;
+      status)
+        subcommand="status"; shift ;;
+      flow)
+        subcommand="flow"; shift ;;
+      --help|-h)
+        echo "Usage: nanobk beginner [--json]"
+        echo "       nanobk beginner status [--json]"
+        echo "       nanobk beginner flow [--json]"
+        echo ""
+        echo "  Show beginner-friendly setup flow and status."
+        echo "  显示新手设置流程和状态概览。"
+        echo "  Read-only. No DNS mutation. No Cloudflare mutation."
+        return 0 ;;
+      --dry-run)
+        echo -e "  ${CYAN}[DRY-RUN]${NC} beginner command prepared"
+        echo "  No DNS mutation will be performed."
+        return 0 ;;
+      *)
+        die "beginner: unknown option: $1"
+        ;;
+    esac
+  done
+  if [[ "$DRY_RUN" == "1" ]]; then
+    echo -e "  ${CYAN}[DRY-RUN]${NC} beginner command prepared"
+    echo "  No DNS mutation will be performed."
+    return 0
+  fi
+  local args=(python3 "$REPO_DIR/lib/nanobk_beginner_flow.py")
+  [[ -n "$subcommand" ]] && args+=("$subcommand")
+  [[ "$use_json" == "1" ]] && args+=("--json")
+  "${args[@]}"
 }
 
 # ── setup dns ────────────────────────────────────────────────────────────
@@ -2976,6 +3029,7 @@ main() {
 
   case "$command" in
     home)         cmd_home ${cmd_rest[@]+"${cmd_rest[@]}"} ;;
+    beginner)     cmd_beginner ${cmd_rest[@]+"${cmd_rest[@]}"} ;;
     status)       cmd_status ${cmd_rest[@]+"${cmd_rest[@]}"} ;;
     doctor)       cmd_doctor ${cmd_rest[@]+"${cmd_rest[@]}"} ;;
     install)      cmd_install ${cmd_rest[@]+"${cmd_rest[@]}"} ;;

@@ -292,7 +292,22 @@ fi
 echo ""
 echo "=== Section H: JSON safety ==="
 
-# H. JSON does not contain api_env_path
+# H. nanobk home --json (bash) uses v2.4 safe JSON
+BASH_HOME_JSON=$(HOME="$FAKE_HOME" bash "$NANOBK" home --json 2>&1)
+if echo "$BASH_HOME_JSON" | python3 -c "import sys,json; d=json.load(sys.stdin); assert 'next_step' in d and 'home_status' not in d" 2>/dev/null; then
+  ok "H: nanobk home --json uses v2.4 safe JSON schema"
+else
+  fail "H: nanobk home --json does not use v2.4 safe JSON"
+fi
+
+# H. nanobk home --json does not contain api_env_path
+if echo "$BASH_HOME_JSON" | python3 -c "import sys,json; d=json.load(sys.stdin); assert 'api_env_path' not in d" 2>/dev/null; then
+  ok "H: nanobk home --json has no api_env_path"
+else
+  fail "H: nanobk home --json contains api_env_path"
+fi
+
+# H. JSON does not contain api_env_path (module direct)
 if echo "$HOME_JSON" | python3 -c "import sys,json; d=json.load(sys.stdin); assert 'api_env_path' not in d" 2>/dev/null; then
   ok "H: JSON (no profile) has no api_env_path"
 else

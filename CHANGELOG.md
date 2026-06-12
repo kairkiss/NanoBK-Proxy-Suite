@@ -1,5 +1,24 @@
 # Changelog
 
+## v2.4.2 — Beginner Flow Renderer
+
+### Added
+
+- Added beginner-friendly setup flow renderer.
+- Added Chinese step-by-step setup guidance.
+- Added safe beginner flow JSON output.
+- Added fixture-based flow state coverage.
+- Added regression coverage for safe nanobk home --json.
+
+### Safety
+
+- No release/tag created.
+- No DNS/certificate/token/Worker mutation.
+- No service reload/restart.
+- No Web/Bot behavior change.
+- v2.3 exact confirmation gates remain authoritative.
+- No raw secret output.
+
 ## v2.4.1 — CLI Home UX
 
 ### Added
