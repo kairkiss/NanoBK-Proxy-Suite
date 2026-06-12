@@ -20,7 +20,7 @@ set -Eeuo pipefail
 
 # ── Version ─────────────────────────────────────────────────────────────────
 
-NANOBK_VERSION="2.5.0"
+NANOBK_VERSION="2.5.1"
 
 # ── Colors ──────────────────────────────────────────────────────────────────
 
@@ -729,7 +729,9 @@ NanoBK Proxy Suite — Unified CLI v${NANOBK_VERSION}
   beginner ip [--ipv4 V4] [--ipv6 V6]  VPS IP 检测状态 [--json]
   beginner gate dns|cert|token      DNS/证书/密钥 gate 预览 [--json]
   beginner production              生产设置主线 [--json]
+  beginner production actions      生产动作预案 [--json]
   setup production                 生产设置主线（只读） [--json]
+  setup production actions         生产动作预案 [--json]
   setup flow [--zone DOMAIN] [--api-env PATH] [--worker-name NAME]  一键设置流程（只读） [--json]
   setup run  [--zone DOMAIN] [--api-env PATH] [--worker-name NAME]  一键设置流程（别名） [--json]
   setup wizard [--zone DOMAIN] [--api-env PATH] [--yes]  引导式 DNS 设置向导 [--json]
@@ -2209,6 +2211,7 @@ cmd_beginner() {
         echo "       nanobk beginner ip [--json] [--ipv4 ADDR] [--ipv6 ADDR]"
         echo "       nanobk beginner gate dns|cert|token [--json]"
         echo "       nanobk beginner production [--json]"
+        echo "       nanobk beginner production actions [--json]"
         echo ""
         echo "  Show beginner-friendly setup flow and status."
         echo "  显示新手设置流程和状态概览。"
@@ -2843,13 +2846,17 @@ cmd_setup_production() {
         subcommand="status"; shift ;;
       plan)
         subcommand="plan"; shift ;;
+      actions)
+        subcommand="actions"; shift ;;
       --help|-h)
         echo "Usage: nanobk setup production [--json]"
         echo "       nanobk setup production status [--json]"
         echo "       nanobk setup production plan [--json]"
+        echo "       nanobk setup production actions [--json]"
         echo ""
         echo "  生产设置主线（只读，不会执行部署）。"
         echo "  显示完整的生产部署路线图和旧能力入口映射。"
+        echo "  actions: 显示详细的生产动作预案和命令卡片"
         echo "  Read-only. No DNS mutation. No Cloudflare mutation."
         return 0 ;;
       --dry-run)

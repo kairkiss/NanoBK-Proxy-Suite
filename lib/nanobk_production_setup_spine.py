@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """
-NanoBK Production Setup Integration Spine (v2.5.0)
+NanoBK Production Setup Integration Spine (v2.5.1)
 
 Read-only production setup state machine that maps legacy v1.9 capabilities
 into the new nanobk beginner CLI entry point.
+Includes action plan builder for clear command cards.
 
 Read-only. No DNS mutation. No Cloudflare mutation.
 No curl/wrangler/certbot calls. No service reload/restart.
@@ -13,6 +14,7 @@ Usage:
     python3 lib/nanobk_production_setup_spine.py [--json]
     python3 lib/nanobk_production_setup_spine.py status [--json]
     python3 lib/nanobk_production_setup_spine.py plan [--json]
+    python3 lib/nanobk_production_setup_spine.py actions [--json]
 """
 
 import argparse
@@ -197,6 +199,206 @@ _OLD_CAPABILITIES = [
         "description": "单独轮换 Trojan 代理通道的密钥。",
         "command": "nanobk rotate trojan",
         "stage": "protocol_key_rotation",
+    },
+]
+
+
+# ── Exact confirmation phrases ─────────────────────────────────────────────
+
+EXACT_PHRASE_DNS = "I UNDERSTAND NANOBK WILL CREATE CLOUDFLARE DNS RECORDS"
+EXACT_PHRASE_CERT = "I UNDERSTAND NANOBK WILL REQUEST TLS CERTIFICATES"
+EXACT_PHRASE_TOKEN = "I UNDERSTAND NANOBK WILL ROTATE SUBSCRIPTION TOKENS"
+
+
+# ── Action plan definition ─────────────────────────────────────────────────
+
+_ACTIONS = [
+    {
+        "id": "cloudflare_login",
+        "title": "连接 Cloudflare",
+        "kind": "interactive",
+        "summary": "登录授权并读取你的域名列表",
+        "command": "nanobk cf connect",
+        "will_modify": False,
+        "requires_exact_phrase": False,
+        "exact_phrase_label": None,
+        "safe_to_auto_run": False,
+    },
+    {
+        "id": "domain_select",
+        "title": "选择你的域名",
+        "kind": "interactive",
+        "summary": "从 Cloudflare 域名中选择一个用于代理服务",
+        "command": "nanobk cf connect",
+        "will_modify": False,
+        "requires_exact_phrase": False,
+        "exact_phrase_label": None,
+        "safe_to_auto_run": False,
+    },
+    {
+        "id": "vps_ip_detect",
+        "title": "检测服务器 IP",
+        "kind": "read_only",
+        "summary": "自动检测 VPS 公网 IPv4 和 IPv6 地址",
+        "command": "nanobk beginner ip",
+        "will_modify": False,
+        "requires_exact_phrase": False,
+        "exact_phrase_label": None,
+        "safe_to_auto_run": True,
+    },
+    {
+        "id": "subdomain_plan",
+        "title": "规划子域名",
+        "kind": "read_only",
+        "summary": "检查 proxy/web 子域名是否可用",
+        "command": "nanobk beginner subdomain --domain your-domain.com",
+        "will_modify": False,
+        "requires_exact_phrase": False,
+        "exact_phrase_label": None,
+        "safe_to_auto_run": True,
+    },
+    {
+        "id": "dns_apply_gate",
+        "title": "域名指向（DNS）",
+        "kind": "dangerous_gate",
+        "summary": "把 proxy/web 子域名指向你的服务器 IP",
+        "command": f"nanobk setup dns apply --apply --confirm \"{EXACT_PHRASE_DNS}\"",
+        "will_modify": True,
+        "requires_exact_phrase": True,
+        "exact_phrase_label": EXACT_PHRASE_DNS,
+        "safe_to_auto_run": False,
+    },
+    {
+        "id": "cert_issue_gate",
+        "title": "HTTPS 安全证书",
+        "kind": "dangerous_gate",
+        "summary": "为你的域名申请 HTTPS 安全证书",
+        "command": f"nanobk setup cert issue --issue --confirm \"{EXACT_PHRASE_CERT}\"",
+        "will_modify": True,
+        "requires_exact_phrase": True,
+        "exact_phrase_label": EXACT_PHRASE_CERT,
+        "safe_to_auto_run": False,
+    },
+    {
+        "id": "vps_four_protocols",
+        "title": "代理服务核心（四协议部署）",
+        "kind": "interactive",
+        "summary": "部署 Reality、TUIC、HY2、Trojan 四个代理通道到 VPS",
+        "command": "nanobk install --mode vps",
+        "will_modify": True,
+        "requires_exact_phrase": False,
+        "exact_phrase_label": None,
+        "safe_to_auto_run": False,
+    },
+    {
+        "id": "worker_nanok",
+        "title": "订阅服务入口（nanok Worker）",
+        "kind": "interactive",
+        "summary": "部署 Cloudflare nanok Worker，提供订阅链接服务",
+        "command": "nanobk install --mode cloudflare",
+        "will_modify": True,
+        "requires_exact_phrase": False,
+        "exact_phrase_label": None,
+        "safe_to_auto_run": False,
+    },
+    {
+        "id": "worker_nanob",
+        "title": "聚合服务入口（nanob Worker）",
+        "kind": "interactive",
+        "summary": "部署 Cloudflare nanob Worker，提供节点聚合服务",
+        "command": "nanobk install --mode cloudflare",
+        "will_modify": True,
+        "requires_exact_phrase": False,
+        "exact_phrase_label": None,
+        "safe_to_auto_run": False,
+    },
+    {
+        "id": "subscription_token",
+        "title": "订阅密钥轮换",
+        "kind": "dangerous_gate",
+        "summary": "重新生成订阅密钥，用于客户端连接",
+        "command": f"nanobk setup token rotate --rotate --confirm \"{EXACT_PHRASE_TOKEN}\"",
+        "will_modify": True,
+        "requires_exact_phrase": True,
+        "exact_phrase_label": EXACT_PHRASE_TOKEN,
+        "safe_to_auto_run": False,
+    },
+    {
+        "id": "protocol_key_rotation",
+        "title": "代理密钥轮换",
+        "kind": "interactive",
+        "summary": "轮换四个代理通道的密钥，提升安全性。后续 v2.5.5 会和订阅 token 轮换联动。",
+        "command": "nanobk rotate all",
+        "will_modify": True,
+        "requires_exact_phrase": False,
+        "exact_phrase_label": None,
+        "safe_to_auto_run": False,
+    },
+    {
+        "id": "bot_web_optional",
+        "title": "Bot 和 Web 面板（可选）",
+        "kind": "interactive",
+        "summary": "配置 Telegram Bot 和 Web 管理面板，可选步骤",
+        "command": "nanobk install --mode full",
+        "will_modify": True,
+        "requires_exact_phrase": False,
+        "exact_phrase_label": None,
+        "safe_to_auto_run": False,
+    },
+    {
+        "id": "protocol_hy2",
+        "title": "轮换 HY2 密钥",
+        "kind": "interactive",
+        "summary": "单独轮换 HY2 代理通道的密钥",
+        "command": "nanobk rotate hy2",
+        "will_modify": True,
+        "requires_exact_phrase": False,
+        "exact_phrase_label": None,
+        "safe_to_auto_run": False,
+    },
+    {
+        "id": "protocol_tuic",
+        "title": "轮换 TUIC 密钥",
+        "kind": "interactive",
+        "summary": "单独轮换 TUIC 代理通道的密钥",
+        "command": "nanobk rotate tuic",
+        "will_modify": True,
+        "requires_exact_phrase": False,
+        "exact_phrase_label": None,
+        "safe_to_auto_run": False,
+    },
+    {
+        "id": "protocol_reality",
+        "title": "轮换 Reality 密钥",
+        "kind": "interactive",
+        "summary": "单独轮换 Reality 代理通道的密钥",
+        "command": "nanobk rotate reality",
+        "will_modify": True,
+        "requires_exact_phrase": False,
+        "exact_phrase_label": None,
+        "safe_to_auto_run": False,
+    },
+    {
+        "id": "protocol_trojan",
+        "title": "轮换 Trojan 密钥",
+        "kind": "interactive",
+        "summary": "单独轮换 Trojan 代理通道的密钥",
+        "command": "nanobk rotate trojan",
+        "will_modify": True,
+        "requires_exact_phrase": False,
+        "exact_phrase_label": None,
+        "safe_to_auto_run": False,
+    },
+    {
+        "id": "final_status",
+        "title": "检查最终状态",
+        "kind": "read_only",
+        "summary": "查看当前 NanoBK 生产部署状态",
+        "command": "nanobk home",
+        "will_modify": False,
+        "requires_exact_phrase": False,
+        "exact_phrase_label": None,
+        "safe_to_auto_run": True,
     },
 ]
 
@@ -418,6 +620,194 @@ def gather_production_plan_json():
     return gather_production_json()
 
 
+# ── Action plan status inference ───────────────────────────────────────────
+
+def _infer_action_statuses():
+    """Infer status for each action based on profile/config hints.
+
+    Read-only. No network calls. No mutation.
+    Returns a dict mapping action_id -> status string.
+    """
+    profile_path = default_profile_path()
+    has_profile = os.path.isfile(profile_path)
+
+    statuses = {}
+
+    if not has_profile:
+        statuses["cloudflare_login"] = "available"
+        statuses["domain_select"] = "blocked"
+        statuses["vps_ip_detect"] = "blocked"
+        statuses["subdomain_plan"] = "blocked"
+        statuses["dns_apply_gate"] = "blocked"
+        statuses["cert_issue_gate"] = "blocked"
+        statuses["vps_four_protocols"] = "blocked"
+        statuses["worker_nanok"] = "blocked"
+        statuses["worker_nanob"] = "blocked"
+        statuses["subscription_token"] = "blocked"
+        statuses["protocol_key_rotation"] = "blocked"
+        statuses["bot_web_optional"] = "blocked"
+        statuses["protocol_hy2"] = "blocked"
+        statuses["protocol_tuic"] = "blocked"
+        statuses["protocol_reality"] = "blocked"
+        statuses["protocol_trojan"] = "blocked"
+        statuses["final_status"] = "blocked"
+        return statuses
+
+    profile, profile_err = load_profile()
+
+    if profile_err:
+        statuses["cloudflare_login"] = "available"
+        statuses["domain_select"] = "available"
+        statuses["vps_ip_detect"] = "blocked"
+        statuses["subdomain_plan"] = "blocked"
+        statuses["dns_apply_gate"] = "blocked"
+        statuses["cert_issue_gate"] = "blocked"
+        statuses["vps_four_protocols"] = "blocked"
+        statuses["worker_nanok"] = "blocked"
+        statuses["worker_nanob"] = "blocked"
+        statuses["subscription_token"] = "blocked"
+        statuses["protocol_key_rotation"] = "blocked"
+        statuses["bot_web_optional"] = "blocked"
+        statuses["protocol_hy2"] = "blocked"
+        statuses["protocol_tuic"] = "blocked"
+        statuses["protocol_reality"] = "blocked"
+        statuses["protocol_trojan"] = "blocked"
+        statuses["final_status"] = "blocked"
+        return statuses
+
+    zone = profile.get("zone_name", "")
+    if zone:
+        statuses["cloudflare_login"] = "available"
+        statuses["domain_select"] = "available"
+        statuses["vps_ip_detect"] = "available"
+        statuses["subdomain_plan"] = "available"
+        statuses["dns_apply_gate"] = "requires_confirmation"
+        statuses["cert_issue_gate"] = "pending"
+        statuses["vps_four_protocols"] = "pending"
+        statuses["worker_nanok"] = "pending"
+        statuses["worker_nanob"] = "pending"
+        statuses["subscription_token"] = "pending"
+        statuses["protocol_key_rotation"] = "pending"
+        statuses["bot_web_optional"] = "pending"
+        statuses["protocol_hy2"] = "pending"
+        statuses["protocol_tuic"] = "pending"
+        statuses["protocol_reality"] = "pending"
+        statuses["protocol_trojan"] = "pending"
+        statuses["final_status"] = "pending"
+    else:
+        statuses["cloudflare_login"] = "available"
+        statuses["domain_select"] = "available"
+        statuses["vps_ip_detect"] = "blocked"
+        statuses["subdomain_plan"] = "blocked"
+        statuses["dns_apply_gate"] = "blocked"
+        statuses["cert_issue_gate"] = "blocked"
+        statuses["vps_four_protocols"] = "blocked"
+        statuses["worker_nanok"] = "blocked"
+        statuses["worker_nanob"] = "blocked"
+        statuses["subscription_token"] = "blocked"
+        statuses["protocol_key_rotation"] = "blocked"
+        statuses["bot_web_optional"] = "blocked"
+        statuses["protocol_hy2"] = "blocked"
+        statuses["protocol_tuic"] = "blocked"
+        statuses["protocol_reality"] = "blocked"
+        statuses["protocol_trojan"] = "blocked"
+        statuses["final_status"] = "blocked"
+
+    return statuses
+
+
+def _build_action_steps(statuses):
+    """Build the full action list with inferred statuses."""
+    steps = []
+    for action_def in _ACTIONS:
+        step = dict(action_def)
+        step["status"] = statuses.get(action_def["id"], "pending")
+        step["next_step"] = _next_action_for(action_def["id"])
+        steps.append(step)
+    return steps
+
+
+def _next_action_for(action_id):
+    """Return the next action id after the given one."""
+    ids = [a["id"] for a in _ACTIONS]
+    try:
+        idx = ids.index(action_id)
+        if idx + 1 < len(ids):
+            return ids[idx + 1]
+    except ValueError:
+        pass
+    return None
+
+
+# ── Action plan text renderer ─────────────────────────────────────────────
+
+_ACTION_KIND_LABELS = {
+    "read_only": "只读",
+    "interactive": "交互",
+    "dangerous_gate": "危险操作，需要安全确认",
+    "legacy_installer": "安装器",
+    "manual": "手动",
+}
+
+
+def render_actions_text(steps):
+    """Render the action plan as Chinese text cards."""
+    lines = []
+
+    lines.append("  NanoBK 生产动作预案")
+    lines.append("  ─────────────────────────────────────────────")
+    lines.append("")
+    lines.append("  当前不会自动执行任何操作。")
+    lines.append("")
+
+    for i, step in enumerate(steps, 1):
+        kind_label = _ACTION_KIND_LABELS.get(step["kind"], step["kind"])
+        lines.append(f"  {i}. {step['title']}")
+        lines.append(f"     类型：{kind_label}")
+        lines.append(f"     作用：{step['summary']}")
+        lines.append(f"     命令：{step['command']}")
+        if step["requires_exact_phrase"] and step["exact_phrase_label"]:
+            lines.append(f"     确认短语：{step['exact_phrase_label']}")
+        if step["will_modify"]:
+            lines.append(f"     会修改系统/Cloudflare：是")
+        else:
+            lines.append(f"     会修改系统/Cloudflare：否")
+        lines.append("")
+
+    lines.append("  安全提示：以上所有命令默认只显示预案。")
+    lines.append("  真正执行需要你输入确认短语。")
+    lines.append("  不确认就不会执行任何修改。")
+    lines.append("")
+
+    return "\n".join(lines)
+
+
+# ── Action plan JSON output ───────────────────────────────────────────────
+
+def gather_actions_json():
+    """Gather action plan as safe JSON dict.
+
+    Never includes:
+    - api_env_path, CF_API_TOKEN, ADMIN_TOKEN, SUB_TOKEN
+    - private_key, subscription URL
+    - zone_id, record_id
+    - raw API URL, raw API response, env file path
+    - workers.dev raw secret URL
+    """
+    statuses = _infer_action_statuses()
+    steps = _build_action_steps(statuses)
+
+    return {
+        "ok": True,
+        "mode": "production_actions_v2_5",
+        "version": "2.5.1",
+        "mutation": False,
+        "dangerous_actions_executed": False,
+        "safety": "read_only",
+        "actions": steps,
+    }
+
+
 # ── Main ───────────────────────────────────────────────────────────────────
 
 def main():
@@ -433,6 +823,10 @@ def main():
     # Plan
     plan_parser = sub.add_parser("plan", help="Show production setup plan")
     plan_parser.add_argument("--json", action="store_true", help="JSON output")
+
+    # Actions
+    actions_parser = sub.add_parser("actions", help="Show production action plan")
+    actions_parser.add_argument("--json", action="store_true", help="JSON output")
 
     # Also accept --json at top level (no subcommand = status)
     parser.add_argument("--json", action="store_true", help="JSON output")
@@ -451,6 +845,14 @@ def main():
             steps = _build_stage_steps(statuses)
             current_stage = _find_current_stage(steps)
             print(render_production_text(steps, current_stage))
+    elif command == "actions":
+        if use_json:
+            result = gather_actions_json()
+            print(json.dumps(result, indent=2, ensure_ascii=False))
+        else:
+            statuses = _infer_action_statuses()
+            steps = _build_action_steps(statuses)
+            print(render_actions_text(steps))
     else:
         parser.print_help()
         sys.exit(1)

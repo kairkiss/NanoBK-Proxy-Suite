@@ -1,5 +1,26 @@
 # Changelog
 
+## v2.5.1 — Production Action Plan Builder
+
+### Added
+
+- Added production action plan output for the v2.5 setup spine.
+- Added `nanobk setup production actions`.
+- Added `nanobk beginner production actions`.
+- Added safe JSON action plan output.
+- Mapped read-only, interactive, dangerous gate, and key rotation actions into beginner-friendly cards.
+
+### Safety
+
+- No runtime deployment executed.
+- No release/tag created.
+- No DNS/certificate/token/Worker mutation.
+- No DNS overwrite or delete behavior.
+- No service reload/restart.
+- No Web/Bot behavior change.
+- v2.3 exact confirmation gates remain authoritative.
+- No raw secret output.
+
 ## v2.5.0 — Production Setup Integration Spine
 
 ### Added
