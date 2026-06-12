@@ -1,5 +1,27 @@
 # Changelog
 
+## v2.5.2 — Cloudflare Domain DNS Readiness Flow
+
+### Added
+
+- Added production DNS readiness flow.
+- Added `nanobk setup production dns`.
+- Added `nanobk beginner production dns`.
+- Added safe JSON for Cloudflare/domain/IP/subdomain readiness.
+- Added local setup profile save for selected domain and proxy/web subdomains.
+
+### Safety
+
+- No runtime deployment executed.
+- No release/tag created.
+- No DNS/certificate/token/Worker mutation.
+- No DNS overwrite or delete behavior.
+- No service reload/restart.
+- No Web/Bot behavior change.
+- Only read-only Cloudflare checks are allowed.
+- v2.3 DNS exact confirmation gate remains authoritative.
+- No raw secret output.
+
 ## v2.5.1 — Production Action Plan Builder
 
 ### Added

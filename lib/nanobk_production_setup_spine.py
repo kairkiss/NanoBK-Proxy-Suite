@@ -828,6 +828,15 @@ def main():
     actions_parser = sub.add_parser("actions", help="Show production action plan")
     actions_parser.add_argument("--json", action="store_true", help="JSON output")
 
+    # DNS readiness
+    dns_parser = sub.add_parser("dns", help="Check DNS readiness (read-only)")
+    dns_parser.add_argument("--zone", help="Domain zone to use")
+    dns_parser.add_argument("--api-env", help="Path to Cloudflare api-env file")
+    dns_parser.add_argument("--proxy-subdomain", default="proxy", help="Proxy subdomain prefix (default: proxy)")
+    dns_parser.add_argument("--web-subdomain", default="web", help="Web subdomain prefix (default: web)")
+    dns_parser.add_argument("--save", action="store_true", help="Save local setup profile after check")
+    dns_parser.add_argument("--json", action="store_true", help="JSON output")
+
     # Also accept --json at top level (no subcommand = status)
     parser.add_argument("--json", action="store_true", help="JSON output")
 
@@ -853,6 +862,42 @@ def main():
             statuses = _infer_action_statuses()
             steps = _build_action_steps(statuses)
             print(render_actions_text(steps))
+    elif command == "dns":
+        from nanobk_production_dns_readiness import run_readiness, run_save, output_text, output_error
+        if args.save:
+            result = run_save(
+                zone=args.zone,
+                api_env=args.api_env,
+                proxy_subdomain=args.proxy_subdomain,
+                web_subdomain=args.web_subdomain,
+            )
+            if use_json:
+                print(json.dumps(result, indent=2, ensure_ascii=False))
+            else:
+                if result.get("ok"):
+                    print()
+                    print(f"  {result.get('message', '已保存。')}")
+                    print(f"  域名：{result.get('zone_name', '***')}")
+                    print(f"  子域名：{result.get('proxy_subdomain', 'proxy')}, {result.get('web_subdomain', 'web')}")
+                    print()
+                else:
+                    output_error(result.get("error", "unknown error"), False)
+                    sys.exit(1)
+        else:
+            result = run_readiness(
+                zone=args.zone,
+                api_env=args.api_env,
+                proxy_subdomain=args.proxy_subdomain,
+                web_subdomain=args.web_subdomain,
+            )
+            if use_json:
+                print(json.dumps(result, indent=2, ensure_ascii=False))
+            else:
+                if result.get("ok"):
+                    output_text(result)
+                else:
+                    output_error(result.get("error", "unknown error"), False)
+                    sys.exit(1)
     else:
         parser.print_help()
         sys.exit(1)

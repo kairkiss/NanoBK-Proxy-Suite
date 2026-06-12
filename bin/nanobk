@@ -730,8 +730,10 @@ NanoBK Proxy Suite — Unified CLI v${NANOBK_VERSION}
   beginner gate dns|cert|token      DNS/证书/密钥 gate 预览 [--json]
   beginner production              生产设置主线 [--json]
   beginner production actions      生产动作预案 [--json]
+  beginner production dns          域名/DNS 准备检查 [--json]
   setup production                 生产设置主线（只读） [--json]
   setup production actions         生产动作预案 [--json]
+  setup production dns             域名/DNS 准备检查 [--json]
   setup flow [--zone DOMAIN] [--api-env PATH] [--worker-name NAME]  一键设置流程（只读） [--json]
   setup run  [--zone DOMAIN] [--api-env PATH] [--worker-name NAME]  一键设置流程（别名） [--json]
   setup wizard [--zone DOMAIN] [--api-env PATH] [--yes]  引导式 DNS 设置向导 [--json]
@@ -2212,6 +2214,7 @@ cmd_beginner() {
         echo "       nanobk beginner gate dns|cert|token [--json]"
         echo "       nanobk beginner production [--json]"
         echo "       nanobk beginner production actions [--json]"
+        echo "       nanobk beginner production dns [--json]"
         echo ""
         echo "  Show beginner-friendly setup flow and status."
         echo "  显示新手设置流程和状态概览。"
@@ -2838,6 +2841,7 @@ cmd_setup_token_rotate() {
 cmd_setup_production() {
   local subcommand=""
   local use_json=0
+  local extra_args=()
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --json)
@@ -2848,15 +2852,24 @@ cmd_setup_production() {
         subcommand="plan"; shift ;;
       actions)
         subcommand="actions"; shift ;;
+      dns)
+        subcommand="dns"; shift
+        extra_args=("$@")
+        break
+        ;;
       --help|-h)
         echo "Usage: nanobk setup production [--json]"
         echo "       nanobk setup production status [--json]"
         echo "       nanobk setup production plan [--json]"
         echo "       nanobk setup production actions [--json]"
+        echo "       nanobk setup production dns [--zone DOMAIN] [--api-env PATH] [--proxy-subdomain NAME] [--web-subdomain NAME] [--json]"
+        echo "       nanobk setup production dns --save --zone DOMAIN [--api-env PATH]"
         echo ""
         echo "  生产设置主线（只读，不会执行部署）。"
         echo "  显示完整的生产部署路线图和旧能力入口映射。"
         echo "  actions: 显示详细的生产动作预案和命令卡片"
+        echo "  dns: Cloudflare 域名/IP/子域名/DNS 准备检查（只读）"
+        echo "  dns save: 保存本地设置 profile（不创建 DNS）"
         echo "  Read-only. No DNS mutation. No Cloudflare mutation."
         return 0 ;;
       --dry-run)
@@ -2875,6 +2888,9 @@ cmd_setup_production() {
   fi
   local args=(python3 "$REPO_DIR/lib/nanobk_production_setup_spine.py")
   [[ -n "$subcommand" ]] && args+=("$subcommand")
+  if [[ ${#extra_args[@]} -gt 0 ]]; then
+    args+=(${extra_args[@]+"${extra_args[@]}"})
+  fi
   [[ "$use_json" == "1" ]] && args+=("--json")
   "${args[@]}"
 }
