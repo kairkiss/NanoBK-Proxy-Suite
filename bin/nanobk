@@ -276,19 +276,20 @@ console_dns_submenu() {
   echo "  2) 规划 proxy/web 子域名"
   echo "  3) 准备创建 DNS 记录"
   echo "  4) 证书自动化预检"
-  echo "  5) 引导设置向导"
-  echo "  6) DNS 设置助手"
-  echo "  7) 检测 VPS IP"
-  echo "  8) 检查域名可用性"
-  echo "  9) 生成 DNS 计划"
-  echo " 10) 预检摘要"
-  echo " 11) 保存设置配置"
-  echo " 12) 查看设置配置"
-  echo " 13) 清除设置配置"
-  echo " 14) 返回"
+  echo "  5) 证书签发预案"
+  echo "  6) 引导设置向导"
+  echo "  7) DNS 设置助手"
+  echo "  8) 检测 VPS IP"
+  echo "  9) 检查域名可用性"
+  echo " 10) 生成 DNS 计划"
+  echo " 11) 预检摘要"
+  echo " 12) 保存设置配置"
+  echo " 13) 查看设置配置"
+  echo " 14) 清除设置配置"
+  echo " 15) 返回"
   echo ""
   local choice
-  read -rp "  选择 [1-14]: " choice || { echo ""; return; }
+  read -rp "  选择 [1-15]: " choice || { echo ""; return; }
   case "$choice" in
     1)
       echo ""
@@ -325,12 +326,21 @@ console_dns_submenu() {
       ;;
     5)
       echo ""
+      ui_safe_action "证书签发预案（只读，不会申请证书）:"
+      echo "  我会生成证书签发预案。"
+      echo "  真正申请证书需要你复制命令并输入确认短语。"
+      echo ""
+      cmd_setup_cert_issue || true
+      console_pause
+      ;;
+    6)
+      echo ""
       ui_safe_action "引导设置向导（只读，不会修改 DNS）:"
       echo ""
       cmd_setup_wizard || true
       console_pause
       ;;
-    6)
+    7)
       echo ""
       ui_safe_action "DNS 设置助手（只读，不会修改 DNS）:"
       echo ""
@@ -340,14 +350,14 @@ console_dns_submenu() {
       echo "  不会修改 DNS，不会修改 Cloudflare。"
       console_pause
       ;;
-    7)
+    8)
       echo ""
       ui_safe_action "检测 VPS 公网 IP（只读）:"
       echo ""
       cmd_vps_ip_detect || true
       console_pause
       ;;
-    8)
+    9)
       echo ""
       ui_safe_action "检查子域名可用性（只读）:"
       echo ""
@@ -356,7 +366,7 @@ console_dns_submenu() {
       echo "  检查 proxy 和 web 子域名是否已被占用。"
       console_pause
       ;;
-    9)
+    10)
       echo ""
       ui_safe_action "生成 DNS 计划（只读，不会修改 DNS）:"
       echo ""
@@ -365,7 +375,7 @@ console_dns_submenu() {
       echo "  结合 IP 检测和可用性检查，生成 DNS 配置计划。"
       console_pause
       ;;
-    10)
+    11)
       echo ""
       ui_safe_action "预检摘要（只读，不会创建记录）:"
       echo ""
@@ -374,7 +384,7 @@ console_dns_submenu() {
       echo "  显示将会创建什么，但不会实际创建。"
       console_pause
       ;;
-    11)
+    12)
       echo ""
       ui_safe_action "保存设置配置（本地存储，不上传）:"
       echo ""
@@ -383,14 +393,14 @@ console_dns_submenu() {
       echo "  保存你的 DNS 设置，下次运行 setup dns 时不用重新输入。"
       console_pause
       ;;
-    12)
+    13)
       echo ""
       ui_safe_action "查看已保存的设置配置（脱敏显示）:"
       echo ""
       cmd_setup_profile show || true
       console_pause
       ;;
-    13)
+    14)
       echo ""
       ui_safe_action "清除设置配置:"
       echo ""
@@ -399,11 +409,11 @@ console_dns_submenu() {
       echo "  删除已保存的 DNS 设置配置。"
       console_pause
       ;;
-    14|"")
+    15|"")
       return
       ;;
     *)
-      echo "  无效输入，请选择 1-14。"
+      echo "  无效输入，请选择 1-15。"
       console_pause
       ;;
   esac
@@ -418,11 +428,12 @@ console_setup_submenu() {
   echo "  2) 规划域名和 DNS"
   echo "  3) 开始引导设置"
   echo "  4) 证书自动化预检"
-  echo "  5) 查看设置状态"
-  echo "  6) 返回"
+  echo "  5) 证书签发预案"
+  echo "  6) 查看设置状态"
+  echo "  7) 返回"
   echo ""
   local choice
-  read -rp "  选择 [1-6]: " choice || { echo ""; return; }
+  read -rp "  选择 [1-7]: " choice || { echo ""; return; }
   case "$choice" in
     1)
       echo ""
@@ -459,16 +470,25 @@ console_setup_submenu() {
       ;;
     5)
       echo ""
+      ui_safe_action "证书签发预案（只读，不会申请证书）:"
+      echo "  我会生成证书签发预案。"
+      echo "  真正申请证书需要你复制命令并输入确认短语。"
+      echo ""
+      cmd_setup_cert_issue || true
+      console_pause
+      ;;
+    6)
+      echo ""
       ui_safe_action "查看当前设置状态:"
       echo ""
       cmd_home || true
       console_pause
       ;;
-    6|"")
+    7|"")
       return
       ;;
     *)
-      echo "  无效输入，请选择 1-6。"
+      echo "  无效输入，请选择 1-7。"
       console_pause
       ;;
   esac
@@ -595,6 +615,7 @@ cmd_entry() {
   echo "    nanobk setup wizard       引导设置向导"
   echo "    nanobk setup dns          DNS 设置助手"
   echo "    nanobk setup cert plan    证书自动化预检"
+  echo "    nanobk setup cert issue   证书签发预案"
   echo ""
   echo "  更多命令："
   echo "    nanobk --help             查看完整帮助"
@@ -646,7 +667,9 @@ NanoBK Proxy Suite — Unified CLI v${NANOBK_VERSION}
   setup profile show                     显示已保存的 DNS 设置配置 [--json]
   setup profile clear                    清除已保存的 DNS 设置配置 [--json]
   setup cert plan [--zone DOMAIN] [--api-env PATH]  证书自动化预检 [--json]
+  setup cert issue [--zone DOMAIN] [--api-env PATH] [--issue] [--confirm PHRASE]  证书签发预案 [--json]
   cert plan [--zone DOMAIN] [--api-env PATH]        证书自动化预检（别名） [--json]
+  cert issue [--zone DOMAIN] [--api-env PATH] [--issue] [--confirm PHRASE]  证书签发（别名） [--json]
   rotate <protocol> [args.]  换密钥: all|hy2|tuic|reality|trojan
   export link <protocol>     导出单个协议链接: hy2|tuic|reality|trojan
   export links               导出所有协议链接
@@ -2469,6 +2492,58 @@ cmd_setup_cert_plan() {
   "${args[@]}"
 }
 
+# ── setup cert issue ────────────────────────────────────────────────────
+
+cmd_setup_cert_issue() {
+  local zone="" api_env="" issue_mode=0 confirm=""
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --zone)
+        [[ $# -ge 2 ]] || die "setup cert issue: --zone needs a value"
+        zone="$2"; shift 2 ;;
+      --api-env)
+        [[ $# -ge 2 ]] || die "setup cert issue: --api-env needs a path"
+        api_env="$2"; shift 2 ;;
+      --issue)
+        issue_mode=1; shift ;;
+      --confirm)
+        [[ $# -ge 2 ]] || die "setup cert issue: --confirm needs a value"
+        confirm="$2"; shift 2 ;;
+      --json)
+        JSON_OUT=1; shift ;;
+      --help|-h)
+        echo "Usage: nanobk setup cert issue [--zone DOMAIN] [--api-env PATH] [--issue] [--confirm PHRASE] [--json]"
+        echo ""
+        echo "  证书签发预案（默认只读，不会申请证书）。"
+        echo "  带 --issue + --confirm 才会真正申请证书。"
+        return 0 ;;
+      --dry-run)
+        echo -e "  ${CYAN}[DRY-RUN]${NC} setup cert issue command prepared"
+        echo "  No certificate request will be performed."
+        return 0 ;;
+      *)
+        die "setup cert issue: unknown option: $1"
+        ;;
+    esac
+  done
+
+  if [[ "$DRY_RUN" == "1" ]]; then
+    echo -e "  ${CYAN}[DRY-RUN]${NC} setup cert issue command prepared"
+    echo "  No certificate request will be performed."
+    return 0
+  fi
+
+  local args=(python3 "$REPO_DIR/lib/nanobk_cert_issue_gate.py")
+  [[ -n "$zone" ]] && args+=(--zone "$zone")
+  [[ -n "$api_env" ]] && args+=(--api-env "$api_env")
+  [[ "$issue_mode" == "1" ]] && args+=(--issue)
+  [[ -n "$confirm" ]] && args+=(--confirm "$confirm")
+  [[ "$JSON_OUT" == "1" ]] && args+=(--json)
+
+  "${args[@]}"
+}
+
 # ── vps ip detect ────────────────────────────────────────────────────────
 
 cmd_vps_ip_detect() {
@@ -2782,8 +2857,10 @@ main() {
           local cert_rest=("${setup_rest[@]:1}")
           if [[ "$cert_sub" == "plan" ]]; then
             cmd_setup_cert_plan ${cert_rest[@]+"${cert_rest[@]}"}
+          elif [[ "$cert_sub" == "issue" ]]; then
+            cmd_setup_cert_issue ${cert_rest[@]+"${cert_rest[@]}"}
           else
-            die "Usage: nanobk setup cert <plan> [args...]"
+            die "Usage: nanobk setup cert <plan|issue> [args...]"
           fi
           ;;
         plan)     cmd_setup_plan ${setup_rest[@]+"${setup_rest[@]}"} ;;
@@ -2801,7 +2878,8 @@ main() {
       fi
       case "$cert_sub" in
         plan)     cmd_setup_cert_plan ${cert_rest[@]+"${cert_rest[@]}"} ;;
-        *)        die "Usage: nanobk cert <plan> [args...]" ;;
+        issue)    cmd_setup_cert_issue ${cert_rest[@]+"${cert_rest[@]}"} ;;
+        *)        die "Usage: nanobk cert <plan|issue> [args...]" ;;
       esac
       ;;
     rotate)   cmd_rotate ${cmd_rest[@]+"${cmd_rest[@]}"} ;;

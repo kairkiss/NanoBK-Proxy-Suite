@@ -1,0 +1,4 @@
+{
+  "success": false,
+  "error": "acme.sh: dns_cf API error, check your CF_API_TOKEN"
+}

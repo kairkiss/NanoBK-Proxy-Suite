@@ -1,0 +1,26 @@
+{
+  "proxy": {
+    "success": true,
+    "result": [
+      {
+        "type": "A",
+        "name": "proxy.example.com",
+        "content": "198.51.100.1",
+        "proxied": false,
+        "comment": "some-other-owner"
+      }
+    ]
+  },
+  "web": {
+    "success": true,
+    "result": [
+      {
+        "type": "A",
+        "name": "web.example.com",
+        "content": "198.51.100.2",
+        "proxied": false,
+        "comment": "managed-by=nanobk"
+      }
+    ]
+  }
+}

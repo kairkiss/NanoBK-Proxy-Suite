@@ -309,25 +309,39 @@ else
   fail "TTY menu missing cert entry"
 fi
 
-# 22. API error handling
+# 22. API error handling — strict: must fail or show error domains + blocked method
 setup_env
 set_fixtures
 export NANOBK_CF_DNS_AVAILABILITY_FAKE_RESPONSE_MAP="$FIXTURES/dns_api_error.json"
 API_ERR=$(bash "$CLI" setup cert plan --json 2>&1 || true)
-# API error should either fail the whole command or show error in domains
+API_ERR_OK=0
 if echo "$API_ERR" | python3 -c "
 import json,sys
 d=json.load(sys.stdin)
-# Either ok=false with error, or ok=true with domains showing error status
 if d.get('ok') == False:
-  assert 'error' in d
+  assert 'error' in d and d['error'], 'missing error field'
 else:
   domains = d.get('domains', [])
-  assert any(d.get('status') == 'error' or d.get('error') for d in domains)
+  assert any(dom.get('status') == 'error' or dom.get('error') for dom in domains), 'no domain error'
+  assert d.get('recommended_method') == 'blocked', f'method={d.get(\"recommended_method\")}'
 " 2>/dev/null; then
+  API_ERR_OK=1
+fi
+if [[ "$API_ERR_OK" == "1" ]]; then
   ok "API error handling"
 else
-  ok "API error: handled gracefully"
+  fail "API error: not properly handled"
+fi
+# API error output must not leak secrets
+API_ERR_LEAK=0
+for leak in "fake-cert-token-235" "fake-zone-id-aaaabbbbcccc" "api.cloudflare.com/client/v4" "/dns_records" "raw"; do
+  if echo "$API_ERR" | grep -qi "$leak"; then
+    fail "API error output leaks: $leak"
+    API_ERR_LEAK=1
+  fi
+done
+if [[ "$API_ERR_LEAK" == "0" ]]; then
+  ok "API error output: no secret leaks"
 fi
 
 # Summary

@@ -1,5 +1,39 @@
 # Changelog
 
+## v2.3.6 — Certificate Issue Gate
+
+### Added
+
+- Added gated certificate issue command (`nanobk setup cert issue`).
+- Added plan-only default mode for certificate issuance.
+- Added exact confirmation phrase requirement for real certificate request.
+- Added ACME DNS-01 issue plan.
+- Added fake issue runner and command capture test hook.
+- Added `nanobk cert issue` alias.
+- Added "证书签发预案" to setup and DNS submenus (plan-only from menu).
+- Added certificate issue regression test with fake fixtures.
+
+### Fixed
+
+- Hardened v2.3.5 API error regression test (removed weak `else ok` branch).
+
+### Safety
+
+- Certificate issue only with explicit `--issue` and exact confirmation phrase.
+- No default certificate request.
+- No acme.sh install.
+- No certbot certonly unless fully gated and tested.
+- No installcert.
+- No service reload/restart.
+- No config mutation.
+- No DNS mutation.
+- No Cloudflare POST/PATCH/PUT/DELETE.
+- No token rotation.
+- No owner-smoke-create execution.
+- No Web/Bot behavior change.
+- No token, zone ID, record ID, raw API URL, raw API response, private key content, or subscription URL output.
+- No release/tag.
+
 ## v2.3.5 — Certificate Automation Preflight
 
 ### Added
