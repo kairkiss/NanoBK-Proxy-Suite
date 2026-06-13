@@ -1,5 +1,26 @@
 # Changelog
 
+## v2.5.6 — Production Overview and Next-Step Navigator
+
+### Added
+
+- Added production overview flow.
+- Added `nanobk setup production overview`.
+- Added `nanobk setup production next`.
+- Added beginner aliases for overview and next.
+- Added safe JSON summaries for DNS, Worker, cert, and rotation readiness.
+- Added prioritized next-step recommendation logic.
+
+### Safety
+
+- No real deployment executed.
+- No DNS/certificate/token/Worker mutation.
+- No protocol key rotation executed.
+- No VPS service reload/restart.
+- No release/tag created.
+- No raw secret output.
+- v2.3 exact confirmation gates remain authoritative.
+
 ## v2.5.5 — Subscription Token and Protocol Key Rotation Link Plan
 
 ### Added

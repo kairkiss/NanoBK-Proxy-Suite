@@ -2224,6 +2224,8 @@ cmd_beginner() {
         echo "       nanobk beginner production worker [--json]"
         echo "       nanobk beginner production cert [--json]"
         echo "       nanobk beginner production rotate [--json]"
+        echo "       nanobk beginner production overview [--json]"
+        echo "       nanobk beginner production next [--json]"
         echo ""
         echo "  Show beginner-friendly setup flow and status."
         echo "  显示新手设置流程和状态概览。"
@@ -2884,6 +2886,16 @@ cmd_setup_production() {
         extra_args=("$@")
         break
         ;;
+      overview)
+        subcommand="overview"; shift
+        extra_args=("$@")
+        break
+        ;;
+      next)
+        subcommand="next"; shift
+        extra_args=("$@")
+        break
+        ;;
       --help|-h)
         echo "Usage: nanobk setup production [--json]"
         echo "       nanobk setup production status [--json]"
@@ -2897,6 +2909,8 @@ cmd_setup_production() {
         echo "       nanobk setup production cert --save --zone DOMAIN --domain DOMAIN --mode MODE [--json]"
         echo "       nanobk setup production rotate [--token auto|custom|unchanged] [--protocol all|hy2|tuic|reality|trojan] [--json]"
         echo "       nanobk setup production rotate --save --token auto --protocol all [--json]"
+        echo "       nanobk setup production overview [--json]"
+        echo "       nanobk setup production next [--json]"
         echo ""
         echo "  生产设置主线（只读，不会执行部署）。"
         echo "  显示完整的生产部署路线图和旧能力入口映射。"
@@ -2909,6 +2923,8 @@ cmd_setup_production() {
         echo "  cert save: 保存本地证书计划（不申请证书）"
         echo "  rotate: 订阅密钥与代理密钥轮换预案（只读）"
         echo "  rotate save: 保存本地轮换计划（不执行轮换）"
+        echo "  overview: 生产部署总览（汇总四个 readiness 流程）"
+        echo "  next: 显示推荐的下一步操作"
         echo "  Read-only. No DNS mutation. No Cloudflare mutation. No Worker deployment. No certificate request. No token rotation."
         return 0 ;;
       --dry-run)

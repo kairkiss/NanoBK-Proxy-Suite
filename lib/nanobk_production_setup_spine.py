@@ -884,6 +884,14 @@ def main():
     rotate_parser.add_argument("--execute", action="store_true", help=argparse.SUPPRESS)
     rotate_parser.add_argument("--confirm", action="store_true", help=argparse.SUPPRESS)
 
+    # Overview
+    overview_parser = sub.add_parser("overview", help="Show production overview")
+    overview_parser.add_argument("--json", action="store_true", help="JSON output")
+
+    # Next step
+    next_parser = sub.add_parser("next", help="Show next recommended step")
+    next_parser.add_argument("--json", action="store_true", help="JSON output")
+
     # Also accept --json at top level (no subcommand = status)
     parser.add_argument("--json", action="store_true", help="JSON output")
 
@@ -1096,6 +1104,20 @@ def main():
                 else:
                     rotation_error(result.get("error", "unknown error"), False)
                     sys.exit(1)
+    elif command == "overview":
+        from nanobk_production_overview import gather_overview, output_overview_text
+        result = gather_overview()
+        if use_json:
+            print(json.dumps(result, indent=2, ensure_ascii=False))
+        else:
+            print(output_overview_text(result))
+    elif command == "next":
+        from nanobk_production_overview import gather_next, output_next_text
+        result = gather_next()
+        if use_json:
+            print(json.dumps(result, indent=2, ensure_ascii=False))
+        else:
+            print(output_next_text(result))
     else:
         parser.print_help()
         sys.exit(1)
