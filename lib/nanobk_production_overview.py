@@ -264,6 +264,10 @@ def gather_overview():
 
 def gather_next():
     """Gather next-step recommendation. Returns safe JSON dict."""
+    product_next = _productized_setup_next()
+    if product_next:
+        return product_next
+
     overview = gather_overview()
     overall = overview.get("overall", {})
 
@@ -276,6 +280,53 @@ def gather_next():
         "next_step": overall.get("next_step", "unknown"),
         "recommended_command": overall.get("recommended_command", ""),
         "reason": overall.get("reason", ""),
+        "safety": "read_only",
+    }
+
+
+def _productized_setup_next():
+    """Return v2.6 productized setup recommendation when applicable."""
+    try:
+        from nanobk_cloudflare_product_setup import gather_cloudflare_setup
+        from nanobk_domain_selection import load_selected_domain
+    except Exception:
+        return None
+
+    try:
+        selected, _err = load_selected_domain()
+    except Exception:
+        selected = None
+
+    if selected and selected.get("selected_domain"):
+        return None
+
+    try:
+        cloudflare = gather_cloudflare_setup()
+    except Exception:
+        return None
+
+    if not cloudflare.get("connected"):
+        return {
+            "ok": True,
+            "mode": "production_next_step_v2_5",
+            "version": VERSION,
+            "mutation": False,
+            "dangerous_actions_executed": False,
+            "next_step": "setup_cloudflare",
+            "recommended_command": "nanobk setup cloudflare",
+            "reason": "还没有连接 Cloudflare。请先连接 Cloudflare 登录信息，用来识别你的域名。",
+            "safety": "read_only",
+        }
+
+    return {
+        "ok": True,
+        "mode": "production_next_step_v2_5",
+        "version": VERSION,
+        "mutation": False,
+        "dangerous_actions_executed": False,
+        "next_step": "setup_domain",
+        "recommended_command": "nanobk setup domain",
+        "reason": "Cloudflare 已连接，请先选择你的域名。",
         "safety": "read_only",
     }
 

@@ -1,5 +1,24 @@
 # Changelog
 
+## v2.6.1 — Cloudflare Login and Domain Selection Productization
+
+### Added
+
+- Added beginner-friendly Cloudflare setup entrypoint.
+- Added domain discovery and selection flow.
+- Added custom domain save flow.
+- Added local selected-domain profile.
+- Integrated domain setup with production next-step guidance.
+
+### Safety
+
+- No DNS records created.
+- No Cloudflare mutation executed.
+- No Worker/certificate/token/protocol mutation.
+- No VPS service reload/restart.
+- No raw secret output.
+- No zone_id/record_id/api_env_path output.
+
 ## v2.6.0 — Controlled Real Execution Contract
 
 ### Added

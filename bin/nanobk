@@ -723,6 +723,8 @@ NanoBK Proxy Suite — Unified CLI v${NANOBK_VERSION}
   vps ip detect               只读 VPS IP 候选检测 [--json]
   home                              NanoBK 状态总览 [--json]
   beginner                          新手设置流程 [--json]
+  beginner cloudflare               Cloudflare 登录信息检查 [--json]
+  beginner domain                   选择你的域名 [--json]
   beginner status                   新手状态概览 [--json]
   beginner flow                     新手设置流程 [--json]
   beginner subdomain [--domain D]   子域名冲突检查 [--json]
@@ -742,6 +744,8 @@ NanoBK Proxy Suite — Unified CLI v${NANOBK_VERSION}
   setup production worker          Worker 部署准备检查 [--json]
   setup production cert            HTTPS 证书准备检查 [--json]
   setup production rotate          订阅密钥与代理密钥轮换预案 [--json]
+  setup cloudflare                 Cloudflare 登录信息检查 [--json]
+  setup domain                     选择你的域名 [--json]
   setup flow [--zone DOMAIN] [--api-env PATH] [--worker-name NAME]  一键设置流程（只读） [--json]
   setup run  [--zone DOMAIN] [--api-env PATH] [--worker-name NAME]  一键设置流程（别名） [--json]
   setup wizard [--zone DOMAIN] [--api-env PATH] [--yes]  引导式 DNS 设置向导 [--json]
@@ -2193,6 +2197,16 @@ cmd_beginner() {
         subcommand="status"; shift ;;
       flow)
         subcommand="flow"; shift ;;
+      cloudflare)
+        subcommand="cloudflare"; shift
+        extra_args=("$@")
+        break
+        ;;
+      domain)
+        subcommand="domain"; shift
+        extra_args=("$@")
+        break
+        ;;
       subdomain)
         subcommand="subdomain"; shift
         extra_args=("$@")
@@ -2215,6 +2229,8 @@ cmd_beginner() {
         ;;
       --help|-h)
         echo "Usage: nanobk beginner [--json]"
+        echo "       nanobk beginner cloudflare [--json]"
+        echo "       nanobk beginner domain [--json]"
         echo "       nanobk beginner status [--json]"
         echo "       nanobk beginner flow [--json]"
         echo "       nanobk beginner subdomain [--json] [--domain DOMAIN]"
@@ -2259,6 +2275,16 @@ cmd_beginner() {
   fi
   if [[ "$subcommand" == "subdomain" ]]; then
     local args=(python3 "$REPO_DIR/lib/nanobk_subdomain_conflict_ux.py" check)
+    args+=(${extra_args[@]+"${extra_args[@]}"})
+    [[ "$use_json" == "1" ]] && args+=("--json")
+    "${args[@]}"
+  elif [[ "$subcommand" == "cloudflare" ]]; then
+    local args=(python3 "$REPO_DIR/lib/nanobk_cloudflare_product_setup.py")
+    args+=(${extra_args[@]+"${extra_args[@]}"})
+    [[ "$use_json" == "1" ]] && args+=("--json")
+    "${args[@]}"
+  elif [[ "$subcommand" == "domain" ]]; then
+    local args=(python3 "$REPO_DIR/lib/nanobk_domain_selection.py")
     args+=(${extra_args[@]+"${extra_args[@]}"})
     [[ "$use_json" == "1" ]] && args+=("--json")
     "${args[@]}"
@@ -2325,6 +2351,66 @@ cmd_setup_dns() {
     echo "  No DNS mutation will be performed."
     return 0
   fi
+  "${args[@]}"
+}
+
+# ── setup cloudflare / domain ─────────────────────────────────────────────
+
+cmd_setup_cloudflare() {
+  local args=(python3 "$REPO_DIR/lib/nanobk_cloudflare_product_setup.py")
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --json)
+        args+=("--json"); shift ;;
+      --help|-h)
+        echo "Usage: nanobk setup cloudflare [--json]"
+        echo ""
+        echo "  检查 Cloudflare 登录信息。"
+        echo "  不会创建 DNS，不会修改 Cloudflare。"
+        return 0 ;;
+      --dry-run)
+        echo -e "  ${CYAN}[DRY-RUN]${NC} setup cloudflare command prepared"
+        echo "  No DNS mutation. No Cloudflare mutation."
+        return 0 ;;
+      *)
+        die "setup cloudflare: unknown option: $1"
+        ;;
+    esac
+  done
+  "${args[@]}"
+}
+
+cmd_setup_domain() {
+  local args=(python3 "$REPO_DIR/lib/nanobk_domain_selection.py")
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --json)
+        args+=("--json"); shift ;;
+      --select)
+        [[ $# -ge 2 ]] || die "setup domain: --select needs a domain"
+        args+=("--select" "$2"); shift 2 ;;
+      --custom)
+        [[ $# -ge 2 ]] || die "setup domain: --custom needs a domain"
+        args+=("--custom" "$2"); shift 2 ;;
+      --save)
+        args+=("--save"); shift ;;
+      --help|-h)
+        echo "Usage: nanobk setup domain [--json]"
+        echo "       nanobk setup domain --select DOMAIN [--json]"
+        echo "       nanobk setup domain --custom DOMAIN [--json]"
+        echo ""
+        echo "  发现并选择你的域名。"
+        echo "  不会创建 DNS，不会修改 Cloudflare。"
+        return 0 ;;
+      --dry-run)
+        echo -e "  ${CYAN}[DRY-RUN]${NC} setup domain command prepared"
+        echo "  No DNS mutation. No Cloudflare mutation."
+        return 0 ;;
+      *)
+        die "setup domain: unknown option: $1"
+        ;;
+    esac
+  done
   "${args[@]}"
 }
 
@@ -3304,6 +3390,8 @@ main() {
             die "Usage: nanobk setup cert <plan|issue> [args...]"
           fi
           ;;
+        cloudflare) cmd_setup_cloudflare ${setup_rest[@]+"${setup_rest[@]}"} ;;
+        domain)   cmd_setup_domain ${setup_rest[@]+"${setup_rest[@]}"} ;;
         flow|run) cmd_setup_flow ${setup_rest[@]+"${setup_rest[@]}"} ;;
         plan)     cmd_setup_plan ${setup_rest[@]+"${setup_rest[@]}"} ;;
         profile)  cmd_setup_profile ${setup_rest[@]+"${setup_rest[@]}"} ;;
