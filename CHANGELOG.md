@@ -1,5 +1,28 @@
 # Changelog
 
+## v2.5.4 — Certificate Readiness and Four-Protocol TLS Plan
+
+### Added
+
+- Added production certificate readiness flow.
+- Added `nanobk setup production cert`.
+- Added `nanobk beginner production cert`.
+- Added safe JSON for certificate and four-protocol TLS planning.
+- Added local certificate plan save.
+- Added existing/self-signed/letsencrypt mode readiness checks.
+
+### Safety
+
+- No certificate request executed.
+- No certbot command executed.
+- No VPS deployment executed.
+- No release/tag created.
+- No DNS/certificate/token/Worker mutation.
+- No service reload/restart.
+- No Web/Bot behavior change.
+- v2.3 cert exact confirmation gate remains authoritative.
+- No raw secret output.
+
 ## v2.5.3 — Cloudflare Worker Readiness and Route Mapping
 
 ### Added

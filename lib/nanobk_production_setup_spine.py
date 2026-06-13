@@ -852,6 +852,22 @@ def main():
     worker_parser.add_argument("--yes", action="store_true", help=argparse.SUPPRESS)
     worker_parser.add_argument("--apply", action="store_true", help=argparse.SUPPRESS)
 
+    # Certificate readiness
+    cert_parser = sub.add_parser("cert", help="Check certificate readiness (read-only)")
+    cert_parser.add_argument("--zone", help="Domain zone to use")
+    cert_parser.add_argument("--domain", help="Full cert domain (e.g. proxy.example.com)")
+    cert_parser.add_argument("--mode", choices=["existing", "self-signed", "letsencrypt"],
+                             default="unknown", help="Certificate mode")
+    cert_parser.add_argument("--cert-file", help="Path to existing certificate file")
+    cert_parser.add_argument("--key-file", help="Path to existing private key file")
+    cert_parser.add_argument("--save", action="store_true", help="Save local cert plan")
+    cert_parser.add_argument("--json", action="store_true", help="JSON output")
+    # Dangerous args — recognized but rejected
+    cert_parser.add_argument("--issue", action="store_true", help=argparse.SUPPRESS)
+    cert_parser.add_argument("--yes", action="store_true", help=argparse.SUPPRESS)
+    cert_parser.add_argument("--apply", action="store_true", help=argparse.SUPPRESS)
+    cert_parser.add_argument("--certbot", action="store_true", help=argparse.SUPPRESS)
+
     # Also accept --json at top level (no subcommand = status)
     parser.add_argument("--json", action="store_true", help="JSON output")
 
@@ -960,6 +976,58 @@ def main():
                     worker_text(result)
                 else:
                     worker_error(result.get("error", "unknown error"), False)
+                    sys.exit(1)
+    elif command == "cert":
+        # Reject dangerous args
+        if getattr(args, "issue", False) or getattr(args, "yes", False) or getattr(args, "apply", False) or getattr(args, "certbot", False):
+            msg = "此命令仅用于预览，不会申请证书。"
+            if use_json:
+                print(json.dumps({"ok": False, "error": msg, "mode": "production_cert_readiness_v2_5", "version": "2.5.4", "mutation": False}, indent=2, ensure_ascii=False))
+            else:
+                print(f"  错误：{msg}", file=sys.stderr)
+            sys.exit(1)
+        from nanobk_production_cert_readiness import (
+            run_readiness as cert_readiness,
+            run_save as cert_save,
+            output_text as cert_text,
+            output_error as cert_error,
+        )
+        if args.save:
+            result = cert_save(
+                zone=args.zone,
+                cert_domain=args.domain,
+                cert_mode=args.mode,
+                cert_file=args.cert_file,
+                key_file=args.key_file,
+            )
+            if use_json:
+                print(json.dumps(result, indent=2, ensure_ascii=False))
+            else:
+                if result.get("ok"):
+                    print()
+                    print("  已保存证书计划。")
+                    print(f"  域名：{result.get('zone_name', '***')}")
+                    print(f"  证书域名：{result.get('cert_domain', '***')}")
+                    print(f"  模式：{result.get('cert_mode', '***')}")
+                    print()
+                else:
+                    cert_error(result.get("error", "unknown error"), False)
+                    sys.exit(1)
+        else:
+            result = cert_readiness(
+                zone=args.zone,
+                cert_domain=args.domain,
+                cert_mode=args.mode,
+                cert_file=args.cert_file,
+                key_file=args.key_file,
+            )
+            if use_json:
+                print(json.dumps(result, indent=2, ensure_ascii=False))
+            else:
+                if result.get("ok"):
+                    cert_text(result)
+                else:
+                    cert_error(result.get("error", "unknown error"), False)
                     sys.exit(1)
     else:
         parser.print_help()
