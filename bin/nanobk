@@ -732,10 +732,14 @@ NanoBK Proxy Suite — Unified CLI v${NANOBK_VERSION}
   beginner production actions      生产动作预案 [--json]
   beginner production dns          域名/DNS 准备检查 [--json]
   beginner production worker       Worker 部署准备检查 [--json]
+  beginner production cert         HTTPS 证书准备检查 [--json]
+  beginner production rotate       订阅密钥与代理密钥轮换预案 [--json]
   setup production                 生产设置主线（只读） [--json]
   setup production actions         生产动作预案 [--json]
   setup production dns             域名/DNS 准备检查 [--json]
   setup production worker          Worker 部署准备检查 [--json]
+  setup production cert            HTTPS 证书准备检查 [--json]
+  setup production rotate          订阅密钥与代理密钥轮换预案 [--json]
   setup flow [--zone DOMAIN] [--api-env PATH] [--worker-name NAME]  一键设置流程（只读） [--json]
   setup run  [--zone DOMAIN] [--api-env PATH] [--worker-name NAME]  一键设置流程（别名） [--json]
   setup wizard [--zone DOMAIN] [--api-env PATH] [--yes]  引导式 DNS 设置向导 [--json]
@@ -2218,12 +2222,17 @@ cmd_beginner() {
         echo "       nanobk beginner production actions [--json]"
         echo "       nanobk beginner production dns [--json]"
         echo "       nanobk beginner production worker [--json]"
+        echo "       nanobk beginner production cert [--json]"
+        echo "       nanobk beginner production rotate [--json]"
         echo ""
         echo "  Show beginner-friendly setup flow and status."
         echo "  显示新手设置流程和状态概览。"
         echo "  subdomain: 检查子域名是否可用"
         echo "  ip: 显示 VPS IP 检测状态"
         echo "  gate: 预览 DNS / 证书 / 订阅密钥 gate（只读预览）"
+        echo "  production: 生产设置主线（只读）"
+        echo "  production cert: HTTPS 证书准备检查（只读）"
+        echo "  production rotate: 订阅密钥与代理密钥轮换预案（只读）"
         echo "  Read-only. No DNS mutation. No Cloudflare mutation."
         return 0 ;;
       --dry-run)
@@ -2870,6 +2879,11 @@ cmd_setup_production() {
         extra_args=("$@")
         break
         ;;
+      rotate)
+        subcommand="rotate"; shift
+        extra_args=("$@")
+        break
+        ;;
       --help|-h)
         echo "Usage: nanobk setup production [--json]"
         echo "       nanobk setup production status [--json]"
@@ -2881,6 +2895,8 @@ cmd_setup_production() {
         echo "       nanobk setup production worker --save --zone DOMAIN [--json]"
         echo "       nanobk setup production cert [--zone DOMAIN] [--domain DOMAIN] [--mode MODE] [--json]"
         echo "       nanobk setup production cert --save --zone DOMAIN --domain DOMAIN --mode MODE [--json]"
+        echo "       nanobk setup production rotate [--token auto|custom|unchanged] [--protocol all|hy2|tuic|reality|trojan] [--json]"
+        echo "       nanobk setup production rotate --save --token auto --protocol all [--json]"
         echo ""
         echo "  生产设置主线（只读，不会执行部署）。"
         echo "  显示完整的生产部署路线图和旧能力入口映射。"
@@ -2891,7 +2907,9 @@ cmd_setup_production() {
         echo "  worker save: 保存本地 Worker 路由计划（不部署 Worker）"
         echo "  cert: HTTPS 证书准备检查（只读）"
         echo "  cert save: 保存本地证书计划（不申请证书）"
-        echo "  Read-only. No DNS mutation. No Cloudflare mutation. No Worker deployment. No certificate request."
+        echo "  rotate: 订阅密钥与代理密钥轮换预案（只读）"
+        echo "  rotate save: 保存本地轮换计划（不执行轮换）"
+        echo "  Read-only. No DNS mutation. No Cloudflare mutation. No Worker deployment. No certificate request. No token rotation."
         return 0 ;;
       --dry-run)
         echo -e "  ${CYAN}[DRY-RUN]${NC} setup production command prepared"

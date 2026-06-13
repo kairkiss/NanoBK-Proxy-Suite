@@ -868,6 +868,22 @@ def main():
     cert_parser.add_argument("--apply", action="store_true", help=argparse.SUPPRESS)
     cert_parser.add_argument("--certbot", action="store_true", help=argparse.SUPPRESS)
 
+    # Rotation readiness
+    rotate_parser = sub.add_parser("rotate", help="Check rotation readiness (read-only)")
+    rotate_parser.add_argument("--token", choices=["auto", "custom", "unchanged"],
+                               default="auto", help="Token mode (default: auto)")
+    rotate_parser.add_argument("--custom-token", help="Custom token value (only with --token custom)")
+    rotate_parser.add_argument("--protocol", choices=["all", "hy2", "tuic", "reality", "trojan"],
+                               default="all", help="Protocol target (default: all)")
+    rotate_parser.add_argument("--save", action="store_true", help="Save local rotation plan")
+    rotate_parser.add_argument("--json", action="store_true", help="JSON output")
+    # Dangerous args — recognized but rejected
+    rotate_parser.add_argument("--rotate", action="store_true", help=argparse.SUPPRESS)
+    rotate_parser.add_argument("--yes", action="store_true", help=argparse.SUPPRESS)
+    rotate_parser.add_argument("--apply", action="store_true", help=argparse.SUPPRESS)
+    rotate_parser.add_argument("--execute", action="store_true", help=argparse.SUPPRESS)
+    rotate_parser.add_argument("--confirm", action="store_true", help=argparse.SUPPRESS)
+
     # Also accept --json at top level (no subcommand = status)
     parser.add_argument("--json", action="store_true", help="JSON output")
 
@@ -1028,6 +1044,57 @@ def main():
                     cert_text(result)
                 else:
                     cert_error(result.get("error", "unknown error"), False)
+                    sys.exit(1)
+    elif command == "rotate":
+        # Reject dangerous args
+        if getattr(args, "rotate", False) or getattr(args, "yes", False) or getattr(args, "apply", False) or getattr(args, "execute", False) or getattr(args, "confirm", False):
+            msg = "此命令仅用于预览，不会执行轮换。"
+            if use_json:
+                print(json.dumps({"ok": False, "error": msg, "mode": "production_rotation_readiness_v2_5", "version": "2.5.5", "mutation": False}, indent=2, ensure_ascii=False))
+            else:
+                print(f"  错误：{msg}", file=sys.stderr)
+            sys.exit(1)
+        from nanobk_production_rotation_readiness import (
+            run_readiness as rotation_readiness,
+            run_save as rotation_save,
+            output_text as rotation_text,
+            output_error as rotation_error,
+        )
+        if args.save:
+            result = rotation_save(
+                token_mode=args.token,
+                custom_token=args.custom_token,
+                protocol=args.protocol,
+            )
+            if use_json:
+                print(json.dumps(result, indent=2, ensure_ascii=False))
+                if not result.get("ok"):
+                    sys.exit(1)
+            else:
+                if result.get("ok"):
+                    print()
+                    print("  已保存轮换计划。")
+                    print(f"  Token 模式：{result.get('token_mode', args.token)}")
+                    print(f"  协议目标：{result.get('protocol', args.protocol).upper()}")
+                    print()
+                else:
+                    rotation_error(result.get("error", "unknown error"), False)
+                    sys.exit(1)
+        else:
+            result = rotation_readiness(
+                token_mode=args.token,
+                custom_token=args.custom_token,
+                protocol=args.protocol,
+            )
+            if use_json:
+                print(json.dumps(result, indent=2, ensure_ascii=False))
+                if not result.get("ok"):
+                    sys.exit(1)
+            else:
+                if result.get("ok"):
+                    rotation_text(result)
+                else:
+                    rotation_error(result.get("error", "unknown error"), False)
                     sys.exit(1)
     else:
         parser.print_help()

@@ -1,5 +1,27 @@
 # Changelog
 
+## v2.5.5 — Subscription Token and Protocol Key Rotation Link Plan
+
+### Added
+
+- Added production rotation readiness flow.
+- Added `nanobk setup production rotate`.
+- Added `nanobk beginner production rotate`.
+- Added safe JSON for subscription token and protocol key rotation planning.
+- Added local rotation plan save.
+- Added explicit product rule: rotate subscription token before protocol keys.
+
+### Safety
+
+- No token rotation executed.
+- No protocol key rotation executed.
+- No Worker mutation.
+- No VPS service reload/restart.
+- No release/tag created.
+- v2.3 token exact confirmation gate remains authoritative.
+- No raw token output.
+- No raw secret output.
+
 ## v2.5.4 — Certificate Readiness and Four-Protocol TLS Plan
 
 ### Added
