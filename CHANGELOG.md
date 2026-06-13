@@ -1,5 +1,24 @@
 # Changelog
 
+## v2.6.2 — Controlled DNS Apply Productization
+
+### Added
+
+- Added productized DNS apply wrapper for production setup.
+- Added dry-run DNS apply plan for proxy/web.
+- Added exact-gated real DNS creation path.
+- Added custom proxy/web subdomain handling.
+- Added fake Cloudflare DNS creation hooks for safe tests.
+
+### Safety
+
+- DNS creation requires exact confirmation phrase.
+- No DNS overwrite/delete/update.
+- No Worker/certificate/token/protocol mutation.
+- No VPS service reload/restart.
+- No raw secret output.
+- No zone_id/record_id/api_env_path output.
+
 ## v2.6.1 — Cloudflare Login and Domain Selection Productization
 
 ### Added

@@ -734,6 +734,7 @@ NanoBK Proxy Suite — Unified CLI v${NANOBK_VERSION}
   beginner production actions      生产动作预案 [--json]
   beginner production execute-plan  真实执行计划预览 [--json]
   beginner production dns          域名/DNS 准备检查 [--json]
+  beginner production dns apply    域名指向确认执行 [--dry-run] [--json]
   beginner production worker       Worker 部署准备检查 [--json]
   beginner production cert         HTTPS 证书准备检查 [--json]
   beginner production rotate       订阅密钥与代理密钥轮换预案 [--json]
@@ -741,6 +742,7 @@ NanoBK Proxy Suite — Unified CLI v${NANOBK_VERSION}
   setup production actions         生产动作预案 [--json]
   setup production execute-plan    真实执行计划预览 [--json]
   setup production dns             域名/DNS 准备检查 [--json]
+  setup production dns apply       域名指向确认执行 [--dry-run] [--json]
   setup production worker          Worker 部署准备检查 [--json]
   setup production cert            HTTPS 证书准备检查 [--json]
   setup production rotate          订阅密钥与代理密钥轮换预案 [--json]
@@ -2240,6 +2242,7 @@ cmd_beginner() {
         echo "       nanobk beginner production actions [--json]"
         echo "       nanobk beginner production execute-plan [--json]"
         echo "       nanobk beginner production dns [--json]"
+        echo "       nanobk beginner production dns apply [--dry-run] [--json]"
         echo "       nanobk beginner production worker [--json]"
         echo "       nanobk beginner production cert [--json]"
         echo "       nanobk beginner production rotate [--json]"
@@ -2299,6 +2302,15 @@ cmd_beginner() {
     [[ "$use_json" == "1" ]] && args+=("--json")
     "${args[@]}"
   elif [[ "$subcommand" == "production" ]]; then
+    if [[ "${extra_args[0]:-}" == "dns" && "${extra_args[1]:-}" == "apply" ]]; then
+      local args=(python3 "$REPO_DIR/lib/nanobk_production_dns_apply.py")
+      if [[ ${#extra_args[@]} -gt 2 ]]; then
+        args+=("${extra_args[@]:2}")
+      fi
+      [[ "$use_json" == "1" ]] && args+=("--json")
+      "${args[@]}"
+      return $?
+    fi
     local args=(python3 "$REPO_DIR/lib/nanobk_production_setup_spine.py")
     args+=(${extra_args[@]+"${extra_args[@]}"})
     [[ "$use_json" == "1" ]] && args+=("--json")
@@ -3015,6 +3027,7 @@ cmd_setup_production() {
         echo "       nanobk setup production actions [--json]"
         echo "       nanobk setup production execute-plan [--json]"
         echo "       nanobk setup production dns [--zone DOMAIN] [--api-env PATH] [--proxy-subdomain NAME] [--web-subdomain NAME] [--json]"
+        echo "       nanobk setup production dns apply [--dry-run] [--confirm PHRASE] [--proxy-subdomain NAME] [--web-subdomain NAME] [--json]"
         echo "       nanobk setup production dns --save --zone DOMAIN [--api-env PATH]"
         echo "       nanobk setup production worker [--zone DOMAIN] [--nanok-subdomain NAME] [--nanob-subdomain NAME] [--web-subdomain NAME] [--json]"
         echo "       nanobk setup production worker --save --zone DOMAIN [--json]"
@@ -3033,6 +3046,7 @@ cmd_setup_production() {
         echo "  actions: 显示详细的生产动作预案和命令卡片"
         echo "  execute-plan: 真实执行计划预览（只显示，不执行）"
         echo "  dns: Cloudflare 域名/IP/子域名/DNS 准备检查（只读）"
+        echo "  dns apply: 域名指向确认执行（需要安全确认）"
         echo "  dns save: 保存本地设置 profile（不创建 DNS）"
         echo "  worker: nanok/nanob Worker 部署准备检查（只读）"
         echo "  worker save: 保存本地 Worker 路由计划（不部署 Worker）"
@@ -3060,6 +3074,15 @@ cmd_setup_production() {
     echo -e "  ${CYAN}[DRY-RUN]${NC} setup production command prepared"
     echo "  No mutations will be performed."
     return 0
+  fi
+  if [[ "$subcommand" == "dns" && "${extra_args[0]:-}" == "apply" ]]; then
+    local args=(python3 "$REPO_DIR/lib/nanobk_production_dns_apply.py")
+    if [[ ${#extra_args[@]} -gt 1 ]]; then
+      args+=("${extra_args[@]:1}")
+    fi
+    [[ "$use_json" == "1" ]] && args+=("--json")
+    "${args[@]}"
+    return $?
   fi
   local args=(python3 "$REPO_DIR/lib/nanobk_production_setup_spine.py")
   [[ -n "$subcommand" ]] && args+=("$subcommand")
