@@ -1,5 +1,21 @@
 # Changelog
 
+## v2.5.10 — Cert Friendly Gate Compatibility Polish
+
+### Fixed
+
+- Restored the authoritative cert exact confirmation phrase in beginner cert gate text output.
+- Preserved v2.3 cert gate compatibility.
+
+### Safety
+
+- No cert issue executed.
+- No DNS/certificate/token/Worker mutation.
+- No protocol key rotation executed.
+- No VPS service reload/restart.
+- No release/tag created.
+- No raw secret output.
+
 ## v2.5.9 — Test and Schema Polish
 
 ### Fixed
