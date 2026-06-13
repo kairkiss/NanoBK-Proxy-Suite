@@ -1,5 +1,28 @@
 # Changelog
 
+## v2.5.7 — Guided Real Deploy Preflight and Controlled Gate Wrapper
+
+### Added
+
+- Added production preflight flow.
+- Added `nanobk setup production preflight`.
+- Added `nanobk setup production deploy-plan`.
+- Added `nanobk setup production gates`.
+- Added beginner aliases for preflight, deploy-plan, and gates.
+- Added manual-only command cards for DNS, cert, token, VPS, Worker, and protocol rotation.
+- Added exact-gate summary for DNS, cert, and token.
+
+### Safety
+
+- No real deployment executed.
+- No DNS/certificate/token/Worker mutation.
+- No protocol key rotation executed.
+- No VPS service reload/restart.
+- No release/tag created.
+- No raw secret output.
+- v2.3 exact confirmation gates remain authoritative.
+- All generated command cards are manual-only.
+
 ## v2.5.6 — Production Overview and Next-Step Navigator
 
 ### Added

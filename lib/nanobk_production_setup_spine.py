@@ -892,6 +892,42 @@ def main():
     next_parser = sub.add_parser("next", help="Show next recommended step")
     next_parser.add_argument("--json", action="store_true", help="JSON output")
 
+    # Preflight
+    preflight_parser = sub.add_parser("preflight", help="Run preflight check")
+    preflight_parser.add_argument("--json", action="store_true", help="JSON output")
+    # Dangerous args — recognized but rejected
+    preflight_parser.add_argument("--execute", action="store_true", help=argparse.SUPPRESS)
+    preflight_parser.add_argument("--yes", action="store_true", help=argparse.SUPPRESS)
+    preflight_parser.add_argument("--apply", action="store_true", help=argparse.SUPPRESS)
+    preflight_parser.add_argument("--issue", action="store_true", help=argparse.SUPPRESS)
+    preflight_parser.add_argument("--rotate", action="store_true", help=argparse.SUPPRESS)
+    preflight_parser.add_argument("--deploy", action="store_true", help=argparse.SUPPRESS)
+    preflight_parser.add_argument("--confirm", action="store_true", help=argparse.SUPPRESS)
+
+    # Deploy plan
+    deploy_parser = sub.add_parser("deploy-plan", help="Show deployment plan")
+    deploy_parser.add_argument("--json", action="store_true", help="JSON output")
+    # Dangerous args — recognized but rejected
+    deploy_parser.add_argument("--execute", action="store_true", help=argparse.SUPPRESS)
+    deploy_parser.add_argument("--yes", action="store_true", help=argparse.SUPPRESS)
+    deploy_parser.add_argument("--apply", action="store_true", help=argparse.SUPPRESS)
+    deploy_parser.add_argument("--issue", action="store_true", help=argparse.SUPPRESS)
+    deploy_parser.add_argument("--rotate", action="store_true", help=argparse.SUPPRESS)
+    deploy_parser.add_argument("--deploy", action="store_true", help=argparse.SUPPRESS)
+    deploy_parser.add_argument("--confirm", action="store_true", help=argparse.SUPPRESS)
+
+    # Gates
+    gates_parser = sub.add_parser("gates", help="Show exact-gate phrases")
+    gates_parser.add_argument("--json", action="store_true", help="JSON output")
+    # Dangerous args — recognized but rejected
+    gates_parser.add_argument("--execute", action="store_true", help=argparse.SUPPRESS)
+    gates_parser.add_argument("--yes", action="store_true", help=argparse.SUPPRESS)
+    gates_parser.add_argument("--apply", action="store_true", help=argparse.SUPPRESS)
+    gates_parser.add_argument("--issue", action="store_true", help=argparse.SUPPRESS)
+    gates_parser.add_argument("--rotate", action="store_true", help=argparse.SUPPRESS)
+    gates_parser.add_argument("--deploy", action="store_true", help=argparse.SUPPRESS)
+    gates_parser.add_argument("--confirm", action="store_true", help=argparse.SUPPRESS)
+
     # Also accept --json at top level (no subcommand = status)
     parser.add_argument("--json", action="store_true", help="JSON output")
 
@@ -1118,6 +1154,42 @@ def main():
             print(json.dumps(result, indent=2, ensure_ascii=False))
         else:
             print(output_next_text(result))
+    elif command in ("preflight", "deploy-plan", "gates"):
+        # Reject dangerous args
+        dangerous_hit = False
+        for darg in ("execute", "yes", "apply", "issue", "rotate", "deploy", "confirm"):
+            if getattr(args, darg, False):
+                dangerous_hit = True
+                break
+        if dangerous_hit:
+            msg = "此命令仅用于预览，不会执行真实修改。"
+            if use_json:
+                print(json.dumps({"ok": False, "error": msg, "mode": "production_preflight_v2_5", "version": "2.5.7", "mutation": False}, indent=2, ensure_ascii=False))
+            else:
+                print(f"  错误：{msg}", file=sys.stderr)
+            sys.exit(1)
+        from nanobk_production_preflight import (
+            gather_preflight, gather_deploy_plan, gather_gates,
+            output_preflight_text, output_deploy_plan_text, output_gates_text,
+        )
+        if command == "preflight":
+            result = gather_preflight()
+            if use_json:
+                print(json.dumps(result, indent=2, ensure_ascii=False))
+            else:
+                print(output_preflight_text(result))
+        elif command == "deploy-plan":
+            result = gather_deploy_plan()
+            if use_json:
+                print(json.dumps(result, indent=2, ensure_ascii=False))
+            else:
+                print(output_deploy_plan_text(result))
+        elif command == "gates":
+            result = gather_gates()
+            if use_json:
+                print(json.dumps(result, indent=2, ensure_ascii=False))
+            else:
+                print(output_gates_text(result))
     else:
         parser.print_help()
         sys.exit(1)

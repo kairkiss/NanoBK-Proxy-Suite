@@ -2226,6 +2226,9 @@ cmd_beginner() {
         echo "       nanobk beginner production rotate [--json]"
         echo "       nanobk beginner production overview [--json]"
         echo "       nanobk beginner production next [--json]"
+        echo "       nanobk beginner production preflight [--json]"
+        echo "       nanobk beginner production deploy-plan [--json]"
+        echo "       nanobk beginner production gates [--json]"
         echo ""
         echo "  Show beginner-friendly setup flow and status."
         echo "  显示新手设置流程和状态概览。"
@@ -2896,6 +2899,21 @@ cmd_setup_production() {
         extra_args=("$@")
         break
         ;;
+      preflight)
+        subcommand="preflight"; shift
+        extra_args=("$@")
+        break
+        ;;
+      deploy-plan)
+        subcommand="deploy-plan"; shift
+        extra_args=("$@")
+        break
+        ;;
+      gates)
+        subcommand="gates"; shift
+        extra_args=("$@")
+        break
+        ;;
       --help|-h)
         echo "Usage: nanobk setup production [--json]"
         echo "       nanobk setup production status [--json]"
@@ -2911,6 +2929,9 @@ cmd_setup_production() {
         echo "       nanobk setup production rotate --save --token auto --protocol all [--json]"
         echo "       nanobk setup production overview [--json]"
         echo "       nanobk setup production next [--json]"
+        echo "       nanobk setup production preflight [--json]"
+        echo "       nanobk setup production deploy-plan [--json]"
+        echo "       nanobk setup production gates [--json]"
         echo ""
         echo "  生产设置主线（只读，不会执行部署）。"
         echo "  显示完整的生产部署路线图和旧能力入口映射。"
@@ -2925,6 +2946,9 @@ cmd_setup_production() {
         echo "  rotate save: 保存本地轮换计划（不执行轮换）"
         echo "  overview: 生产部署总览（汇总四个 readiness 流程）"
         echo "  next: 显示推荐的下一步操作"
+        echo "  preflight: 真实部署前检查"
+        echo "  deploy-plan: 真实部署命令清单（只显示，不执行）"
+        echo "  gates: 安全确认短语（DNS / Cert / Token）"
         echo "  Read-only. No DNS mutation. No Cloudflare mutation. No Worker deployment. No certificate request. No token rotation."
         return 0 ;;
       --dry-run)
