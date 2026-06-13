@@ -1,5 +1,24 @@
 # Changelog
 
+## v2.5 Closeout — Production CLI Readiness Layer Sealed
+
+### Sealed
+
+- Sealed v2.5 production setup readiness layer.
+- Documented DNS, Worker, cert, rotation, overview, next, preflight, deploy-plan, and gates.
+- Documented exact-gate safety contract.
+- Documented T23/T23-2/T23-3 real VPS acceptance history.
+
+### Safety
+
+- No real deployment executed.
+- No DNS/certificate/token/Worker mutation.
+- No protocol key rotation executed.
+- No VPS service reload/restart.
+- No release/tag created.
+- No raw secret output.
+- v2.3 exact confirmation gates remain authoritative.
+
 ## v2.5.10 — Cert Friendly Gate Compatibility Polish
 
 ### Fixed
