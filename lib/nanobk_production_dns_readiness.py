@@ -29,6 +29,7 @@ Test hooks (from reused modules):
 import argparse
 import json
 import os
+import stat
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -116,6 +117,7 @@ def run_readiness(zone=None, api_env=None, proxy_subdomain="proxy", web_subdomai
                     "mode": "production_dns_readiness_v2_5",
                     "version": "2.5.2",
                     "mutation": False,
+                    "dangerous_actions_executed": False,
                     "cloudflare": {"status": "error", "zones_count": 0, "zones": []},
                     "selected_domain": None,
                     "vps_ip": {"ipv4": {"status": "unknown", "masked": None}, "ipv6": {"status": "unknown", "masked": None}},
@@ -138,6 +140,7 @@ def run_readiness(zone=None, api_env=None, proxy_subdomain="proxy", web_subdomai
             "mode": "production_dns_readiness_v2_5",
             "version": "2.5.2",
             "mutation": False,
+            "dangerous_actions_executed": False,
             "cloudflare": {"status": "missing", "zones_count": 0, "zones": []},
             "selected_domain": None,
             "vps_ip": {"ipv4": {"status": "unknown", "masked": None}, "ipv6": {"status": "unknown", "masked": None}},
@@ -160,6 +163,7 @@ def run_readiness(zone=None, api_env=None, proxy_subdomain="proxy", web_subdomai
                 "mode": "production_dns_readiness_v2_5",
                 "version": "2.5.2",
                 "mutation": False,
+                "dangerous_actions_executed": False,
                 "cloudflare": {"status": cf_status, "zones_count": zones_count, "zones": zones_list},
                 "selected_domain": None,
                 "vps_ip": {"ipv4": {"status": "unknown", "masked": None}, "ipv6": {"status": "unknown", "masked": None}},
@@ -283,6 +287,7 @@ def run_readiness(zone=None, api_env=None, proxy_subdomain="proxy", web_subdomai
         "mode": "production_dns_readiness_v2_5",
         "version": "2.5.2",
         "mutation": False,
+        "dangerous_actions_executed": False,
         "cloudflare": {"status": cf_status, "zones_count": zones_count, "zones": zones_list},
         "selected_domain": zone_name,
         "vps_ip": {"ipv4": ipv4_out, "ipv6": ipv6_out},
@@ -328,6 +333,53 @@ def run_save(zone, api_env=None, proxy_subdomain="proxy", web_subdomain="web"):
         result.pop("profile_path_printed", None)
 
     return result
+
+
+# ── Local-only save (no api-env required) ───────────────────────────────────
+
+def run_save_local(zone, proxy_subdomain="proxy", web_subdomain="web"):
+    """Save local DNS plan to ~/.nanobk/production-dns-plan.json.
+
+    Does NOT require api-env. Does NOT access Cloudflare.
+    Only writes local plan file with chmod 600.
+    """
+    if not zone:
+        return {"ok": False, "error": "zone is required", "mutation": False,
+                "dangerous_actions_executed": False}
+
+    nanobk_dir = os.path.expanduser("~/.nanobk")
+    os.makedirs(nanobk_dir, mode=0o700, exist_ok=True)
+
+    plan_path = os.path.join(nanobk_dir, "production-dns-plan.json")
+    plan = {
+        "version": 1,
+        "zone_name": zone,
+        "proxy_subdomain": proxy_subdomain,
+        "web_subdomain": web_subdomain,
+        "created_by": "nanobk setup production dns --save",
+    }
+
+    try:
+        with open(plan_path, "w") as f:
+            json.dump(plan, f, indent=2, ensure_ascii=False)
+        os.chmod(plan_path, stat.S_IRUSR | stat.S_IWUSR)  # 0o600
+    except OSError as e:
+        return {"ok": False, "error": f"Failed to save plan: {e}", "mutation": False,
+                "dangerous_actions_executed": False}
+
+    return {
+        "ok": True,
+        "mode": "production_dns_readiness_v2_5",
+        "version": "2.5.2",
+        "mutation": False,
+        "dangerous_actions_executed": False,
+        "message": "已保存本地 DNS 计划，下次会继续使用这个域名和子域名。",
+        "zone_name": zone,
+        "proxy_subdomain": proxy_subdomain,
+        "web_subdomain": web_subdomain,
+        "plan_path": plan_path,
+        "safety": "read_only",
+    }
 
 
 # ── Text output ─────────────────────────────────────────────────────────────
@@ -437,7 +489,7 @@ def output_error(message, json_mode=False):
     """Print error message."""
     if json_mode:
         result = {"ok": False, "error": message, "mode": "production_dns_readiness_v2_5",
-                  "version": "2.5.2", "mutation": False}
+                  "version": "2.5.2", "mutation": False, "dangerous_actions_executed": False}
         print(json.dumps(result, indent=2, ensure_ascii=False))
     else:
         print(f"  错误：{message}", file=sys.stderr)

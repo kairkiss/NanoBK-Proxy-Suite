@@ -1,5 +1,22 @@
 # Changelog
 
+## v2.5.9 — Test and Schema Polish
+
+### Fixed
+
+- Added `dangerous_actions_executed=false` to production DNS readiness JSON.
+- Fixed `nanobk setup production dns --save` local-only save mode.
+- Stabilized v2.5 regression harness by making long recursive regression opt-in.
+
+### Safety
+
+- No real deployment executed.
+- No DNS/certificate/token/Worker mutation.
+- No protocol key rotation executed.
+- No VPS service reload/restart.
+- No release/tag created.
+- No raw secret output.
+
 ## v2.5.7 — Guided Real Deploy Preflight and Controlled Gate Wrapper
 
 ### Added

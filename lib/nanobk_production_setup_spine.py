@@ -954,11 +954,11 @@ def main():
             steps = _build_action_steps(statuses)
             print(render_actions_text(steps))
     elif command == "dns":
-        from nanobk_production_dns_readiness import run_readiness, run_save, output_text, output_error
+        from nanobk_production_dns_readiness import run_readiness, run_save, run_save_local, output_text, output_error
         if args.save:
-            result = run_save(
+            # Use local-only save (no api-env required)
+            result = run_save_local(
                 zone=args.zone,
-                api_env=args.api_env,
                 proxy_subdomain=args.proxy_subdomain,
                 web_subdomain=args.web_subdomain,
             )
