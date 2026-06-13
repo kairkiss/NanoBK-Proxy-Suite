@@ -730,12 +730,14 @@ NanoBK Proxy Suite — Unified CLI v${NANOBK_VERSION}
   beginner gate dns|cert|token      DNS/证书/密钥 gate 预览 [--json]
   beginner production              生产设置主线 [--json]
   beginner production actions      生产动作预案 [--json]
+  beginner production execute-plan  真实执行计划预览 [--json]
   beginner production dns          域名/DNS 准备检查 [--json]
   beginner production worker       Worker 部署准备检查 [--json]
   beginner production cert         HTTPS 证书准备检查 [--json]
   beginner production rotate       订阅密钥与代理密钥轮换预案 [--json]
   setup production                 生产设置主线（只读） [--json]
   setup production actions         生产动作预案 [--json]
+  setup production execute-plan    真实执行计划预览 [--json]
   setup production dns             域名/DNS 准备检查 [--json]
   setup production worker          Worker 部署准备检查 [--json]
   setup production cert            HTTPS 证书准备检查 [--json]
@@ -2220,6 +2222,7 @@ cmd_beginner() {
         echo "       nanobk beginner gate dns|cert|token [--json]"
         echo "       nanobk beginner production [--json]"
         echo "       nanobk beginner production actions [--json]"
+        echo "       nanobk beginner production execute-plan [--json]"
         echo "       nanobk beginner production dns [--json]"
         echo "       nanobk beginner production worker [--json]"
         echo "       nanobk beginner production cert [--json]"
@@ -2869,6 +2872,11 @@ cmd_setup_production() {
         subcommand="plan"; shift ;;
       actions)
         subcommand="actions"; shift ;;
+      execute-plan)
+        subcommand="execute-plan"; shift
+        extra_args=("$@")
+        break
+        ;;
       dns)
         subcommand="dns"; shift
         extra_args=("$@")
@@ -2919,6 +2927,7 @@ cmd_setup_production() {
         echo "       nanobk setup production status [--json]"
         echo "       nanobk setup production plan [--json]"
         echo "       nanobk setup production actions [--json]"
+        echo "       nanobk setup production execute-plan [--json]"
         echo "       nanobk setup production dns [--zone DOMAIN] [--api-env PATH] [--proxy-subdomain NAME] [--web-subdomain NAME] [--json]"
         echo "       nanobk setup production dns --save --zone DOMAIN [--api-env PATH]"
         echo "       nanobk setup production worker [--zone DOMAIN] [--nanok-subdomain NAME] [--nanob-subdomain NAME] [--web-subdomain NAME] [--json]"
@@ -2936,6 +2945,7 @@ cmd_setup_production() {
         echo "  生产设置主线（只读，不会执行部署）。"
         echo "  显示完整的生产部署路线图和旧能力入口映射。"
         echo "  actions: 显示详细的生产动作预案和命令卡片"
+        echo "  execute-plan: 真实执行计划预览（只显示，不执行）"
         echo "  dns: Cloudflare 域名/IP/子域名/DNS 准备检查（只读）"
         echo "  dns save: 保存本地设置 profile（不创建 DNS）"
         echo "  worker: nanok/nanob Worker 部署准备检查（只读）"

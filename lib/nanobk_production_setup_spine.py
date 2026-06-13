@@ -15,6 +15,7 @@ Usage:
     python3 lib/nanobk_production_setup_spine.py status [--json]
     python3 lib/nanobk_production_setup_spine.py plan [--json]
     python3 lib/nanobk_production_setup_spine.py actions [--json]
+    python3 lib/nanobk_production_setup_spine.py execute-plan [--json]
     python3 lib/nanobk_production_setup_spine.py dns [--json]
     python3 lib/nanobk_production_setup_spine.py worker [--json]
 """
@@ -830,6 +831,18 @@ def main():
     actions_parser = sub.add_parser("actions", help="Show production action plan")
     actions_parser.add_argument("--json", action="store_true", help="JSON output")
 
+    # Execute plan
+    execute_parser = sub.add_parser("execute-plan", help="Show controlled execution plan")
+    execute_parser.add_argument("--json", action="store_true", help="JSON output")
+    # Dangerous args — recognized but rejected
+    execute_parser.add_argument("--execute", action="store_true", help=argparse.SUPPRESS)
+    execute_parser.add_argument("--yes", action="store_true", help=argparse.SUPPRESS)
+    execute_parser.add_argument("--apply", action="store_true", help=argparse.SUPPRESS)
+    execute_parser.add_argument("--issue", action="store_true", help=argparse.SUPPRESS)
+    execute_parser.add_argument("--rotate", action="store_true", help=argparse.SUPPRESS)
+    execute_parser.add_argument("--deploy", action="store_true", help=argparse.SUPPRESS)
+    execute_parser.add_argument("--confirm", action="store_true", help=argparse.SUPPRESS)
+
     # DNS readiness
     dns_parser = sub.add_parser("dns", help="Check DNS readiness (read-only)")
     dns_parser.add_argument("--zone", help="Domain zone to use")
@@ -953,6 +966,35 @@ def main():
             statuses = _infer_action_statuses()
             steps = _build_action_steps(statuses)
             print(render_actions_text(steps))
+    elif command == "execute-plan":
+        dangerous_hit = False
+        for darg in ("execute", "yes", "apply", "issue", "rotate", "deploy", "confirm"):
+            if getattr(args, darg, False):
+                dangerous_hit = True
+                break
+        if dangerous_hit:
+            msg = "此命令只显示执行计划，不会执行真实修改。"
+            if use_json:
+                print(json.dumps({
+                    "ok": False,
+                    "error": msg,
+                    "mode": "production_execute_plan_v2_6",
+                    "version": "2.6.0",
+                    "mutation": False,
+                    "dangerous_actions_executed": False,
+                    "execution_enabled": False,
+                    "policy": "preview_only",
+                    "safety": "read_only",
+                }, indent=2, ensure_ascii=False))
+            else:
+                print(f"  错误：{msg}", file=sys.stderr)
+            sys.exit(1)
+        from nanobk_production_execute_plan import gather_execute_plan, output_text
+        result = gather_execute_plan()
+        if use_json:
+            print(json.dumps(result, indent=2, ensure_ascii=False))
+        else:
+            print(output_text(result))
     elif command == "dns":
         from nanobk_production_dns_readiness import run_readiness, run_save, run_save_local, output_text, output_error
         if args.save:

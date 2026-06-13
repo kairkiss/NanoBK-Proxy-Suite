@@ -1,5 +1,25 @@
 # Changelog
 
+## v2.6.0 — Controlled Real Execution Contract
+
+### Added
+
+- Started v2.6 controlled real execution layer.
+- Added execution contract document.
+- Added production execute-plan preview command.
+- Added beginner alias for execute-plan.
+- Added action type and execution policy model for future real execution.
+
+### Safety
+
+- No real deployment executed.
+- No DNS/certificate/token/Worker mutation.
+- No protocol key rotation executed.
+- No VPS service reload/restart.
+- No release/tag created.
+- No raw secret output.
+- v2.3 exact confirmation gates remain authoritative.
+
 ## v2.5 Closeout — Production CLI Readiness Layer Sealed
 
 ### Sealed
