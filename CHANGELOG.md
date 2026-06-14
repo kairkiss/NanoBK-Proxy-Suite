@@ -1,5 +1,21 @@
 # Changelog
 
+## v2.6.3-polish — Worker Test Harness Env Isolation
+
+### Fixed
+
+- Isolated Worker/DNS fake environment variables across v2.6 regression tests.
+- Prevented caller shell fake env from contaminating clean/no-domain test scenarios.
+- Ensured regression tests run with clean NanoBK fake env.
+
+### Safety
+
+- No runtime deploy behavior changed.
+- No real Worker deploy.
+- No certificate/token/protocol/VPS mutation.
+- No service restart/reload.
+- No raw secret output.
+
 ## v2.6.3 — Controlled Worker Deploy Productization
 
 ### Added

@@ -11,11 +11,67 @@ NANOBK="$REPO_DIR/bin/nanobk"
 MODULE="$REPO_DIR/lib/nanobk_production_dns_apply.py"
 PHRASE="I UNDERSTAND NANOBK WILL CREATE CLOUDFLARE DNS RECORDS"
 
+TIMEOUT_BIN_DIR="$(mktemp -d)"
+cat > "$TIMEOUT_BIN_DIR/timeout" <<'PY'
+#!/usr/bin/env python3
+import subprocess
+import sys
+
+if len(sys.argv) < 3:
+    sys.exit(125)
+
+try:
+    seconds = float(sys.argv[1])
+except ValueError:
+    sys.exit(125)
+
+try:
+    completed = subprocess.run(sys.argv[2:], timeout=seconds)
+except subprocess.TimeoutExpired:
+    sys.exit(124)
+except KeyboardInterrupt:
+    sys.exit(130)
+
+sys.exit(completed.returncode)
+PY
+chmod +x "$TIMEOUT_BIN_DIR/timeout"
+export PATH="$TIMEOUT_BIN_DIR:$PATH"
+
 PASS=0
 FAIL=0
 
 ok() { echo "[OK] $1"; PASS=$((PASS + 1)); }
 fail() { echo "[FAIL] $1"; FAIL=$((FAIL + 1)); }
+
+clean_nanobk_fake_env() {
+  unset NANOBK_FAKE_SELECTED_DOMAIN || true
+  unset NANOBK_FAKE_CF_CONNECTED || true
+  unset NANOBK_FAKE_WORKER_SOURCE || true
+  unset NANOBK_FAKE_WRANGLER || true
+  unset NANOBK_FAKE_WORKER_DEPLOY || true
+  unset NANOBK_ALLOW_REAL_WORKER_DEPLOY || true
+  unset NANOBK_FAKE_VPS_IPV4 || true
+  unset NANOBK_FAKE_VPS_IPV6 || true
+  unset NANOBK_FAKE_DNS_EXISTING || true
+  unset NANOBK_FAKE_DNS_CREATE || true
+  unset NANOBK_ALLOW_REAL_CF_DNS_APPLY || true
+}
+
+run_clean_test() {
+  env \
+    -u NANOBK_FAKE_SELECTED_DOMAIN \
+    -u NANOBK_FAKE_CF_CONNECTED \
+    -u NANOBK_FAKE_WORKER_SOURCE \
+    -u NANOBK_FAKE_WRANGLER \
+    -u NANOBK_FAKE_WORKER_DEPLOY \
+    -u NANOBK_ALLOW_REAL_WORKER_DEPLOY \
+    -u NANOBK_FAKE_VPS_IPV4 \
+    -u NANOBK_FAKE_VPS_IPV6 \
+    -u NANOBK_FAKE_DNS_EXISTING \
+    -u NANOBK_FAKE_DNS_CREATE \
+    -u NANOBK_ALLOW_REAL_CF_DNS_APPLY \
+    bash "$1"
+}
 
 assert_valid_json() {
   local label="$1" json="$2"
@@ -63,6 +119,8 @@ fake_env() {
     NANOBK_FAKE_VPS_IPV6=2001:db8::10 \
     "$@"
 }
+
+clean_nanobk_fake_env
 
 echo "=== A. Basic ==="
 
@@ -136,6 +194,7 @@ if echo "$FAKE_DRY_JSON" | python3 -c "import sys,json; d=json.load(sys.stdin); 
 assert_contains "27: content masked" "203.0.113.xxx" "$FAKE_DRY_JSON"
 assert_not_contains_ci "28: no raw IPv4 full output" "203\\.0\\.113\\.10" "$FAKE_DRY_JSON $FAKE_DRY_TEXT"
 assert_not_contains_ci "29: no raw IPv6 full output" "2001:db8::10" "$FAKE_DRY_JSON $FAKE_DRY_TEXT"
+clean_nanobk_fake_env
 
 echo ""
 echo "=== E. Occupied record refusal ==="
@@ -146,6 +205,7 @@ assert_json "30: dry-run blocked true" "$OCC_JSON" "d['blocked']" "True"
 assert_json "31: next_step custom_subdomain" "$OCC_JSON" "d['next_step']" "custom_subdomain"
 assert_contains "32: text suggests custom subdomain" "自定义子域名" "$OCC_TEXT"
 if NANOBK_FAKE_DNS_EXISTING=proxy fake_env "$NANOBK" setup production dns apply --confirm "$PHRASE" >/dev/null 2>&1; then fail "33: real apply refuses"; else ok "33: real apply refuses"; fi
+clean_nanobk_fake_env
 
 echo ""
 echo "=== F. Fake real creation ==="
@@ -161,6 +221,7 @@ if echo "$CREATE_JSON" | python3 -c "import sys,json; d=json.load(sys.stdin); as
 assert_not_contains_ci "40: no raw token" "CF_API_TOKEN|ADMIN_TOKEN|SUB_TOKEN|Bearer|fake-token" "$CREATE_JSON"
 assert_not_contains_ci "41: no zone_id/record_id" "zone_id|record_id" "$CREATE_JSON"
 assert_json "42: next_step setup_worker" "$CREATE_JSON" "d['next_step']" "setup_worker"
+clean_nanobk_fake_env
 
 echo ""
 echo "=== G. Source safety ==="
@@ -181,11 +242,11 @@ assert_not_contains_ci "53: no overwrite/delete/update logic" "overwrite_record|
 echo ""
 echo "=== H. Regression ==="
 
-if bash "$REPO_DIR/tests/v2.6.1-cloudflare-domain-selection.sh" >/dev/null 2>&1; then ok "54: v2.6.1 test passes"; else fail "54: v2.6.1 test passes"; fi
-if bash "$REPO_DIR/tests/v2.6.0-controlled-execution-contract.sh" >/dev/null 2>&1; then ok "55: v2.6.0 test passes"; else fail "55: v2.6.0 test passes"; fi
-if bash "$REPO_DIR/tests/v2.5.11-closeout-manifest.sh" >/dev/null 2>&1; then ok "56: v2.5.11 closeout test passes"; else fail "56: v2.5.11 closeout test passes"; fi
-if bash "$REPO_DIR/tests/v2.5.7-production-preflight.sh" >/dev/null 2>&1; then ok "57: v2.5.7 preflight test passes"; else fail "57: v2.5.7 preflight test passes"; fi
-if bash "$REPO_DIR/tests/v2.4.5-friendly-gate-wrappers.sh" >/dev/null 2>&1; then ok "58: v2.4.5 friendly gate test passes"; else fail "58: v2.4.5 friendly gate test passes"; fi
+if run_clean_test "$REPO_DIR/tests/v2.6.1-cloudflare-domain-selection.sh" >/dev/null 2>&1; then ok "54: v2.6.1 test passes"; else fail "54: v2.6.1 test passes"; fi
+if run_clean_test "$REPO_DIR/tests/v2.6.0-controlled-execution-contract.sh" >/dev/null 2>&1; then ok "55: v2.6.0 test passes"; else fail "55: v2.6.0 test passes"; fi
+if run_clean_test "$REPO_DIR/tests/v2.5.11-closeout-manifest.sh" >/dev/null 2>&1; then ok "56: v2.5.11 closeout test passes"; else fail "56: v2.5.11 closeout test passes"; fi
+if run_clean_test "$REPO_DIR/tests/v2.5.7-production-preflight.sh" >/dev/null 2>&1; then ok "57: v2.5.7 preflight test passes"; else fail "57: v2.5.7 preflight test passes"; fi
+if run_clean_test "$REPO_DIR/tests/v2.4.5-friendly-gate-wrappers.sh" >/dev/null 2>&1; then ok "58: v2.4.5 friendly gate test passes"; else fail "58: v2.4.5 friendly gate test passes"; fi
 
 echo ""
 echo "Manual real Cloudflare guard (not run by this test):"

@@ -43,6 +43,36 @@ FAIL=0
 ok() { echo "[OK] $1"; PASS=$((PASS + 1)); }
 fail() { echo "[FAIL] $1"; FAIL=$((FAIL + 1)); }
 
+clean_nanobk_fake_env() {
+  unset NANOBK_FAKE_SELECTED_DOMAIN || true
+  unset NANOBK_FAKE_CF_CONNECTED || true
+  unset NANOBK_FAKE_WORKER_SOURCE || true
+  unset NANOBK_FAKE_WRANGLER || true
+  unset NANOBK_FAKE_WORKER_DEPLOY || true
+  unset NANOBK_ALLOW_REAL_WORKER_DEPLOY || true
+  unset NANOBK_FAKE_VPS_IPV4 || true
+  unset NANOBK_FAKE_VPS_IPV6 || true
+  unset NANOBK_FAKE_DNS_EXISTING || true
+  unset NANOBK_FAKE_DNS_CREATE || true
+  unset NANOBK_ALLOW_REAL_CF_DNS_APPLY || true
+}
+
+run_clean_test() {
+  env \
+    -u NANOBK_FAKE_SELECTED_DOMAIN \
+    -u NANOBK_FAKE_CF_CONNECTED \
+    -u NANOBK_FAKE_WORKER_SOURCE \
+    -u NANOBK_FAKE_WRANGLER \
+    -u NANOBK_FAKE_WORKER_DEPLOY \
+    -u NANOBK_ALLOW_REAL_WORKER_DEPLOY \
+    -u NANOBK_FAKE_VPS_IPV4 \
+    -u NANOBK_FAKE_VPS_IPV6 \
+    -u NANOBK_FAKE_DNS_EXISTING \
+    -u NANOBK_FAKE_DNS_CREATE \
+    -u NANOBK_ALLOW_REAL_CF_DNS_APPLY \
+    bash "$1"
+}
+
 assert_valid_json() {
   local label="$1" json="$2"
   if echo "$json" | python3 -c "import sys,json; json.load(sys.stdin)" 2>/dev/null; then
@@ -98,6 +128,8 @@ fake_deploy_env() {
     NANOBK_FAKE_WORKER_DEPLOY=1 \
     "$@"
 }
+
+clean_nanobk_fake_env
 
 echo "=== A. Basic ==="
 
@@ -169,6 +201,7 @@ assert_contains "25: planned nanok.example.com" "nanok.example.com" "$FAKE_DRY_J
 assert_contains "26: planned nanob.example.com" "nanob.example.com" "$FAKE_DRY_JSON"
 assert_json "27: mutation false" "$FAKE_DRY_JSON" "d['mutation']" "False"
 assert_json "28: dangerous false" "$FAKE_DRY_JSON" "d['dangerous_actions_executed']" "False"
+clean_nanobk_fake_env
 
 echo ""
 echo "=== E. Fake deploy success ==="
@@ -183,6 +216,7 @@ assert_contains "33: deployed nanok.example.com" "nanok.example.com" "$CREATE_JS
 assert_contains "34: deployed nanob.example.com" "nanob.example.com" "$CREATE_JSON"
 assert_json "35: next_step setup_cert" "$CREATE_JSON" "d['next_step']" "setup_cert"
 assert_not_contains_ci "36: no raw secret output" "CF_API_TOKEN|ADMIN_TOKEN|SUB_TOKEN|PRIVATE KEY|BEGIN PRIVATE KEY|Bearer|secret|token=" "$CREATE_JSON"
+clean_nanobk_fake_env
 
 echo ""
 echo "=== F. Missing dependency blocks ==="
@@ -193,12 +227,14 @@ assert_json "37: fake no Worker source blocks" "$NO_SOURCE_JSON" "d['blocked']" 
 NO_TOOL_JSON=$(env NANOBK_FAKE_SELECTED_DOMAIN=example.com NANOBK_FAKE_CF_CONNECTED=1 NANOBK_FAKE_WORKER_SOURCE=1 NANOBK_FAKE_WRANGLER=0 "$NANOBK" setup production worker deploy --confirm "$PHRASE" --json 2>&1 || true)
 assert_json "38: fake no wrangler/tool blocks if real deploy attempted" "$NO_TOOL_JSON" "d['next_step']" "install_worker_tools"
 
+clean_nanobk_fake_env
 TMP_HOME="$(mktemp -d)"
 NO_DOMAIN_JSON=$(HOME="$TMP_HOME" "$NANOBK" setup production worker deploy --dry-run --json 2>&1 || true)
 assert_json "39: no selected domain blocks" "$NO_DOMAIN_JSON" "d['next_step']" "select_domain"
 
 NO_CF_JSON=$(env NANOBK_FAKE_SELECTED_DOMAIN=example.com NANOBK_FAKE_CF_CONNECTED=0 NANOBK_FAKE_WORKER_SOURCE=1 "$NANOBK" setup production worker deploy --dry-run --json 2>&1 || true)
 assert_json "40: no Cloudflare connection blocks" "$NO_CF_JSON" "d['next_step']" "setup_cloudflare"
+clean_nanobk_fake_env
 
 echo ""
 echo "=== G. HARD_GREP ==="
@@ -236,11 +272,11 @@ if env | grep -q '^NANOBK_ALLOW_REAL_WORKER_DEPLOY=1$'; then fail "58: default t
 echo ""
 echo "=== I. Regression ==="
 
-if bash "$REPO_DIR/tests/v2.6.2-controlled-dns-apply.sh" >/dev/null 2>&1; then ok "59: v2.6.2 DNS apply test passes"; else fail "59: v2.6.2 DNS apply test passes"; fi
-if bash "$REPO_DIR/tests/v2.6.1-cloudflare-domain-selection.sh" >/dev/null 2>&1; then ok "60: v2.6.1 domain selection test passes"; else fail "60: v2.6.1 domain selection test passes"; fi
-if bash "$REPO_DIR/tests/v2.6.0-controlled-execution-contract.sh" >/dev/null 2>&1; then ok "61: v2.6.0 execution contract test passes"; else fail "61: v2.6.0 execution contract test passes"; fi
-if bash "$REPO_DIR/tests/v2.5.11-closeout-manifest.sh" >/dev/null 2>&1; then ok "62: v2.5.11 closeout test passes"; else fail "62: v2.5.11 closeout test passes"; fi
-if bash "$REPO_DIR/tests/v2.4.5-friendly-gate-wrappers.sh" >/dev/null 2>&1; then ok "63: v2.4.5 friendly gate wrappers test passes"; else fail "63: v2.4.5 friendly gate wrappers test passes"; fi
+if run_clean_test "$REPO_DIR/tests/v2.6.2-controlled-dns-apply.sh" >/dev/null 2>&1; then ok "59: v2.6.2 DNS apply test passes"; else fail "59: v2.6.2 DNS apply test passes"; fi
+if run_clean_test "$REPO_DIR/tests/v2.6.1-cloudflare-domain-selection.sh" >/dev/null 2>&1; then ok "60: v2.6.1 domain selection test passes"; else fail "60: v2.6.1 domain selection test passes"; fi
+if run_clean_test "$REPO_DIR/tests/v2.6.0-controlled-execution-contract.sh" >/dev/null 2>&1; then ok "61: v2.6.0 execution contract test passes"; else fail "61: v2.6.0 execution contract test passes"; fi
+if run_clean_test "$REPO_DIR/tests/v2.5.11-closeout-manifest.sh" >/dev/null 2>&1; then ok "62: v2.5.11 closeout test passes"; else fail "62: v2.5.11 closeout test passes"; fi
+if run_clean_test "$REPO_DIR/tests/v2.4.5-friendly-gate-wrappers.sh" >/dev/null 2>&1; then ok "63: v2.4.5 friendly gate wrappers test passes"; else fail "63: v2.4.5 friendly gate wrappers test passes"; fi
 
 echo ""
 echo "Manual real Worker deploy guard (not run by this test):"
