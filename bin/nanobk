@@ -736,6 +736,7 @@ NanoBK Proxy Suite — Unified CLI v${NANOBK_VERSION}
   beginner production dns          域名/DNS 准备检查 [--json]
   beginner production dns apply    域名指向确认执行 [--dry-run] [--json]
   beginner production worker       Worker 部署准备检查 [--json]
+  beginner production worker deploy  订阅服务入口发布计划 [--dry-run] [--json]
   beginner production cert         HTTPS 证书准备检查 [--json]
   beginner production rotate       订阅密钥与代理密钥轮换预案 [--json]
   setup production                 生产设置主线（只读） [--json]
@@ -744,6 +745,7 @@ NanoBK Proxy Suite — Unified CLI v${NANOBK_VERSION}
   setup production dns             域名/DNS 准备检查 [--json]
   setup production dns apply       域名指向确认执行 [--dry-run] [--json]
   setup production worker          Worker 部署准备检查 [--json]
+  setup production worker deploy   订阅服务入口发布计划 [--dry-run] [--json]
   setup production cert            HTTPS 证书准备检查 [--json]
   setup production rotate          订阅密钥与代理密钥轮换预案 [--json]
   setup cloudflare                 Cloudflare 登录信息检查 [--json]
@@ -2244,6 +2246,7 @@ cmd_beginner() {
         echo "       nanobk beginner production dns [--json]"
         echo "       nanobk beginner production dns apply [--dry-run] [--json]"
         echo "       nanobk beginner production worker [--json]"
+        echo "       nanobk beginner production worker deploy [--dry-run] [--json]"
         echo "       nanobk beginner production cert [--json]"
         echo "       nanobk beginner production rotate [--json]"
         echo "       nanobk beginner production overview [--json]"
@@ -2304,6 +2307,15 @@ cmd_beginner() {
   elif [[ "$subcommand" == "production" ]]; then
     if [[ "${extra_args[0]:-}" == "dns" && "${extra_args[1]:-}" == "apply" ]]; then
       local args=(python3 "$REPO_DIR/lib/nanobk_production_dns_apply.py")
+      if [[ ${#extra_args[@]} -gt 2 ]]; then
+        args+=("${extra_args[@]:2}")
+      fi
+      [[ "$use_json" == "1" ]] && args+=("--json")
+      "${args[@]}"
+      return $?
+    fi
+    if [[ "${extra_args[0]:-}" == "worker" && "${extra_args[1]:-}" == "deploy" ]]; then
+      local args=(python3 "$REPO_DIR/lib/nanobk_production_worker_deploy.py")
       if [[ ${#extra_args[@]} -gt 2 ]]; then
         args+=("${extra_args[@]:2}")
       fi
@@ -3030,6 +3042,7 @@ cmd_setup_production() {
         echo "       nanobk setup production dns apply [--dry-run] [--confirm PHRASE] [--proxy-subdomain NAME] [--web-subdomain NAME] [--json]"
         echo "       nanobk setup production dns --save --zone DOMAIN [--api-env PATH]"
         echo "       nanobk setup production worker [--zone DOMAIN] [--nanok-subdomain NAME] [--nanob-subdomain NAME] [--web-subdomain NAME] [--json]"
+        echo "       nanobk setup production worker deploy [--dry-run] [--confirm PHRASE] [--json]"
         echo "       nanobk setup production worker --save --zone DOMAIN [--json]"
         echo "       nanobk setup production cert [--zone DOMAIN] [--domain DOMAIN] [--mode MODE] [--json]"
         echo "       nanobk setup production cert --save --zone DOMAIN --domain DOMAIN --mode MODE [--json]"
@@ -3049,6 +3062,7 @@ cmd_setup_production() {
         echo "  dns apply: 域名指向确认执行（需要安全确认）"
         echo "  dns save: 保存本地设置 profile（不创建 DNS）"
         echo "  worker: nanok/nanob Worker 部署准备检查（只读）"
+        echo "  worker deploy: 发布订阅服务入口（需要安全确认和显式环境开关）"
         echo "  worker save: 保存本地 Worker 路由计划（不部署 Worker）"
         echo "  cert: HTTPS 证书准备检查（只读）"
         echo "  cert save: 保存本地证书计划（不申请证书）"
@@ -3077,6 +3091,15 @@ cmd_setup_production() {
   fi
   if [[ "$subcommand" == "dns" && "${extra_args[0]:-}" == "apply" ]]; then
     local args=(python3 "$REPO_DIR/lib/nanobk_production_dns_apply.py")
+    if [[ ${#extra_args[@]} -gt 1 ]]; then
+      args+=("${extra_args[@]:1}")
+    fi
+    [[ "$use_json" == "1" ]] && args+=("--json")
+    "${args[@]}"
+    return $?
+  fi
+  if [[ "$subcommand" == "worker" && "${extra_args[0]:-}" == "deploy" ]]; then
+    local args=(python3 "$REPO_DIR/lib/nanobk_production_worker_deploy.py")
     if [[ ${#extra_args[@]} -gt 1 ]]; then
       args+=("${extra_args[@]:1}")
     fi

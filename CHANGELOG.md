@@ -1,5 +1,24 @@
 # Changelog
 
+## v2.6.3 — Controlled Worker Deploy Productization
+
+### Added
+
+- Added productized Worker deploy wrapper for production setup.
+- Added dry-run Worker deploy plan for nanok/nanob entrypoints.
+- Added exact-gated Worker deploy path.
+- Added fake Worker deploy hooks for safe tests.
+- Added beginner alias for Worker deploy.
+
+### Safety
+
+- Worker deployment requires exact confirmation phrase.
+- Real Worker deployment also requires NANOBK_ALLOW_REAL_WORKER_DEPLOY=1.
+- No DNS/certificate/token/protocol mutation.
+- No VPS service reload/restart.
+- No raw secret output.
+- No zone_id/record_id/api_env_path output.
+
 ## v2.6.2 — Controlled DNS Apply Productization
 
 ### Added
