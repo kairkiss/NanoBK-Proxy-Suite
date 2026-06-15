@@ -1,5 +1,24 @@
 # Changelog
 
+## v2.6.4 — Controlled Certificate Issue Productization
+
+### Added
+
+- Added productized certificate issue wrapper for production setup.
+- Added dry-run certificate target plan for proxy/web.
+- Added exact-gated certificate issue path.
+- Added fake certificate issue hooks for safe tests.
+- Added beginner alias for certificate issue.
+
+### Safety
+
+- Certificate issue requires exact confirmation phrase.
+- Real certificate issue also requires NANOBK_ALLOW_REAL_CERT_ISSUE=1.
+- No Worker/DNS/token/protocol/VPS mutation.
+- No service reload/restart.
+- No raw secret/private key/cert material output.
+- No zone_id/record_id/api_env_path output.
+
 ## v2.6.3-polish — Worker Test Harness Env Isolation
 
 ### Fixed
