@@ -185,6 +185,10 @@ ALL_JSON=$("$NANOBK" setup production guide --step all --json 2>&1)
 AUTO_JSON=$("$NANOBK" setup production guide --auto-dry-run --json 2>&1)
 BEGINNER_JSON=$("$NANOBK" beginner production --json 2>&1)
 BEGINNER_GUIDE_JSON=$("$NANOBK" beginner production guide --json 2>&1)
+SETUP_DEFAULT_JSON=$("$NANOBK" setup production --json 2>&1)
+BEGINNER_REVIEW_JSON=$("$NANOBK" beginner production review --json 2>&1)
+SETUP_REVIEW_JSON=$("$NANOBK" setup production review --json 2>&1)
+BEGINNER_TEXT=$("$NANOBK" beginner production 2>&1)
 assert_valid_json "2: setup production guide --json valid" "$GUIDE_JSON"
 assert_valid_json "3: setup production guide --dry-run --json valid" "$DRY_JSON"
 assert_valid_json "4: setup production guide --step next --json valid" "$NEXT_JSON"
@@ -192,8 +196,27 @@ assert_valid_json "5: setup production guide --step all --json valid" "$ALL_JSON
 assert_valid_json "6: setup production guide --auto-dry-run --json valid" "$AUTO_JSON"
 assert_valid_json "7: beginner production --json valid" "$BEGINNER_JSON"
 assert_valid_json "8: beginner production guide --json valid" "$BEGINNER_GUIDE_JSON"
+assert_valid_json "8a: setup production --json valid" "$SETUP_DEFAULT_JSON"
+assert_valid_json "8b: beginner production review --json valid" "$BEGINNER_REVIEW_JSON"
+assert_valid_json "8c: setup production review --json valid" "$SETUP_REVIEW_JSON"
 HELP=$("$NANOBK" setup production --help 2>&1)
 assert_contains "9: help contains guide" "guide" "$HELP"
+assert_json "9a: setup guide mode guided" "$GUIDE_JSON" "d['mode']" "production_guided_flow_v2_6"
+assert_json "9b: beginner guide mode guided" "$BEGINNER_GUIDE_JSON" "d['mode']" "production_guided_flow_v2_6"
+assert_json "9c: beginner production mode guided" "$BEGINNER_JSON" "d['mode']" "production_guided_flow_v2_6"
+assert_json "9d: setup production mode guided" "$SETUP_DEFAULT_JSON" "d['mode']" "production_guided_flow_v2_6"
+assert_json "9e: setup guide version 2.6.9" "$GUIDE_JSON" "d['version']" "2.6.9"
+assert_json "9f: beginner production version 2.6.9" "$BEGINNER_JSON" "d['version']" "2.6.9"
+assert_json "9g: guided schema has guide_action" "$BEGINNER_JSON" "'guide_action' in d" "True"
+assert_json "9h: guided schema has guided_steps" "$BEGINNER_JSON" "'guided_steps' in d" "True"
+assert_json "9i: guided schema has release_blockers" "$BEGINNER_JSON" "'release_blockers' in d" "True"
+assert_contains "9j: beginner text title" "NanoBK 生产配置向导" "$BEGINNER_TEXT"
+assert_contains "9k: beginner text next step" "下一步" "$BEGINNER_TEXT"
+assert_contains "9l: beginner text no auto mutation" "我不会自动执行真实写入" "$BEGINNER_TEXT"
+assert_json "9m: beginner review mode owner review" "$BEGINNER_REVIEW_JSON" "d['mode']" "production_owner_review_v2_6"
+assert_json "9n: setup review mode owner review" "$SETUP_REVIEW_JSON" "d['mode']" "production_owner_review_v2_6"
+assert_json "9o: beginner review version 2.6.8" "$BEGINNER_REVIEW_JSON" "d['version']" "2.6.8"
+assert_json "9p: setup review version 2.6.8" "$SETUP_REVIEW_JSON" "d['version']" "2.6.8"
 
 echo ""
 echo "=== B. Safety ==="
@@ -321,8 +344,15 @@ echo "=== J. HARD_GREP ==="
 
 OUT="/tmp/nanobk-v269-output.txt"
 : > "$OUT"
-printf '%s\n' "$GUIDE_JSON" "$DRY_JSON" "$NEXT_JSON" "$ALL_JSON" "$AUTO_JSON" "$BEGINNER_JSON" "$BEGINNER_GUIDE_JSON" "$EMPTY_JSON" "$DNS_READY" "$VPS_PARTIAL" "$SUB_READY" "$WITH_BLOCKERS" "$FULL_READY" "$AUTO_FAKE" >> "$OUT"
+printf '%s\n' "$GUIDE_JSON" "$DRY_JSON" "$NEXT_JSON" "$ALL_JSON" "$AUTO_JSON" "$BEGINNER_JSON" "$BEGINNER_GUIDE_JSON" "$SETUP_DEFAULT_JSON" "$BEGINNER_REVIEW_JSON" "$SETUP_REVIEW_JSON" "$BEGINNER_TEXT" "$EMPTY_JSON" "$DNS_READY" "$VPS_PARTIAL" "$SUB_READY" "$WITH_BLOCKERS" "$FULL_READY" "$AUTO_FAKE" >> "$OUT"
 "$NANOBK" setup production guide >> "$OUT" 2>&1 || true
+"$NANOBK" setup production guide --json >> "$OUT" 2>&1 || true
+"$NANOBK" beginner production >> "$OUT" 2>&1 || true
+"$NANOBK" beginner production --json >> "$OUT" 2>&1 || true
+"$NANOBK" beginner production guide >> "$OUT" 2>&1 || true
+"$NANOBK" beginner production guide --json >> "$OUT" 2>&1 || true
+"$NANOBK" setup production guide --auto-dry-run >> "$OUT" 2>&1 || true
+"$NANOBK" setup production guide --auto-dry-run --json >> "$OUT" 2>&1 || true
 LEAK_PATTERN='ADMIN_TOKEN[[:space:]]*=|SUB_TOKEN[[:space:]]*=|CF_API_TOKEN[[:space:]]*=|https?://|workers\.dev|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|"password"[[:space:]]*:|password[[:space:]]*=|PRIVATE KEY|BEGIN PRIVATE KEY|profile\.current\.json|raw profile|privkey|fullchain|zone_id|record_id|api_env_path|raw Cloudflare|raw Worker|raw installer'
 if grep -Ein "$LEAK_PATTERN" "$OUT" >/tmp/v269-hard-grep.txt 2>&1; then fail "52-63: HARD_GREP no leak"; cat /tmp/v269-hard-grep.txt; else ok "52-63: HARD_GREP no leak"; fi
 ok "52: no ADMIN_TOKEN"

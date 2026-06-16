@@ -1,5 +1,19 @@
 # Changelog
 
+## v2.6.9-polish — Beginner Production Guided JSON Contract
+
+### Fixed
+
+- Aligned nanobk beginner production --json with the v2.6.9 guided-flow JSON contract.
+- Preserved beginner production review --json as owner-review JSON.
+- Strengthened tests so setup and beginner guided aliases share the same schema.
+
+### Safety
+
+- No runtime mutation behavior changed.
+- No DNS/Worker/cert/VPS/subscription/token/service actions executed.
+- No raw secrets or provider outputs exposed.
+
 ## v2.6.9 — Guided One-Command Production Flow
 
 ### Added

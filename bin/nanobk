@@ -2330,7 +2330,7 @@ cmd_beginner() {
     [[ "$use_json" == "1" ]] && args+=("--json")
     "${args[@]}"
   elif [[ "$subcommand" == "production" ]]; then
-    if [[ "${extra_args[0]:-}" == "guide" || ${#extra_args[@]} -eq 0 ]]; then
+    if [[ "${extra_args[0]:-}" == "guide" || "${extra_args[0]:-}" == --* || ${#extra_args[@]} -eq 0 ]]; then
       local args=(python3 "$REPO_DIR/lib/nanobk_production_guided_flow.py")
       if [[ "${extra_args[0]:-}" == "guide" && ${#extra_args[@]} -gt 1 ]]; then
         args+=("${extra_args[@]:1}")
@@ -3191,7 +3191,7 @@ cmd_setup_production() {
     echo "  No mutations will be performed."
     return 0
   fi
-  if [[ "$subcommand" == "guide" ]]; then
+  if [[ -z "$subcommand" || "$subcommand" == "guide" ]]; then
     local args=(python3 "$REPO_DIR/lib/nanobk_production_guided_flow.py")
     if [[ ${#extra_args[@]} -gt 0 ]]; then
       args+=(${extra_args[@]+"${extra_args[@]}"})
@@ -3200,7 +3200,7 @@ cmd_setup_production() {
     "${args[@]}"
     return $?
   fi
-  if [[ -z "$subcommand" || "$subcommand" == "review" || "$subcommand" == "status" || "$subcommand" == "next" ]]; then
+  if [[ "$subcommand" == "review" || "$subcommand" == "status" || "$subcommand" == "next" ]]; then
     local args=(python3 "$REPO_DIR/lib/nanobk_production_owner_review.py")
     [[ -n "$subcommand" ]] && args+=("$subcommand")
     if [[ ${#extra_args[@]} -gt 0 ]]; then
