@@ -1,5 +1,24 @@
 # Changelog
 
+## v2.6.7 — Controlled Subscription Profile Publish Integration
+
+### Added
+
+- Added repository-grounded subscription/profile publish inventory.
+- Added productized subscription profile publish wrapper.
+- Added dry-run checks for VPS profile and Worker admin env.
+- Added exact-gated profile publish path.
+- Added fake publish success/failure paths.
+- Added redaction and leak checks for profile/admin outputs.
+- Added beginner alias for subscription publish.
+
+### Safety
+
+- No profile publish by default.
+- Real publish requires exact phrase and NANOBK_ALLOW_REAL_PROFILE_PUBLISH=1.
+- No raw token, profile JSON, UUID, password, admin URL, or subscription URL output.
+- No Worker deploy, DNS mutation, cert issue, VPS install, service restart/reload, or token rotation.
+
 ## v2.6.6-polish — Non-recursive Regression Harness
 
 ### Fixed
