@@ -1,5 +1,22 @@
 # Changelog
 
+## v2.6.6-polish — Non-recursive Regression Harness
+
+### Fixed
+
+- Prevented v2.6 regression scripts from recursively invoking full downstream regression chains.
+- Added NANOBK_TEST_SKIP_REGRESSION support for targeted lower-version checks.
+- Isolated v2.6.6/VPS adapter fake env from lower-version tests.
+- Removed false timeout/failures caused by nested v2.6.6 -> v2.6.5 -> v2.6.4 -> v2.6.3 regression recursion.
+
+### Safety
+
+- No runtime adapter behavior changed.
+- No real VPS install.
+- No service restart/reload.
+- No cert/DNS/Worker/token/protocol mutation.
+- No raw secret output.
+
 ## v2.6.6 — Real Legacy VPS Installer Adapter
 
 ### Added

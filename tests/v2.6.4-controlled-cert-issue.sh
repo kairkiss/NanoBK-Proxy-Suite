@@ -61,6 +61,20 @@ clean_nanobk_fake_env() {
   unset NANOBK_ALLOW_REAL_CERT_ISSUE || true
   unset NANOBK_CERT_ISSUE_FAKE_RUN || true
   unset NANOBK_CERT_ISSUE_FAKE_RESULT || true
+  unset NANOBK_FAKE_VPS_INSTALL_STATE || true
+  unset NANOBK_FAKE_VPS_PROFILE_COMPLETE || true
+  unset NANOBK_FAKE_VPS_SERVICES_ACTIVE || true
+  unset NANOBK_FAKE_VPS_HEALTHCHECK || true
+  unset NANOBK_FAKE_VPS_INSTALL || true
+  unset NANOBK_FAKE_VPS_RENDER_CHECK || true
+  unset NANOBK_FAKE_VPS_LEGACY_ADAPTER || true
+  unset NANOBK_ALLOW_REAL_VPS_INSTALL || true
+  unset NANOBK_VPS_CERT_MODE || true
+  unset NANOBK_VPS_CERT_FILE || true
+  unset NANOBK_VPS_KEY_FILE || true
+  unset NANOBK_ALLOW_SELF_SIGNED_VPS_INSTALL || true
+  unset NANOBK_ALLOW_NO_CERT_VPS_INSTALL || true
+  unset NANOBK_VPS_OPEN_FIREWALL || true
 }
 
 run_clean_test() {
@@ -82,6 +96,21 @@ run_clean_test() {
     -u NANOBK_ALLOW_REAL_CERT_ISSUE \
     -u NANOBK_CERT_ISSUE_FAKE_RUN \
     -u NANOBK_CERT_ISSUE_FAKE_RESULT \
+    -u NANOBK_FAKE_VPS_INSTALL_STATE \
+    -u NANOBK_FAKE_VPS_PROFILE_COMPLETE \
+    -u NANOBK_FAKE_VPS_SERVICES_ACTIVE \
+    -u NANOBK_FAKE_VPS_HEALTHCHECK \
+    -u NANOBK_FAKE_VPS_INSTALL \
+    -u NANOBK_FAKE_VPS_RENDER_CHECK \
+    -u NANOBK_FAKE_VPS_LEGACY_ADAPTER \
+    -u NANOBK_ALLOW_REAL_VPS_INSTALL \
+    -u NANOBK_VPS_CERT_MODE \
+    -u NANOBK_VPS_CERT_FILE \
+    -u NANOBK_VPS_KEY_FILE \
+    -u NANOBK_ALLOW_SELF_SIGNED_VPS_INSTALL \
+    -u NANOBK_ALLOW_NO_CERT_VPS_INSTALL \
+    -u NANOBK_VPS_OPEN_FIREWALL \
+    NANOBK_TEST_SKIP_REGRESSION=1 \
     bash "$1"
 }
 
@@ -322,12 +351,16 @@ if env | grep -q '^NANOBK_ALLOW_REAL_CERT_ISSUE=1$'; then fail "76: default test
 echo ""
 echo "=== K. Regression ==="
 
-if run_clean_test "$REPO_DIR/tests/v2.6.3-controlled-worker-deploy.sh" >/dev/null 2>&1; then ok "77: v2.6.3 Worker deploy test passes"; else fail "77: v2.6.3 Worker deploy test passes"; fi
-if run_clean_test "$REPO_DIR/tests/v2.6.2-controlled-dns-apply.sh" >/dev/null 2>&1; then ok "78: v2.6.2 DNS apply test passes"; else fail "78: v2.6.2 DNS apply test passes"; fi
-if run_clean_test "$REPO_DIR/tests/v2.6.1-cloudflare-domain-selection.sh" >/dev/null 2>&1; then ok "79: v2.6.1 domain selection test passes"; else fail "79: v2.6.1 domain selection test passes"; fi
-if run_clean_test "$REPO_DIR/tests/v2.6.0-controlled-execution-contract.sh" >/dev/null 2>&1; then ok "80: v2.6.0 execution contract test passes"; else fail "80: v2.6.0 execution contract test passes"; fi
-if run_clean_test "$REPO_DIR/tests/v2.5.11-closeout-manifest.sh" >/dev/null 2>&1; then ok "81: v2.5.11 closeout test passes"; else fail "81: v2.5.11 closeout test passes"; fi
-if run_clean_test "$REPO_DIR/tests/v2.4.5-friendly-gate-wrappers.sh" >/dev/null 2>&1; then ok "82: v2.4.5 friendly gate wrappers test passes"; else fail "82: v2.4.5 friendly gate wrappers test passes"; fi
+if [[ "${NANOBK_TEST_SKIP_REGRESSION:-1}" == "1" ]]; then
+  ok "77: regression skipped by NANOBK_TEST_SKIP_REGRESSION"
+else
+  if run_clean_test "$REPO_DIR/tests/v2.6.3-controlled-worker-deploy.sh" >/dev/null 2>&1; then ok "77: v2.6.3 Worker deploy test passes"; else fail "77: v2.6.3 Worker deploy test passes"; fi
+  if run_clean_test "$REPO_DIR/tests/v2.6.2-controlled-dns-apply.sh" >/dev/null 2>&1; then ok "78: v2.6.2 DNS apply test passes"; else fail "78: v2.6.2 DNS apply test passes"; fi
+  if run_clean_test "$REPO_DIR/tests/v2.6.1-cloudflare-domain-selection.sh" >/dev/null 2>&1; then ok "79: v2.6.1 domain selection test passes"; else fail "79: v2.6.1 domain selection test passes"; fi
+  if run_clean_test "$REPO_DIR/tests/v2.6.0-controlled-execution-contract.sh" >/dev/null 2>&1; then ok "80: v2.6.0 execution contract test passes"; else fail "80: v2.6.0 execution contract test passes"; fi
+  if run_clean_test "$REPO_DIR/tests/v2.5.11-closeout-manifest.sh" >/dev/null 2>&1; then ok "81: v2.5.11 closeout test passes"; else fail "81: v2.5.11 closeout test passes"; fi
+  if run_clean_test "$REPO_DIR/tests/v2.4.5-friendly-gate-wrappers.sh" >/dev/null 2>&1; then ok "82: v2.4.5 friendly gate wrappers test passes"; else fail "82: v2.4.5 friendly gate wrappers test passes"; fi
+fi
 
 echo ""
 echo "Manual real certificate guard (not run by this test):"

@@ -55,6 +55,24 @@ clean_nanobk_fake_env() {
   unset NANOBK_FAKE_DNS_EXISTING || true
   unset NANOBK_FAKE_DNS_CREATE || true
   unset NANOBK_ALLOW_REAL_CF_DNS_APPLY || true
+  unset NANOBK_FAKE_CERT_TARGETS || true
+  unset NANOBK_FAKE_CERT_EXISTS || true
+  unset NANOBK_FAKE_CERT_ISSUE || true
+  unset NANOBK_ALLOW_REAL_CERT_ISSUE || true
+  unset NANOBK_FAKE_VPS_INSTALL_STATE || true
+  unset NANOBK_FAKE_VPS_PROFILE_COMPLETE || true
+  unset NANOBK_FAKE_VPS_SERVICES_ACTIVE || true
+  unset NANOBK_FAKE_VPS_HEALTHCHECK || true
+  unset NANOBK_FAKE_VPS_INSTALL || true
+  unset NANOBK_FAKE_VPS_RENDER_CHECK || true
+  unset NANOBK_FAKE_VPS_LEGACY_ADAPTER || true
+  unset NANOBK_ALLOW_REAL_VPS_INSTALL || true
+  unset NANOBK_VPS_CERT_MODE || true
+  unset NANOBK_VPS_CERT_FILE || true
+  unset NANOBK_VPS_KEY_FILE || true
+  unset NANOBK_ALLOW_SELF_SIGNED_VPS_INSTALL || true
+  unset NANOBK_ALLOW_NO_CERT_VPS_INSTALL || true
+  unset NANOBK_VPS_OPEN_FIREWALL || true
 }
 
 run_clean_test() {
@@ -70,6 +88,25 @@ run_clean_test() {
     -u NANOBK_FAKE_DNS_EXISTING \
     -u NANOBK_FAKE_DNS_CREATE \
     -u NANOBK_ALLOW_REAL_CF_DNS_APPLY \
+    -u NANOBK_FAKE_CERT_TARGETS \
+    -u NANOBK_FAKE_CERT_EXISTS \
+    -u NANOBK_FAKE_CERT_ISSUE \
+    -u NANOBK_ALLOW_REAL_CERT_ISSUE \
+    -u NANOBK_FAKE_VPS_INSTALL_STATE \
+    -u NANOBK_FAKE_VPS_PROFILE_COMPLETE \
+    -u NANOBK_FAKE_VPS_SERVICES_ACTIVE \
+    -u NANOBK_FAKE_VPS_HEALTHCHECK \
+    -u NANOBK_FAKE_VPS_INSTALL \
+    -u NANOBK_FAKE_VPS_RENDER_CHECK \
+    -u NANOBK_FAKE_VPS_LEGACY_ADAPTER \
+    -u NANOBK_ALLOW_REAL_VPS_INSTALL \
+    -u NANOBK_VPS_CERT_MODE \
+    -u NANOBK_VPS_CERT_FILE \
+    -u NANOBK_VPS_KEY_FILE \
+    -u NANOBK_ALLOW_SELF_SIGNED_VPS_INSTALL \
+    -u NANOBK_ALLOW_NO_CERT_VPS_INSTALL \
+    -u NANOBK_VPS_OPEN_FIREWALL \
+    NANOBK_TEST_SKIP_REGRESSION=1 \
     bash "$1"
 }
 
@@ -272,11 +309,15 @@ if env | grep -q '^NANOBK_ALLOW_REAL_WORKER_DEPLOY=1$'; then fail "58: default t
 echo ""
 echo "=== I. Regression ==="
 
-if run_clean_test "$REPO_DIR/tests/v2.6.2-controlled-dns-apply.sh" >/dev/null 2>&1; then ok "59: v2.6.2 DNS apply test passes"; else fail "59: v2.6.2 DNS apply test passes"; fi
-if run_clean_test "$REPO_DIR/tests/v2.6.1-cloudflare-domain-selection.sh" >/dev/null 2>&1; then ok "60: v2.6.1 domain selection test passes"; else fail "60: v2.6.1 domain selection test passes"; fi
-if run_clean_test "$REPO_DIR/tests/v2.6.0-controlled-execution-contract.sh" >/dev/null 2>&1; then ok "61: v2.6.0 execution contract test passes"; else fail "61: v2.6.0 execution contract test passes"; fi
-if run_clean_test "$REPO_DIR/tests/v2.5.11-closeout-manifest.sh" >/dev/null 2>&1; then ok "62: v2.5.11 closeout test passes"; else fail "62: v2.5.11 closeout test passes"; fi
-if run_clean_test "$REPO_DIR/tests/v2.4.5-friendly-gate-wrappers.sh" >/dev/null 2>&1; then ok "63: v2.4.5 friendly gate wrappers test passes"; else fail "63: v2.4.5 friendly gate wrappers test passes"; fi
+if [[ "${NANOBK_TEST_SKIP_REGRESSION:-1}" == "1" ]]; then
+  ok "59: regression skipped by NANOBK_TEST_SKIP_REGRESSION"
+else
+  if run_clean_test "$REPO_DIR/tests/v2.6.2-controlled-dns-apply.sh" >/dev/null 2>&1; then ok "59: v2.6.2 DNS apply test passes"; else fail "59: v2.6.2 DNS apply test passes"; fi
+  if run_clean_test "$REPO_DIR/tests/v2.6.1-cloudflare-domain-selection.sh" >/dev/null 2>&1; then ok "60: v2.6.1 domain selection test passes"; else fail "60: v2.6.1 domain selection test passes"; fi
+  if run_clean_test "$REPO_DIR/tests/v2.6.0-controlled-execution-contract.sh" >/dev/null 2>&1; then ok "61: v2.6.0 execution contract test passes"; else fail "61: v2.6.0 execution contract test passes"; fi
+  if run_clean_test "$REPO_DIR/tests/v2.5.11-closeout-manifest.sh" >/dev/null 2>&1; then ok "62: v2.5.11 closeout test passes"; else fail "62: v2.5.11 closeout test passes"; fi
+  if run_clean_test "$REPO_DIR/tests/v2.4.5-friendly-gate-wrappers.sh" >/dev/null 2>&1; then ok "63: v2.4.5 friendly gate wrappers test passes"; else fail "63: v2.4.5 friendly gate wrappers test passes"; fi
+fi
 
 echo ""
 echo "Manual real Worker deploy guard (not run by this test):"

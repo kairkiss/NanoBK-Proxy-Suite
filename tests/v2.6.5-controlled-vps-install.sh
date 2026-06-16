@@ -48,6 +48,7 @@ clean_nanobk_fake_env() {
   unset NANOBK_VPS_KEY_FILE || true
   unset NANOBK_ALLOW_SELF_SIGNED_VPS_INSTALL || true
   unset NANOBK_ALLOW_NO_CERT_VPS_INSTALL || true
+  unset NANOBK_VPS_OPEN_FIREWALL || true
 }
 
 run_clean_test() {
@@ -81,6 +82,8 @@ run_clean_test() {
     -u NANOBK_VPS_KEY_FILE \
     -u NANOBK_ALLOW_SELF_SIGNED_VPS_INSTALL \
     -u NANOBK_ALLOW_NO_CERT_VPS_INSTALL \
+    -u NANOBK_VPS_OPEN_FIREWALL \
+    NANOBK_TEST_SKIP_REGRESSION=1 \
     bash "$1"
 }
 
@@ -355,13 +358,17 @@ if env | grep -q '^NANOBK_ALLOW_REAL_VPS_INSTALL=1$'; then fail "96: default tes
 echo ""
 echo "=== L. Regression ==="
 
-if run_clean_test "$REPO_DIR/tests/v2.6.4-controlled-cert-issue.sh" >/tmp/v265-reg-v264.txt 2>&1; then ok "97: v2.6.4 cert issue test passes"; else fail "97: v2.6.4 cert issue test passes"; tail -40 /tmp/v265-reg-v264.txt; fi
-if run_clean_test "$REPO_DIR/tests/v2.6.3-controlled-worker-deploy.sh" >/tmp/v265-reg-v263.txt 2>&1; then ok "98: v2.6.3 worker deploy test passes"; else fail "98: v2.6.3 worker deploy test passes"; tail -40 /tmp/v265-reg-v263.txt; fi
-if run_clean_test "$REPO_DIR/tests/v2.6.2-controlled-dns-apply.sh" >/tmp/v265-reg-v262.txt 2>&1; then ok "99: v2.6.2 DNS apply test passes"; else fail "99: v2.6.2 DNS apply test passes"; tail -40 /tmp/v265-reg-v262.txt; fi
-if run_clean_test "$REPO_DIR/tests/v2.6.1-cloudflare-domain-selection.sh" >/tmp/v265-reg-v261.txt 2>&1; then ok "100: v2.6.1 domain selection test passes"; else fail "100: v2.6.1 domain selection test passes"; tail -40 /tmp/v265-reg-v261.txt; fi
-if run_clean_test "$REPO_DIR/tests/v2.6.0-controlled-execution-contract.sh" >/tmp/v265-reg-v260.txt 2>&1; then ok "101: v2.6.0 execution contract test passes"; else fail "101: v2.6.0 execution contract test passes"; tail -40 /tmp/v265-reg-v260.txt; fi
-if run_clean_test "$REPO_DIR/tests/v2.5.11-closeout-manifest.sh" >/tmp/v265-reg-v2511.txt 2>&1; then ok "102: v2.5.11 closeout test passes"; else fail "102: v2.5.11 closeout test passes"; tail -40 /tmp/v265-reg-v2511.txt; fi
-if run_clean_test "$REPO_DIR/tests/v2.4.5-friendly-gate-wrappers.sh" >/tmp/v265-reg-v245.txt 2>&1; then ok "103: v2.4.5 friendly gate wrappers test passes"; else fail "103: v2.4.5 friendly gate wrappers test passes"; tail -40 /tmp/v265-reg-v245.txt; fi
+if [[ "${NANOBK_TEST_SKIP_REGRESSION:-1}" == "1" ]]; then
+  ok "97: regression skipped by NANOBK_TEST_SKIP_REGRESSION"
+else
+  if run_clean_test "$REPO_DIR/tests/v2.6.4-controlled-cert-issue.sh" >/tmp/v265-reg-v264.txt 2>&1; then ok "97: v2.6.4 cert issue test passes"; else fail "97: v2.6.4 cert issue test passes"; tail -40 /tmp/v265-reg-v264.txt; fi
+  if run_clean_test "$REPO_DIR/tests/v2.6.3-controlled-worker-deploy.sh" >/tmp/v265-reg-v263.txt 2>&1; then ok "98: v2.6.3 worker deploy test passes"; else fail "98: v2.6.3 worker deploy test passes"; tail -40 /tmp/v265-reg-v263.txt; fi
+  if run_clean_test "$REPO_DIR/tests/v2.6.2-controlled-dns-apply.sh" >/tmp/v265-reg-v262.txt 2>&1; then ok "99: v2.6.2 DNS apply test passes"; else fail "99: v2.6.2 DNS apply test passes"; tail -40 /tmp/v265-reg-v262.txt; fi
+  if run_clean_test "$REPO_DIR/tests/v2.6.1-cloudflare-domain-selection.sh" >/tmp/v265-reg-v261.txt 2>&1; then ok "100: v2.6.1 domain selection test passes"; else fail "100: v2.6.1 domain selection test passes"; tail -40 /tmp/v265-reg-v261.txt; fi
+  if run_clean_test "$REPO_DIR/tests/v2.6.0-controlled-execution-contract.sh" >/tmp/v265-reg-v260.txt 2>&1; then ok "101: v2.6.0 execution contract test passes"; else fail "101: v2.6.0 execution contract test passes"; tail -40 /tmp/v265-reg-v260.txt; fi
+  if run_clean_test "$REPO_DIR/tests/v2.5.11-closeout-manifest.sh" >/tmp/v265-reg-v2511.txt 2>&1; then ok "102: v2.5.11 closeout test passes"; else fail "102: v2.5.11 closeout test passes"; tail -40 /tmp/v265-reg-v2511.txt; fi
+  if run_clean_test "$REPO_DIR/tests/v2.4.5-friendly-gate-wrappers.sh" >/tmp/v265-reg-v245.txt 2>&1; then ok "103: v2.4.5 friendly gate wrappers test passes"; else fail "103: v2.4.5 friendly gate wrappers test passes"; tail -40 /tmp/v265-reg-v245.txt; fi
+fi
 
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"

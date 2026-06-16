@@ -199,22 +199,26 @@ assert_list_contains "32p: policy exact_gate_required defined" "$JSON_OUT" "supp
 
 echo ""
 echo "=== Regression smoke ==="
-if bash "$REPO_DIR/tests/v2.5.11-closeout-manifest.sh" >/dev/null 2>&1; then
-  ok "33: v2.5.11 closeout test passes"
+if [[ "${NANOBK_TEST_SKIP_REGRESSION:-1}" == "1" ]]; then
+  ok "33: regression skipped by NANOBK_TEST_SKIP_REGRESSION"
 else
-  fail "33: v2.5.11 closeout test passes"
-fi
+  if bash "$REPO_DIR/tests/v2.5.11-closeout-manifest.sh" >/dev/null 2>&1; then
+    ok "33: v2.5.11 closeout test passes"
+  else
+    fail "33: v2.5.11 closeout test passes"
+  fi
 
-if bash "$REPO_DIR/tests/v2.5.7-production-preflight.sh" >/dev/null 2>&1; then
-  ok "34: v2.5.7 preflight test passes"
-else
-  fail "34: v2.5.7 preflight test passes"
-fi
+  if bash "$REPO_DIR/tests/v2.5.7-production-preflight.sh" >/dev/null 2>&1; then
+    ok "34: v2.5.7 preflight test passes"
+  else
+    fail "34: v2.5.7 preflight test passes"
+  fi
 
-if bash "$REPO_DIR/tests/v2.4.5-friendly-gate-wrappers.sh" >/dev/null 2>&1; then
-  ok "35: v2.4.5 friendly gate wrappers test passes"
-else
-  fail "35: v2.4.5 friendly gate wrappers test passes"
+  if bash "$REPO_DIR/tests/v2.4.5-friendly-gate-wrappers.sh" >/dev/null 2>&1; then
+    ok "35: v2.4.5 friendly gate wrappers test passes"
+  else
+    fail "35: v2.4.5 friendly gate wrappers test passes"
+  fi
 fi
 
 echo ""

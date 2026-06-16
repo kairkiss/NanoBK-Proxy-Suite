@@ -88,6 +88,7 @@ run_clean_test() {
     -u NANOBK_VPS_OPEN_FIREWALL \
     -u NANOBK_ALLOW_SELF_SIGNED_VPS_INSTALL \
     -u NANOBK_ALLOW_NO_CERT_VPS_INSTALL \
+    NANOBK_TEST_SKIP_REGRESSION=1 \
     bash "$1"
 }
 
@@ -291,14 +292,47 @@ ok "66: no key file path"
 echo ""
 echo "=== H. Regression ==="
 
-if run_clean_test "$REPO_DIR/tests/v2.6.5-controlled-vps-install.sh" >/tmp/v266-reg-v265.txt 2>&1; then ok "67: v2.6.5 controlled vps install test passes"; else fail "67: v2.6.5 controlled vps install test passes"; tail -40 /tmp/v266-reg-v265.txt; fi
-if run_clean_test "$REPO_DIR/tests/v2.6.4-controlled-cert-issue.sh" >/tmp/v266-reg-v264.txt 2>&1; then ok "68: v2.6.4 cert issue test passes"; else fail "68: v2.6.4 cert issue test passes"; tail -40 /tmp/v266-reg-v264.txt; fi
-if run_clean_test "$REPO_DIR/tests/v2.6.3-controlled-worker-deploy.sh" >/tmp/v266-reg-v263.txt 2>&1; then ok "69: v2.6.3 worker deploy test passes"; else fail "69: v2.6.3 worker deploy test passes"; tail -40 /tmp/v266-reg-v263.txt; fi
-if run_clean_test "$REPO_DIR/tests/v2.6.2-controlled-dns-apply.sh" >/tmp/v266-reg-v262.txt 2>&1; then ok "70: v2.6.2 DNS apply test passes"; else fail "70: v2.6.2 DNS apply test passes"; tail -40 /tmp/v266-reg-v262.txt; fi
-if run_clean_test "$REPO_DIR/tests/v2.6.1-cloudflare-domain-selection.sh" >/tmp/v266-reg-v261.txt 2>&1; then ok "71: v2.6.1 domain selection test passes"; else fail "71: v2.6.1 domain selection test passes"; tail -40 /tmp/v266-reg-v261.txt; fi
-if run_clean_test "$REPO_DIR/tests/v2.6.0-controlled-execution-contract.sh" >/tmp/v266-reg-v260.txt 2>&1; then ok "72: v2.6.0 execution contract test passes"; else fail "72: v2.6.0 execution contract test passes"; tail -40 /tmp/v266-reg-v260.txt; fi
-if run_clean_test "$REPO_DIR/tests/v2.5.11-closeout-manifest.sh" >/tmp/v266-reg-v2511.txt 2>&1; then ok "73: v2.5.11 closeout test passes"; else fail "73: v2.5.11 closeout test passes"; tail -40 /tmp/v266-reg-v2511.txt; fi
-if run_clean_test "$REPO_DIR/tests/v2.4.5-friendly-gate-wrappers.sh" >/tmp/v266-reg-v245.txt 2>&1; then ok "74: v2.4.5 friendly gate wrappers test passes"; else fail "74: v2.4.5 friendly gate wrappers test passes"; tail -40 /tmp/v266-reg-v245.txt; fi
+if [[ "${NANOBK_TEST_SKIP_REGRESSION:-1}" == "1" ]]; then
+  ok "67: regression skipped by NANOBK_TEST_SKIP_REGRESSION"
+else
+  if run_clean_test "$REPO_DIR/tests/v2.6.5-controlled-vps-install.sh" >/tmp/v266-reg-v265.txt 2>&1; then ok "67: v2.6.5 controlled vps install test passes"; else fail "67: v2.6.5 controlled vps install test passes"; tail -40 /tmp/v266-reg-v265.txt; fi
+  if run_clean_test "$REPO_DIR/tests/v2.6.4-controlled-cert-issue.sh" >/tmp/v266-reg-v264.txt 2>&1; then ok "68: v2.6.4 cert issue test passes"; else fail "68: v2.6.4 cert issue test passes"; tail -40 /tmp/v266-reg-v264.txt; fi
+  if run_clean_test "$REPO_DIR/tests/v2.6.3-controlled-worker-deploy.sh" >/tmp/v266-reg-v263.txt 2>&1; then ok "69: v2.6.3 worker deploy test passes"; else fail "69: v2.6.3 worker deploy test passes"; tail -40 /tmp/v266-reg-v263.txt; fi
+  if run_clean_test "$REPO_DIR/tests/v2.6.2-controlled-dns-apply.sh" >/tmp/v266-reg-v262.txt 2>&1; then ok "70: v2.6.2 DNS apply test passes"; else fail "70: v2.6.2 DNS apply test passes"; tail -40 /tmp/v266-reg-v262.txt; fi
+  if run_clean_test "$REPO_DIR/tests/v2.6.1-cloudflare-domain-selection.sh" >/tmp/v266-reg-v261.txt 2>&1; then ok "71: v2.6.1 domain selection test passes"; else fail "71: v2.6.1 domain selection test passes"; tail -40 /tmp/v266-reg-v261.txt; fi
+  if run_clean_test "$REPO_DIR/tests/v2.6.0-controlled-execution-contract.sh" >/tmp/v266-reg-v260.txt 2>&1; then ok "72: v2.6.0 execution contract test passes"; else fail "72: v2.6.0 execution contract test passes"; tail -40 /tmp/v266-reg-v260.txt; fi
+  if run_clean_test "$REPO_DIR/tests/v2.5.11-closeout-manifest.sh" >/tmp/v266-reg-v2511.txt 2>&1; then ok "73: v2.5.11 closeout test passes"; else fail "73: v2.5.11 closeout test passes"; tail -40 /tmp/v266-reg-v2511.txt; fi
+  if run_clean_test "$REPO_DIR/tests/v2.4.5-friendly-gate-wrappers.sh" >/tmp/v266-reg-v245.txt 2>&1; then ok "74: v2.4.5 friendly gate wrappers test passes"; else fail "74: v2.4.5 friendly gate wrappers test passes"; tail -40 /tmp/v266-reg-v245.txt; fi
+fi
+
+echo ""
+echo "=== I. De-recursion proof ==="
+
+if env \
+  NANOBK_FAKE_SELECTED_DOMAIN=example.com \
+  NANOBK_FAKE_VPS_LEGACY_ADAPTER=failure \
+  NANOBK_ALLOW_REAL_VPS_INSTALL=1 \
+  NANOBK_TEST_SKIP_REGRESSION=1 \
+  bash "$REPO_DIR/tests/v2.6.5-controlled-vps-install.sh" >/tmp/v266-skip-v265.txt 2>&1; then
+  ok "75: contaminated env v2.6.5 skip RC=0"
+else
+  fail "75: contaminated env v2.6.5 skip RC=0"
+  tail -40 /tmp/v266-skip-v265.txt
+fi
+
+if env NANOBK_TEST_SKIP_REGRESSION=1 bash "$REPO_DIR/tests/v2.6.4-controlled-cert-issue.sh" >/tmp/v266-skip-v264.txt 2>&1; then
+  ok "76: v2.6.4 skip RC=0"
+else
+  fail "76: v2.6.4 skip RC=0"
+  tail -40 /tmp/v266-skip-v264.txt
+fi
+
+if env NANOBK_TEST_SKIP_REGRESSION=1 bash "$REPO_DIR/tests/v2.6.3-controlled-worker-deploy.sh" >/tmp/v266-skip-v263.txt 2>&1; then
+  ok "77: v2.6.3 skip RC=0"
+else
+  fail "77: v2.6.3 skip RC=0"
+  tail -40 /tmp/v266-skip-v263.txt
+fi
 
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
