@@ -1,5 +1,21 @@
 # Changelog
 
+## v2.6.8 — Owner Review And Production Readiness
+
+### Added
+
+- Added production owner review/status/next commands.
+- Added read-only readiness report across Cloudflare, domain, DNS, Worker, cert, VPS, subscription, and owner review.
+- Added beginner aliases for production review/status/next.
+- Added release blocker tracking for clean VPS full install and live profile publish validation.
+- Added JSON output for automation and human output for beginners.
+
+### Safety
+
+- Review/status/next never mutate infrastructure.
+- No DNS/Worker/cert/VPS/subscription/token/service actions run.
+- No raw token, URL, profile, UUID, password, private key, cert key path, zone/record ID, or env path output.
+
 ## v2.6.7-polish — Subscription Publish Test Isolation
 
 ### Fixed
