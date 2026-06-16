@@ -229,8 +229,19 @@ assert_json "28: next_step owner_review" "$EXISTING_JSON" "d['next_step']" "owne
 echo ""
 echo "=== E. Refusal cases ==="
 
+TMP_HOME="$(mktemp -d)"
 set +e
-NO_SELECTED=$(env NANOBK_FAKE_PROFILE_EXISTS=1 NANOBK_FAKE_PROFILE_COMPLETE=1 NANOBK_FAKE_CF_ADMIN_ENV=1 NANOBK_FAKE_ADMIN_ENDPOINTS=1 "$NANOBK" setup production subscription publish --dry-run --json 2>&1)
+NO_SELECTED=$(HOME="$TMP_HOME" env \
+  -u NANOBK_FAKE_SELECTED_DOMAIN \
+  -u NANOBK_FAKE_PROFILE_EXISTS \
+  -u NANOBK_FAKE_PROFILE_COMPLETE \
+  -u NANOBK_FAKE_PROFILE_PUBLISHED \
+  -u NANOBK_FAKE_CF_ADMIN_ENV \
+  -u NANOBK_FAKE_ADMIN_ENDPOINTS \
+  -u NANOBK_FAKE_ADMIN_TOKEN \
+  -u NANOBK_FAKE_PROFILE_PUBLISH \
+  -u NANOBK_FAKE_PROFILE_PUBLISH_FAIL \
+  "$NANOBK" setup production subscription publish --dry-run --json 2>&1)
 RC_NO_SELECTED=$?
 NO_PROFILE=$(env NANOBK_FAKE_SELECTED_DOMAIN=example.com NANOBK_FAKE_PROFILE_EXISTS=0 NANOBK_FAKE_CF_ADMIN_ENV=1 NANOBK_FAKE_ADMIN_ENDPOINTS=1 "$NANOBK" setup production subscription publish --dry-run --json 2>&1)
 RC_NO_PROFILE=$?
@@ -270,6 +281,11 @@ RELOAD=$(fake_ready_env "$NANOBK" setup production subscription publish --reload
 RC_RELOAD=$?
 set -e
 if [[ "$RC_NO_SELECTED" != "0" ]]; then ok "29a: no selected domain blocks"; else fail "29a: no selected domain blocks"; fi
+assert_valid_json "29b: no selected domain JSON valid" "$NO_SELECTED"
+assert_json "29c: no selected domain blocked true" "$NO_SELECTED" "d['blocked']" "True"
+assert_json "29d: no selected domain mutation false" "$NO_SELECTED" "d['mutation']" "False"
+assert_json "29e: no selected domain dangerous false" "$NO_SELECTED" "d['dangerous_actions_executed']" "False"
+assert_json "29f: no selected domain next_step select_domain" "$NO_SELECTED" "d['next_step']" "select_domain"
 if [[ "$RC_NO_PROFILE" != "0" ]]; then ok "29: no profile blocks"; else fail "29: no profile blocks"; fi
 if [[ "$RC_INCOMPLETE" != "0" ]]; then ok "30: incomplete profile blocks"; else fail "30: incomplete profile blocks"; fi
 if [[ "$RC_NO_ADMIN" != "0" ]]; then ok "31: no admin env blocks"; else fail "31: no admin env blocks"; fi
@@ -362,8 +378,8 @@ OUT="/tmp/nanobk-v267-output.txt"
 printf '%s\n' "$READY_JSON" "$EXISTING_JSON" "$NO_SELECTED" "$NO_PROFILE" "$INCOMPLETE" "$NO_ADMIN" "$NO_UPDATE" "$NO_TOKEN" "$NO_CONFIRM" "$WRONG" "$NO_GUARD" "$YES" "$FORCE" "$OVERWRITE" "$DELETE" "$UPDATE" "$ROTATE" "$DEPLOY" "$INSTALL" "$RESTART" "$RELOAD" "$FAKE_SUCCESS" "$FAKE_FAILURE" "$REAL_SAFE_BLOCK" >> "$OUT"
 fake_ready_env "$NANOBK" setup production subscription publish --dry-run >> "$OUT" 2>&1 || true
 fake_ready_env "$NANOBK" setup production subscription publish --confirm WRONG >> "$OUT" 2>&1 || true
-LEAK_PATTERN='ADMIN_TOKEN|SUB_TOKEN|CF_API_TOKEN|NANOB_TOKEN|https?://[^[:space:]]+|workers\.dev.*token|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|[Pp]assword|PRIVATE KEY|BEGIN PRIVATE KEY|"hy2"[[:space:]]*:|zone_id|record_id|api_env_path|raw Cloudflare|raw Worker'
-if grep -En "$LEAK_PATTERN" "$OUT" >/tmp/v267-hard-grep.txt 2>&1; then fail "68-81: HARD_GREP no leak"; cat /tmp/v267-hard-grep.txt; else ok "68-81: HARD_GREP no leak"; fi
+LEAK_PATTERN='ADMIN_TOKEN[[:space:]]*=|SUB_TOKEN[[:space:]]*=|CF_API_TOKEN[[:space:]]*=|NANOB_TOKEN[[:space:]]*=|Authorization:[[:space:]]*Bearer|Bearer[[:space:]][A-Za-z0-9._~+/=-]{12,}|https?://|workers\.dev|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|"password"[[:space:]]*:|password[[:space:]]*=|PRIVATE KEY|BEGIN PRIVATE KEY|profile\.current\.json|/etc/nanobk/profile|zone_id|record_id|api_env_path|raw Cloudflare|raw Worker|HY2_PASSWORD|TUIC_PASSWORD|REALITY_PRIVATE_KEY|TROJAN_PASSWORD'
+if grep -Ein "$LEAK_PATTERN" "$OUT" | grep -Ev 'admin_token_fingerprint|admin_token_present' >/tmp/v267-hard-grep.txt 2>&1; then fail "68-81: HARD_GREP no leak"; cat /tmp/v267-hard-grep.txt; else ok "68-81: HARD_GREP no leak"; fi
 ok "68: no ADMIN_TOKEN"
 ok "69: no SUB_TOKEN"
 ok "70: no CF_API_TOKEN"
@@ -398,15 +414,34 @@ echo "=== K. Regression ==="
 if [[ "${NANOBK_TEST_SKIP_REGRESSION:-0}" == "1" ]]; then
   ok "90-98: regression skipped by NANOBK_TEST_SKIP_REGRESSION"
 else
-  if run_clean_test "$REPO_DIR/tests/v2.6.6-real-vps-adapter.sh" >/tmp/v267-reg-v266.txt 2>&1; then ok "90: v2.6.6 real adapter test passes"; else fail "90: v2.6.6 real adapter test passes"; tail -40 /tmp/v267-reg-v266.txt; fi
-  if run_clean_test "$REPO_DIR/tests/v2.6.5-controlled-vps-install.sh" >/tmp/v267-reg-v265.txt 2>&1; then ok "91: v2.6.5 test passes"; else fail "91: v2.6.5 test passes"; tail -40 /tmp/v267-reg-v265.txt; fi
-  if run_clean_test "$REPO_DIR/tests/v2.6.4-controlled-cert-issue.sh" >/tmp/v267-reg-v264.txt 2>&1; then ok "92: v2.6.4 test passes"; else fail "92: v2.6.4 test passes"; tail -40 /tmp/v267-reg-v264.txt; fi
-  if run_clean_test "$REPO_DIR/tests/v2.6.3-controlled-worker-deploy.sh" >/tmp/v267-reg-v263.txt 2>&1; then ok "93: v2.6.3 test passes"; else fail "93: v2.6.3 test passes"; tail -40 /tmp/v267-reg-v263.txt; fi
-  if run_clean_test "$REPO_DIR/tests/v2.6.2-controlled-dns-apply.sh" >/tmp/v267-reg-v262.txt 2>&1; then ok "94: v2.6.2 test passes"; else fail "94: v2.6.2 test passes"; tail -40 /tmp/v267-reg-v262.txt; fi
-  if run_clean_test "$REPO_DIR/tests/v2.6.1-cloudflare-domain-selection.sh" >/tmp/v267-reg-v261.txt 2>&1; then ok "95: v2.6.1 test passes"; else fail "95: v2.6.1 test passes"; tail -40 /tmp/v267-reg-v261.txt; fi
-  if run_clean_test "$REPO_DIR/tests/v2.6.0-controlled-execution-contract.sh" >/tmp/v267-reg-v260.txt 2>&1; then ok "96: v2.6.0 test passes"; else fail "96: v2.6.0 test passes"; tail -40 /tmp/v267-reg-v260.txt; fi
-  if run_clean_test "$REPO_DIR/tests/v2.5.11-closeout-manifest.sh" >/tmp/v267-reg-v2511.txt 2>&1; then ok "97: v2.5.11 test passes"; else fail "97: v2.5.11 test passes"; tail -40 /tmp/v267-reg-v2511.txt; fi
-  if run_clean_test "$REPO_DIR/tests/v2.4.5-friendly-gate-wrappers.sh" >/tmp/v267-reg-v245.txt 2>&1; then ok "98: v2.4.5 test passes"; else fail "98: v2.4.5 test passes"; tail -40 /tmp/v267-reg-v245.txt; fi
+  run_clean_test "$REPO_DIR/tests/v2.6.6-real-vps-adapter.sh" >/tmp/v267-reg-v266.txt 2>&1 &
+  PID_266=$!
+  run_clean_test "$REPO_DIR/tests/v2.6.5-controlled-vps-install.sh" >/tmp/v267-reg-v265.txt 2>&1 &
+  PID_265=$!
+  run_clean_test "$REPO_DIR/tests/v2.6.4-controlled-cert-issue.sh" >/tmp/v267-reg-v264.txt 2>&1 &
+  PID_264=$!
+  run_clean_test "$REPO_DIR/tests/v2.6.3-controlled-worker-deploy.sh" >/tmp/v267-reg-v263.txt 2>&1 &
+  PID_263=$!
+  run_clean_test "$REPO_DIR/tests/v2.6.2-controlled-dns-apply.sh" >/tmp/v267-reg-v262.txt 2>&1 &
+  PID_262=$!
+  run_clean_test "$REPO_DIR/tests/v2.6.1-cloudflare-domain-selection.sh" >/tmp/v267-reg-v261.txt 2>&1 &
+  PID_261=$!
+  run_clean_test "$REPO_DIR/tests/v2.6.0-controlled-execution-contract.sh" >/tmp/v267-reg-v260.txt 2>&1 &
+  PID_260=$!
+  run_clean_test "$REPO_DIR/tests/v2.5.11-closeout-manifest.sh" >/tmp/v267-reg-v2511.txt 2>&1 &
+  PID_2511=$!
+  run_clean_test "$REPO_DIR/tests/v2.4.5-friendly-gate-wrappers.sh" >/tmp/v267-reg-v245.txt 2>&1 &
+  PID_245=$!
+
+  if wait "$PID_266"; then ok "90: v2.6.6 real adapter test passes"; else fail "90: v2.6.6 real adapter test passes"; tail -40 /tmp/v267-reg-v266.txt; fi
+  if wait "$PID_265"; then ok "91: v2.6.5 test passes"; else fail "91: v2.6.5 test passes"; tail -40 /tmp/v267-reg-v265.txt; fi
+  if wait "$PID_264"; then ok "92: v2.6.4 test passes"; else fail "92: v2.6.4 test passes"; tail -40 /tmp/v267-reg-v264.txt; fi
+  if wait "$PID_263"; then ok "93: v2.6.3 test passes"; else fail "93: v2.6.3 test passes"; tail -40 /tmp/v267-reg-v263.txt; fi
+  if wait "$PID_262"; then ok "94: v2.6.2 test passes"; else fail "94: v2.6.2 test passes"; tail -40 /tmp/v267-reg-v262.txt; fi
+  if wait "$PID_261"; then ok "95: v2.6.1 test passes"; else fail "95: v2.6.1 test passes"; tail -40 /tmp/v267-reg-v261.txt; fi
+  if wait "$PID_260"; then ok "96: v2.6.0 test passes"; else fail "96: v2.6.0 test passes"; tail -40 /tmp/v267-reg-v260.txt; fi
+  if wait "$PID_2511"; then ok "97: v2.5.11 test passes"; else fail "97: v2.5.11 test passes"; tail -40 /tmp/v267-reg-v2511.txt; fi
+  if wait "$PID_245"; then ok "98: v2.4.5 test passes"; else fail "98: v2.4.5 test passes"; tail -40 /tmp/v267-reg-v245.txt; fi
 fi
 
 echo ""

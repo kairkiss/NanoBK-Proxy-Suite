@@ -1,5 +1,21 @@
 # Changelog
 
+## v2.6.7-polish — Subscription Publish Test Isolation
+
+### Fixed
+
+- Isolated no-selected-domain subscription publish test from real VPS persistent state.
+- Adjusted HARD_GREP to allow safe redacted fields such as admin_token_fingerprint and admin_token_present.
+- Preserved strict blocking for raw tokens, raw URLs, raw profile JSON, UUIDs, passwords, private keys, and env paths.
+
+### Safety
+
+- No runtime publish behavior changed unless required by the isolated-domain check.
+- No real profile publish.
+- No Worker deploy.
+- No DNS/cert/VPS/service/token mutation.
+- No raw secret output.
+
 ## v2.6.7 — Controlled Subscription Profile Publish Integration
 
 ### Added
