@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """
-NanoBK Production VPS Install (v2.6.5)
+NanoBK Production VPS Install (v2.6.6)
 
 Productized, exact-gated wrapper for the legacy four-protocol VPS installer.
-Default behavior is read-only. Automated tests use fake install hooks only.
-The real installer adapter is intentionally safe-refused until VPS acceptance
-connects it.
+Default behavior is read-only. Render-check uses the legacy installer's
+render-only mode. Real install is available only behind exact confirmation,
+explicit environment guard, certificate safety checks, and existing-install
+protection.
 """
 
 import argparse
@@ -16,6 +17,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -23,10 +25,13 @@ from nanobk_domain_selection import load_selected_domain
 from nanobk_setup_profile import load_profile
 
 
-VERSION = "2.6.5"
+VERSION = "2.6.6"
 MODE = "production_vps_install_v2_6"
 EXACT_PHRASE_VPS = "I UNDERSTAND NANOBK WILL INSTALL VPS PROXY SERVICES"
 
+REPO_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+LEGACY_INSTALLER = "installer/install-vps.sh"
+LEGACY_INSTALLER_PATH = os.path.join(REPO_DIR, LEGACY_INSTALLER)
 PROFILE_PATH = "/etc/nanobk/profile.current.json"
 
 PROTOCOLS = [
@@ -50,6 +55,17 @@ BLOCKED_ARGS = {
 DOMAIN_RE = re.compile(
     r"^(?=.{1,253}$)(?!-)[A-Za-z0-9-]{1,63}(?<!-)"
     r"(\.(?!-)[A-Za-z0-9-]{1,63}(?<!-))+$"
+)
+SENSITIVE_LINE_RE = re.compile(
+    r"(password|uuid|private|token|secret|key|BEGIN .*KEY|SUB_TOKEN|ADMIN_TOKEN|"
+    r"CF_API_TOKEN|secrets\.private\.env|profile\.current\.json|workers\.dev|"
+    r"/admin|subscription|privkey|fullchain)",
+    re.IGNORECASE,
+)
+UUID_RE = re.compile(r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b")
+PRIVATE_KEY_BLOCK_RE = re.compile(
+    r"-----BEGIN [A-Z ]*PRIVATE KEY-----.*?-----END [A-Z ]*PRIVATE KEY-----",
+    re.DOTALL,
 )
 
 
@@ -191,14 +207,14 @@ def _install_state():
     }
 
 
-def _preflight(dry_run):
+def _preflight(dry_run, require_linux=False):
     domain = _selected_domain()
     if not domain:
         return _refusal("还没有选择你的域名，请先运行 nanobk setup domain", "select_domain", dry_run)
     if not _safe_domain(domain):
         return _refusal("你的域名格式不正确，请重新选择域名。", "select_domain", dry_run)
 
-    if not _has_fake_context():
+    if require_linux and not _fake_adapter_enabled():
         if platform.system() != "Linux":
             return _refusal("安装代理服务需要在 Linux VPS 上运行。", "run_on_linux_vps", dry_run)
         if not _systemctl_available():
@@ -257,15 +273,302 @@ def _preflight(dry_run):
     }
 
 
+def _fake_adapter_enabled():
+    return os.environ.get("NANOBK_FAKE_VPS_LEGACY_ADAPTER") in {"success", "failure"}
+
+
+def _vps_ip_for_render():
+    return (
+        os.environ.get("NANOBK_FAKE_VPS_IPV4")
+        or os.environ.get("NANOBK_VPS_IP")
+        or "198.51.100.10"
+    )
+
+
+def _vps_ip_for_real():
+    return os.environ.get("NANOBK_VPS_IP") or os.environ.get("NANOBK_FAKE_VPS_IPV4")
+
+
+def redact_output(text):
+    if not text:
+        return ""
+    cleaned = PRIVATE_KEY_BLOCK_RE.sub("[redacted sensitive block]", text)
+    redacted = []
+    for raw_line in cleaned.splitlines():
+        line = UUID_RE.sub("[redacted-id]", raw_line)
+        if SENSITIVE_LINE_RE.search(line):
+            redacted.append("[redacted sensitive line]")
+        else:
+            redacted.append(line)
+    return "\n".join(redacted)
+
+
+def _redacted_tail(text, max_lines=20):
+    safe = redact_output(text)
+    lines = [line for line in safe.splitlines() if line.strip()]
+    return lines[-max_lines:]
+
+
+def _legacy_summary(exit_code):
+    if exit_code == 0:
+        return "旧版安装器已完成，输出已脱敏。"
+    return "旧版安装器未完成，输出已脱敏。"
+
+
+def _run_command(command, timeout):
+    completed = subprocess.run(
+        command,
+        cwd=REPO_DIR,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        timeout=timeout,
+        check=False,
+    )
+    return completed.returncode, f"{completed.stdout}\n{completed.stderr}"
+
+
+def _render_command(domain, render_dir):
+    return [
+        "bash",
+        LEGACY_INSTALLER_PATH,
+        "--render-only",
+        "--yes",
+        "--config-dir",
+        os.path.join(render_dir, "etc", "nanobk"),
+        "--install-dir",
+        os.path.join(render_dir, "opt", "nanobk"),
+        "--domain",
+        domain,
+        "--vps-ip",
+        _vps_ip_for_render(),
+        "--cert-mode",
+        "self-signed",
+    ]
+
+
+def run_render_check():
+    plan = _preflight(dry_run=True, require_linux=False)
+    if not plan.get("ok"):
+        plan["render_check"] = True
+        return plan
+
+    if plan.get("existing_install"):
+        return {
+            "ok": True,
+            "mode": MODE,
+            "version": VERSION,
+            "render_check": True,
+            "mutation": False,
+            "dangerous_actions_executed": False,
+            "legacy_installer": LEGACY_INSTALLER,
+            "rendered_protocols": [item["name"] for item in PROTOCOLS],
+            "render_dir": "redacted",
+            "existing_install": True,
+            "next_step": "setup_subscription",
+            "safety": "render_only",
+        }
+
+    fake_render = os.environ.get("NANOBK_FAKE_VPS_RENDER_CHECK")
+    if fake_render == "failure":
+        return _refusal(
+            "旧版安装器渲染检查失败，当前不会安装代理服务。",
+            "repair_or_review",
+            False,
+            render_check=True,
+            legacy_installer=LEGACY_INSTALLER,
+            redacted_output_tail=["[redacted sensitive line]"],
+        )
+    if fake_render == "success":
+        return {
+            "ok": True,
+            "mode": MODE,
+            "version": VERSION,
+            "render_check": True,
+            "mutation": False,
+            "dangerous_actions_executed": False,
+            "legacy_installer": LEGACY_INSTALLER,
+            "rendered_protocols": [item["name"] for item in PROTOCOLS],
+            "render_dir": "redacted",
+            "next_step": "confirm_vps_install",
+            "safety": "render_only",
+        }
+
+    if not os.path.isfile(LEGACY_INSTALLER_PATH):
+        return _refusal(
+            "没有找到旧版 VPS 安装器，当前不会安装代理服务。",
+            "repair_or_review",
+            False,
+            render_check=True,
+            legacy_installer=LEGACY_INSTALLER,
+        )
+
+    with tempfile.TemporaryDirectory(prefix="nanobk-vps-render-") as tmpdir:
+        command = _render_command(plan["selected_domain"], tmpdir)
+        try:
+            exit_code, output = _run_command(command, timeout=180)
+        except (OSError, subprocess.TimeoutExpired):
+            return _refusal(
+                "旧版安装器渲染检查超时或无法启动，当前不会安装代理服务。",
+                "repair_or_review",
+                False,
+                render_check=True,
+                legacy_installer=LEGACY_INSTALLER,
+            )
+
+    if exit_code != 0:
+        return _refusal(
+            "旧版安装器渲染检查失败，当前不会安装代理服务。",
+            "repair_or_review",
+            False,
+            render_check=True,
+            legacy_installer=LEGACY_INSTALLER,
+            legacy_exit_code=exit_code,
+            legacy_output_summary=_legacy_summary(exit_code),
+            redacted_output_tail=_redacted_tail(output),
+        )
+
+    return {
+        "ok": True,
+        "mode": MODE,
+        "version": VERSION,
+        "render_check": True,
+        "mutation": False,
+        "dangerous_actions_executed": False,
+        "legacy_installer": LEGACY_INSTALLER,
+        "rendered_protocols": [item["name"] for item in PROTOCOLS],
+        "render_dir": "redacted",
+        "next_step": "confirm_vps_install",
+        "safety": "render_only",
+    }
+
+
 def build_plan(dry_run=True):
-    return _preflight(dry_run=dry_run)
+    return _preflight(dry_run=dry_run, require_linux=False)
+
+
+def _cert_options():
+    mode = os.environ.get("NANOBK_VPS_CERT_MODE", "existing").strip()
+    if mode not in {"existing", "self-signed", "none"}:
+        return None, _refusal("证书模式不正确，请使用 existing、self-signed 或 none。", "cert_mode", False)
+
+    if mode == "existing":
+        cert_file = os.environ.get("NANOBK_VPS_CERT_FILE", "")
+        key_file = os.environ.get("NANOBK_VPS_KEY_FILE", "")
+        if not cert_file or not key_file:
+            return None, _refusal("existing 证书模式需要提供证书文件和密钥文件。", "cert_files", False)
+        if not os.path.isfile(cert_file) or not os.path.isfile(key_file):
+            return None, _refusal("existing 证书模式需要可读取的证书文件和密钥文件。", "cert_files", False)
+        return ["--cert-mode", "existing", "--cert-file", cert_file, "--key-file", key_file], None
+
+    if mode == "self-signed":
+        if os.environ.get("NANOBK_ALLOW_SELF_SIGNED_VPS_INSTALL") != "1":
+            return None, _refusal("self-signed 证书只适合测试，需要显式允许。", "allow_self_signed", False)
+        return ["--cert-mode", "self-signed"], None
+
+    if os.environ.get("NANOBK_ALLOW_NO_CERT_VPS_INSTALL") != "1":
+        return None, _refusal("无证书安装会导致部分代理通道不可用，需要显式允许。", "allow_no_cert", False)
+    return ["--cert-mode", "none"], None
+
+
+def _legacy_install_command(domain):
+    cert_args, err = _cert_options()
+    if err:
+        return None, err
+
+    command = [
+        "bash",
+        LEGACY_INSTALLER_PATH,
+        "--yes",
+        "--domain",
+        domain,
+        "--reality-servername",
+        os.environ.get("NANOBK_VPS_REALITY_SERVERNAME", "www.microsoft.com"),
+    ]
+
+    vps_ip = _vps_ip_for_real()
+    if vps_ip:
+        command.extend(["--vps-ip", vps_ip])
+
+    email = os.environ.get("NANOBK_VPS_EMAIL")
+    if email:
+        command.extend(["--email", email])
+
+    command.extend(cert_args)
+
+    if os.environ.get("NANOBK_VPS_OPEN_FIREWALL") == "1":
+        command.append("--open-firewall")
+
+    return command, None
+
+
+def _run_healthcheck_if_available():
+    path = "/opt/nanobk/bin/healthcheck.sh"
+    if not os.path.isfile(path):
+        return "passed_or_not_run"
+    try:
+        completed = subprocess.run(
+            ["bash", path],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=90,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return "failed"
+    return "passed" if completed.returncode == 0 else "failed"
+
+
+def _fake_legacy_adapter(plan):
+    mode = os.environ.get("NANOBK_FAKE_VPS_LEGACY_ADAPTER")
+    if mode == "success":
+        return {
+            "ok": True,
+            "mode": MODE,
+            "version": VERSION,
+            "dry_run": False,
+            "mutation": True,
+            "dangerous_actions_executed": True,
+            "confirmed": True,
+            "legacy_adapter": "connected",
+            "legacy_installer": LEGACY_INSTALLER,
+            "legacy_exit_code": 0,
+            "legacy_output_summary": "旧版安装器已完成，输出已脱敏。",
+            "installed_protocols": _installed_protocols(),
+            "healthcheck": "passed_or_not_run",
+            "blocked": False,
+            "next_step": "setup_subscription",
+            "safety": "confirmed_vps_install",
+        }
+    if mode == "failure":
+        raw = "ADMIN_TOKEN=secret\nTUIC_UUID=00000000-0000-0000-0000-000000000000\ninstall failed"
+        return {
+            "ok": False,
+            "mode": MODE,
+            "version": VERSION,
+            "dry_run": False,
+            "mutation": True,
+            "dangerous_actions_executed": True,
+            "confirmed": True,
+            "legacy_adapter": "connected",
+            "legacy_installer": LEGACY_INSTALLER,
+            "legacy_exit_code": 1,
+            "blocked": True,
+            "error": "旧版安装器执行失败，请查看已脱敏摘要。",
+            "legacy_output_summary": "旧版安装器未完成，输出已脱敏。",
+            "redacted_output_tail": _redacted_tail(raw),
+            "next_step": "repair_or_review",
+            "safety": "confirmed_vps_install_failed",
+        }
+    return None
 
 
 def install_vps(confirm_phrase):
     if confirm_phrase != EXACT_PHRASE_VPS:
         return _refusal("需要完整输入安全确认短语。", "confirm_vps_install", False)
 
-    plan = _preflight(dry_run=False)
+    plan = _preflight(dry_run=False, require_linux=False)
     if not plan.get("ok"):
         plan["confirmed"] = True
         return plan
@@ -312,12 +615,85 @@ def install_vps(confirm_phrase):
             False,
         )
 
-    return _refusal(
-        "真实安装代理服务的受控执行器尚未接入；当前不会安装或重启服务。",
-        "connect_vps_install_adapter",
-        False,
-        confirmed=True,
-    )
+    if not _fake_adapter_enabled():
+        if platform.system() != "Linux":
+            return _refusal("安装代理服务需要在 Linux VPS 上运行。", "run_on_linux_vps", False, confirmed=True)
+        if not _systemctl_available():
+            return _refusal("没有检测到 systemctl，无法管理代理服务。", "install_systemd", False, confirmed=True)
+
+    command, command_err = _legacy_install_command(plan["selected_domain"])
+    if command_err:
+        command_err["confirmed"] = True
+        return command_err
+
+    render = run_render_check()
+    if not render.get("ok"):
+        render["confirmed"] = True
+        return render
+
+    fake = _fake_legacy_adapter(plan)
+    if fake:
+        return fake
+
+    try:
+        exit_code, output = _run_command(command, timeout=900)
+    except (OSError, subprocess.TimeoutExpired):
+        return {
+            "ok": False,
+            "mode": MODE,
+            "version": VERSION,
+            "dry_run": False,
+            "mutation": True,
+            "dangerous_actions_executed": True,
+            "confirmed": True,
+            "legacy_adapter": "connected",
+            "legacy_installer": LEGACY_INSTALLER,
+            "legacy_exit_code": 124,
+            "blocked": True,
+            "error": "旧版安装器执行超时或无法启动，请查看已脱敏摘要。",
+            "redacted_output_tail": [],
+            "next_step": "repair_or_review",
+            "safety": "confirmed_vps_install_failed",
+        }
+
+    if exit_code != 0:
+        return {
+            "ok": False,
+            "mode": MODE,
+            "version": VERSION,
+            "dry_run": False,
+            "mutation": True,
+            "dangerous_actions_executed": True,
+            "confirmed": True,
+            "legacy_adapter": "connected",
+            "legacy_installer": LEGACY_INSTALLER,
+            "legacy_exit_code": exit_code,
+            "blocked": True,
+            "error": "旧版安装器执行失败，请查看已脱敏摘要。",
+            "legacy_output_summary": _legacy_summary(exit_code),
+            "redacted_output_tail": _redacted_tail(output),
+            "next_step": "repair_or_review",
+            "safety": "confirmed_vps_install_failed",
+        }
+
+    return {
+        "ok": True,
+        "mode": MODE,
+        "version": VERSION,
+        "dry_run": False,
+        "mutation": True,
+        "dangerous_actions_executed": True,
+        "confirmed": True,
+        "legacy_adapter": "connected",
+        "legacy_installer": LEGACY_INSTALLER,
+        "legacy_exit_code": 0,
+        "legacy_output_summary": _legacy_summary(0),
+        "installed_protocols": _installed_protocols(),
+        "healthcheck": _run_healthcheck_if_available(),
+        "blocked": False,
+        "next_step": "setup_subscription",
+        "safety": "confirmed_vps_install",
+    }
 
 
 def public_result(result):
@@ -327,6 +703,22 @@ def public_result(result):
 def output_text(result):
     result = public_result(result)
     lines = [""]
+
+    if result.get("ok") and result.get("render_check"):
+        lines.extend([
+            "  NanoBK 代理服务渲染检查",
+            "  ─────────────────────────────────────────────",
+            "",
+            "  已完成旧版安装器渲染检查。",
+            "  当前不会安装代理服务，不会启动/刷新服务。",
+            "",
+            "  已验证：hy2、tuic、reality、trojan",
+            "",
+            "  下一步：",
+            f'  nanobk setup production vps install --confirm "{EXACT_PHRASE_VPS}"',
+            "",
+        ])
+        return "\n".join(lines)
 
     if result.get("ok") and result.get("dry_run"):
         lines.extend([
@@ -370,7 +762,7 @@ def output_text(result):
         if result.get("existing_install"):
             lines.append("  已检测到四个代理通道，当前不需要重新安装。")
         else:
-            lines.append("  正在安装代理服务……")
+            lines.append("  旧版安装器已完成。")
             lines.append("")
             lines.append("  完成：")
             for item in result.get("installed_protocols", []):
@@ -398,10 +790,14 @@ def output_text(result):
         lines.append("  请确认 VPS 使用 systemd。")
     elif next_step == "repair_or_review":
         lines.append("  请先人工检查已有代理服务，再决定是否修复。")
+    elif next_step == "cert_files":
+        lines.append("  请提供 existing 证书文件和密钥文件。")
+    elif next_step == "allow_self_signed":
+        lines.append("  self-signed 仅适合测试 VPS，需要显式允许。")
+    elif next_step == "allow_no_cert":
+        lines.append("  无证书安装会导致部分代理通道不可用，需要显式允许。")
     elif next_step == "confirm_vps_install":
         lines.append(f'  请使用：--confirm "{EXACT_PHRASE_VPS}"')
-    elif next_step == "connect_vps_install_adapter":
-        lines.append("  当前版本不会真正安装或重启服务。")
     lines.append("")
     return "\n".join(lines)
 
@@ -428,10 +824,13 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description="NanoBK production VPS install")
     parser.add_argument("--json", action="store_true", help="JSON output")
     parser.add_argument("--dry-run", action="store_true", help="Show plan only")
+    parser.add_argument("--render-check", action="store_true", help="Run legacy installer render-only check")
     parser.add_argument("--confirm", help="Exact safety confirmation phrase")
     args = parser.parse_args(argv)
 
-    if args.dry_run:
+    if args.render_check:
+        result = run_render_check()
+    elif args.dry_run:
         result = build_plan(dry_run=True)
     else:
         result = install_vps(args.confirm)

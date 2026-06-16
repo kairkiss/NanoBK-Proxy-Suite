@@ -1,5 +1,26 @@
 # Changelog
 
+## v2.6.6 — Real Legacy VPS Installer Adapter
+
+### Added
+
+- Connected the v2.6 VPS install wrapper to the real legacy installer adapter.
+- Added render-only adapter check using installer/install-vps.sh.
+- Added guarded real install command builder.
+- Added certificate-mode safety checks.
+- Added redacted legacy output summaries.
+- Added v2.6.6 real adapter tests.
+
+### Safety
+
+- Real install requires exact phrase and NANOBK_ALLOW_REAL_VPS_INSTALL=1.
+- Existing complete install is not reinstalled.
+- Partial install blocks.
+- Self-signed install requires explicit opt-in.
+- No raw secrets/profile/private keys/subscription URLs output.
+- No force overwrite.
+- No firewall modification by default.
+
 ## v2.6.5 — Legacy Four-Protocol VPS Install Integration
 
 ### Added

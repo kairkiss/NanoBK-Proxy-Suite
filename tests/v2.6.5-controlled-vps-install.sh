@@ -40,7 +40,14 @@ clean_nanobk_fake_env() {
   unset NANOBK_FAKE_VPS_SERVICES_ACTIVE || true
   unset NANOBK_FAKE_VPS_HEALTHCHECK || true
   unset NANOBK_FAKE_VPS_INSTALL || true
+  unset NANOBK_FAKE_VPS_LEGACY_ADAPTER || true
+  unset NANOBK_FAKE_VPS_RENDER_CHECK || true
   unset NANOBK_ALLOW_REAL_VPS_INSTALL || true
+  unset NANOBK_VPS_CERT_MODE || true
+  unset NANOBK_VPS_CERT_FILE || true
+  unset NANOBK_VPS_KEY_FILE || true
+  unset NANOBK_ALLOW_SELF_SIGNED_VPS_INSTALL || true
+  unset NANOBK_ALLOW_NO_CERT_VPS_INSTALL || true
 }
 
 run_clean_test() {
@@ -66,7 +73,14 @@ run_clean_test() {
     -u NANOBK_FAKE_VPS_SERVICES_ACTIVE \
     -u NANOBK_FAKE_VPS_HEALTHCHECK \
     -u NANOBK_FAKE_VPS_INSTALL \
+    -u NANOBK_FAKE_VPS_LEGACY_ADAPTER \
+    -u NANOBK_FAKE_VPS_RENDER_CHECK \
     -u NANOBK_ALLOW_REAL_VPS_INSTALL \
+    -u NANOBK_VPS_CERT_MODE \
+    -u NANOBK_VPS_CERT_FILE \
+    -u NANOBK_VPS_KEY_FILE \
+    -u NANOBK_ALLOW_SELF_SIGNED_VPS_INSTALL \
+    -u NANOBK_ALLOW_NO_CERT_VPS_INSTALL \
     bash "$1"
 }
 
@@ -202,7 +216,8 @@ echo ""
 echo "=== C. Dry-run JSON ==="
 
 assert_json "16: mode production_vps_install_v2_6" "$DRY_BLOCKED_JSON" "d['mode']" "production_vps_install_v2_6"
-assert_json "17: version 2.6.5" "$DRY_BLOCKED_JSON" "d['version']" "2.6.5"
+VERSION_VALUE=$(echo "$DRY_BLOCKED_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['version'])" 2>/dev/null || echo "")
+if [[ "$VERSION_VALUE" == "2.6.5" || "$VERSION_VALUE" == "2.6.6" ]]; then ok "17: version 2.6.5 or later"; else fail "17: version 2.6.5 or later (got '$VERSION_VALUE')"; fi
 assert_json "18: dry_run true" "$DRY_BLOCKED_JSON" "d['dry_run']" "True"
 assert_json "19: mutation false" "$DRY_BLOCKED_JSON" "d['mutation']" "False"
 assert_json "20: dangerous_actions_executed false" "$DRY_BLOCKED_JSON" "d['dangerous_actions_executed']" "False"
@@ -291,14 +306,14 @@ echo ""
 echo "=== I. Guarded real refusal ==="
 
 set +e
-GUARDED=$(env NANOBK_FAKE_SELECTED_DOMAIN=example.com NANOBK_FAKE_VPS_INSTALL_STATE=none NANOBK_ALLOW_REAL_VPS_INSTALL=1 "$NANOBK" setup production vps install --confirm "$PHRASE" --json 2>&1)
+GUARDED=$(env NANOBK_FAKE_SELECTED_DOMAIN=example.com NANOBK_FAKE_VPS_INSTALL_STATE=none "$NANOBK" setup production vps install --confirm "$PHRASE" --json 2>&1)
 RC_GUARDED=$?
 set -e
-if [[ "$RC_GUARDED" != "0" ]]; then ok "71: guarded real refusal RC non-zero"; else fail "71: guarded real refusal RC non-zero"; fi
+if [[ "$RC_GUARDED" != "0" ]]; then ok "71: guarded safety refusal RC non-zero"; else fail "71: guarded safety refusal RC non-zero"; fi
 assert_json "72: mutation false" "$GUARDED" "d['mutation']" "False"
 assert_json "73: dangerous false" "$GUARDED" "d['dangerous_actions_executed']" "False"
-assert_json "74: next_step connect_vps_install_adapter" "$GUARDED" "d['next_step']" "connect_vps_install_adapter"
-assert_contains "75: safe refusal" "受控执行器尚未接入" "$GUARDED"
+assert_json "74: next_step confirm_vps_install" "$GUARDED" "d['next_step']" "confirm_vps_install"
+assert_contains "75: safe refusal" "NANOBK_ALLOW_REAL_VPS_INSTALL" "$GUARDED"
 
 echo ""
 echo "=== J. HARD_GREP ==="

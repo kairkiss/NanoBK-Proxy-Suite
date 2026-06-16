@@ -739,7 +739,7 @@ NanoBK Proxy Suite — Unified CLI v${NANOBK_VERSION}
   beginner production worker deploy  订阅服务入口发布计划 [--dry-run] [--json]
   beginner production cert         HTTPS 证书准备检查 [--json]
   beginner production cert issue   HTTPS 安全证书申请计划 [--dry-run] [--json]
-  beginner production vps install  代理服务安装计划 [--dry-run] [--json]
+  beginner production vps install  代理服务安装计划 [--dry-run] [--render-check] [--json]
   beginner production rotate       订阅密钥与代理密钥轮换预案 [--json]
   setup production                 生产设置主线（只读） [--json]
   setup production actions         生产动作预案 [--json]
@@ -750,7 +750,7 @@ NanoBK Proxy Suite — Unified CLI v${NANOBK_VERSION}
   setup production worker deploy   订阅服务入口发布计划 [--dry-run] [--json]
   setup production cert            HTTPS 证书准备检查 [--json]
   setup production cert issue      HTTPS 安全证书申请计划 [--dry-run] [--json]
-  setup production vps install      代理服务安装计划 [--dry-run] [--json]
+  setup production vps install      代理服务安装计划 [--dry-run] [--render-check] [--json]
   setup production rotate          订阅密钥与代理密钥轮换预案 [--json]
   setup cloudflare                 Cloudflare 登录信息检查 [--json]
   setup domain                     选择你的域名 [--json]
@@ -2253,7 +2253,7 @@ cmd_beginner() {
         echo "       nanobk beginner production worker deploy [--dry-run] [--json]"
         echo "       nanobk beginner production cert [--json]"
         echo "       nanobk beginner production cert issue [--dry-run] [--json]"
-        echo "       nanobk beginner production vps install [--dry-run] [--json]"
+        echo "       nanobk beginner production vps install [--dry-run] [--render-check] [--json]"
         echo "       nanobk beginner production rotate [--json]"
         echo "       nanobk beginner production overview [--json]"
         echo "       nanobk beginner production next [--json]"
@@ -3077,7 +3077,7 @@ cmd_setup_production() {
         echo "       nanobk setup production cert [--zone DOMAIN] [--domain DOMAIN] [--mode MODE] [--json]"
         echo "       nanobk setup production cert issue [--dry-run] [--confirm PHRASE] [--json]"
         echo "       nanobk setup production cert --save --zone DOMAIN --domain DOMAIN --mode MODE [--json]"
-        echo "       nanobk setup production vps install [--dry-run] [--confirm PHRASE] [--json]"
+        echo "       nanobk setup production vps install [--dry-run] [--render-check] [--confirm PHRASE] [--json]"
         echo "       nanobk setup production rotate [--token auto|custom|unchanged] [--protocol all|hy2|tuic|reality|trojan] [--json]"
         echo "       nanobk setup production rotate --save --token auto --protocol all [--json]"
         echo "       nanobk setup production overview [--json]"
