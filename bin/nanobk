@@ -731,6 +731,7 @@ NanoBK Proxy Suite — Unified CLI v${NANOBK_VERSION}
   beginner ip [--ipv4 V4] [--ipv6 V6]  VPS IP 检测状态 [--json]
   beginner gate dns|cert|token      DNS/证书/密钥 gate 预览 [--json]
   beginner production              生产设置主线 [--json]
+  beginner production guide        生产配置向导 [--json]
   beginner production review       生产环境总检查 [--json]
   beginner production status       当前进度 [--json]
   beginner production next         下一步 [--json]
@@ -746,6 +747,7 @@ NanoBK Proxy Suite — Unified CLI v${NANOBK_VERSION}
   beginner production subscription publish  发布订阅配置 [--dry-run] [--json]
   beginner production rotate       订阅密钥与代理密钥轮换预案 [--json]
   setup production                 生产设置主线（只读） [--json]
+  setup production guide           生产配置向导 [--dry-run] [--auto-dry-run] [--step next|all] [--json]
   setup production review          生产环境总检查 [--json]
   setup production status          当前进度 [--json]
   setup production next            下一步 [--json]
@@ -2253,6 +2255,7 @@ cmd_beginner() {
         echo "       nanobk beginner ip [--json] [--ipv4 ADDR] [--ipv6 ADDR]"
         echo "       nanobk beginner gate dns|cert|token [--json]"
         echo "       nanobk beginner production [--json]"
+        echo "       nanobk beginner production guide [--json]"
         echo "       nanobk beginner production review [--json]"
         echo "       nanobk beginner production status [--json]"
         echo "       nanobk beginner production next [--json]"
@@ -2278,7 +2281,8 @@ cmd_beginner() {
         echo "  subdomain: 检查子域名是否可用"
         echo "  ip: 显示 VPS IP 检测状态"
         echo "  gate: 预览 DNS / 证书 / 订阅密钥 gate（只读预览）"
-        echo "  production: 生产设置主线（只读）"
+        echo "  production: 生产配置向导（只读）"
+        echo "  production guide: 生产配置向导（只读）"
         echo "  production review/status/next: 生产环境总检查、当前进度和下一步"
         echo "  production cert: HTTPS 证书准备检查（只读）"
         echo "  production vps install: 代理服务安装计划（需要安全确认和显式环境开关）"
@@ -2326,7 +2330,18 @@ cmd_beginner() {
     [[ "$use_json" == "1" ]] && args+=("--json")
     "${args[@]}"
   elif [[ "$subcommand" == "production" ]]; then
-    if [[ "${extra_args[0]:-}" == "review" || "${extra_args[0]:-}" == "status" || "${extra_args[0]:-}" == "next" || ${#extra_args[@]} -eq 0 ]]; then
+    if [[ "${extra_args[0]:-}" == "guide" || ${#extra_args[@]} -eq 0 ]]; then
+      local args=(python3 "$REPO_DIR/lib/nanobk_production_guided_flow.py")
+      if [[ "${extra_args[0]:-}" == "guide" && ${#extra_args[@]} -gt 1 ]]; then
+        args+=("${extra_args[@]:1}")
+      elif [[ ${#extra_args[@]} -gt 0 && "${extra_args[0]:-}" != "guide" ]]; then
+        args+=("${extra_args[@]}")
+      fi
+      [[ "$use_json" == "1" ]] && args+=("--json")
+      "${args[@]}"
+      return $?
+    fi
+    if [[ "${extra_args[0]:-}" == "review" || "${extra_args[0]:-}" == "status" || "${extra_args[0]:-}" == "next" ]]; then
       local args=(python3 "$REPO_DIR/lib/nanobk_production_owner_review.py")
       if [[ ${#extra_args[@]} -gt 0 ]]; then
         args+=("${extra_args[0]}")
@@ -3040,6 +3055,11 @@ cmd_setup_production() {
         subcommand="status"; shift ;;
       review)
         subcommand="review"; shift ;;
+      guide)
+        subcommand="guide"; shift
+        extra_args=("$@")
+        break
+        ;;
       plan)
         subcommand="plan"; shift ;;
       actions)
@@ -3106,6 +3126,7 @@ cmd_setup_production() {
         ;;
       --help|-h)
         echo "Usage: nanobk setup production [--json]"
+        echo "       nanobk setup production guide [--dry-run] [--auto-dry-run] [--step next|all] [--json]"
         echo "       nanobk setup production review [--json]"
         echo "       nanobk setup production status [--json]"
         echo "       nanobk setup production next [--json]"
@@ -3133,6 +3154,7 @@ cmd_setup_production() {
         echo ""
         echo "  生产设置主线（只读，不会执行部署）。"
         echo "  默认显示生产环境总检查和下一步命令。"
+        echo "  guide: 生产配置向导（只读，可自动运行安全 dry-run）"
         echo "  review/status/next: 生产环境总检查、当前进度和下一步"
         echo "  actions: 显示详细的生产动作预案和命令卡片"
         echo "  execute-plan: 真实执行计划预览（只显示，不执行）"
@@ -3168,6 +3190,15 @@ cmd_setup_production() {
     echo -e "  ${CYAN}[DRY-RUN]${NC} setup production command prepared"
     echo "  No mutations will be performed."
     return 0
+  fi
+  if [[ "$subcommand" == "guide" ]]; then
+    local args=(python3 "$REPO_DIR/lib/nanobk_production_guided_flow.py")
+    if [[ ${#extra_args[@]} -gt 0 ]]; then
+      args+=(${extra_args[@]+"${extra_args[@]}"})
+    fi
+    [[ "$use_json" == "1" ]] && args+=("--json")
+    "${args[@]}"
+    return $?
   fi
   if [[ -z "$subcommand" || "$subcommand" == "review" || "$subcommand" == "status" || "$subcommand" == "next" ]]; then
     local args=(python3 "$REPO_DIR/lib/nanobk_production_owner_review.py")

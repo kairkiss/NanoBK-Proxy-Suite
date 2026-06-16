@@ -1,5 +1,24 @@
 # Changelog
 
+## v2.6.9 — Guided One-Command Production Flow
+
+### Added
+
+- Added read-only guided production flow.
+- Added nanobk setup production guide.
+- Added nanobk beginner production guided entrypoint.
+- Added next-step derivation from owner review readiness.
+- Added safe auto-dry-run mode for current stage.
+- Added beginner-readable production guidance output.
+- Added JSON output for automation.
+
+### Safety
+
+- Guide never executes real DNS/Worker/cert/VPS/subscription/token/service actions.
+- Auto-dry-run only invokes existing wrappers with --dry-run --json.
+- Exact phrase gates remain owned by individual controlled wrappers.
+- No raw token, URL, profile, UUID, password, private key, cert key path, zone/record ID, env path, or raw provider output.
+
 ## v2.6.8 — Owner Review And Production Readiness
 
 ### Added
