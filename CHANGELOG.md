@@ -1,5 +1,27 @@
 # Changelog
 
+## v2.6.10 — Production Guided Flow Closeout
+
+### Added
+
+- Added v2.6 closeout production readiness document.
+- Added v2.7 real beginner acceptance plan.
+- Added production command map.
+- Added closeout readiness test.
+
+### Confirmed
+
+- v2.6.0 through v2.6.9 status matrix is documented.
+- Release blockers remain visible.
+- Beginner production entrypoint is documented.
+- Production guide remains read-only by default.
+
+### Safety
+
+- No runtime mutation behavior changed.
+- No DNS/Worker/cert/VPS/subscription/token/service actions executed.
+- No raw secrets or provider outputs documented.
+
 ## v2.6.9-polish — Beginner Production Guided JSON Contract
 
 ### Fixed

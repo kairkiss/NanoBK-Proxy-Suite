@@ -65,23 +65,39 @@ nanobk
 
 ### 第三步：启动部署（显式操作）
 
-从控制台选择部署选项，或直接运行：
+推荐先进入 v2.6 生产配置向导：
+
+```bash
+nanobk beginner production
+```
+
+或使用设置入口：
+
+```bash
+nanobk setup production guide
+```
+
+> 生产配置向导默认只检查和提示下一步。
+> 不会自动修改 DNS、部署 Worker、申请证书、安装 VPS 服务或发布订阅。
+
+如果需要旧版完整部署命令，可以从控制台选择部署选项，或直接运行：
 
 ```bash
 nanobk install --mode full
 ```
 
-> 部署需要显式确认，不会在安装时自动运行。
+> 旧版部署需要显式确认，不会在安装 NanoBK 时自动运行。
 
 ### 安装注意事项
 
 - 安装完成后，使用 `nanobk` 进入控制台
-- 如果某个阶段失败，查看终端输出的 **Summary**，按照恢复提示操作
+- 新生产配置优先使用 `nanobk beginner production`
+- 如果某个阶段失败，查看终端输出的 **Summary** 或下一步提示，按照恢复提示操作
 - Bot 和 Web 控制台需要通过部署阶段才会启动
 
 ### 高级 / 旧版显式命令
 
-以下命令绕过控制台直接运行。大多数用户应使用 `nanobk`。
+以下命令绕过控制台直接运行。大多数用户应使用 `nanobk` 或 `nanobk beginner production`。
 
 ```bash
 # 旧版完整向导（显式）
@@ -97,7 +113,31 @@ nanobk install --mode web --lang zh
 nanobk install --mode commands
 ```
 
-> 旧版安装模式仍然可用，但默认入口是 `nanobk` 控制台。
+> 旧版安装模式仍然可用，但默认入口是 `nanobk` 控制台和生产配置向导。
+
+### v2.6 生产配置入口
+
+```bash
+nanobk beginner production
+nanobk beginner production --json
+nanobk setup production guide
+nanobk setup production review
+nanobk setup production status
+nanobk setup production next
+```
+
+> v2.6 生产配置是只读优先的引导层。
+> 真实 DNS、Worker、证书、VPS 安装、订阅发布等动作仍由各自命令单独确认。
+
+### 旧版部署入口
+
+从控制台选择部署选项，或直接运行：
+
+```bash
+nanobk install --mode full
+```
+
+> 部署需要显式确认，不会在安装时自动运行。
 
 ### 稳定版本说明
 
