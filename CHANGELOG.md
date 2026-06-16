@@ -1,5 +1,24 @@
 # Changelog
 
+## v2.6.5 — Legacy Four-Protocol VPS Install Integration
+
+### Added
+
+- Added repository-grounded legacy VPS install inventory.
+- Added productized VPS four-protocol install wrapper.
+- Added dry-run plan for HY2 / TUIC / Reality / Trojan services.
+- Added exact-gated fake VPS install path.
+- Added guarded real VPS install path.
+- Added beginner alias for VPS install.
+
+### Safety
+
+- VPS install requires exact confirmation phrase.
+- Real VPS install also requires NANOBK_ALLOW_REAL_VPS_INSTALL=1.
+- Default path does not install, restart, reload, rotate, issue certs, deploy Worker, or mutate DNS.
+- No raw secrets/profile/private keys/subscription URLs output.
+- Existing/partial install is detected before execution.
+
 ## v2.6.4 — Controlled Certificate Issue Productization
 
 ### Added
